@@ -215,11 +215,40 @@ const NewMeeting = () => {
     }
   };
 
+  const sendToWebhook = async (meetingData: {
+    meetingId: string;
+    title: string;
+    audioUrl: string | null;
+    participants: Participant[];
+  }) => {
+    try {
+      const webhookUrl = "https://n8n.srv758474.hstgr.cloud/webhook-test/afd97f53-a3c1-42dc-9d9e-a2244700b36c";
+      
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(meetingData),
+        mode: "no-cors", // This is necessary for cross-origin webhook calls
+      });
+      
+      console.log("Webhook notification sent");
+    } catch (error) {
+      console.error("Error sending to webhook:", error);
+      toast({
+        title: "Avertissement",
+        description: "La réunion a été créée mais l'envoi des données au webhook a échoué",
+        variant: "destructive",
+      });
+    }
+  };
+
   const createMeeting = async () => {
     if (!title) {
       toast({
-        title: "Missing information",
-        description: "Please enter a meeting title",
+        title: "Information manquante",
+        description: "Veuillez saisir un titre de réunion",
         variant: "destructive",
       });
       return;
@@ -227,8 +256,8 @@ const NewMeeting = () => {
 
     if (!user) {
       toast({
-        title: "Authentication error",
-        description: "You must be logged in to create a meeting",
+        title: "Erreur d'authentification",
+        description: "Vous devez être connecté pour créer une réunion",
         variant: "destructive",
       });
       return;
@@ -257,7 +286,7 @@ const NewMeeting = () => {
       if (meetingError) throw meetingError;
       
       if (!meetingData || meetingData.length === 0) {
-        throw new Error("Failed to create meeting");
+        throw new Error("Échec de la création de la réunion");
       }
 
       const meetingId = meetingData[0].id;
@@ -289,46 +318,30 @@ const NewMeeting = () => {
 
       if (resultsError) throw resultsError;
 
-      // If audio exists, process it with the webhook (simulated here)
-      if (audioFileUrl) {
-        // In a real implementation, call your webhook here
-        console.log("Would send to webhook:", {
-          meetingId,
-          audioUrl: audioFileUrl,
-          title,
-          participants: selectedParticipantIds.map(id => 
-            participants.find(p => p.id === id)
-          ),
-        });
-        
-        // For demo purposes, simulate a webhook response after a delay
-        setTimeout(async () => {
-          const { error } = await supabase
-            .from("meeting_results")
-            .update({
-              transcript: "This is a simulated transcript that would be returned by the webhook.",
-              summary: "This is a simulated summary that would be returned by the webhook.",
-            })
-            .eq("meeting_id", meetingId);
-          
-          if (error) {
-            console.error("Error updating meeting results:", error);
-          }
-        }, 3000);
-      }
+      // Send data to webhook
+      const selectedParticipants = participants.filter(
+        participant => selectedParticipantIds.includes(participant.id)
+      );
+      
+      await sendToWebhook({
+        meetingId,
+        title,
+        audioUrl: audioFileUrl,
+        participants: selectedParticipants
+      });
 
       toast({
-        title: "Meeting created",
-        description: "Your meeting has been successfully created",
+        title: "Réunion créée",
+        description: "Votre réunion a été créée avec succès",
       });
 
       // Navigate to the meeting details page
       navigate(`/meetings/${meetingId}`);
     } catch (error: any) {
-      console.error("Error creating meeting:", error);
+      console.error("Erreur lors de la création de la réunion:", error);
       toast({
-        title: "Error creating meeting",
-        description: error.message || "Please try again",
+        title: "Erreur de création de la réunion",
+        description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -343,11 +356,11 @@ const NewMeeting = () => {
           onClick={() => navigate("/meetings")}
           className="mb-2"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Meetings
+          <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux Réunions
         </Button>
-        <h1 className="text-2xl font-bold">Create New Meeting</h1>
+        <h1 className="text-2xl font-bold">Créer une nouvelle réunion</h1>
         <p className="text-muted-foreground">
-          Fill in the meeting details and add participants
+          Remplissez les détails de la réunion et ajoutez des participants
         </p>
       </div>
 
@@ -356,10 +369,10 @@ const NewMeeting = () => {
           <div className="space-y-6">
             {/* Meeting Title - First */}
             <div className="space-y-4">
-              <Label htmlFor="title">Meeting Title</Label>
+              <Label htmlFor="title">Titre de la réunion</Label>
               <Input
                 id="title"
-                placeholder="Enter meeting title"
+                placeholder="Entrez le titre de la réunion"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -375,7 +388,7 @@ const NewMeeting = () => {
                   onClick={openNewParticipantDialog}
                   className="text-xs"
                 >
-                  <Plus className="h-3 w-3 mr-1" /> Add New
+                  <Plus className="h-3 w-3 mr-1" /> Ajouter
                 </Button>
               </div>
 
@@ -409,13 +422,13 @@ const NewMeeting = () => {
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
-                  <p>No participants available</p>
+                  <p>Aucun participant disponible</p>
                   <Button
                     variant="link"
                     onClick={openNewParticipantDialog}
                     className="mt-2"
                   >
-                    Add your first participant
+                    Ajouter votre premier participant
                   </Button>
                 </div>
               )}
@@ -423,7 +436,7 @@ const NewMeeting = () => {
 
             {/* Audio Recording Section - Third */}
             <div className="space-y-4">
-              <Label>Audio Recording or File</Label>
+              <Label>Enregistrement audio ou fichier</Label>
               <div className="mt-2 space-y-4">
                 {audioUrl ? (
                   <div className="rounded-md border p-4">
@@ -434,12 +447,12 @@ const NewMeeting = () => {
                         </div>
                         <div className="ml-3">
                           <p className="text-sm font-medium">
-                            {audioFile ? audioFile.name : "Recording"}
+                            {audioFile ? audioFile.name : "Enregistrement"}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {audioFile
                               ? `${(audioFile.size / 1024 / 1024).toFixed(2)} MB`
-                              : "Audio recording"}
+                              : "Enregistrement audio"}
                           </p>
                         </div>
                       </div>
@@ -465,12 +478,12 @@ const NewMeeting = () => {
                       {isRecording ? (
                         <>
                           <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
-                          Stop Recording
+                          Arrêter l'enregistrement
                         </>
                       ) : (
                         <>
                           <Mic className="mr-2 h-5 w-5" />
-                          Start Recording
+                          Commencer l'enregistrement
                         </>
                       )}
                     </Button>
@@ -481,7 +494,7 @@ const NewMeeting = () => {
                         onClick={() => document.getElementById("audio-upload")?.click()}
                       >
                         <Upload className="h-5 w-5 mb-1" />
-                        Upload Audio
+                        Télécharger l'audio
                       </Button>
                       <input
                         id="audio-upload"
@@ -497,14 +510,14 @@ const NewMeeting = () => {
             </div>
           </div>
           
-          {/* Submit Button */}
+          {/* Submit Button - Changed text */}
           <div className="mt-6">
             <Button
               onClick={createMeeting}
               disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? "Creating Meeting..." : "Create Meeting"}
+              {isSubmitting ? "Création en cours..." : "Soumettre la réunion"}
             </Button>
           </div>
         </Card>
@@ -516,17 +529,17 @@ const NewMeeting = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Participant</DialogTitle>
+            <DialogTitle>Ajouter un nouveau participant</DialogTitle>
             <DialogDescription>
-              Enter the details of the new participant.
+              Entrez les informations du nouveau participant.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Nom</Label>
               <Input
                 id="name"
-                placeholder="Participant name"
+                placeholder="Nom du participant"
                 value={newParticipantName}
                 onChange={(e) => setNewParticipantName(e.target.value)}
               />
@@ -536,7 +549,7 @@ const NewMeeting = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="Participant email"
+                placeholder="Email du participant"
                 value={newParticipantEmail}
                 onChange={(e) => setNewParticipantEmail(e.target.value)}
               />
@@ -547,9 +560,9 @@ const NewMeeting = () => {
               variant="outline"
               onClick={() => setIsNewParticipantDialogOpen(false)}
             >
-              Cancel
+              Annuler
             </Button>
-            <Button onClick={addNewParticipant}>Add Participant</Button>
+            <Button onClick={addNewParticipant}>Ajouter le participant</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
