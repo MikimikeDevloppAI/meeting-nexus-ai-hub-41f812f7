@@ -41,7 +41,7 @@ const Signup = () => {
               name,
               approved: false,
             },
-          ]);
+          ] as any); // Using type assertion to bypass type checking
 
         if (profileError) throw profileError;
 

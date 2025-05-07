@@ -39,7 +39,7 @@ const Login = () => {
 
         if (profileError) throw profileError;
 
-        if (!userProfile.approved) {
+        if (userProfile && !userProfile.approved) {
           toast({
             title: "Account pending approval",
             description: "Your account is waiting for admin approval.",
