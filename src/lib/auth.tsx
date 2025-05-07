@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "./supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,12 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (error) {
             console.error("Error fetching user profile:", error);
             setUser(null);
-            navigate("/login");
+            return; // Don't navigate yet, let the app handle routing
           } else {
-            setUser(userProfile as User);
-            
-            // Check if user is approved
-            if (!userProfile.approved) {
+            if (!userProfile?.approved) {
               toast({
                 title: "Account pending approval",
                 description: "Your account is waiting for admin approval.",
@@ -56,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               await supabase.auth.signOut();
               setUser(null);
               navigate("/login");
+            } else {
+              setUser(userProfile as User);
             }
           }
         }
@@ -69,35 +68,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkUser();
 
-    // Fix: Correct access to subscription object
+    // Setup auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.id);
+        
         if (event === "SIGNED_IN" && session) {
-          // Get user profile with approval status
-          const { data: userProfile, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // Delay fetching user profile to avoid potential deadlocks
+          setTimeout(async () => {
+            try {
+              // Get user profile with approval status
+              const { data: userProfile, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
 
-          if (error) {
-            console.error("Error fetching user profile:", error);
-            setUser(null);
-            navigate("/login");
-          } else {
-            if (!userProfile.approved) {
-              toast({
-                title: "Account pending approval",
-                description: "Your account is waiting for admin approval.",
-                variant: "destructive",
-              });
-              await supabase.auth.signOut();
-              setUser(null);
-              navigate("/login");
-            } else {
-              setUser(userProfile as User);
+              if (error) {
+                console.error("Error fetching user profile:", error);
+                setUser(null);
+                navigate("/login");
+              } else {
+                if (!userProfile?.approved) {
+                  toast({
+                    title: "Account pending approval",
+                    description: "Your account is waiting for admin approval.",
+                    variant: "destructive",
+                  });
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  navigate("/login");
+                } else {
+                  setUser(userProfile as User);
+                  // Explicitly navigate to meetings page on sign in
+                  navigate("/meetings");
+                }
+              }
+            } catch (error) {
+              console.error("Error in auth state change handler:", error);
             }
-          }
+          }, 0);
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           navigate("/login");
@@ -105,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Safe cleanup function that checks if subscription exists
+    // Clean up subscription
     return () => {
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();

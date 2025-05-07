@@ -38,13 +38,14 @@ export const useLogin = () => {
       if (data.user) {
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
-          .select('*')
-          .eq('id', data.user.id);
+          .select('approved')
+          .eq('id', data.user.id)
+          .single();
 
         if (profileError) throw profileError;
 
         // Check if we got any results and if the first user is approved
-        if (userProfile && userProfile.length > 0 && !userProfile[0].approved) {
+        if (!userProfile?.approved) {
           toast({
             title: "Account pending approval",
             description: "Your account is waiting for admin approval.",
@@ -58,7 +59,10 @@ export const useLogin = () => {
           title: "Welcome back!",
           description: "You've successfully signed in.",
         });
-        navigate("/meetings");
+        
+        // Force navigation using window.location for a complete reload
+        // This ensures a clean state and proper redirection
+        window.location.href = "/meetings";
       }
     } catch (error: any) {
       console.error("Sign in error:", error);

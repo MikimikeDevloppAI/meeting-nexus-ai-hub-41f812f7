@@ -8,8 +8,8 @@ export const LoginHeader = () => {
         <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
         <p className="text-muted-foreground">Internal Management System</p>
       </div>
-      <CardHeader>
-        <CardTitle>Sign In</CardTitle>
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl">Sign In</CardTitle>
         <CardDescription>
           Enter your credentials below to access your account
         </CardDescription>
