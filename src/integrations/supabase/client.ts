@@ -13,6 +13,23 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    storage: localStorage
+    storage: localStorage,
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+    onAuthStateChange: (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // Handle password recovery event
+        console.log('Password recovery event detected');
+      }
+      if (event === 'SIGNED_IN') {
+        console.log('Sign in event detected');
+      }
+      if (event === 'SIGNED_OUT') {
+        console.log('Sign out event detected');
+      }
+      if (event === 'USER_UPDATED') {
+        console.log('User updated event detected');
+      }
+    }
   }
 });

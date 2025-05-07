@@ -18,6 +18,7 @@ import Invoices from "./pages/Invoices";
 import Profile from "./pages/Profile";
 import NotApproved from "./pages/NotApproved";
 import NotFound from "./pages/NotFound";
+import AuthCallback from "./pages/AuthCallback";
 
 // Layout
 import { AppLayout } from "./components/layout/AppLayout";
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/not-approved" element={<NotApproved />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             
             {/* Protected Routes */}
             <Route path="/" element={<Navigate to="/meetings" replace />} />
