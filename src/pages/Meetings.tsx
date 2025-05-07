@@ -143,7 +143,7 @@ const Meetings = () => {
               : "Vous n'avez pas encore créé de réunions"}
           </p>
           <Button onClick={handleCreateMeeting}>
-            <Plus className="mr-2 h-4 w-4" /> Créer une réunion
+            <Plus className="mr-2 h-4 w-4" /> Nouvelle Réunion
           </Button>
         </div>
       )}
