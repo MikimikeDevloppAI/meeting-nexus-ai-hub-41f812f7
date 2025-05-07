@@ -30,27 +30,27 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const menuItems = [
     {
-      title: "Meetings",
+      title: "Réunions",
       url: "/meetings",
       icon: Calendar,
     },
     {
-      title: "To-dos",
+      title: "À faire",
       url: "/todos",
       icon: CheckSquare,
     },
     {
-      title: "AI Assistant",
+      title: "Assistant IA",
       url: "/assistant",
       icon: MessageSquare,
     },
     {
-      title: "Invoices",
+      title: "Factures",
       url: "/invoices",
       icon: Upload,
     },
     {
-      title: "User Profile",
+      title: "Profil",
       url: "/profile",
       icon: User,
     },
@@ -85,7 +85,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                       className="flex items-center gap-3 w-full text-red-500"
                     >
                       <LogOut className="h-5 w-5" />
-                      <span>Sign Out</span>
+                      <span>Se déconnecter</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -98,7 +98,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <header className="bg-white shadow-sm p-4 flex justify-between items-center">
             <div className="flex items-center">
               <SidebarTrigger />
-              <h2 className="ml-4 text-lg font-medium">Internal Management System</h2>
+              <h2 className="ml-4 text-lg font-medium">Système de gestion interne</h2>
             </div>
             <div className="flex items-center gap-2">
               {user && (
