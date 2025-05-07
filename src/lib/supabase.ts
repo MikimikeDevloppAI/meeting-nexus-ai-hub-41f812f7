@@ -26,7 +26,11 @@ const createSupabaseClient = () => {
         signInWithPassword: () => Promise.resolve({ error: new Error("Supabase not configured") }),
         signUp: () => Promise.resolve({ error: new Error("Supabase not configured") }),
         signOut: () => Promise.resolve({}),
-        onAuthStateChange: () => ({ subscription: { unsubscribe: () => {} } }),
+        onAuthStateChange: () => ({ 
+          subscription: { 
+            unsubscribe: () => {} 
+          } 
+        }),
       },
       from: () => ({
         select: () => ({ 
