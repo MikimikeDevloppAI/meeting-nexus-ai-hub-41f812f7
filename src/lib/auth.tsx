@@ -69,8 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     checkUser();
 
-    // Make sure we have a proper authListener return value before trying to access its properties
-    const authListener = supabase.auth.onAuthStateChange(
+    // Fix: Correct access to subscription object
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session) {
           // Get user profile with approval status
@@ -105,10 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Safe cleanup function that checks if authListener and subscription exist
+    // Safe cleanup function that checks if subscription exists
     return () => {
-      if (authListener && authListener.subscription && typeof authListener.subscription.unsubscribe === 'function') {
-        authListener.subscription.unsubscribe();
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
       }
     };
   }, [navigate, toast]);
