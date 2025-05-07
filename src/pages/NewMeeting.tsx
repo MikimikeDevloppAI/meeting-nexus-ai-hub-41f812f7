@@ -56,10 +56,11 @@ const NewMeeting = () => {
   useEffect(() => {
     const fetchParticipants = async () => {
       try {
+        // Fixed Supabase query - .orderBy() instead of .order()
         const { data, error } = await supabase
           .from("participants")
           .select("*")
-          .order("name");
+          .orderBy("name");
 
         if (error) throw error;
         setParticipants(data || []);
@@ -153,6 +154,7 @@ const NewMeeting = () => {
     if (!newParticipantName || !newParticipantEmail || !user) return;
 
     try {
+      // Fixed Supabase query - separate .insert() and .select() calls
       const { data, error } = await supabase
         .from("participants")
         .insert([
@@ -161,14 +163,22 @@ const NewMeeting = () => {
             email: newParticipantEmail,
             created_by: user.id,
           },
-        ])
-        .select();
+        ]);
 
       if (error) throw error;
+      
+      // Fetch the newly created participant
+      const { data: insertedData, error: fetchError } = await supabase
+        .from("participants")
+        .select("*")
+        .eq("email", newParticipantEmail)
+        .single();
+        
+      if (fetchError) throw fetchError;
 
-      if (data && data[0]) {
-        setParticipants(prev => [...prev, data[0] as Participant]);
-        setSelectedParticipantIds(prev => [...prev, data[0].id]);
+      if (insertedData) {
+        setParticipants(prev => [...prev, insertedData as Participant]);
+        setSelectedParticipantIds(prev => [...prev, insertedData.id]);
         toast({
           title: "Participant added",
           description: `${newParticipantName} has been added as a participant.`,
@@ -250,16 +260,27 @@ const NewMeeting = () => {
             audio_url: audioFileUrl,
             created_by: user.id,
           },
-        ])
-        .select();
+        ]);
 
       if (meetingError) throw meetingError;
+      
+      // Get the created meeting ID
+      const { data: createdMeeting, error: fetchMeetingError } = await supabase
+        .from("meetings")
+        .select("id")
+        .eq("title", title)
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (fetchMeetingError) throw fetchMeetingError;
 
-      if (!meetingData || meetingData.length === 0) {
+      if (!createdMeeting) {
         throw new Error("Failed to create meeting");
       }
 
-      const meetingId = meetingData[0].id;
+      const meetingId = createdMeeting.id;
 
       // Add participants
       if (selectedParticipantIds.length > 0) {
@@ -350,9 +371,10 @@ const NewMeeting = () => {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <Card className="p-6">
+      <div>
+        <Card className="p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Meeting Title */}
             <div className="space-y-4">
               <div>
                 <Label htmlFor="title">Meeting Title</Label>
@@ -365,151 +387,150 @@ const NewMeeting = () => {
                 />
               </div>
 
-              <div>
-                <Label>Audio Recording or File</Label>
-                <div className="mt-2 space-y-4">
-                  {audioUrl ? (
-                    <div className="rounded-md border p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <FileAudio className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm font-medium">
-                              {audioFile ? audioFile.name : "Recording"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {audioFile
-                                ? `${(audioFile.size / 1024 / 1024).toFixed(2)} MB`
-                                : "Audio recording"}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={removeAudio}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="mt-3">
-                        <audio controls src={audioUrl} className="w-full" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button
-                        variant="outline"
-                        className="h-24"
-                        onClick={isRecording ? stopRecording : startRecording}
-                      >
-                        {isRecording ? (
-                          <>
-                            <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
-                            Stop Recording
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="mr-2 h-5 w-5" />
-                            Start Recording
-                          </>
-                        )}
-                      </Button>
-                      <div className="relative h-24">
-                        <Button
-                          variant="outline"
-                          className="h-full w-full flex flex-col"
-                          onClick={() => document.getElementById("audio-upload")?.click()}
-                        >
-                          <Upload className="h-5 w-5 mb-1" />
-                          Upload Audio
-                        </Button>
-                        <input
-                          id="audio-upload"
-                          type="file"
-                          accept="audio/*"
-                          className="hidden"
-                          onChange={handleFileChange}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <div>
-          <Card className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Participants</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openNewParticipantDialog}
-                  className="text-xs"
-                >
-                  <Plus className="h-3 w-3 mr-1" /> Add New
-                </Button>
-              </div>
-
-              {participants.length > 0 ? (
-                <div className="border rounded-md divide-y max-h-[300px] overflow-y-auto">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center p-3"
-                    >
-                      <Checkbox
-                        id={`participant-${participant.id}`}
-                        checked={selectedParticipantIds.includes(participant.id)}
-                        onCheckedChange={() =>
-                          toggleParticipantSelection(participant.id)
-                        }
-                      />
-                      <label
-                        htmlFor={`participant-${participant.id}`}
-                        className="ml-3 flex flex-col cursor-pointer flex-1"
-                      >
-                        <span className="text-sm font-medium">
-                          {participant.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {participant.email}
-                        </span>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>No participants available</p>
+              {/* Participants Section - Moved to the same container */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Participants</Label>
                   <Button
-                    variant="link"
+                    variant="ghost"
+                    size="sm"
                     onClick={openNewParticipantDialog}
-                    className="mt-2"
+                    className="text-xs"
                   >
-                    Add your first participant
+                    <Plus className="h-3 w-3 mr-1" /> Add New
                   </Button>
                 </div>
-              )}
-            </div>
-          </Card>
 
+                {participants.length > 0 ? (
+                  <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+                    {participants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="flex items-center p-3"
+                      >
+                        <Checkbox
+                          id={`participant-${participant.id}`}
+                          checked={selectedParticipantIds.includes(participant.id)}
+                          onCheckedChange={() =>
+                            toggleParticipantSelection(participant.id)
+                          }
+                        />
+                        <label
+                          htmlFor={`participant-${participant.id}`}
+                          className="ml-3 flex flex-col cursor-pointer flex-1"
+                        >
+                          <span className="text-sm font-medium">
+                            {participant.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {participant.email}
+                          </span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p>No participants available</p>
+                    <Button
+                      variant="link"
+                      onClick={openNewParticipantDialog}
+                      className="mt-2"
+                    >
+                      Add your first participant
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Audio Recording Section */}
+            <div className="space-y-4">
+              <Label>Audio Recording or File</Label>
+              <div className="mt-2 space-y-4">
+                {audioUrl ? (
+                  <div className="rounded-md border p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileAudio className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium">
+                            {audioFile ? audioFile.name : "Recording"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {audioFile
+                              ? `${(audioFile.size / 1024 / 1024).toFixed(2)} MB`
+                              : "Audio recording"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeAudio}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-3">
+                      <audio controls src={audioUrl} className="w-full" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      variant="outline"
+                      className="h-24"
+                      onClick={isRecording ? stopRecording : startRecording}
+                    >
+                      {isRecording ? (
+                        <>
+                          <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
+                          Stop Recording
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="mr-2 h-5 w-5" />
+                          Start Recording
+                        </>
+                      )}
+                    </Button>
+                    <div className="relative h-24">
+                      <Button
+                        variant="outline"
+                        className="h-full w-full flex flex-col"
+                        onClick={() => document.getElementById("audio-upload")?.click()}
+                      >
+                        <Upload className="h-5 w-5 mb-1" />
+                        Upload Audio
+                      </Button>
+                      <input
+                        id="audio-upload"
+                        type="file"
+                        accept="audio/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Submit Button - Changed text from "Create Meeting" to "Submit Meeting" */}
           <div className="mt-6">
             <Button
               onClick={createMeeting}
               disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? "Creating Meeting..." : "Create Meeting"}
+              {isSubmitting ? "Submitting Meeting..." : "Submit Meeting"}
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
 
       <Dialog
