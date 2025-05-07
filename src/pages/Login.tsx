@@ -1,20 +1,70 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client"; // Import from integrated Supabase client
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signIn, isLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signIn(email, password);
+    setIsLoading(true);
+
+    try {
+      // Sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Check if user is approved
+      if (data.user) {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        if (!userProfile.approved) {
+          toast({
+            title: "Account pending approval",
+            description: "Your account is waiting for admin approval.",
+            variant: "destructive",
+          });
+          await supabase.auth.signOut();
+          return;
+        }
+
+        toast({
+          title: "Welcome back!",
+          description: "You've successfully signed in.",
+        });
+        navigate("/meetings");
+      }
+    } catch (error: any) {
+      console.error("Sign in error:", error);
+      toast({
+        title: "Error signing in",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

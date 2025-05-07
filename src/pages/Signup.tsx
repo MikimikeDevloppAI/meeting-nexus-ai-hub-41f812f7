@@ -1,21 +1,66 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";  // Import from integrated Supabase client
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const { signUp, isLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signUp(email, password, name);
+    setIsLoading(true);
+
+    try {
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Create user profile with approved=false
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              email,
+              name,
+              approved: false,
+            },
+          ]);
+
+        if (profileError) throw profileError;
+
+        toast({
+          title: "Account created",
+          description: "Your account is pending admin approval.",
+        });
+        navigate("/login");
+      }
+    } catch (error: any) {
+      console.error("Sign up error:", error);
+      toast({
+        title: "Error signing up",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
