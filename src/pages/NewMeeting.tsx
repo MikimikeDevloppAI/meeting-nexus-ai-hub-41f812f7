@@ -372,78 +372,75 @@ const NewMeeting = () => {
 
       <div>
         <Card className="p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Meeting Title */}
+          <div className="space-y-6">
+            {/* Meeting Title - First */}
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Meeting Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Enter meeting title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Participants Section - Moved to the same container */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Participants</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={openNewParticipantDialog}
-                    className="text-xs"
-                  >
-                    <Plus className="h-3 w-3 mr-1" /> Add New
-                  </Button>
-                </div>
-
-                {participants.length > 0 ? (
-                  <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
-                    {participants.map((participant) => (
-                      <div
-                        key={participant.id}
-                        className="flex items-center p-3"
-                      >
-                        <Checkbox
-                          id={`participant-${participant.id}`}
-                          checked={selectedParticipantIds.includes(participant.id)}
-                          onCheckedChange={() =>
-                            toggleParticipantSelection(participant.id)
-                          }
-                        />
-                        <label
-                          htmlFor={`participant-${participant.id}`}
-                          className="ml-3 flex flex-col cursor-pointer flex-1"
-                        >
-                          <span className="text-sm font-medium">
-                            {participant.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {participant.email}
-                          </span>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p>No participants available</p>
-                    <Button
-                      variant="link"
-                      onClick={openNewParticipantDialog}
-                      className="mt-2"
-                    >
-                      Add your first participant
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <Label htmlFor="title">Meeting Title</Label>
+              <Input
+                id="title"
+                placeholder="Enter meeting title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
 
-            {/* Audio Recording Section */}
+            {/* Participants Section - Second */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Participants</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openNewParticipantDialog}
+                  className="text-xs"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add New
+                </Button>
+              </div>
+
+              {participants.length > 0 ? (
+                <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+                  {participants.map((participant) => (
+                    <div
+                      key={participant.id}
+                      className="flex items-center p-3"
+                    >
+                      <Checkbox
+                        id={`participant-${participant.id}`}
+                        checked={selectedParticipantIds.includes(participant.id)}
+                        onCheckedChange={() =>
+                          toggleParticipantSelection(participant.id)
+                        }
+                      />
+                      <label
+                        htmlFor={`participant-${participant.id}`}
+                        className="ml-3 flex flex-col cursor-pointer flex-1"
+                      >
+                        <span className="text-sm font-medium">
+                          {participant.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {participant.email}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p>No participants available</p>
+                  <Button
+                    variant="link"
+                    onClick={openNewParticipantDialog}
+                    className="mt-2"
+                  >
+                    Add your first participant
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Audio Recording Section - Third */}
             <div className="space-y-4">
               <Label>Audio Recording or File</Label>
               <div className="mt-2 space-y-4">
@@ -519,7 +516,7 @@ const NewMeeting = () => {
             </div>
           </div>
           
-          {/* Submit Button - Changed text from "Create Meeting" to "Submit Meeting" */}
+          {/* Submit Button */}
           <div className="mt-6">
             <Button
               onClick={createMeeting}
