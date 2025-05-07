@@ -1,13 +1,14 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Calendar, Plus, Search } from "lucide-react";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,10 +38,10 @@ const Meetings = () => {
         if (error) throw error;
         setMeetings(data || []);
       } catch (error: any) {
-        console.error("Error fetching meetings:", error);
+        console.error("Erreur lors du chargement des réunions:", error);
         toast({
-          title: "Error loading meetings",
-          description: error.message || "Please try again later",
+          title: "Erreur de chargement des réunions",
+          description: error.message || "Veuillez réessayer plus tard",
           variant: "destructive",
         });
       } finally {
@@ -67,11 +68,11 @@ const Meetings = () => {
     <div className="animate-fade-in">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Meetings</h1>
-          <p className="text-muted-foreground">Manage and view all meetings</p>
+          <h1 className="text-2xl font-bold">Réunions</h1>
+          <p className="text-muted-foreground">Gérer et consulter toutes les réunions</p>
         </div>
         <Button onClick={handleCreateMeeting}>
-          <Plus className="mr-2 h-4 w-4" /> New Meeting
+          <Plus className="mr-2 h-4 w-4" /> Nouvelle Réunion
         </Button>
       </div>
 
@@ -79,7 +80,7 @@ const Meetings = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search meetings..."
+            placeholder="Rechercher des réunions..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -118,13 +119,13 @@ const Meetings = () => {
                 <CardDescription>
                   <div className="flex items-center text-xs">
                     <Calendar className="h-3 w-3 mr-1" />
-                    {format(new Date(meeting.created_at), "MMM d, yyyy 'at' h:mm a")}
+                    {format(new Date(meeting.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
                   </div>
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-2">
                 <div className="text-sm text-muted-foreground">
-                  View meeting details, transcript, summary, and to-dos
+                  Voir les détails de la réunion, le compte-rendu, le résumé et les tâches
                 </div>
               </CardContent>
             </Card>
@@ -135,14 +136,14 @@ const Meetings = () => {
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Calendar className="h-6 w-6 text-primary" />
           </div>
-          <h3 className="font-semibold mb-1">No meetings found</h3>
+          <h3 className="font-semibold mb-1">Aucune réunion trouvée</h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery
-              ? `No meetings matching "${searchQuery}"`
-              : "You haven't created any meetings yet"}
+              ? `Aucune réunion correspondant à "${searchQuery}"`
+              : "Vous n'avez pas encore créé de réunions"}
           </p>
           <Button onClick={handleCreateMeeting}>
-            <Plus className="mr-2 h-4 w-4" /> Create Meeting
+            <Plus className="mr-2 h-4 w-4" /> Créer une réunion
           </Button>
         </div>
       )}

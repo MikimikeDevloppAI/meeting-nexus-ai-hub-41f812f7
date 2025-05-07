@@ -4,18 +4,17 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { CheckCircle, Clock, Download, FileText, ListChecks, Users } from "lucide-react";
 
-// Define the Participant interface
 interface Participant {
   id: string;
   name: string;
   email: string;
 }
 
-// Define the Todo interface
 interface Todo {
   id: string;
   description: string;
@@ -26,7 +25,6 @@ interface Todo {
   };
 }
 
-// Define the Meeting interface
 interface Meeting {
   id: string;
   title: string;
@@ -34,7 +32,6 @@ interface Meeting {
   audio_url: string;
 }
 
-// Define the MeetingResults interface
 interface MeetingResults {
   id: string;
   transcript: string;
@@ -114,7 +111,7 @@ const MeetingDetail = () => {
         }
 
       } catch (error) {
-        console.error("Error fetching meeting details:", error);
+        console.error("Erreur lors du chargement des détails de la réunion:", error);
       } finally {
         setLoading(false);
       }
@@ -127,8 +124,8 @@ const MeetingDetail = () => {
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Meeting Details</h1>
-          <p className="text-muted-foreground">Loading meeting information...</p>
+          <h1 className="text-2xl font-bold">Détails de la réunion</h1>
+          <p className="text-muted-foreground">Chargement des informations...</p>
         </div>
         <div className="space-y-4">
           <div className="animate-pulse h-12 w-3/4 bg-primary/10 rounded"></div>
@@ -142,8 +139,8 @@ const MeetingDetail = () => {
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Meeting Not Found</h1>
-          <p className="text-muted-foreground">The requested meeting could not be found.</p>
+          <h1 className="text-2xl font-bold">Réunion introuvable</h1>
+          <p className="text-muted-foreground">La réunion demandée n'existe pas.</p>
         </div>
       </div>
     );
@@ -154,7 +151,7 @@ const MeetingDetail = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{meeting.title}</h1>
         <p className="text-muted-foreground">
-          {meeting.created_at ? format(new Date(meeting.created_at), "PPP") : "Date unavailable"}
+          {meeting.created_at ? format(new Date(meeting.created_at), "PPP", { locale: fr }) : "Date indisponible"}
         </p>
       </div>
 
@@ -176,11 +173,11 @@ const MeetingDetail = () => {
           <CardHeader className="py-4">
             <CardTitle className="flex items-center text-sm font-medium">
               <FileText className="mr-2 h-4 w-4 text-primary" />
-              Transcript
+              Transcription
             </CardTitle>
           </CardHeader>
           <CardContent className="py-1">
-            <p className="text-2xl font-bold">{results?.transcript ? "Available" : "Unavailable"}</p>
+            <p className="text-2xl font-bold">{results?.transcript ? "Disponible" : "Indisponible"}</p>
           </CardContent>
         </Card>
         
@@ -188,7 +185,7 @@ const MeetingDetail = () => {
           <CardHeader className="py-4">
             <CardTitle className="flex items-center text-sm font-medium">
               <ListChecks className="mr-2 h-4 w-4 text-primary" />
-              To-dos
+              Tâches
             </CardTitle>
           </CardHeader>
           <CardContent className="py-1">
@@ -200,13 +197,13 @@ const MeetingDetail = () => {
           <CardHeader className="py-4">
             <CardTitle className="flex items-center text-sm font-medium">
               <Clock className="mr-2 h-4 w-4 text-primary" />
-              Status
+              Statut
             </CardTitle>
           </CardHeader>
           <CardContent className="py-1">
             <div className="flex items-center">
               <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-              <p className="text-sm font-medium">Complete</p>
+              <p className="text-sm font-medium">Terminée</p>
             </div>
           </CardContent>
         </Card>
@@ -214,25 +211,25 @@ const MeetingDetail = () => {
 
       <Tabs defaultValue="summary" className="mb-6">
         <TabsList>
-          <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="transcript">Transcript</TabsTrigger>
-          <TabsTrigger value="todos">To-dos</TabsTrigger>
+          <TabsTrigger value="summary">Résumé</TabsTrigger>
+          <TabsTrigger value="transcript">Transcription</TabsTrigger>
+          <TabsTrigger value="todos">Tâches</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
         </TabsList>
         
         <TabsContent value="summary" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Meeting Summary</CardTitle>
+              <CardTitle>Résumé de la réunion</CardTitle>
               <CardDescription>
-                Auto-generated summary of the key discussion points
+                Résumé automatique des points clés de discussion
               </CardDescription>
             </CardHeader>
             <CardContent>
               {results?.summary ? (
                 <p className="whitespace-pre-line">{results.summary}</p>
               ) : (
-                <p className="text-muted-foreground">No summary available for this meeting.</p>
+                <p className="text-muted-foreground">Aucun résumé disponible pour cette réunion.</p>
               )}
             </CardContent>
           </Card>
@@ -242,21 +239,21 @@ const MeetingDetail = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Transcript</CardTitle>
+                <CardTitle>Transcription</CardTitle>
                 <CardDescription>
-                  Full transcript of the meeting recording
+                  Transcription complète de l'enregistrement
                 </CardDescription>
               </div>
               <Button variant="outline" size="sm" className="h-8">
                 <Download className="h-4 w-4 mr-2" />
-                Export
+                Exporter
               </Button>
             </CardHeader>
             <CardContent className="max-h-96 overflow-y-auto">
               {results?.transcript ? (
                 <p className="whitespace-pre-line">{results.transcript}</p>
               ) : (
-                <p className="text-muted-foreground">No transcript available for this meeting.</p>
+                <p className="text-muted-foreground">Aucune transcription disponible pour cette réunion.</p>
               )}
             </CardContent>
           </Card>
@@ -265,9 +262,9 @@ const MeetingDetail = () => {
         <TabsContent value="todos" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Action Items</CardTitle>
+              <CardTitle>Tâches à effectuer</CardTitle>
               <CardDescription>
-                Tasks assigned during this meeting
+                Tâches assignées lors de cette réunion
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -279,17 +276,17 @@ const MeetingDetail = () => {
                       <div className="flex-1">
                         <p className="font-medium">{todo.description}</p>
                         <p className="text-sm text-muted-foreground">
-                          Assigned to: {todo.participant?.name || "Unassigned"}
+                          Assigné à: {todo.participant?.name || "Non assigné"}
                         </p>
                       </div>
                       <div className="text-xs text-white px-2 py-1 rounded-full bg-primary">
-                        {todo.status}
+                        {todo.status === 'completed' ? 'Terminé' : 'En cours'}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No to-dos were created for this meeting.</p>
+                <p className="text-muted-foreground">Aucune tâche n'a été créée pour cette réunion.</p>
               )}
             </CardContent>
           </Card>
@@ -300,7 +297,7 @@ const MeetingDetail = () => {
             <CardHeader>
               <CardTitle>Participants</CardTitle>
               <CardDescription>
-                People who attended this meeting
+                Personnes présentes à cette réunion
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -316,7 +313,7 @@ const MeetingDetail = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No participants were added to this meeting.</p>
+                <p className="text-muted-foreground">Aucun participant n'a été ajouté à cette réunion.</p>
               )}
             </CardContent>
           </Card>
@@ -326,15 +323,15 @@ const MeetingDetail = () => {
       {meeting.audio_url && (
         <Card>
           <CardHeader>
-            <CardTitle>Meeting Recording</CardTitle>
+            <CardTitle>Enregistrement de la réunion</CardTitle>
             <CardDescription>
-              Audio recording of this meeting
+              Enregistrement audio de cette réunion
             </CardDescription>
           </CardHeader>
           <CardContent>
             <audio controls className="w-full">
               <source src={meeting.audio_url} type="audio/mpeg" />
-              Your browser does not support the audio element.
+              Votre navigateur ne prend pas en charge l'élément audio.
             </audio>
           </CardContent>
         </Card>
