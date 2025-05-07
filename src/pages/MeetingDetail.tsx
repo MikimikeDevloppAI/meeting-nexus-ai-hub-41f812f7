@@ -79,7 +79,7 @@ const MeetingDetail = () => {
         }
         setMeetingResults(resultsData || { transcript: null, summary: null });
 
-        // Fetch participants
+        // Fetch participants - Fixed the type issue here
         const { data: participantsData, error: participantsError } = await supabase
           .from("meeting_participants")
           .select(`
@@ -92,7 +92,8 @@ const MeetingDetail = () => {
 
         if (participantsError) throw participantsError;
         
-        const fetchedParticipants = participantsData
+        // Fix: Extract and format the participants data correctly
+        const fetchedParticipants: Participant[] = participantsData
           .map(item => item.participants)
           .filter(Boolean) as Participant[];
           
@@ -224,14 +225,14 @@ const MeetingDetail = () => {
         >
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Meetings
         </Button>
-        <h1 className="text-2xl font-bold">{meeting.title}</h1>
+        <h1 className="text-2xl font-bold">{meeting?.title}</h1>
         <div className="flex items-center text-sm text-muted-foreground">
           <Calendar className="h-4 w-4 mr-1" />
-          {format(new Date(meeting.created_at), "MMMM d, yyyy 'at' h:mm a")}
+          {meeting && format(new Date(meeting.created_at), "MMMM d, yyyy 'at' h:mm a")}
         </div>
       </div>
       
-      {meeting.audio_url && (
+      {meeting?.audio_url && (
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex items-center mb-2">
@@ -265,7 +266,7 @@ const MeetingDetail = () => {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No summary available for this meeting yet.</p>
-                  {!meeting.audio_url && (
+                  {!meeting?.audio_url && (
                     <p className="mt-2 text-sm">
                       Upload an audio recording to generate a summary.
                     </p>
@@ -290,7 +291,7 @@ const MeetingDetail = () => {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No transcript available for this meeting yet.</p>
-                  {!meeting.audio_url && (
+                  {!meeting?.audio_url && (
                     <p className="mt-2 text-sm">
                       Upload an audio recording to generate a transcript.
                     </p>
