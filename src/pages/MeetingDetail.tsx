@@ -30,18 +30,13 @@ interface Meeting {
   title: string;
   created_at: string;
   audio_url: string;
-}
-
-interface MeetingResults {
-  id: string;
-  transcript: string;
-  summary: string;
+  transcript: string | null;
+  summary: string | null;
 }
 
 const MeetingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [results, setResults] = useState<MeetingResults | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +47,7 @@ const MeetingDetail = () => {
       
       setLoading(true);
       try {
-        // Fetch meeting details
+        // Fetch meeting details (includes transcript & summary now)
         const { data: meetingData, error: meetingError } = await supabase
           .from("meetings")
           .select("*")
@@ -61,17 +56,6 @@ const MeetingDetail = () => {
         
         if (meetingError) throw meetingError;
         setMeeting(meetingData);
-
-        // Fetch meeting results (transcript & summary)
-        const { data: resultsData, error: resultsError } = await supabase
-          .from("meeting_results")
-          .select("*")
-          .eq("meeting_id", id)
-          .single();
-          
-        if (!resultsError) {
-          setResults(resultsData);
-        }
 
         // Fetch participants
         const { data: participantsData, error: participantsError } = await supabase
@@ -177,7 +161,7 @@ const MeetingDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="py-1">
-            <p className="text-2xl font-bold">{results?.transcript ? "Disponible" : "Indisponible"}</p>
+            <p className="text-2xl font-bold">{meeting.transcript ? "Disponible" : "Indisponible"}</p>
           </CardContent>
         </Card>
         
@@ -226,8 +210,8 @@ const MeetingDetail = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {results?.summary ? (
-                <p className="whitespace-pre-line">{results.summary}</p>
+              {meeting.summary ? (
+                <p className="whitespace-pre-line">{meeting.summary}</p>
               ) : (
                 <p className="text-muted-foreground">Aucun résumé disponible pour cette réunion.</p>
               )}
@@ -250,8 +234,8 @@ const MeetingDetail = () => {
               </Button>
             </CardHeader>
             <CardContent className="max-h-96 overflow-y-auto">
-              {results?.transcript ? (
-                <p className="whitespace-pre-line">{results.transcript}</p>
+              {meeting.transcript ? (
+                <p className="whitespace-pre-line">{meeting.transcript}</p>
               ) : (
                 <p className="text-muted-foreground">Aucune transcription disponible pour cette réunion.</p>
               )}

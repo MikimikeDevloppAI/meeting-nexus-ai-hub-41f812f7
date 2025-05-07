@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Mic, Upload, X, Plus, ArrowLeft } from "lucide-react";
 import { 
@@ -55,7 +54,6 @@ const NewMeeting = () => {
   useEffect(() => {
     const fetchParticipants = async () => {
       try {
-        // Fixed: Using orderBy instead of order
         const { data, error } = await supabase
           .from("participants")
           .select("*")
@@ -271,7 +269,7 @@ const NewMeeting = () => {
         audioFileUrl = await uploadAudioToStorage();
       }
 
-      // Create meeting record
+      // Create meeting record (updated schema)
       const { data: meetingData, error: meetingError } = await supabase
         .from("meetings")
         .insert([
@@ -279,6 +277,8 @@ const NewMeeting = () => {
             title,
             audio_url: audioFileUrl,
             created_by: user.id,
+            transcript: null,
+            summary: null
           },
         ])
         .select();
@@ -304,19 +304,6 @@ const NewMeeting = () => {
 
         if (participantsError) throw participantsError;
       }
-
-      // Create empty meeting results record
-      const { error: resultsError } = await supabase
-        .from("meeting_results")
-        .insert([
-          {
-            meeting_id: meetingId,
-            transcript: null,
-            summary: null,
-          },
-        ]);
-
-      if (resultsError) throw resultsError;
 
       // Send data to webhook
       const selectedParticipants = participants.filter(
@@ -510,7 +497,7 @@ const NewMeeting = () => {
             </div>
           </div>
           
-          {/* Submit Button - Changed text */}
+          {/* Submit Button */}
           <div className="mt-6">
             <Button
               onClick={createMeeting}

@@ -39,59 +39,33 @@ export type Database = {
           },
         ]
       }
-      meeting_results: {
-        Row: {
-          created_at: string
-          id: string
-          meeting_id: string
-          summary: string | null
-          transcript: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          meeting_id: string
-          summary?: string | null
-          transcript?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          meeting_id?: string
-          summary?: string | null
-          transcript?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meeting_results_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       meetings: {
         Row: {
           audio_url: string | null
           created_at: string
           created_by: string
           id: string
+          summary: string | null
           title: string
+          transcript: string | null
         }
         Insert: {
           audio_url?: string | null
           created_at?: string
           created_by: string
           id?: string
+          summary?: string | null
           title: string
+          transcript?: string | null
         }
         Update: {
           audio_url?: string | null
           created_at?: string
           created_by?: string
           id?: string
+          summary?: string | null
           title?: string
+          transcript?: string | null
         }
         Relationships: []
       }

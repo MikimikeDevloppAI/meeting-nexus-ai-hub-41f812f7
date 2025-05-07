@@ -63,6 +63,8 @@ export interface Database {
           created_at: string
           audio_url: string | null
           created_by: string
+          transcript: string | null
+          summary: string | null
         }
         Insert: {
           id?: string
@@ -70,6 +72,8 @@ export interface Database {
           created_at?: string
           audio_url?: string | null
           created_by: string
+          transcript?: string | null
+          summary?: string | null
         }
         Update: {
           id?: string
@@ -77,6 +81,8 @@ export interface Database {
           created_at?: string
           audio_url?: string | null
           created_by?: string
+          transcript?: string | null
+          summary?: string | null
         }
       }
       meeting_participants: {
@@ -91,29 +97,6 @@ export interface Database {
         Update: {
           meeting_id?: string
           participant_id?: string
-        }
-      }
-      meeting_results: {
-        Row: {
-          id: string
-          meeting_id: string
-          transcript: string | null
-          summary: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          meeting_id: string
-          transcript?: string | null
-          summary?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          meeting_id?: string
-          transcript?: string | null
-          summary?: string | null
-          created_at?: string
         }
       }
       todos: {
