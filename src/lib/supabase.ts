@@ -15,12 +15,36 @@ if (!supabaseAnonKey) {
   console.error("Missing VITE_SUPABASE_ANON_KEY environment variable");
 }
 
-// Create and export the Supabase client with fallback to empty strings to prevent runtime crashes
-// The actual functionality won't work until proper credentials are provided
-export const supabase = createClient<Database>(
-  supabaseUrl || "",
-  supabaseAnonKey || ""
-);
+// Create a dummy client that won't throw errors when env vars are missing
+const createSupabaseClient = () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Return a mock client that won't throw errors when methods are called
+    // This prevents runtime errors but won't actually work
+    return {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null } }),
+        signInWithPassword: () => Promise.resolve({ error: new Error("Supabase not configured") }),
+        signUp: () => Promise.resolve({ error: new Error("Supabase not configured") }),
+        signOut: () => Promise.resolve({}),
+        onAuthStateChange: () => ({ subscription: { unsubscribe: () => {} } }),
+      },
+      from: () => ({
+        select: () => ({ 
+          eq: () => ({ single: () => Promise.resolve({ data: null, error: new Error("Supabase not configured") }) }),
+          single: () => Promise.resolve({ data: null, error: new Error("Supabase not configured") })
+        }),
+        insert: () => Promise.resolve({ error: new Error("Supabase not configured") }),
+        update: () => ({ eq: () => Promise.resolve({ error: new Error("Supabase not configured") }) }),
+      }),
+    };
+  }
+
+  // If environment variables are available, create a real client
+  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+};
+
+// Export the client
+export const supabase = createSupabaseClient() as ReturnType<typeof createClient<Database>>;
 
 // Export a function to check if Supabase is properly configured
 export const isSupabaseConfigured = () => {

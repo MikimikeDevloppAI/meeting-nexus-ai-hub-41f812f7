@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -36,9 +37,21 @@ const Index = () => {
               <p className="mb-1">VITE_SUPABASE_URL</p>
               <p>VITE_SUPABASE_ANON_KEY</p>
             </div>
-            <p className="text-sm text-gray-500">
-              Please set these environment variables or connect to Supabase using the Lovable Supabase integration.
+            <p className="text-sm text-gray-600 mb-4">
+              To connect to Supabase:
             </p>
+            <ol className="text-left text-sm text-gray-600 mb-4 space-y-2 list-decimal pl-5">
+              <li>Click the green Supabase button in the top right corner of the Lovable interface</li>
+              <li>Connect to an existing Supabase project or create a new one</li>
+              <li>Follow the integration instructions to set up your project</li>
+            </ol>
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+            >
+              Refresh after connecting
+            </Button>
           </div>
         )}
       </div>

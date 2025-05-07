@@ -1,61 +1,59 @@
 
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
+import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Calendar, FileAudio, User, Check, Clock } from "lucide-react";
-import { format } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { CheckCircle, Clock, Download, FileText, ListChecks, Users } from "lucide-react";
 
-interface Meeting {
-  id: string;
-  title: string;
-  created_at: string;
-  audio_url: string | null;
-  created_by: string;
-}
-
-interface MeetingResults {
-  transcript: string | null;
-  summary: string | null;
-}
-
+// Define the Participant interface
 interface Participant {
   id: string;
   name: string;
   email: string;
 }
 
+// Define the Todo interface
 interface Todo {
   id: string;
   description: string;
-  assigned_to: string;
   status: string;
-  created_at: string;
-  participant: {
+  assigned_to: string;
+  participant?: {
     name: string;
-    email: string;
-  } | null;
+  };
+}
+
+// Define the Meeting interface
+interface Meeting {
+  id: string;
+  title: string;
+  created_at: string;
+  audio_url: string;
+}
+
+// Define the MeetingResults interface
+interface MeetingResults {
+  id: string;
+  transcript: string;
+  summary: string;
 }
 
 const MeetingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [meetingResults, setMeetingResults] = useState<MeetingResults | null>(null);
+  const [results, setResults] = useState<MeetingResults | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMeetingData = async () => {
+    const fetchMeetingDetails = async () => {
       if (!id) return;
-
+      
+      setLoading(true);
       try {
         // Fetch meeting details
         const { data: meetingData, error: meetingError } = await supabase
@@ -63,154 +61,90 @@ const MeetingDetail = () => {
           .select("*")
           .eq("id", id)
           .single();
-
+        
         if (meetingError) throw meetingError;
         setMeeting(meetingData);
 
-        // Fetch meeting results
+        // Fetch meeting results (transcript & summary)
         const { data: resultsData, error: resultsError } = await supabase
           .from("meeting_results")
-          .select("transcript, summary")
+          .select("*")
           .eq("meeting_id", id)
           .single();
-
-        if (resultsError && resultsError.code !== "PGRST116") {
-          throw resultsError;
+          
+        if (!resultsError) {
+          setResults(resultsData);
         }
-        setMeetingResults(resultsData || { transcript: null, summary: null });
 
-        // Fetch participants - Fixed the type issue here
+        // Fetch participants
         const { data: participantsData, error: participantsError } = await supabase
           .from("meeting_participants")
           .select(`
             participant_id,
-            participants:participant_id (
+            participants (
               id, name, email
             )
           `)
           .eq("meeting_id", id);
-
+          
         if (participantsError) throw participantsError;
         
-        // Fix: Extract and format the participants data correctly
-        const fetchedParticipants: Participant[] = participantsData
-          .map(item => item.participants)
-          .filter(Boolean) as Participant[];
-          
-        setParticipants(fetchedParticipants);
+        // Extract participant objects from the nested structure
+        const formattedParticipants: Participant[] = participantsData.map((item: any) => ({
+          id: item.participants.id,
+          name: item.participants.name,
+          email: item.participants.email
+        }));
+        
+        setParticipants(formattedParticipants);
 
         // Fetch todos
         const { data: todosData, error: todosError } = await supabase
           .from("todos")
           .select(`
-            *,
-            participant:assigned_to (
-              name, email
+            id, description, status, assigned_to,
+            participants (
+              name
             )
           `)
           .eq("meeting_id", id);
+          
+        if (!todosError && todosData) {
+          setTodos(todosData);
+        }
 
-        if (todosError) throw todosError;
-        setTodos(todosData);
-
-      } catch (error: any) {
-        console.error("Error fetching meeting data:", error);
-        toast({
-          title: "Error loading meeting",
-          description: error.message || "Please try again later",
-          variant: "destructive",
-        });
+      } catch (error) {
+        console.error("Error fetching meeting details:", error);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchMeetingData();
-  }, [id, toast]);
+    fetchMeetingDetails();
+  }, [id]);
 
-  const updateTodoStatus = async (todoId: string, currentStatus: string) => {
-    const newStatus = currentStatus === "completed" ? "pending" : "completed";
-    
-    try {
-      const { error } = await supabase
-        .from("todos")
-        .update({ status: newStatus })
-        .eq("id", todoId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setTodos(todos.map(todo => 
-        todo.id === todoId ? { ...todo, status: newStatus } : todo
-      ));
-      
-      toast({
-        title: `Task ${newStatus === "completed" ? "completed" : "reopened"}`,
-        description: newStatus === "completed" 
-          ? "The task has been marked as completed" 
-          : "The task has been reopened",
-      });
-    } catch (error: any) {
-      console.error("Error updating todo status:", error);
-      toast({
-        title: "Error updating task",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Loading state
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/meetings")}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Meetings
-          </Button>
-          <Skeleton className="h-8 w-1/3 mb-2" />
-          <Skeleton className="h-4 w-1/4" />
+          <h1 className="text-2xl font-bold">Meeting Details</h1>
+          <p className="text-muted-foreground">Loading meeting information...</p>
         </div>
-        
-        <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="transcript">Transcript</TabsTrigger>
-            <TabsTrigger value="todos">To-dos</TabsTrigger>
-            <TabsTrigger value="participants">Participants</TabsTrigger>
-          </TabsList>
-          
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-1/4 mb-2" />
-              <Skeleton className="h-4 w-1/3" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-4/5" />
-              <Skeleton className="h-4 w-3/4" />
-            </CardContent>
-          </Card>
-        </Tabs>
+        <div className="space-y-4">
+          <div className="animate-pulse h-12 w-3/4 bg-primary/10 rounded"></div>
+          <div className="animate-pulse h-80 bg-primary/5 rounded"></div>
+        </div>
       </div>
     );
   }
 
   if (!meeting) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold mb-2">Meeting not found</h2>
-        <p className="text-muted-foreground mb-4">
-          The meeting you're looking for doesn't exist or has been removed.
-        </p>
-        <Button onClick={() => navigate("/meetings")}>
-          Go back to Meetings
-        </Button>
+      <div className="animate-fade-in">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Meeting Not Found</h1>
+          <p className="text-muted-foreground">The requested meeting could not be found.</p>
+        </div>
       </div>
     );
   }
@@ -218,153 +152,150 @@ const MeetingDetail = () => {
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate("/meetings")}
-          className="mb-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Meetings
-        </Button>
-        <h1 className="text-2xl font-bold">{meeting?.title}</h1>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4 mr-1" />
-          {meeting && format(new Date(meeting.created_at), "MMMM d, yyyy 'at' h:mm a")}
-        </div>
+        <h1 className="text-2xl font-bold">{meeting.title}</h1>
+        <p className="text-muted-foreground">
+          {meeting.created_at ? format(new Date(meeting.created_at), "PPP") : "Date unavailable"}
+        </p>
       </div>
-      
-      {meeting?.audio_url && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center mb-2">
-              <FileAudio className="h-5 w-5 mr-2 text-primary" />
-              <h3 className="font-medium">Meeting Audio</h3>
-            </div>
-            <audio controls src={meeting.audio_url} className="w-full" />
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        {/* Stats Cards */}
+        <Card>
+          <CardHeader className="py-4">
+            <CardTitle className="flex items-center text-sm font-medium">
+              <Users className="mr-2 h-4 w-4 text-primary" />
+              Participants
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-1">
+            <p className="text-2xl font-bold">{participants.length}</p>
           </CardContent>
         </Card>
-      )}
+        
+        <Card>
+          <CardHeader className="py-4">
+            <CardTitle className="flex items-center text-sm font-medium">
+              <FileText className="mr-2 h-4 w-4 text-primary" />
+              Transcript
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-1">
+            <p className="text-2xl font-bold">{results?.transcript ? "Available" : "Unavailable"}</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="py-4">
+            <CardTitle className="flex items-center text-sm font-medium">
+              <ListChecks className="mr-2 h-4 w-4 text-primary" />
+              To-dos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-1">
+            <p className="text-2xl font-bold">{todos.length}</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="py-4">
+            <CardTitle className="flex items-center text-sm font-medium">
+              <Clock className="mr-2 h-4 w-4 text-primary" />
+              Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-1">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
+              <p className="text-sm font-medium">Complete</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Tabs defaultValue="summary" className="w-full">
-        <TabsList className="mb-4">
+      <Tabs defaultValue="summary" className="mb-6">
+        <TabsList>
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="transcript">Transcript</TabsTrigger>
-          <TabsTrigger value="todos">To-dos ({todos.length})</TabsTrigger>
-          <TabsTrigger value="participants">Participants ({participants.length})</TabsTrigger>
+          <TabsTrigger value="todos">To-dos</TabsTrigger>
+          <TabsTrigger value="participants">Participants</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="summary">
+        
+        <TabsContent value="summary" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Meeting Summary</CardTitle>
               <CardDescription>
-                Key points and decisions from the meeting
+                Auto-generated summary of the key discussion points
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {meetingResults?.summary ? (
-                <div className="whitespace-pre-line">{meetingResults.summary}</div>
+              {results?.summary ? (
+                <p className="whitespace-pre-line">{results.summary}</p>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No summary available for this meeting yet.</p>
-                  {!meeting?.audio_url && (
-                    <p className="mt-2 text-sm">
-                      Upload an audio recording to generate a summary.
-                    </p>
-                  )}
-                </div>
+                <p className="text-muted-foreground">No summary available for this meeting.</p>
               )}
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="transcript">
+        
+        <TabsContent value="transcript" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Full Transcript</CardTitle>
-              <CardDescription>
-                Complete transcript of the meeting audio
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Transcript</CardTitle>
+                <CardDescription>
+                  Full transcript of the meeting recording
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="h-8">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
             </CardHeader>
-            <CardContent>
-              {meetingResults?.transcript ? (
-                <div className="whitespace-pre-line">{meetingResults.transcript}</div>
+            <CardContent className="max-h-96 overflow-y-auto">
+              {results?.transcript ? (
+                <p className="whitespace-pre-line">{results.transcript}</p>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No transcript available for this meeting yet.</p>
-                  {!meeting?.audio_url && (
-                    <p className="mt-2 text-sm">
-                      Upload an audio recording to generate a transcript.
-                    </p>
-                  )}
-                </div>
+                <p className="text-muted-foreground">No transcript available for this meeting.</p>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="todos">
+        <TabsContent value="todos" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Action Items</CardTitle>
               <CardDescription>
-                Tasks and action items from this meeting
+                Tasks assigned during this meeting
               </CardDescription>
             </CardHeader>
             <CardContent>
               {todos.length > 0 ? (
-                <div className="divide-y">
+                <div className="space-y-4">
                   {todos.map((todo) => (
-                    <div key={todo.id} className="py-4 flex items-start gap-3">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className={`h-6 w-6 rounded-full ${
-                          todo.status === "completed" 
-                            ? "bg-primary text-primary-foreground" 
-                            : "text-muted-foreground"
-                        }`}
-                        onClick={() => updateTodoStatus(todo.id, todo.status)}
-                      >
-                        <Check className="h-3 w-3" />
-                        <span className="sr-only">
-                          {todo.status === "completed" ? "Mark as incomplete" : "Mark as complete"}
-                        </span>
-                      </Button>
+                    <div key={todo.id} className="flex items-start space-x-4 p-3 border rounded-md">
+                      <div className={`h-5 w-5 rounded-full ${todo.status === 'completed' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
                       <div className="flex-1">
-                        <p className={todo.status === "completed" ? "line-through text-muted-foreground" : ""}>
-                          {todo.description}
+                        <p className="font-medium">{todo.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Assigned to: {todo.participant?.name || "Unassigned"}
                         </p>
-                        <div className="mt-1 flex items-center text-xs text-muted-foreground">
-                          <User className="h-3 w-3 mr-1" />
-                          <span>
-                            {todo.participant?.name || "Unassigned"}
-                          </span>
-                          <span className="mx-2">•</span>
-                          <Clock className="h-3 w-3 mr-1" />
-                          <span>
-                            {format(new Date(todo.created_at), "MMM d")}
-                          </span>
-                        </div>
                       </div>
-                      <Badge
-                        variant={todo.status === "completed" ? "outline" : "secondary"}
-                        className="text-xs"
-                      >
-                        {todo.status === "completed" ? "Completed" : "Pending"}
-                      </Badge>
+                      <div className="text-xs text-white px-2 py-1 rounded-full bg-primary">
+                        {todo.status}
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No action items for this meeting yet.</p>
-                </div>
+                <p className="text-muted-foreground">No to-dos were created for this meeting.</p>
               )}
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="participants">
+        
+        <TabsContent value="participants" className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Participants</CardTitle>
@@ -374,33 +305,40 @@ const MeetingDetail = () => {
             </CardHeader>
             <CardContent>
               {participants.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
                   {participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center p-3 border rounded-md"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium">{participant.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {participant.email}
-                        </p>
+                    <div key={participant.id} className="flex items-center justify-between p-3 border rounded-md">
+                      <div>
+                        <p className="font-medium">{participant.name}</p>
+                        <p className="text-sm text-muted-foreground">{participant.email}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No participants were added to this meeting.</p>
-                </div>
+                <p className="text-muted-foreground">No participants were added to this meeting.</p>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {meeting.audio_url && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Meeting Recording</CardTitle>
+            <CardDescription>
+              Audio recording of this meeting
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <audio controls className="w-full">
+              <source src={meeting.audio_url} type="audio/mpeg" />
+              Your browser does not support the audio element.
+            </audio>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
