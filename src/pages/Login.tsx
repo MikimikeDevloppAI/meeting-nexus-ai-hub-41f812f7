@@ -8,17 +8,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefreshCw } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setEmailNotConfirmed(false);
 
     try {
       // Sign in with Supabase
@@ -27,7 +32,14 @@ const Login = () => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check specifically for "Email not confirmed" error
+        if (error.message === "Email not confirmed") {
+          setEmailNotConfirmed(true);
+          throw error;
+        }
+        throw error;
+      }
 
       // Check if user is approved
       if (data.user) {
@@ -67,6 +79,43 @@ const Login = () => {
     }
   };
 
+  const handleResendConfirmationEmail = async () => {
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResendingEmail(true);
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Confirmation email sent",
+        description: "Please check your inbox and follow the link to confirm your email",
+      });
+      setEmailNotConfirmed(false);
+    } catch (error: any) {
+      console.error("Resend error:", error);
+      toast({
+        title: "Error sending confirmation email",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent p-4">
       <div className="w-full max-w-md">
@@ -81,6 +130,32 @@ const Login = () => {
               Enter your credentials below to access your account
             </CardDescription>
           </CardHeader>
+          
+          {emailNotConfirmed && (
+            <div className="px-6">
+              <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-300">
+                <AlertDescription className="flex flex-col gap-2">
+                  <p>Your email address has not been confirmed yet.</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-amber-300 text-amber-800 hover:bg-amber-100"
+                    onClick={handleResendConfirmationEmail}
+                    disabled={resendingEmail}
+                  >
+                    {resendingEmail ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Resend confirmation email"
+                    )}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
