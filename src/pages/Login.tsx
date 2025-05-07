@@ -46,12 +46,12 @@ const Login = () => {
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', data.user.id)
-          .single();
+          .eq('id', data.user.id);
 
         if (profileError) throw profileError;
 
-        if (userProfile && !userProfile.approved) {
+        // Check if we got any results and if the first user is approved
+        if (userProfile && userProfile.length > 0 && !userProfile[0].approved) {
           toast({
             title: "Account pending approval",
             description: "Your account is waiting for admin approval.",
