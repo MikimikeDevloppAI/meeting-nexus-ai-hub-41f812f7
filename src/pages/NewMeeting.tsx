@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -56,11 +55,11 @@ const NewMeeting = () => {
   useEffect(() => {
     const fetchParticipants = async () => {
       try {
-        // Fixed Supabase query - .orderBy() instead of .order()
+        // Fixed: Changed .orderBy() to .order()
         const { data, error } = await supabase
           .from("participants")
           .select("*")
-          .orderBy("name");
+          .order("name");
 
         if (error) throw error;
         setParticipants(data || []);
@@ -154,7 +153,7 @@ const NewMeeting = () => {
     if (!newParticipantName || !newParticipantEmail || !user) return;
 
     try {
-      // Fixed Supabase query - separate .insert() and .select() calls
+      // Fixed: Changed .insert() and .select() calls
       const { data, error } = await supabase
         .from("participants")
         .insert([
