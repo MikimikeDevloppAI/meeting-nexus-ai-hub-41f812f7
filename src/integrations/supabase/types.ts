@@ -9,6 +9,158 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      meeting_participants: {
+        Row: {
+          meeting_id: string
+          participant_id: string
+        }
+        Insert: {
+          meeting_id: string
+          participant_id: string
+        }
+        Update: {
+          meeting_id?: string
+          participant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_participants_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_results: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          summary: string | null
+          transcript: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          summary?: string | null
+          transcript?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          summary?: string | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_results_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          title: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      participants: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      todos: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          description: string
+          id: string
+          meeting_id: string
+          status: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          description: string
+          id?: string
+          meeting_id: string
+          status?: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          description?: string
+          id?: string
+          meeting_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todos_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todos_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           approved: boolean
