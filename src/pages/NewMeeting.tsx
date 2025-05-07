@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -55,11 +55,11 @@ const NewMeeting = () => {
   useEffect(() => {
     const fetchParticipants = async () => {
       try {
-        // Fixed: Changed .orderBy() to .order()
+        // Fixed: Using orderBy instead of order
         const { data, error } = await supabase
           .from("participants")
           .select("*")
-          .order("name");
+          .order('name', { ascending: true });
 
         if (error) throw error;
         setParticipants(data || []);
@@ -153,7 +153,7 @@ const NewMeeting = () => {
     if (!newParticipantName || !newParticipantEmail || !user) return;
 
     try {
-      // Fixed: Changed .insert() and .select() calls
+      // Insert new participant
       const { data, error } = await supabase
         .from("participants")
         .insert([
@@ -162,22 +162,14 @@ const NewMeeting = () => {
             email: newParticipantEmail,
             created_by: user.id,
           },
-        ]);
+        ])
+        .select();
 
       if (error) throw error;
       
-      // Fetch the newly created participant
-      const { data: insertedData, error: fetchError } = await supabase
-        .from("participants")
-        .select("*")
-        .eq("email", newParticipantEmail)
-        .single();
-        
-      if (fetchError) throw fetchError;
-
-      if (insertedData) {
-        setParticipants(prev => [...prev, insertedData as Participant]);
-        setSelectedParticipantIds(prev => [...prev, insertedData.id]);
+      if (data && data.length > 0) {
+        setParticipants(prev => [...prev, data[0] as Participant]);
+        setSelectedParticipantIds(prev => [...prev, data[0].id]);
         toast({
           title: "Participant added",
           description: `${newParticipantName} has been added as a participant.`,
@@ -259,27 +251,16 @@ const NewMeeting = () => {
             audio_url: audioFileUrl,
             created_by: user.id,
           },
-        ]);
+        ])
+        .select();
 
       if (meetingError) throw meetingError;
       
-      // Get the created meeting ID
-      const { data: createdMeeting, error: fetchMeetingError } = await supabase
-        .from("meetings")
-        .select("id")
-        .eq("title", title)
-        .eq("created_by", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-        
-      if (fetchMeetingError) throw fetchMeetingError;
-
-      if (!createdMeeting) {
+      if (!meetingData || meetingData.length === 0) {
         throw new Error("Failed to create meeting");
       }
 
-      const meetingId = createdMeeting.id;
+      const meetingId = meetingData[0].id;
 
       // Add participants
       if (selectedParticipantIds.length > 0) {
@@ -523,7 +504,7 @@ const NewMeeting = () => {
               disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? "Submitting Meeting..." : "Submit Meeting"}
+              {isSubmitting ? "Creating Meeting..." : "Create Meeting"}
             </Button>
           </div>
         </Card>
