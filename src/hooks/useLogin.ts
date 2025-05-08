@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 
 export const useLogin = () => {
   const [email, setEmail] = useState("");
@@ -19,6 +19,17 @@ export const useLogin = () => {
     setEmailNotConfirmed(false);
 
     try {
+      // Clean up any existing auth state first
+      cleanupAuthState();
+      
+      // Try to sign out any existing sessions to start fresh
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+        console.log('Sign out before login failed:', err);
+      }
+
       // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -60,9 +71,8 @@ export const useLogin = () => {
           description: "You've successfully signed in.",
         });
         
-        // Force navigation using window.location for a complete reload
-        // This ensures a clean state and proper redirection
-        window.location.href = "/meetings";
+        // Use navigate instead of window.location for a better experience
+        navigate("/meetings");
       }
     } catch (error: any) {
       console.error("Sign in error:", error);

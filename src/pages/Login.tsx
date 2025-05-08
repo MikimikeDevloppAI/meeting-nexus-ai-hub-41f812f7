@@ -4,8 +4,25 @@ import { LoginHeader } from "@/components/auth/LoginHeader";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { EmailConfirmationAlert } from "@/components/auth/EmailConfirmationAlert";
 import { useLogin } from "@/hooks/useLogin";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Check if user is already logged in and redirect if they are
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate("/meetings");
+      }
+    };
+    
+    checkSession();
+  }, [navigate]);
+
   const {
     email,
     setEmail,
