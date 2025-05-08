@@ -46,3 +46,87 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Export helper function for future use
 export { cleanupAuthState };
+
+// Helper functions for document embeddings
+
+/**
+ * Store a document with its embeddings in the database
+ * @param title Document title
+ * @param type Document type (e.g., 'meeting_transcript', 'legal_document')
+ * @param content Full document content
+ * @param chunks Array of text chunks
+ * @param embeddings Array of vector embeddings corresponding to chunks
+ * @param metadata Optional metadata object
+ * @param createdBy Optional user ID who created the document
+ * @param meetingId Optional meeting ID to associate with
+ * @returns The ID of the created document or null on error
+ */
+export const storeDocumentWithEmbeddings = async (
+  title: string,
+  type: string,
+  content: string,
+  chunks: string[],
+  embeddings: number[][],
+  metadata: Record<string, any> = {},
+  createdBy?: string,
+  meetingId?: string
+): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase.rpc('store_document_with_embeddings', {
+      p_title: title,
+      p_type: type,
+      p_content: content,
+      p_chunks: chunks,
+      p_embeddings: embeddings,
+      p_metadata: metadata,
+      p_created_by: createdBy,
+      p_meeting_id: meetingId
+    });
+
+    if (error) {
+      console.error('Error storing document with embeddings:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Exception when storing document with embeddings:', err);
+    return null;
+  }
+};
+
+/**
+ * Search document embeddings based on a query embedding
+ * @param queryEmbedding The vector embedding of the search query
+ * @param options Search options
+ * @returns Array of search results or null on error
+ */
+export const searchDocumentEmbeddings = async (
+  queryEmbedding: number[],
+  options: {
+    documentType?: string;
+    matchThreshold?: number;
+    matchCount?: number;
+    documentId?: string;
+  } = {}
+) => {
+  try {
+    const { data, error } = await supabase.rpc('search_document_embeddings', {
+      query_embedding: queryEmbedding,
+      filter_document_type: options.documentType || null,
+      match_threshold: options.matchThreshold || 0.7,
+      match_count: options.matchCount || 5,
+      filter_document_id: options.documentId || null
+    });
+
+    if (error) {
+      console.error('Error searching document embeddings:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('Exception when searching document embeddings:', err);
+    return null;
+  }
+};

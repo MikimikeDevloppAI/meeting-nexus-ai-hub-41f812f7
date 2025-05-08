@@ -56,3 +56,10 @@ export const supabase = createSupabaseClient() as ReturnType<typeof createClient
 export const isSupabaseConfigured = () => {
   return Boolean(supabaseUrl && supabaseAnonKey);
 };
+
+/**
+ * Helper functions for document management with vector embeddings
+ */
+
+// These are now implemented in src/integrations/supabase/client.ts
+// This file now only handles environment variable configuration and fallbacks
