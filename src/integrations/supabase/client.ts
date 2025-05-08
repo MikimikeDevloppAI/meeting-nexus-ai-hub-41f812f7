@@ -6,6 +6,30 @@ import type { Database } from '../../types/supabase';
 const SUPABASE_URL = "https://ecziljpkvshvapjsxaty.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk";
 
+// Function to clean up any existing auth state
+const cleanupAuthState = () => {
+  // Clean localStorage from any stray auth tokens
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  // Clean sessionStorage if used
+  try {
+    Object.keys(sessionStorage || {}).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        sessionStorage.removeItem(key);
+      }
+    });
+  } catch (e) {
+    // Ignore errors with sessionStorage access
+  }
+};
+
+// Clean up when the client is imported, to avoid auth conflicts
+cleanupAuthState();
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -15,6 +39,10 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     storage: localStorage,
     flowType: 'pkce',
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    debug: false // Disable debug for production
   }
 });
+
+// Export helper function for future use
+export { cleanupAuthState };
