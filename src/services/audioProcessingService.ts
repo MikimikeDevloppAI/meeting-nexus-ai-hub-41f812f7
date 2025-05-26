@@ -33,13 +33,21 @@ export class AudioProcessingService {
   }
 
   static async saveAudioUrl(meetingId: string, audioUrl: string): Promise<void> {
-    console.log('[SAVE_AUDIO] Saving audio URL to database...', audioUrl);
+    console.log('[SAVE_AUDIO] Saving audio URL to database for meeting:', meetingId, 'URL:', audioUrl);
+    
+    if (!meetingId) {
+      throw new Error('Meeting ID is required to save audio URL');
+    }
+
+    if (!audioUrl) {
+      throw new Error('Audio URL is required');
+    }
     
     try {
-      await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
-      console.log('[SAVE_AUDIO] Audio URL saved successfully');
+      const result = await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
+      console.log('[SAVE_AUDIO] Audio URL saved successfully:', result);
     } catch (error) {
-      console.error('[SAVE_AUDIO] Failed to save audio URL:', error);
+      console.error('[SAVE_AUDIO] Failed to save audio URL for meeting:', meetingId, error);
       throw error;
     }
   }
