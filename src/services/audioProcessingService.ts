@@ -32,6 +32,18 @@ export class AudioProcessingService {
     return audioFileUrl;
   }
 
+  static async saveAudioUrl(meetingId: string, audioUrl: string): Promise<void> {
+    console.log('[SAVE_AUDIO] Saving audio URL to database...', audioUrl);
+    
+    try {
+      await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
+      console.log('[SAVE_AUDIO] Audio URL saved successfully');
+    } catch (error) {
+      console.error('[SAVE_AUDIO] Failed to save audio URL:', error);
+      throw error;
+    }
+  }
+
   static async transcribeAudio(
     audioUrl: string, 
     participantCount: number,

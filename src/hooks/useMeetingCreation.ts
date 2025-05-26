@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -64,11 +63,10 @@ export const useMeetingCreation = () => {
         setProgress(25);
 
         const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
+        setProgress(30);
         
-        // Save audio URL immediately
-        console.log('[UPLOAD] Saving audio URL to database...');
-        await MeetingService.updateMeetingField(meetingId, 'audio_url', audioFileUrl);
-        console.log('[UPLOAD] Audio URL saved successfully');
+        // Save audio URL using dedicated method
+        await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
         
         updateStepStatus('upload', 'completed');
         setProgress(35);

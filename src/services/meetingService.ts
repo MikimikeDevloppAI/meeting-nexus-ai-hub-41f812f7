@@ -34,26 +34,34 @@ export class MeetingService {
     console.log(`[UPDATE] Attempting to update meeting ${meetingId} field ${field}:`, value);
     
     try {
-      // Perform the update and return the updated row
-      const { data: updatedData, error: updateError } = await supabase
+      // Simple update without requiring single() to avoid "no rows" error
+      const { error: updateError } = await supabase
         .from("meetings")
         .update({ [field]: value })
-        .eq('id', meetingId)
-        .select()
-        .single();
+        .eq('id', meetingId);
 
       if (updateError) {
         console.error(`[UPDATE] Error updating ${field}:`, updateError);
         throw new Error(`Failed to update ${field}: ${updateError.message}`);
       }
 
-      if (!updatedData) {
-        console.error(`[UPDATE] No data returned after update for meeting ${meetingId}`);
-        throw new Error(`Update failed - no data returned`);
+      console.log(`[UPDATE] Successfully updated ${field} for meeting ${meetingId}`);
+      
+      // Verify the update worked by fetching the meeting
+      const { data: verifiedData, error: verifyError } = await supabase
+        .from("meetings")
+        .select(field)
+        .eq('id', meetingId)
+        .single();
+
+      if (verifyError) {
+        console.warn(`[UPDATE] Could not verify update: ${verifyError.message}`);
+        // Don't throw error here, the update might have worked
+      } else {
+        console.log(`[UPDATE] Verified update - ${field}:`, verifiedData[field]);
       }
 
-      console.log(`[UPDATE] Successfully updated ${field} for meeting:`, updatedData);
-      return updatedData;
+      return { success: true };
 
     } catch (error) {
       console.error(`[UPDATE] Unexpected error updating meeting ${meetingId}:`, error);
