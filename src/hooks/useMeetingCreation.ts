@@ -69,6 +69,8 @@ export const useMeetingCreation = () => {
     setProgress(0);
     setProcessingSteps(prev => prev.map(step => ({ ...step, status: 'pending' })));
 
+    let meetingId: string | null = null;
+
     try {
       // Step 1: Create meeting
       updateStepStatus('create', 'processing');
@@ -96,15 +98,29 @@ export const useMeetingCreation = () => {
         throw new Error("Échec de la création de la réunion");
       }
 
-      const meetingId = meetingData.id;
+      meetingId = meetingData.id;
       console.log('Meeting created with ID:', meetingId);
+      
+      // Verify meeting exists in database
+      const { data: verifyMeeting, error: verifyError } = await supabase
+        .from("meetings")
+        .select("id, title")
+        .eq('id', meetingId)
+        .single();
+
+      if (verifyError || !verifyMeeting) {
+        console.error('Meeting verification failed:', verifyError);
+        throw new Error("Meeting creation verification failed");
+      }
+
+      console.log('Meeting verified in database:', verifyMeeting);
       
       updateStepStatus('create', 'completed');
       setProgress(20);
 
-      let audioFileUrl = null;
-      let transcript = null;
-      let summary = null;
+      let audioFileUrl: string | null = null;
+      let transcript: string | null = null;
+      let summary: string | null = null;
 
       // Step 2: Upload audio if provided
       if (audioBlob || audioFile) {
@@ -223,37 +239,61 @@ export const useMeetingCreation = () => {
         }
       }
 
-      // Step 5: Update meeting with results - THIS IS THE CRITICAL PART
+      // Step 5: Update meeting with results - ALWAYS UPDATE SOMETHING
       updateStepStatus('save', 'processing');
       setProgress(90);
 
-      console.log('Updating meeting with data:', {
+      console.log('About to update meeting with:', {
         meetingId,
-        audio_url: audioFileUrl,
-        transcript: transcript ? `${transcript.substring(0, 100)}...` : null,
-        summary: summary ? `${summary.substring(0, 100)}...` : null
+        audioFileUrl,
+        transcriptLength: transcript?.length || 0,
+        summaryLength: summary?.length || 0
       });
 
-      // Force the update even if some values are null
-      const updateData: any = {};
-      if (audioFileUrl !== null) updateData.audio_url = audioFileUrl;
-      if (transcript !== null) updateData.transcript = transcript;
-      if (summary !== null) updateData.summary = summary;
+      // Always include at least one field to update
+      const updateData: any = { title }; // Always update title to ensure query has something to update
+      
+      if (audioFileUrl) {
+        updateData.audio_url = audioFileUrl;
+        console.log('Adding audio_url to update:', audioFileUrl);
+      }
+      
+      if (transcript) {
+        updateData.transcript = transcript;
+        console.log('Adding transcript to update, length:', transcript.length);
+      }
+      
+      if (summary) {
+        updateData.summary = summary;
+        console.log('Adding summary to update, length:', summary.length);
+      }
 
-      console.log('Final update data:', updateData);
+      console.log('Final update data keys:', Object.keys(updateData));
+      console.log('Updating meeting ID:', meetingId);
 
       const { data: updateResult, error: updateError } = await supabase
         .from("meetings")
         .update(updateData)
         .eq('id', meetingId)
-        .select();
+        .select('id, title, audio_url, transcript, summary');
 
       if (updateError) {
         console.error('Meeting update error:', updateError);
         throw updateError;
       }
 
-      console.log('Meeting update result:', updateResult);
+      if (!updateResult || updateResult.length === 0) {
+        console.error('Update returned no results - meeting may not exist');
+        throw new Error('Failed to update meeting - no rows affected');
+      }
+
+      console.log('Meeting update successful:', {
+        id: updateResult[0].id,
+        title: updateResult[0].title,
+        hasAudio: !!updateResult[0].audio_url,
+        hasTranscript: !!updateResult[0].transcript,
+        hasSummary: !!updateResult[0].summary
+      });
 
       // Step 6: Add participants
       if (selectedParticipantIds.length > 0) {
@@ -290,18 +330,32 @@ export const useMeetingCreation = () => {
         description: successMessage,
       });
 
-      // Small delay to ensure UI updates, then navigate
+      // Navigate after a small delay
       setTimeout(() => {
         navigate(`/meetings/${meetingId}`);
       }, 500);
 
     } catch (error: any) {
       console.error("Erreur lors de la création de la réunion:", error);
-      toast({
-        title: "Erreur de création de la réunion",
-        description: error.message || "Veuillez réessayer",
-        variant: "destructive",
-      });
+      
+      // If we created a meeting but failed later, still try to navigate to it
+      if (meetingId) {
+        console.log('Meeting was created but processing failed, navigating to meeting:', meetingId);
+        toast({
+          title: "Réunion créée partiellement",
+          description: "La réunion a été créée mais certains traitements ont échoué",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          navigate(`/meetings/${meetingId}`);
+        }, 1000);
+      } else {
+        toast({
+          title: "Erreur de création de la réunion",
+          description: error.message || "Veuillez réessayer",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
