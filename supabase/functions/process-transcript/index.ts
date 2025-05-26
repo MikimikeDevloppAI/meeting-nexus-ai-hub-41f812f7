@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 // Function to chunk text into smaller pieces
-const chunkText = (text: string, maxChunkSize: number = 3000): string[] => {
+const chunkText = (text: string, maxChunkSize: number = 4000): string[] => {
   const sentences = text.split(/[.!?]+/);
   const chunks: string[] = [];
   let currentChunk = '';
@@ -35,18 +35,18 @@ const chunkText = (text: string, maxChunkSize: number = 3000): string[] => {
 const processChunk = async (chunk: string, participants: any[], chunkIndex: number): Promise<string> => {
   const participantsList = participants.map((p: any) => p.name).join(', ');
   
-  const prompt = `Voici un extrait ${chunkIndex + 1} d'un transcript brut d'une réunion médicale.
+  const prompt = `Nettoie ce transcript de réunion médicale. Participants: ${participantsList}
 
 ${chunk}
 
 INSTRUCTIONS:
-1. Remplace "speaker 1", "speaker 2", etc. par les vrais noms des participants: ${participantsList}
-2. Supprime tous les mots inutiles: hésitations (euh, hmm), répétitions, interruptions non pertinentes
-3. Garde uniquement le contenu médical et administratif important
-4. Corrige les erreurs de transcription évidentes
-5. Structure clairement les interventions: "Dr. X: [contenu]"
+1. Remplace "speaker 1", "speaker 2" par les vrais noms
+2. Supprime: hésitations (euh, hmm), répétitions, interruptions inutiles
+3. Garde SEULEMENT le contenu médical/administratif important
+4. Corrige les erreurs évidentes
+5. Format: "Dr. X: [contenu]"
 
-Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
+Retourne UNIQUEMENT le transcript nettoyé:`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -56,11 +56,9 @@ Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'user', content: prompt }
-      ],
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: 2000,
     }),
   });
 
@@ -76,22 +74,29 @@ Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
 const generateSummary = async (cleanTranscript: string, participants: any[]): Promise<string> => {
   const participantsList = participants.map((p: any) => p.name).join(', ');
   
-  const summaryPrompt = `Voici le transcript nettoyé d'une réunion administrative d'un cabinet médical:
+  const summaryPrompt = `Rédige un résumé structuré en français de cette réunion médicale:
 
 ${cleanTranscript}
 
 Participants: ${participantsList}
 
-INSTRUCTIONS:
-Rédige un résumé structuré en français qui:
+Format requis:
+**CONTEXTE**
+[Objet de la réunion]
 
-1. **CONTEXTE**: Résume brièvement l'objet de la réunion
-2. **POINTS CLÉS PAR SUJET**: Organise par thématiques (ex: Organisation, Patients, Équipement, Finances, etc.)
-3. **DÉCISIONS PRISES**: Liste les décisions importantes
-4. **ACTIONS À SUIVRE**: Énumère les tâches et responsabilités assignées
-5. **PROCHAINES ÉTAPES**: Mentionne les échéances et prochaines réunions
+**POINTS CLÉS**
+• Organisation: [points organisationnels]
+• Patients: [discussions patients]
+• Équipement: [matériel médical]
+• Finances: [aspects financiers]
 
-Format: utilise des titres clairs et des listes à puces. Reste factuel et concis tout en gardant les informations essentielles.`;
+**DÉCISIONS**
+• [liste des décisions prises]
+
+**ACTIONS À SUIVRE**
+• [tâches assignées avec responsables]
+
+Reste concis et factuel:`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -101,11 +106,9 @@ Format: utilise des titres clairs et des listes à puces. Reste factuel et conci
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'user', content: summaryPrompt }
-      ],
+      messages: [{ role: 'user', content: summaryPrompt }],
       temperature: 0.2,
-      max_tokens: 2000,
+      max_tokens: 1500,
     }),
   });
 
@@ -136,8 +139,8 @@ serve(async (req) => {
 
     console.log(`Processing transcript for meeting ${meetingId} - Length: ${transcript.length} characters`);
 
-    // Check if transcript is too long for single processing (>8000 characters)
-    const maxSingleProcessSize = 8000;
+    // Check if transcript is too long for single processing
+    const maxSingleProcessSize = 6000;
     let processedTranscript: string;
 
     if (transcript.length <= maxSingleProcessSize) {
@@ -145,18 +148,18 @@ serve(async (req) => {
       console.log('Processing transcript as single chunk');
       
       const participantsList = participants.map((p: any) => p.name).join(', ');
-      const prompt = `Voici un transcript brut d'une réunion administrative d'un cabinet médical.
+      const prompt = `Nettoie ce transcript de réunion médicale. Participants: ${participantsList}
 
 ${transcript}
 
 INSTRUCTIONS:
-1. Remplace "speaker 1", "speaker 2", etc. par les vrais noms des participants: ${participantsList}
-2. Supprime tous les mots inutiles: hésitations (euh, hmm), répétitions, interruptions non pertinentes
-3. Garde uniquement le contenu médical et administratif important
-4. Corrige les erreurs de transcription évidentes
-5. Structure clairement les interventions: "Dr. X: [contenu]"
+1. Remplace "speaker 1", "speaker 2" par les vrais noms
+2. Supprime: hésitations (euh, hmm), répétitions, interruptions inutiles
+3. Garde SEULEMENT le contenu médical/administratif important
+4. Corrige les erreurs évidentes
+5. Format: "Dr. X: [contenu]"
 
-Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
+Retourne UNIQUEMENT le transcript nettoyé:`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -166,11 +169,9 @@ Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [
-            { role: 'user', content: prompt }
-          ],
+          messages: [{ role: 'user', content: prompt }],
           temperature: 0.1,
-          max_tokens: 4000,
+          max_tokens: 3000,
         }),
       });
 
@@ -184,7 +185,7 @@ Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
       // Process in chunks
       console.log('Processing transcript in chunks due to length');
       
-      const chunks = chunkText(transcript, 3000);
+      const chunks = chunkText(transcript, 4000);
       console.log(`Split transcript into ${chunks.length} chunks`);
       
       const processedChunks: string[] = [];
@@ -207,15 +208,15 @@ Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
 
     console.log(`Processed transcript length: ${processedTranscript.length} characters`);
 
-    // Validate that we haven't lost significant content
+    // Validate that we haven't lost too much content
     const originalWordCount = transcript.split(/\s+/).length;
     const processedWordCount = processedTranscript.split(/\s+/).length;
     const retentionRatio = processedWordCount / originalWordCount;
 
     console.log(`Word count - Original: ${originalWordCount}, Processed: ${processedWordCount}, Retention: ${(retentionRatio * 100).toFixed(1)}%`);
 
-    // If we've lost more than 50% of the content, use original transcript
-    if (retentionRatio < 0.5) {
+    // If we've lost more than 60% of the content, use original transcript
+    if (retentionRatio < 0.4) {
       console.warn('Significant content loss detected, falling back to original transcript');
       processedTranscript = transcript;
     }

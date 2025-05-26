@@ -1,4 +1,3 @@
-
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/supabase";
 
@@ -63,3 +62,39 @@ export const isSupabaseConfigured = () => {
 
 // These are now implemented in src/integrations/supabase/client.ts
 // This file now only handles environment variable configuration and fallbacks
+
+// Function to ensure storage bucket exists
+export const ensureStorageBucket = async () => {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error('Error listing buckets:', listError);
+      return false;
+    }
+
+    const bucketExists = buckets?.find(bucket => bucket.name === 'meeting-audio');
+    
+    if (!bucketExists) {
+      console.log('Creating meeting-audio bucket...');
+      const { error: createError } = await supabase.storage.createBucket('meeting-audio', {
+        public: true,
+        allowedMimeTypes: ['audio/*'],
+        fileSizeLimit: 100 * 1024 * 1024 // 100MB
+      });
+      
+      if (createError) {
+        console.error('Error creating bucket:', createError);
+        return false;
+      }
+      
+      console.log('Bucket created successfully');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error ensuring storage bucket:', error);
+    return false;
+  }
+};
