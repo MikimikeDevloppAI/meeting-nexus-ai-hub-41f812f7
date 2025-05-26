@@ -42,7 +42,8 @@ const NewMeeting = () => {
     { id: 'upload', title: 'Téléchargement de l\'audio', status: 'pending' },
     { id: 'transcribe', title: 'Transcription en cours', status: 'pending' },
     { id: 'speakers', title: 'Détection des intervenants', status: 'pending' },
-    { id: 'process', title: 'Traitement du transcript', status: 'pending' },
+    { id: 'process', title: 'Nettoyage du transcript', status: 'pending' },
+    { id: 'summary', title: 'Génération du résumé', status: 'pending' },
     { id: 'save', title: 'Sauvegarde de la réunion', status: 'pending' }
   ]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -131,7 +132,7 @@ const NewMeeting = () => {
     }
   };
 
-  const processTranscription = async (audioFileUrl: string): Promise<string> => {
+  const processTranscription = async (audioFileUrl: string, meetingId: string): Promise<{ transcript: string, summary: string | null }> => {
     try {
       updateStepStatus('transcribe', 'processing');
       setProgress(50);
@@ -150,7 +151,7 @@ const NewMeeting = () => {
       updateStepStatus('speakers', 'completed');
       updateStepStatus('process', 'processing');
       nextStep();
-      setProgress(80);
+      setProgress(75);
       
       if (result.text) {
         console.log(`Original transcript from AssemblyAI: ${result.text.length} characters`);
@@ -160,58 +161,70 @@ const NewMeeting = () => {
           selectedParticipantIds.includes(p.id)
         );
 
-        // Process transcript with OpenAI
+        // Process transcript and generate summary with OpenAI
         try {
-          console.log('Sending transcript to OpenAI for processing...');
-          const { data: { processedTranscript }, error } = await supabase.functions.invoke('process-transcript', {
+          console.log('Sending transcript to OpenAI for processing and summary generation...');
+          const { data: { processedTranscript, summary }, error } = await supabase.functions.invoke('process-transcript', {
             body: {
               transcript: result.text,
-              participants: selectedParticipants
+              participants: selectedParticipants,
+              meetingId
             }
           });
 
           if (error) {
             console.error('Error processing transcript with OpenAI:', error);
             updateStepStatus('process', 'error');
+            updateStepStatus('summary', 'error');
             toast({
               title: "Erreur de traitement",
               description: "Le traitement OpenAI a échoué, transcript original conservé",
               variant: "destructive",
             });
-            return result.text; // Return original transcript if processing fails
+            return { transcript: result.text, summary: null };
           }
 
           console.log(`Processed transcript from OpenAI: ${processedTranscript?.length || 0} characters`);
+          console.log(`Generated summary: ${summary?.length || 0} characters`);
           
           // Validate processed transcript
           if (!processedTranscript || processedTranscript.length < result.text.length * 0.3) {
             console.warn('Processed transcript seems incomplete, using original');
             updateStepStatus('process', 'error');
+            updateStepStatus('summary', 'error');
             toast({
               title: "Traitement incomplet",
               description: "Le transcript traité semble incomplet, transcript original conservé",
               variant: "destructive",
             });
-            return result.text;
+            return { transcript: result.text, summary: null };
           }
 
           updateStepStatus('process', 'completed');
+          updateStepStatus('summary', 'processing');
+          nextStep();
+          setProgress(85);
+
+          // Summary generation completed
+          updateStepStatus('summary', 'completed');
           nextStep();
           setProgress(90);
-          return processedTranscript || result.text;
+          
+          return { transcript: processedTranscript || result.text, summary };
         } catch (openaiError) {
           console.error('OpenAI processing failed:', openaiError);
           updateStepStatus('process', 'error');
+          updateStepStatus('summary', 'error');
           toast({
             title: "Erreur de traitement",
             description: "Le traitement OpenAI a échoué, transcript original conservé",
             variant: "destructive",
           });
-          return result.text; // Return original transcript if processing fails
+          return { transcript: result.text, summary: null };
         }
       }
       
-      return result.text || "";
+      return { transcript: result.text || "", summary: null };
     } catch (error) {
       const currentStepId = processingSteps[currentStep]?.id;
       if (currentStepId) {
@@ -250,13 +263,41 @@ const NewMeeting = () => {
     try {
       let audioFileUrl = null;
       let transcript = null;
+      let summary = null;
+
+      // First create the meeting to get an ID
+      updateStepStatus('save', 'processing');
+      setProgress(10);
+
+      const { data: meetingData, error: meetingError } = await supabase
+        .from("meetings")
+        .insert([
+          {
+            title,
+            audio_url: null,
+            created_by: user.id,
+            transcript: null,
+            summary: null
+          },
+        ])
+        .select();
+
+      if (meetingError) throw meetingError;
+      
+      if (!meetingData || meetingData.length === 0) {
+        throw new Error("Échec de la création de la réunion");
+      }
+
+      const meetingId = meetingData[0].id;
 
       if (audioBlob || audioFile) {
         audioFileUrl = await uploadAudioToStorage();
         
         if (audioFileUrl) {
           try {
-            transcript = await processTranscription(audioFileUrl);
+            const result = await processTranscription(audioFileUrl, meetingId);
+            transcript = result.transcript;
+            summary = result.summary;
           } catch (transcriptionError) {
             console.error("Transcription failed:", transcriptionError);
             toast({
@@ -271,26 +312,17 @@ const NewMeeting = () => {
       updateStepStatus('save', 'processing');
       setProgress(95);
 
-      const { data: meetingData, error: meetingError } = await supabase
+      // Update the meeting with the transcript and summary
+      const { error: updateError } = await supabase
         .from("meetings")
-        .insert([
-          {
-            title,
-            audio_url: audioFileUrl,
-            created_by: user.id,
-            transcript,
-            summary: null
-          },
-        ])
-        .select();
+        .update({
+          audio_url: audioFileUrl,
+          transcript,
+          summary
+        })
+        .eq('id', meetingId);
 
-      if (meetingError) throw meetingError;
-      
-      if (!meetingData || meetingData.length === 0) {
-        throw new Error("Échec de la création de la réunion");
-      }
-
-      const meetingId = meetingData[0].id;
+      if (updateError) throw updateError;
 
       if (selectedParticipantIds.length > 0) {
         const participantsToAdd = selectedParticipantIds.map(participantId => ({
@@ -308,11 +340,16 @@ const NewMeeting = () => {
       updateStepStatus('save', 'completed');
       setProgress(100);
 
+      let successMessage = "Votre réunion a été créée avec succès";
+      if (transcript && summary) {
+        successMessage += " avec transcription et résumé";
+      } else if (transcript) {
+        successMessage += " avec transcription";
+      }
+
       toast({
         title: "Réunion créée",
-        description: transcript 
-          ? "Votre réunion a été créée avec succès et la transcription a été générée"
-          : "Votre réunion a été créée avec succès",
+        description: successMessage,
       });
 
       navigate(`/meetings/${meetingId}`);

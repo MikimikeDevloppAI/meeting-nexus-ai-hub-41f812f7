@@ -35,12 +35,18 @@ const chunkText = (text: string, maxChunkSize: number = 3000): string[] => {
 const processChunk = async (chunk: string, participants: any[], chunkIndex: number): Promise<string> => {
   const participantsList = participants.map((p: any) => p.name).join(', ');
   
-  const prompt = `Voici un extrait ${chunkIndex + 1} d'un transcript brut d'un meeting administratif d'un cabinet medical.
+  const prompt = `Voici un extrait ${chunkIndex + 1} d'un transcript brut d'une réunion médicale.
+
 ${chunk}
 
-remplace le speaker 1, speaker 2... par le nom du speaker en le déduisant du transcript. les participants sont ${participantsList}
+INSTRUCTIONS:
+1. Remplace "speaker 1", "speaker 2", etc. par les vrais noms des participants: ${participantsList}
+2. Supprime tous les mots inutiles: hésitations (euh, hmm), répétitions, interruptions non pertinentes
+3. Garde uniquement le contenu médical et administratif important
+4. Corrige les erreurs de transcription évidentes
+5. Structure clairement les interventions: "Dr. X: [contenu]"
 
-Tu dois aussi corriger le transcript si tu vois qu'il y a eu des erreurs dans le transcript et enlever les mots d'hesitation ou inutile. créé un transcript clair, precis et mise en forme. renvoi uniquement le transcript sans contexte et n'oublie pas de mettre pour la premiere phrase le speaker aussi.`;
+Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -49,17 +55,62 @@ Tu dois aussi corriger le transcript si tu vois qu'il y a eu des erreurs dans le
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'user', content: prompt }
       ],
-      temperature: 0.3,
+      temperature: 0.1,
       max_tokens: 4000,
     }),
   });
 
   if (!response.ok) {
     throw new Error(`OpenAI API error for chunk ${chunkIndex + 1}: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
+
+// Function to generate summary
+const generateSummary = async (cleanTranscript: string, participants: any[]): Promise<string> => {
+  const participantsList = participants.map((p: any) => p.name).join(', ');
+  
+  const summaryPrompt = `Voici le transcript nettoyé d'une réunion administrative d'un cabinet médical:
+
+${cleanTranscript}
+
+Participants: ${participantsList}
+
+INSTRUCTIONS:
+Rédige un résumé structuré en français qui:
+
+1. **CONTEXTE**: Résume brièvement l'objet de la réunion
+2. **POINTS CLÉS PAR SUJET**: Organise par thématiques (ex: Organisation, Patients, Équipement, Finances, etc.)
+3. **DÉCISIONS PRISES**: Liste les décisions importantes
+4. **ACTIONS À SUIVRE**: Énumère les tâches et responsabilités assignées
+5. **PROCHAINES ÉTAPES**: Mentionne les échéances et prochaines réunions
+
+Format: utilise des titres clairs et des listes à puces. Reste factuel et concis tout en gardant les informations essentielles.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'user', content: summaryPrompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error for summary: ${await response.text()}`);
   }
 
   const data = await response.json();
@@ -73,13 +124,17 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript, participants } = await req.json();
+    const { transcript, participants, meetingId } = await req.json();
 
     if (!transcript) {
       throw new Error('No transcript provided');
     }
 
-    console.log(`Original transcript length: ${transcript.length} characters`);
+    if (!meetingId) {
+      throw new Error('No meeting ID provided');
+    }
+
+    console.log(`Processing transcript for meeting ${meetingId} - Length: ${transcript.length} characters`);
 
     // Check if transcript is too long for single processing (>8000 characters)
     const maxSingleProcessSize = 8000;
@@ -90,12 +145,18 @@ serve(async (req) => {
       console.log('Processing transcript as single chunk');
       
       const participantsList = participants.map((p: any) => p.name).join(', ');
-      const prompt = `Voici un transcript brut d'un meeting administratif d'un cabinet medical.
+      const prompt = `Voici un transcript brut d'une réunion administrative d'un cabinet médical.
+
 ${transcript}
 
-remplace le speaker 1, speaker 2... par le nom du speaker en le déduisant du transcript. les participants sont ${participantsList}
+INSTRUCTIONS:
+1. Remplace "speaker 1", "speaker 2", etc. par les vrais noms des participants: ${participantsList}
+2. Supprime tous les mots inutiles: hésitations (euh, hmm), répétitions, interruptions non pertinentes
+3. Garde uniquement le contenu médical et administratif important
+4. Corrige les erreurs de transcription évidentes
+5. Structure clairement les interventions: "Dr. X: [contenu]"
 
-Tu dois aussi corriger le transcript si tu vois qu'il y a eu des erreurs dans le transcript et enlever les mots d'hesitation ou inutile. créé un transcript clair, precis et mise en forme. renvoi uniquement le transcript sans contexte et n'oublie pas de mettre pour la premiere phrase le speaker aussi.`;
+Renvoie UNIQUEMENT le transcript nettoyé, sans commentaire.`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -104,11 +165,11 @@ Tu dois aussi corriger le transcript si tu vois qu'il y a eu des erreurs dans le
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'user', content: prompt }
           ],
-          temperature: 0.3,
+          temperature: 0.1,
           max_tokens: 4000,
         }),
       });
@@ -159,7 +220,22 @@ Tu dois aussi corriger le transcript si tu vois qu'il y a eu des erreurs dans le
       processedTranscript = transcript;
     }
 
-    return new Response(JSON.stringify({ processedTranscript }), {
+    // Generate summary
+    console.log('Generating summary...');
+    let summary: string | null = null;
+    
+    try {
+      summary = await generateSummary(processedTranscript, participants);
+      console.log(`Generated summary length: ${summary.length} characters`);
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      // Continue without summary if generation fails
+    }
+
+    return new Response(JSON.stringify({ 
+      processedTranscript, 
+      summary 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
