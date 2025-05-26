@@ -40,6 +40,29 @@ export const useMeetingCreation = () => {
     ));
   };
 
+  const updateMeetingField = async (meetingId: string, field: string, value: any) => {
+    console.log(`Updating meeting ${meetingId} field ${field}:`, value);
+    
+    const { data, error } = await supabase
+      .from("meetings")
+      .update({ [field]: value })
+      .eq('id', meetingId)
+      .select();
+
+    if (error) {
+      console.error(`Error updating ${field}:`, error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      console.error(`No meeting found to update for ID: ${meetingId}`);
+      throw new Error(`Meeting not found for update: ${meetingId}`);
+    }
+
+    console.log(`Successfully updated ${field} for meeting:`, data[0]);
+    return data[0];
+  };
+
   const createMeeting = async (
     title: string,
     audioBlob: Blob | null,
@@ -101,28 +124,10 @@ export const useMeetingCreation = () => {
       meetingId = meetingData.id;
       console.log('Meeting created with ID:', meetingId);
       
-      // Verify meeting exists in database
-      const { data: verifyMeeting, error: verifyError } = await supabase
-        .from("meetings")
-        .select("id, title")
-        .eq('id', meetingId)
-        .single();
-
-      if (verifyError || !verifyMeeting) {
-        console.error('Meeting verification failed:', verifyError);
-        throw new Error("Meeting creation verification failed");
-      }
-
-      console.log('Meeting verified in database:', verifyMeeting);
-      
       updateStepStatus('create', 'completed');
       setProgress(20);
 
-      let audioFileUrl: string | null = null;
-      let transcript: string | null = null;
-      let summary: string | null = null;
-
-      // Step 2: Upload audio if provided
+      // Step 2: Upload and save audio if provided
       if (audioBlob || audioFile) {
         updateStepStatus('upload', 'processing');
         setProgress(25);
@@ -134,30 +139,33 @@ export const useMeetingCreation = () => {
         const fileName = `meetings/${Date.now()}-${fileToUpload.name}`;
         console.log('Uploading audio file:', fileName);
 
+        const { data, error } = await supabase.storage
+          .from("meeting-audio")
+          .upload(fileName, fileToUpload);
+
+        if (error) {
+          console.error('Storage upload error:', error);
+          throw error;
+        }
+        
+        const { data: publicUrlData } = supabase.storage
+          .from("meeting-audio")
+          .getPublicUrl(fileName);
+        
+        const audioFileUrl = publicUrlData.publicUrl;
+        console.log('Audio uploaded to:', audioFileUrl);
+        
+        // Save audio URL immediately
+        await updateMeetingField(meetingId, 'audio_url', audioFileUrl);
+        
+        updateStepStatus('upload', 'completed');
+        setProgress(35);
+
+        // Step 3: Transcribe audio
+        updateStepStatus('transcribe', 'processing');
+        setProgress(40);
+        
         try {
-          const { data, error } = await supabase.storage
-            .from("meeting-audio")
-            .upload(fileName, fileToUpload);
-
-          if (error) {
-            console.error('Storage upload error:', error);
-            throw error;
-          }
-          
-          const { data: publicUrlData } = supabase.storage
-            .from("meeting-audio")
-            .getPublicUrl(fileName);
-          
-          audioFileUrl = publicUrlData.publicUrl;
-          console.log('Audio uploaded to:', audioFileUrl);
-          
-          updateStepStatus('upload', 'completed');
-          setProgress(35);
-
-          // Step 3: Transcribe audio
-          updateStepStatus('transcribe', 'processing');
-          setProgress(40);
-          
           const uploadUrl = await uploadAudioToAssemblyAI(audioFileUrl);
           const participantCount = Math.max(selectedParticipantIds.length, 2);
           const transcriptId = await requestTranscription(uploadUrl, participantCount);
@@ -168,8 +176,10 @@ export const useMeetingCreation = () => {
           setProgress(60);
           
           if (result.text) {
-            console.log(`Original transcript length: ${result.text.length} characters`);
-            transcript = result.text;
+            console.log(`Original transcript length: ${result.text} characters`);
+            
+            // Save original transcript immediately
+            await updateMeetingField(meetingId, 'transcript', result.text);
             
             // Step 4: Process transcript with OpenAI
             updateStepStatus('process', 'processing');
@@ -195,22 +205,29 @@ export const useMeetingCreation = () => {
               }
 
               if (functionResult?.processedTranscript) {
-                transcript = functionResult.processedTranscript;
-                console.log(`Processed transcript length: ${transcript.length} characters`);
+                const processedTranscript = functionResult.processedTranscript;
+                console.log(`Processed transcript length: ${processedTranscript.length} characters`);
+                
+                // Update with processed transcript
+                await updateMeetingField(meetingId, 'transcript', processedTranscript);
                 
                 updateStepStatus('process', 'completed');
                 setProgress(80);
 
                 if (functionResult.summary) {
-                  summary = functionResult.summary;
+                  const summary = functionResult.summary;
                   console.log(`Summary length: ${summary.length} characters`);
+                  
+                  // Save summary immediately
+                  await updateMeetingField(meetingId, 'summary', summary);
+                  
                   updateStepStatus('summary', 'completed');
                 } else {
                   updateStepStatus('summary', 'error');
                 }
                 setProgress(85);
               } else {
-                console.warn('No processed transcript returned, using original');
+                console.warn('No processed transcript returned, keeping original');
                 updateStepStatus('process', 'error');
                 updateStepStatus('summary', 'error');
               }
@@ -233,69 +250,16 @@ export const useMeetingCreation = () => {
           updateStepStatus('summary', 'error');
           toast({
             title: "Erreur de transcription",
-            description: "La transcription a échoué, mais la réunion sera créée sans transcription.",
+            description: "La transcription a échoué, mais la réunion a été créée avec l'audio.",
             variant: "destructive",
           });
         }
       }
 
-      // Step 5: Update meeting with results - ALWAYS UPDATE SOMETHING
+      // Step 5: Add participants
       updateStepStatus('save', 'processing');
       setProgress(90);
 
-      console.log('About to update meeting with:', {
-        meetingId,
-        audioFileUrl,
-        transcriptLength: transcript?.length || 0,
-        summaryLength: summary?.length || 0
-      });
-
-      // Always include at least one field to update
-      const updateData: any = { title }; // Always update title to ensure query has something to update
-      
-      if (audioFileUrl) {
-        updateData.audio_url = audioFileUrl;
-        console.log('Adding audio_url to update:', audioFileUrl);
-      }
-      
-      if (transcript) {
-        updateData.transcript = transcript;
-        console.log('Adding transcript to update, length:', transcript.length);
-      }
-      
-      if (summary) {
-        updateData.summary = summary;
-        console.log('Adding summary to update, length:', summary.length);
-      }
-
-      console.log('Final update data keys:', Object.keys(updateData));
-      console.log('Updating meeting ID:', meetingId);
-
-      const { data: updateResult, error: updateError } = await supabase
-        .from("meetings")
-        .update(updateData)
-        .eq('id', meetingId)
-        .select('id, title, audio_url, transcript, summary');
-
-      if (updateError) {
-        console.error('Meeting update error:', updateError);
-        throw updateError;
-      }
-
-      if (!updateResult || updateResult.length === 0) {
-        console.error('Update returned no results - meeting may not exist');
-        throw new Error('Failed to update meeting - no rows affected');
-      }
-
-      console.log('Meeting update successful:', {
-        id: updateResult[0].id,
-        title: updateResult[0].title,
-        hasAudio: !!updateResult[0].audio_url,
-        hasTranscript: !!updateResult[0].transcript,
-        hasSummary: !!updateResult[0].summary
-      });
-
-      // Step 6: Add participants
       if (selectedParticipantIds.length > 0) {
         console.log('Adding participants:', selectedParticipantIds);
         const participantsToAdd = selectedParticipantIds.map(participantId => ({
@@ -318,16 +282,9 @@ export const useMeetingCreation = () => {
 
       console.log('Meeting creation completed successfully');
 
-      let successMessage = "Votre réunion a été créée avec succès";
-      if (transcript && summary) {
-        successMessage += " avec transcription et résumé";
-      } else if (transcript) {
-        successMessage += " avec transcription";
-      }
-
       toast({
         title: "Réunion créée",
-        description: successMessage,
+        description: "Votre réunion a été créée avec succès",
       });
 
       // Navigate after a small delay
