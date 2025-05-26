@@ -33,44 +33,65 @@ export class MeetingService {
   static async updateMeetingField(meetingId: string, field: string, value: any) {
     console.log(`[UPDATE] Attempting to update meeting ${meetingId} field ${field}:`, value);
     
-    // First, verify the meeting exists
-    const { data: existingMeeting, error: checkError } = await supabase
-      .from("meetings")
-      .select("id, title")
-      .eq('id', meetingId)
-      .single();
+    try {
+      // First, verify the meeting exists and get current state
+      const { data: existingMeeting, error: checkError } = await supabase
+        .from("meetings")
+        .select("*")
+        .eq('id', meetingId)
+        .single();
 
-    if (checkError) {
-      console.error(`[UPDATE] Error checking if meeting exists:`, checkError);
-      throw new Error(`Failed to verify meeting exists: ${checkError.message}`);
+      if (checkError) {
+        console.error(`[UPDATE] Error checking if meeting exists:`, checkError);
+        throw new Error(`Failed to verify meeting exists: ${checkError.message}`);
+      }
+
+      if (!existingMeeting) {
+        console.error(`[UPDATE] Meeting ${meetingId} does not exist in database`);
+        throw new Error(`Meeting not found: ${meetingId}`);
+      }
+
+      console.log(`[UPDATE] Meeting exists:`, existingMeeting);
+
+      // Prepare the update object
+      const updateData = { [field]: value };
+      console.log(`[UPDATE] Update data:`, updateData);
+
+      // Perform the update without requiring select to return data
+      const { error: updateError } = await supabase
+        .from("meetings")
+        .update(updateData)
+        .eq('id', meetingId);
+
+      if (updateError) {
+        console.error(`[UPDATE] Error updating ${field}:`, updateError);
+        throw new Error(`Failed to update ${field}: ${updateError.message}`);
+      }
+
+      // Fetch the updated meeting to confirm the update worked
+      const { data: updatedMeeting, error: fetchError } = await supabase
+        .from("meetings")
+        .select("*")
+        .eq('id', meetingId)
+        .single();
+
+      if (fetchError) {
+        console.error(`[UPDATE] Error fetching updated meeting:`, fetchError);
+        throw new Error(`Update may have failed - cannot fetch updated meeting: ${fetchError.message}`);
+      }
+
+      if (!updatedMeeting) {
+        console.error(`[UPDATE] No meeting found after update for ID ${meetingId}`);
+        throw new Error(`Update failed - meeting not found after update`);
+      }
+
+      console.log(`[UPDATE] Successfully updated ${field} for meeting:`, updatedMeeting);
+      return updatedMeeting;
+
+    } catch (error) {
+      console.error(`[UPDATE] Unexpected error updating meeting ${meetingId}:`, error);
+      throw error;
     }
-
-    if (!existingMeeting) {
-      console.error(`[UPDATE] Meeting ${meetingId} does not exist in database`);
-      throw new Error(`Meeting not found: ${meetingId}`);
-    }
-
-    console.log(`[UPDATE] Meeting exists:`, existingMeeting);
-
-    // Now perform the update
-    const { data, error } = await supabase
-      .from("meetings")
-      .update({ [field]: value })
-      .eq('id', meetingId)
-      .select();
-
-    if (error) {
-      console.error(`[UPDATE] Error updating ${field}:`, error);
-      throw new Error(`Failed to update ${field}: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      console.error(`[UPDATE] Update returned no data for meeting ${meetingId}`);
-      throw new Error(`Update failed - no rows affected`);
-    }
-
-    console.log(`[UPDATE] Successfully updated ${field} for meeting:`, data[0]);
-    return data[0];
   }
 
   static async addParticipants(meetingId: string, participantIds: string[]) {
