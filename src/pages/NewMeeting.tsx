@@ -137,7 +137,8 @@ const NewMeeting = () => {
       setProgress(60);
       
       const uploadUrl = await uploadAudioToAssemblyAI(audioFileUrl);
-      const transcriptId = await requestTranscription(uploadUrl);
+      const participantCount = Math.max(selectedParticipantIds.length, 2); // Minimum 2 speakers
+      const transcriptId = await requestTranscription(uploadUrl, participantCount);
       
       updateStepStatus('transcribe', 'completed');
       updateStepStatus('speakers', 'processing');

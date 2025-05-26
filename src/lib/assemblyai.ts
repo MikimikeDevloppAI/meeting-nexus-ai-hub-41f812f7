@@ -32,7 +32,7 @@ export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string>
   return data.upload_url;
 };
 
-export const requestTranscription = async (uploadUrl: string): Promise<string> => {
+export const requestTranscription = async (uploadUrl: string, participantCount: number = 2): Promise<string> => {
   const response = await fetch(`${ASSEMBLYAI_BASE_URL}/transcript`, {
     method: 'POST',
     headers: {
@@ -42,7 +42,8 @@ export const requestTranscription = async (uploadUrl: string): Promise<string> =
     body: JSON.stringify({
       audio_url: uploadUrl,
       speaker_labels: true,
-      speakers_expected: 2, // Can be adjusted
+      speakers_expected: participantCount,
+      language_code: 'fr',
     }),
   });
 
