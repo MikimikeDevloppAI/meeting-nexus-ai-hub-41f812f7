@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -586,14 +587,6 @@ const NewMeeting = () => {
                 )}
               </div>
             </div>
-
-            {/* Transcription Status */}
-            {isTranscribing && (
-              <div className="flex items-center space-x-2 text-blue-600">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Transcription en cours...</span>
-              </div>
-            )}
           </div>
           
           {/* Submit Button */}
