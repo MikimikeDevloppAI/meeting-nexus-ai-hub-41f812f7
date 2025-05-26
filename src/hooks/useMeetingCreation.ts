@@ -123,7 +123,10 @@ export const useMeetingCreation = () => {
             .from("meeting-audio")
             .upload(fileName, fileToUpload);
 
-          if (error) throw error;
+          if (error) {
+            console.error('Storage upload error:', error);
+            throw error;
+          }
           
           const { data: publicUrlData } = supabase.storage
             .from("meeting-audio")
@@ -220,29 +223,37 @@ export const useMeetingCreation = () => {
         }
       }
 
-      // Step 5: Update meeting with results
+      // Step 5: Update meeting with results - THIS IS THE CRITICAL PART
       updateStepStatus('save', 'processing');
       setProgress(90);
 
-      console.log('Updating meeting with:', {
+      console.log('Updating meeting with data:', {
+        meetingId,
         audio_url: audioFileUrl,
         transcript: transcript ? `${transcript.substring(0, 100)}...` : null,
         summary: summary ? `${summary.substring(0, 100)}...` : null
       });
 
-      const { error: updateError } = await supabase
+      // Force the update even if some values are null
+      const updateData: any = {};
+      if (audioFileUrl !== null) updateData.audio_url = audioFileUrl;
+      if (transcript !== null) updateData.transcript = transcript;
+      if (summary !== null) updateData.summary = summary;
+
+      console.log('Final update data:', updateData);
+
+      const { data: updateResult, error: updateError } = await supabase
         .from("meetings")
-        .update({
-          audio_url: audioFileUrl,
-          transcript,
-          summary
-        })
-        .eq('id', meetingId);
+        .update(updateData)
+        .eq('id', meetingId)
+        .select();
 
       if (updateError) {
         console.error('Meeting update error:', updateError);
         throw updateError;
       }
+
+      console.log('Meeting update result:', updateResult);
 
       // Step 6: Add participants
       if (selectedParticipantIds.length > 0) {
@@ -279,7 +290,11 @@ export const useMeetingCreation = () => {
         description: successMessage,
       });
 
-      navigate(`/meetings/${meetingId}`);
+      // Small delay to ensure UI updates, then navigate
+      setTimeout(() => {
+        navigate(`/meetings/${meetingId}`);
+      }, 500);
+
     } catch (error: any) {
       console.error("Erreur lors de la création de la réunion:", error);
       toast({
@@ -287,8 +302,8 @@ export const useMeetingCreation = () => {
         description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
+    } finally {
       setIsSubmitting(false);
-      setProgress(0);
     }
   };
 
