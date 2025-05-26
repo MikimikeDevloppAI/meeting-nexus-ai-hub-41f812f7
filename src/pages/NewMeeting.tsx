@@ -153,6 +153,8 @@ const NewMeeting = () => {
       setProgress(80);
       
       if (result.text) {
+        console.log(`Original transcript from AssemblyAI: ${result.text.length} characters`);
+        
         // Get selected participants details for OpenAI processing
         const selectedParticipants = participants.filter(p => 
           selectedParticipantIds.includes(p.id)
@@ -160,6 +162,7 @@ const NewMeeting = () => {
 
         // Process transcript with OpenAI
         try {
+          console.log('Sending transcript to OpenAI for processing...');
           const { data: { processedTranscript }, error } = await supabase.functions.invoke('process-transcript', {
             body: {
               transcript: result.text,
@@ -170,7 +173,26 @@ const NewMeeting = () => {
           if (error) {
             console.error('Error processing transcript with OpenAI:', error);
             updateStepStatus('process', 'error');
+            toast({
+              title: "Erreur de traitement",
+              description: "Le traitement OpenAI a échoué, transcript original conservé",
+              variant: "destructive",
+            });
             return result.text; // Return original transcript if processing fails
+          }
+
+          console.log(`Processed transcript from OpenAI: ${processedTranscript?.length || 0} characters`);
+          
+          // Validate processed transcript
+          if (!processedTranscript || processedTranscript.length < result.text.length * 0.3) {
+            console.warn('Processed transcript seems incomplete, using original');
+            updateStepStatus('process', 'error');
+            toast({
+              title: "Traitement incomplet",
+              description: "Le transcript traité semble incomplet, transcript original conservé",
+              variant: "destructive",
+            });
+            return result.text;
           }
 
           updateStepStatus('process', 'completed');
@@ -180,6 +202,11 @@ const NewMeeting = () => {
         } catch (openaiError) {
           console.error('OpenAI processing failed:', openaiError);
           updateStepStatus('process', 'error');
+          toast({
+            title: "Erreur de traitement",
+            description: "Le traitement OpenAI a échoué, transcript original conservé",
+            variant: "destructive",
+          });
           return result.text; // Return original transcript if processing fails
         }
       }

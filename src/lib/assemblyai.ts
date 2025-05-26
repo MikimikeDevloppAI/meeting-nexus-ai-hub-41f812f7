@@ -44,6 +44,8 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
       speaker_labels: true,
       speakers_expected: participantCount,
       language_code: 'fr',
+      punctuate: true,
+      format_text: true,
     }),
   });
 
@@ -66,7 +68,15 @@ export const getTranscriptionResult = async (transcriptId: string): Promise<Tran
     throw new Error(`Failed to get transcription: ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // Log transcript length for debugging
+  if (result.text) {
+    console.log(`AssemblyAI transcript length: ${result.text.length} characters`);
+    console.log(`AssemblyAI transcript word count: ${result.text.split(/\s+/).length} words`);
+  }
+
+  return result;
 };
 
 export const pollForTranscription = async (transcriptId: string): Promise<TranscriptResult> => {
@@ -77,6 +87,12 @@ export const pollForTranscription = async (transcriptId: string): Promise<Transc
     const result = await getTranscriptionResult(transcriptId);
     
     if (result.status === 'completed') {
+      // Ensure we have the complete transcript
+      if (!result.text || result.text.length === 0) {
+        throw new Error('Transcript completed but no text returned');
+      }
+      
+      console.log(`Final transcript received with ${result.text.length} characters`);
       return result;
     }
     
