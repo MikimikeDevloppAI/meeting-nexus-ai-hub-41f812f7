@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Upload, X, Plus, ArrowLeft } from "lucide-react";
+import { Mic, Upload, X, Plus, ArrowLeft, Loader2 } from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 
 interface Participant {
   id: string;
@@ -43,6 +44,7 @@ const NewMeeting = () => {
   const [newParticipantName, setNewParticipantName] = useState("");
   const [newParticipantEmail, setNewParticipantEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -213,32 +215,36 @@ const NewMeeting = () => {
     }
   };
 
-  const sendToWebhook = async (meetingData: {
-    meetingId: string;
-    title: string;
-    audioUrl: string | null;
-    participants: Participant[];
-  }) => {
+  const processTranscription = async (audioFileUrl: string): Promise<string> => {
     try {
-      const webhookUrl = "https://n8n.srv758474.hstgr.cloud/webhook-test/afd97f53-a3c1-42dc-9d9e-a2244700b36c";
+      setIsTranscribing(true);
       
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(meetingData),
-        mode: "no-cors", // This is necessary for cross-origin webhook calls
-      });
+      // Upload audio to AssemblyAI
+      const uploadUrl = await uploadAudioToAssemblyAI(audioFileUrl);
       
-      console.log("Webhook notification sent");
-    } catch (error) {
-      console.error("Error sending to webhook:", error);
+      // Request transcription with speaker detection
+      const transcriptId = await requestTranscription(uploadUrl);
+      
       toast({
-        title: "Avertissement",
-        description: "La réunion a été créée mais l'envoi des données au webhook a échoué",
-        variant: "destructive",
+        title: "Transcription en cours",
+        description: "Veuillez patienter pendant que nous transcrivons l'audio...",
       });
+      
+      // Poll for completion
+      const result = await pollForTranscription(transcriptId);
+      
+      if (result.text && result.utterances) {
+        // Format transcript with speaker labels
+        const formattedTranscript = result.utterances
+          .map(utterance => `${utterance.speaker}: ${utterance.text}`)
+          .join('\n\n');
+        
+        return formattedTranscript;
+      }
+      
+      return result.text || "";
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -265,11 +271,26 @@ const NewMeeting = () => {
 
     try {
       let audioFileUrl = null;
+      let transcript = null;
+
       if (audioBlob || audioFile) {
         audioFileUrl = await uploadAudioToStorage();
+        
+        if (audioFileUrl) {
+          try {
+            transcript = await processTranscription(audioFileUrl);
+          } catch (transcriptionError) {
+            console.error("Transcription failed:", transcriptionError);
+            toast({
+              title: "Erreur de transcription",
+              description: "La transcription a échoué, mais la réunion sera créée sans transcription.",
+              variant: "destructive",
+            });
+          }
+        }
       }
 
-      // Create meeting record (updated schema)
+      // Create meeting record with transcript
       const { data: meetingData, error: meetingError } = await supabase
         .from("meetings")
         .insert([
@@ -277,7 +298,7 @@ const NewMeeting = () => {
             title,
             audio_url: audioFileUrl,
             created_by: user.id,
-            transcript: null,
+            transcript,
             summary: null
           },
         ])
@@ -305,21 +326,11 @@ const NewMeeting = () => {
         if (participantsError) throw participantsError;
       }
 
-      // Send data to webhook
-      const selectedParticipants = participants.filter(
-        participant => selectedParticipantIds.includes(participant.id)
-      );
-      
-      await sendToWebhook({
-        meetingId,
-        title,
-        audioUrl: audioFileUrl,
-        participants: selectedParticipants
-      });
-
       toast({
         title: "Réunion créée",
-        description: "Votre réunion a été créée avec succès",
+        description: transcript 
+          ? "Votre réunion a été créée avec succès et la transcription a été générée"
+          : "Votre réunion a été créée avec succès",
       });
 
       // Navigate to the meeting details page
@@ -495,16 +506,31 @@ const NewMeeting = () => {
                 )}
               </div>
             </div>
+
+            {/* Transcription Status */}
+            {isTranscribing && (
+              <div className="flex items-center space-x-2 text-blue-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Transcription en cours...</span>
+              </div>
+            )}
           </div>
           
           {/* Submit Button */}
           <div className="mt-6">
             <Button
               onClick={createMeeting}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isTranscribing}
               className="w-full"
             >
-              {isSubmitting ? "Création en cours..." : "Soumettre la réunion"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Création en cours...
+                </>
+              ) : (
+                "Soumettre la réunion"
+              )}
             </Button>
           </div>
         </Card>
