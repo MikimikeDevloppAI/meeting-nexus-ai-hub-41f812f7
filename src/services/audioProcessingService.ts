@@ -44,8 +44,8 @@ export class AudioProcessingService {
     }
     
     try {
-      const result = await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
-      console.log('[SAVE_AUDIO] Audio URL saved successfully:', result);
+      await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
+      console.log('[SAVE_AUDIO] Audio URL saved successfully');
     } catch (error) {
       console.error('[SAVE_AUDIO] Failed to save audio URL for meeting:', meetingId, error);
       throw error;
@@ -98,29 +98,27 @@ export class AudioProcessingService {
     }
 
     const result: { processedTranscript?: string; summary?: string } = {};
+    const updates: Record<string, any> = {};
 
     if (functionResult?.processedTranscript) {
       const processedTranscript = functionResult.processedTranscript;
       console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
-      
-      // Update with processed transcript
-      console.log('[PROCESS] Saving processed transcript to database...');
-      await MeetingService.updateMeetingField(meetingId, 'transcript', processedTranscript);
-      console.log('[PROCESS] Processed transcript saved successfully');
-      
+      updates.transcript = processedTranscript;
       result.processedTranscript = processedTranscript;
     }
 
     if (functionResult?.summary) {
       const summary = functionResult.summary;
       console.log('[SUMMARY] Summary received, length:', summary.length);
-      
-      // Save summary immediately
-      console.log('[SUMMARY] Saving summary to database...');
-      await MeetingService.updateMeetingField(meetingId, 'summary', summary);
-      console.log('[SUMMARY] Summary saved successfully');
-      
+      updates.summary = summary;
       result.summary = summary;
+    }
+
+    // Use batch update instead of multiple individual updates
+    if (Object.keys(updates).length > 0) {
+      console.log('[PROCESS] Saving processed data to database...');
+      await MeetingService.batchUpdateMeeting(meetingId, updates);
+      console.log('[PROCESS] Processed data saved successfully');
     }
 
     return result;

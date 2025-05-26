@@ -29,63 +29,51 @@ export class MeetingService {
 
     const meetingId = meetingData.id;
     console.log('[CREATE] Meeting created successfully with ID:', meetingId);
-    
-    // Verify the meeting exists by fetching it
-    const { data: verifyData, error: verifyError } = await supabase
-      .from("meetings")
-      .select('id, title, created_by')
-      .eq('id', meetingId)
-      .single();
-
-    if (verifyError || !verifyData) {
-      console.error('[CREATE] Failed to verify meeting creation:', verifyError);
-      throw new Error("La réunion a été créée mais ne peut pas être vérifiée");
-    }
-
-    console.log('[CREATE] Meeting verified:', verifyData);
     return meetingId;
   }
 
   static async updateMeetingField(meetingId: string, field: string, value: any) {
-    console.log(`[UPDATE] Attempting to update meeting ${meetingId} field ${field}:`, value);
-    
-    // First verify the meeting exists
-    const { data: existingMeeting, error: fetchError } = await supabase
-      .from("meetings")
-      .select('id')
-      .eq('id', meetingId)
-      .single();
-
-    if (fetchError || !existingMeeting) {
-      console.error(`[UPDATE] Meeting ${meetingId} not found:`, fetchError);
-      throw new Error(`Meeting not found: ${meetingId}`);
-    }
-
-    console.log(`[UPDATE] Meeting ${meetingId} exists, proceeding with update`);
+    console.log(`[UPDATE] Updating meeting ${meetingId} field ${field}:`, value);
     
     try {
-      const { data: updatedData, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from("meetings")
         .update({ [field]: value })
-        .eq('id', meetingId)
-        .select('id, ' + field)
-        .single();
+        .eq('id', meetingId);
 
       if (updateError) {
         console.error(`[UPDATE] Error updating ${field}:`, updateError);
         throw new Error(`Failed to update ${field}: ${updateError.message}`);
       }
 
-      if (!updatedData) {
-        console.error(`[UPDATE] No data returned after update for meeting ${meetingId}`);
-        throw new Error(`Update failed - no data returned for meeting ${meetingId}`);
-      }
-
-      console.log(`[UPDATE] Successfully updated ${field} for meeting ${meetingId}:`, updatedData);
-      return updatedData;
+      console.log(`[UPDATE] Successfully updated ${field} for meeting ${meetingId}`);
+      return { success: true };
 
     } catch (error) {
       console.error(`[UPDATE] Unexpected error updating meeting ${meetingId}:`, error);
+      throw error;
+    }
+  }
+
+  static async batchUpdateMeeting(meetingId: string, updates: Record<string, any>) {
+    console.log(`[BATCH_UPDATE] Updating meeting ${meetingId} with:`, updates);
+    
+    try {
+      const { error: updateError } = await supabase
+        .from("meetings")
+        .update(updates)
+        .eq('id', meetingId);
+
+      if (updateError) {
+        console.error(`[BATCH_UPDATE] Error updating meeting:`, updateError);
+        throw new Error(`Failed to update meeting: ${updateError.message}`);
+      }
+
+      console.log(`[BATCH_UPDATE] Successfully updated meeting ${meetingId}`);
+      return { success: true };
+
+    } catch (error) {
+      console.error(`[BATCH_UPDATE] Unexpected error updating meeting ${meetingId}:`, error);
       throw error;
     }
   }
