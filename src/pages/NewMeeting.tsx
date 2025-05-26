@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -8,25 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Upload, X, Plus, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
+import { ProcessingSteps } from "@/components/meeting/ProcessingSteps";
+import { ParticipantsSection } from "@/components/meeting/ParticipantsSection";
+import { AudioRecordingSection } from "@/components/meeting/AudioRecordingSection";
+import { NewParticipantDialog } from "@/components/meeting/NewParticipantDialog";
 
 interface Participant {
   id: string;
@@ -49,11 +36,9 @@ const NewMeeting = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [isNewParticipantDialogOpen, setIsNewParticipantDialogOpen] = useState(false);
-  const [newParticipantName, setNewParticipantName] = useState("");
-  const [newParticipantEmail, setNewParticipantEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // New processing states
+  // Processing states
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
     { id: 'upload', title: 'Téléchargement de l\'audio', status: 'pending' },
     { id: 'transcribe', title: 'Transcription en cours', status: 'pending' },
@@ -62,9 +47,6 @@ const NewMeeting = () => {
   ]);
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -103,65 +85,6 @@ const NewMeeting = () => {
     setCurrentStep(prev => Math.min(prev + 1, processingSteps.length - 1));
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        setAudioBlob(audioBlob);
-        setAudioUrl(URL.createObjectURL(audioBlob));
-        
-        // Stop all tracks on the stream
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      toast({
-        title: "Recording Error",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setAudioFile(file);
-      setAudioUrl(URL.createObjectURL(file));
-      setAudioBlob(null); // Clear recorded audio if file is uploaded
-    }
-  };
-
-  const removeAudio = () => {
-    setAudioBlob(null);
-    setAudioFile(null);
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl(null);
-    }
-  };
-
   const toggleParticipantSelection = (id: string) => {
     setSelectedParticipantIds(prev =>
       prev.includes(id)
@@ -170,48 +93,9 @@ const NewMeeting = () => {
     );
   };
 
-  const openNewParticipantDialog = () => {
-    setIsNewParticipantDialogOpen(true);
-    setNewParticipantName("");
-    setNewParticipantEmail("");
-  };
-
-  const addNewParticipant = async () => {
-    if (!newParticipantName || !newParticipantEmail || !user) return;
-
-    try {
-      // Insert new participant
-      const { data, error } = await supabase
-        .from("participants")
-        .insert([
-          {
-            name: newParticipantName,
-            email: newParticipantEmail,
-            created_by: user.id,
-          },
-        ])
-        .select();
-
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setParticipants(prev => [...prev, data[0] as Participant]);
-        setSelectedParticipantIds(prev => [...prev, data[0].id]);
-        toast({
-          title: "Participant added",
-          description: `${newParticipantName} has been added as a participant.`,
-        });
-      }
-
-      setIsNewParticipantDialogOpen(false);
-    } catch (error: any) {
-      console.error("Error adding participant:", error);
-      toast({
-        title: "Error adding participant",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-    }
+  const handleParticipantAdded = (newParticipant: Participant) => {
+    setParticipants(prev => [...prev, newParticipant]);
+    setSelectedParticipantIds(prev => [...prev, newParticipant.id]);
   };
 
   const uploadAudioToStorage = async (): Promise<string | null> => {
@@ -410,43 +294,13 @@ const NewMeeting = () => {
       <div>
         <Card className="p-6 mb-6">
           <div className="space-y-6">
-            {/* Processing Steps - Show when submitting */}
-            {isSubmitting && (
-              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border">
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                  <h3 className="font-medium text-blue-900">Traitement en cours...</h3>
-                </div>
-                
-                <Progress value={progress} className="w-full" />
-                
-                <div className="space-y-2">
-                  {processingSteps.map((step, index) => (
-                    <div key={step.id} className="flex items-center space-x-3">
-                      {step.status === 'completed' ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : step.status === 'processing' ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                      ) : step.status === 'error' ? (
-                        <X className="h-4 w-4 text-red-600" />
-                      ) : (
-                        <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
-                      )}
-                      <span className={`text-sm ${
-                        step.status === 'completed' ? 'text-green-700' :
-                        step.status === 'processing' ? 'text-blue-700' :
-                        step.status === 'error' ? 'text-red-700' :
-                        'text-gray-500'
-                      }`}>
-                        {step.title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <ProcessingSteps 
+              isSubmitting={isSubmitting}
+              processingSteps={processingSteps}
+              progress={progress}
+            />
 
-            {/* Meeting Title - First */}
+            {/* Meeting Title */}
             <div className="space-y-4">
               <Label htmlFor="title">Titre de la réunion</Label>
               <Input
@@ -457,136 +311,23 @@ const NewMeeting = () => {
               />
             </div>
 
-            {/* Participants Section - Second */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Participants</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openNewParticipantDialog}
-                  className="text-xs"
-                >
-                  <Plus className="h-3 w-3 mr-1" /> Ajouter
-                </Button>
-              </div>
+            <ParticipantsSection
+              participants={participants}
+              selectedParticipantIds={selectedParticipantIds}
+              onToggleParticipant={toggleParticipantSelection}
+              onOpenNewParticipantDialog={() => setIsNewParticipantDialogOpen(true)}
+            />
 
-              {participants.length > 0 ? (
-                <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center p-3"
-                    >
-                      <Checkbox
-                        id={`participant-${participant.id}`}
-                        checked={selectedParticipantIds.includes(participant.id)}
-                        onCheckedChange={() =>
-                          toggleParticipantSelection(participant.id)
-                        }
-                      />
-                      <label
-                        htmlFor={`participant-${participant.id}`}
-                        className="ml-3 flex flex-col cursor-pointer flex-1"
-                      >
-                        <span className="text-sm font-medium">
-                          {participant.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {participant.email}
-                        </span>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p>Aucun participant disponible</p>
-                  <Button
-                    variant="link"
-                    onClick={openNewParticipantDialog}
-                    className="mt-2"
-                  >
-                    Ajouter votre premier participant
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Audio Recording Section - Third */}
-            <div className="space-y-4">
-              <Label>Enregistrement audio ou fichier</Label>
-              <div className="mt-2 space-y-4">
-                {audioUrl ? (
-                  <div className="rounded-md border p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <FileAudio className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium">
-                            {audioFile ? audioFile.name : "Enregistrement"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {audioFile
-                              ? `${(audioFile.size / 1024 / 1024).toFixed(2)} MB`
-                              : "Enregistrement audio"}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={removeAudio}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="mt-3">
-                      <audio controls src={audioUrl} className="w-full" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button
-                      variant="outline"
-                      className="h-24"
-                      onClick={isRecording ? stopRecording : startRecording}
-                    >
-                      {isRecording ? (
-                        <>
-                          <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
-                          Arrêter l'enregistrement
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="mr-2 h-5 w-5" />
-                          Commencer l'enregistrement
-                        </>
-                      )}
-                    </Button>
-                    <div className="relative h-24">
-                      <Button
-                        variant="outline"
-                        className="h-full w-full flex flex-col"
-                        onClick={() => document.getElementById("audio-upload")?.click()}
-                      >
-                        <Upload className="h-5 w-5 mb-1" />
-                        Télécharger l'audio
-                      </Button>
-                      <input
-                        id="audio-upload"
-                        type="file"
-                        accept="audio/*"
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <AudioRecordingSection
+              audioBlob={audioBlob}
+              audioFile={audioFile}
+              audioUrl={audioUrl}
+              isRecording={isRecording}
+              onAudioBlobChange={setAudioBlob}
+              onAudioFileChange={setAudioFile}
+              onAudioUrlChange={setAudioUrl}
+              onRecordingChange={setIsRecording}
+            />
           </div>
           
           {/* Submit Button */}
@@ -609,72 +350,13 @@ const NewMeeting = () => {
         </Card>
       </div>
 
-      <Dialog
-        open={isNewParticipantDialogOpen}
-        onOpenChange={setIsNewParticipantDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter un nouveau participant</DialogTitle>
-            <DialogDescription>
-              Entrez les informations du nouveau participant.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nom</Label>
-              <Input
-                id="name"
-                placeholder="Nom du participant"
-                value={newParticipantName}
-                onChange={(e) => setNewParticipantName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Email du participant"
-                value={newParticipantEmail}
-                onChange={(e) => setNewParticipantEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsNewParticipantDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button onClick={addNewParticipant}>Ajouter le participant</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewParticipantDialog
+        isOpen={isNewParticipantDialogOpen}
+        onClose={() => setIsNewParticipantDialogOpen(false)}
+        onParticipantAdded={handleParticipantAdded}
+      />
     </div>
   );
 };
-
-const FileAudio = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M17.5 22h.5c.5 0 1-.2 1.4-.6.4-.4.6-.9.6-1.4V7.5L14.5 2H6c-.5 0-1 .2-1.4.6C4.2 3 4 3.5 4 4v3" />
-    <path d="M14 2v6h6" />
-    <path d="M10 20v-1a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0Z" />
-    <path d="M6 20v-1a2 2 0 1 0-4 0v1a2 2 0 1 0 4 0Z" />
-    <path d="M2 19v-3a6 6 0 0 1 12 0v3" />
-  </svg>
-);
 
 export default NewMeeting;
