@@ -1,5 +1,5 @@
 
-const ASSEMBLYAI_API_KEY = "YOUR_API_KEY_HERE"; // You'll need to set this
+const ASSEMBLYAI_API_KEY = "7501ed0e8e0a4fc9acb21a7df6a6b31c";
 const ASSEMBLYAI_BASE_URL = "https://api.assemblyai.com/v2";
 
 export interface TranscriptResult {

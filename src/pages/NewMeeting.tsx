@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Upload, X, Plus, ArrowLeft, Loader2 } from "lucide-react";
+import { Mic, Upload, X, Plus, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { 
   Select,
   SelectContent,
@@ -32,6 +33,12 @@ interface Participant {
   email: string;
 }
 
+interface ProcessingStep {
+  id: string;
+  title: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+}
+
 const NewMeeting = () => {
   const [title, setTitle] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -44,7 +51,16 @@ const NewMeeting = () => {
   const [newParticipantName, setNewParticipantName] = useState("");
   const [newParticipantEmail, setNewParticipantEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  
+  // New processing states
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
+    { id: 'upload', title: 'Téléchargement de l\'audio', status: 'pending' },
+    { id: 'transcribe', title: 'Transcription en cours', status: 'pending' },
+    { id: 'speakers', title: 'Détection des intervenants', status: 'pending' },
+    { id: 'save', title: 'Sauvegarde de la réunion', status: 'pending' }
+  ]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [progress, setProgress] = useState(0);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -75,6 +91,16 @@ const NewMeeting = () => {
 
     fetchParticipants();
   }, [toast]);
+
+  const updateStepStatus = (stepId: string, status: ProcessingStep['status']) => {
+    setProcessingSteps(prev => prev.map(step => 
+      step.id === stepId ? { ...step, status } : step
+    ));
+  };
+
+  const nextStep = () => {
+    setCurrentStep(prev => Math.min(prev + 1, processingSteps.length - 1));
+  };
 
   const startRecording = async () => {
     try {
@@ -190,6 +216,9 @@ const NewMeeting = () => {
   const uploadAudioToStorage = async (): Promise<string | null> => {
     if (!audioBlob && !audioFile) return null;
 
+    updateStepStatus('upload', 'processing');
+    setProgress(25);
+
     const fileToUpload = audioFile || new File([audioBlob!], "recording.webm", { 
       type: audioBlob?.type || "audio/webm" 
     });
@@ -203,38 +232,40 @@ const NewMeeting = () => {
 
       if (error) throw error;
       
-      // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from("meeting-audio")
         .getPublicUrl(fileName);
       
+      updateStepStatus('upload', 'completed');
+      nextStep();
+      setProgress(50);
       return publicUrlData.publicUrl;
     } catch (error) {
-      console.error("Error uploading audio:", error);
+      updateStepStatus('upload', 'error');
       throw error;
     }
   };
 
   const processTranscription = async (audioFileUrl: string): Promise<string> => {
     try {
-      setIsTranscribing(true);
+      updateStepStatus('transcribe', 'processing');
+      setProgress(60);
       
-      // Upload audio to AssemblyAI
       const uploadUrl = await uploadAudioToAssemblyAI(audioFileUrl);
-      
-      // Request transcription with speaker detection
       const transcriptId = await requestTranscription(uploadUrl);
       
-      toast({
-        title: "Transcription en cours",
-        description: "Veuillez patienter pendant que nous transcrivons l'audio...",
-      });
+      updateStepStatus('transcribe', 'completed');
+      updateStepStatus('speakers', 'processing');
+      nextStep();
+      setProgress(75);
       
-      // Poll for completion
       const result = await pollForTranscription(transcriptId);
       
+      updateStepStatus('speakers', 'completed');
+      nextStep();
+      setProgress(90);
+      
       if (result.text && result.utterances) {
-        // Format transcript with speaker labels
         const formattedTranscript = result.utterances
           .map(utterance => `${utterance.speaker}: ${utterance.text}`)
           .join('\n\n');
@@ -243,8 +274,12 @@ const NewMeeting = () => {
       }
       
       return result.text || "";
-    } finally {
-      setIsTranscribing(false);
+    } catch (error) {
+      const currentStepId = processingSteps[currentStep]?.id;
+      if (currentStepId) {
+        updateStepStatus(currentStepId, 'error');
+      }
+      throw error;
     }
   };
 
@@ -268,6 +303,11 @@ const NewMeeting = () => {
     }
 
     setIsSubmitting(true);
+    setProgress(0);
+    setCurrentStep(0);
+    
+    // Reset all steps to pending
+    setProcessingSteps(prev => prev.map(step => ({ ...step, status: 'pending' })));
 
     try {
       let audioFileUrl = null;
@@ -290,7 +330,9 @@ const NewMeeting = () => {
         }
       }
 
-      // Create meeting record with transcript
+      updateStepStatus('save', 'processing');
+      setProgress(95);
+
       const { data: meetingData, error: meetingError } = await supabase
         .from("meetings")
         .insert([
@@ -312,7 +354,6 @@ const NewMeeting = () => {
 
       const meetingId = meetingData[0].id;
 
-      // Add participants
       if (selectedParticipantIds.length > 0) {
         const participantsToAdd = selectedParticipantIds.map(participantId => ({
           meeting_id: meetingId,
@@ -326,6 +367,9 @@ const NewMeeting = () => {
         if (participantsError) throw participantsError;
       }
 
+      updateStepStatus('save', 'completed');
+      setProgress(100);
+
       toast({
         title: "Réunion créée",
         description: transcript 
@@ -333,7 +377,6 @@ const NewMeeting = () => {
           : "Votre réunion a été créée avec succès",
       });
 
-      // Navigate to the meeting details page
       navigate(`/meetings/${meetingId}`);
     } catch (error: any) {
       console.error("Erreur lors de la création de la réunion:", error);
@@ -343,6 +386,7 @@ const NewMeeting = () => {
         variant: "destructive",
       });
       setIsSubmitting(false);
+      setProgress(0);
     }
   };
 
@@ -365,6 +409,42 @@ const NewMeeting = () => {
       <div>
         <Card className="p-6 mb-6">
           <div className="space-y-6">
+            {/* Processing Steps - Show when submitting */}
+            {isSubmitting && (
+              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border">
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                  <h3 className="font-medium text-blue-900">Traitement en cours...</h3>
+                </div>
+                
+                <Progress value={progress} className="w-full" />
+                
+                <div className="space-y-2">
+                  {processingSteps.map((step, index) => (
+                    <div key={step.id} className="flex items-center space-x-3">
+                      {step.status === 'completed' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : step.status === 'processing' ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      ) : step.status === 'error' ? (
+                        <X className="h-4 w-4 text-red-600" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                      )}
+                      <span className={`text-sm ${
+                        step.status === 'completed' ? 'text-green-700' :
+                        step.status === 'processing' ? 'text-blue-700' :
+                        step.status === 'error' ? 'text-red-700' :
+                        'text-gray-500'
+                      }`}>
+                        {step.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Meeting Title - First */}
             <div className="space-y-4">
               <Label htmlFor="title">Titre de la réunion</Label>
@@ -520,13 +600,13 @@ const NewMeeting = () => {
           <div className="mt-6">
             <Button
               onClick={createMeeting}
-              disabled={isSubmitting || isTranscribing}
+              disabled={isSubmitting}
               className="w-full"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Création en cours...
+                  Traitement en cours...
                 </>
               ) : (
                 "Soumettre la réunion"
