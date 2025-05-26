@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +42,7 @@ const NewMeeting = () => {
     { id: 'upload', title: 'Téléchargement de l\'audio', status: 'pending' },
     { id: 'transcribe', title: 'Transcription en cours', status: 'pending' },
     { id: 'speakers', title: 'Détection des intervenants', status: 'pending' },
+    { id: 'process', title: 'Traitement du transcript', status: 'pending' },
     { id: 'save', title: 'Sauvegarde de la réunion', status: 'pending' }
   ]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -134,7 +134,7 @@ const NewMeeting = () => {
   const processTranscription = async (audioFileUrl: string): Promise<string> => {
     try {
       updateStepStatus('transcribe', 'processing');
-      setProgress(60);
+      setProgress(50);
       
       const uploadUrl = await uploadAudioToAssemblyAI(audioFileUrl);
       const participantCount = Math.max(selectedParticipantIds.length, 2); // Minimum 2 speakers
@@ -143,20 +143,45 @@ const NewMeeting = () => {
       updateStepStatus('transcribe', 'completed');
       updateStepStatus('speakers', 'processing');
       nextStep();
-      setProgress(75);
+      setProgress(65);
       
       const result = await pollForTranscription(transcriptId);
       
       updateStepStatus('speakers', 'completed');
+      updateStepStatus('process', 'processing');
       nextStep();
-      setProgress(90);
+      setProgress(80);
       
-      if (result.text && result.utterances) {
-        const formattedTranscript = result.utterances
-          .map(utterance => `${utterance.speaker}: ${utterance.text}`)
-          .join('\n\n');
-        
-        return formattedTranscript;
+      if (result.text) {
+        // Get selected participants details for OpenAI processing
+        const selectedParticipants = participants.filter(p => 
+          selectedParticipantIds.includes(p.id)
+        );
+
+        // Process transcript with OpenAI
+        try {
+          const { data: { processedTranscript }, error } = await supabase.functions.invoke('process-transcript', {
+            body: {
+              transcript: result.text,
+              participants: selectedParticipants
+            }
+          });
+
+          if (error) {
+            console.error('Error processing transcript with OpenAI:', error);
+            updateStepStatus('process', 'error');
+            return result.text; // Return original transcript if processing fails
+          }
+
+          updateStepStatus('process', 'completed');
+          nextStep();
+          setProgress(90);
+          return processedTranscript || result.text;
+        } catch (openaiError) {
+          console.error('OpenAI processing failed:', openaiError);
+          updateStepStatus('process', 'error');
+          return result.text; // Return original transcript if processing fails
+        }
       }
       
       return result.text || "";
