@@ -4,6 +4,44 @@ import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } f
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
 
+// Helper function to chunk text for embeddings
+const chunkText = (text: string, maxChunkSize: number = 1000): string[] => {
+  const sentences = text.split(/[.!?]+/);
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += sentence + '.';
+    }
+  }
+  
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks.filter(chunk => chunk.length > 0);
+};
+
+// Function to generate embeddings using OpenAI
+const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
+  console.log('[EMBEDDINGS] Generating embeddings for', texts.length, 'chunks');
+  
+  const { data: functionResult, error: functionError } = await supabase.functions.invoke('generate-embeddings', {
+    body: { texts }
+  });
+
+  if (functionError) {
+    console.error('[EMBEDDINGS] Error generating embeddings:', functionError);
+    throw functionError;
+  }
+
+  return functionResult.embeddings;
+};
+
 export class AudioProcessingService {
   static async uploadAudio(audioBlob: Blob | null, audioFile: File | null): Promise<string> {
     const fileToUpload = audioFile || new File([audioBlob!], "recording.webm", { 
@@ -105,6 +143,14 @@ export class AudioProcessingService {
       console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
       updates.transcript = processedTranscript;
       result.processedTranscript = processedTranscript;
+
+      // Store in vector database
+      try {
+        await this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants);
+      } catch (embeddingError) {
+        console.error('[EMBEDDINGS] Failed to store in vector DB:', embeddingError);
+        // Continue without failing the whole process
+      }
     }
 
     if (functionResult?.summary) {
@@ -122,5 +168,54 @@ export class AudioProcessingService {
     }
 
     return result;
+  }
+
+  static async storeTranscriptInVectorDB(
+    transcript: string,
+    meetingId: string,
+    participants: Participant[]
+  ): Promise<void> {
+    console.log('[VECTOR_DB] Storing transcript in vector database...');
+    
+    try {
+      // Chunk the transcript
+      const chunks = chunkText(transcript, 1000);
+      console.log('[VECTOR_DB] Created', chunks.length, 'chunks from transcript');
+
+      // Generate embeddings for all chunks
+      const embeddings = await generateEmbeddings(chunks);
+      console.log('[VECTOR_DB] Generated embeddings for', embeddings.length, 'chunks');
+
+      // Store in vector database using the helper function
+      const { storeDocumentWithEmbeddings } = await import("@/integrations/supabase/client");
+      
+      const participantNames = participants.map(p => p.name).join(', ');
+      const metadata = {
+        meeting_id: meetingId,
+        participants: participantNames,
+        chunk_count: chunks.length
+      };
+
+      const documentId = await storeDocumentWithEmbeddings(
+        `Meeting Transcript - ${meetingId}`,
+        'meeting_transcript',
+        transcript,
+        chunks,
+        embeddings,
+        metadata,
+        undefined, // createdBy will be handled by RLS
+        meetingId
+      );
+
+      if (documentId) {
+        console.log('[VECTOR_DB] Successfully stored transcript with document ID:', documentId);
+      } else {
+        throw new Error('Failed to store document - no ID returned');
+      }
+
+    } catch (error) {
+      console.error('[VECTOR_DB] Error storing transcript in vector database:', error);
+      throw error;
+    }
   }
 }

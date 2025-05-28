@@ -42,10 +42,11 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
     body: JSON.stringify({
       audio_url: uploadUrl,
       speaker_labels: true,
-      speakers_expected: participantCount,
+      speakers_expected: Math.max(participantCount, 2),
       language_code: 'fr',
       punctuate: true,
       format_text: true,
+      diarization: true,
     }),
   });
 
@@ -70,10 +71,25 @@ export const getTranscriptionResult = async (transcriptId: string): Promise<Tran
 
   const result = await response.json();
   
-  // Log transcript length for debugging
+  // Log transcript details for debugging
   if (result.text) {
     console.log(`AssemblyAI transcript length: ${result.text.length} characters`);
     console.log(`AssemblyAI transcript word count: ${result.text.split(/\s+/).length} words`);
+  }
+
+  // Check if we have utterances (speaker diarization)
+  if (result.utterances && result.utterances.length > 0) {
+    console.log(`AssemblyAI found ${result.utterances.length} speaker utterances`);
+    
+    // Format transcript with speaker labels
+    const formattedTranscript = result.utterances
+      .map((utterance: any) => `Speaker ${utterance.speaker}: ${utterance.text}`)
+      .join('\n\n');
+    
+    result.text = formattedTranscript;
+    console.log('Formatted transcript with speaker labels');
+  } else {
+    console.warn('No speaker utterances found, using plain transcript');
   }
 
   return result;
