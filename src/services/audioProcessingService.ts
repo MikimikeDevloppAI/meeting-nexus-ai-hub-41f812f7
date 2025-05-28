@@ -135,12 +135,12 @@ export class AudioProcessingService {
         throw new Error("La transcription a été complétée mais aucun texte n'a été reçu");
       }
 
-      console.log('[TRANSCRIBE] Transcript received, length:', result.text.length);
+      console.log('[TRANSCRIBE] Raw transcript received, length:', result.text.length);
       
-      // Save original transcript immediately
-      console.log('[TRANSCRIBE] Saving original transcript to database...');
+      // Save original transcript with a different field temporarily
+      console.log('[TRANSCRIBE] Saving raw transcript as backup...');
       await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
-      console.log('[TRANSCRIBE] Original transcript saved successfully');
+      console.log('[TRANSCRIBE] Raw transcript saved successfully');
       
       return result.text;
     } catch (error: any) {
@@ -158,12 +158,12 @@ export class AudioProcessingService {
     
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-transcript`,
+        `https://ecziljpkvshvapjsxaty.functions.supabase.co/functions/v1/process-transcript`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
           },
           body: JSON.stringify({
             transcript,
@@ -181,10 +181,13 @@ export class AudioProcessingService {
       const result = await response.json();
       console.log('[OPENAI] Processing completed successfully');
 
-      // Save processed transcript if available
-      if (result.processedTranscript) {
-        console.log('[SAVE] Saving processed transcript...');
+      // CRITICAL: Save processed transcript if available
+      if (result.processedTranscript && result.processedTranscript.length > 0) {
+        console.log('[SAVE] Saving processed transcript to replace raw version...');
         await this.saveProcessedTranscript(meetingId, result.processedTranscript);
+        console.log('[SAVE] Processed transcript saved successfully, length:', result.processedTranscript.length);
+      } else {
+        console.warn('[SAVE] No processed transcript returned, keeping raw version');
       }
 
       // Save summary if available
@@ -218,9 +221,14 @@ export class AudioProcessingService {
   }
 
   private static async saveProcessedTranscript(meetingId: string, transcript: string) {
-    console.log('[SAVE] Saving processed transcript...');
-    await MeetingService.updateMeetingField(meetingId, 'transcript', transcript);
-    console.log('[SAVE] Processed transcript saved successfully');
+    console.log('[SAVE] Updating meeting transcript with processed version...');
+    try {
+      await MeetingService.updateMeetingField(meetingId, 'transcript', transcript);
+      console.log('[SAVE] Processed transcript saved successfully');
+    } catch (error) {
+      console.error('[SAVE] Failed to save processed transcript:', error);
+      throw error;
+    }
   }
 
   private static async saveSummary(meetingId: string, summary: string) {

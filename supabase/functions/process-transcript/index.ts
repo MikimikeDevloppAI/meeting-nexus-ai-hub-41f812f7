@@ -323,11 +323,18 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${await response.text()}`);
+        const errorText = await response.text();
+        console.error('OpenAI API error:', errorText);
+        throw new Error(`OpenAI API error: ${errorText}`);
       }
 
       const data = await response.json();
       processedTranscript = data.choices[0].message.content;
+      
+      if (!processedTranscript || processedTranscript.length === 0) {
+        console.warn('OpenAI returned empty processed transcript, using original');
+        processedTranscript = transcript;
+      }
     } else {
       // Process in chunks
       console.log('Processing transcript in chunks due to length');
@@ -354,6 +361,7 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
     }
 
     console.log(`Processed transcript length: ${processedTranscript.length} characters`);
+    console.log('First 200 chars of processed transcript:', processedTranscript.substring(0, 200));
 
     // Run summary, tasks extraction, and embeddings generation in parallel
     console.log('Starting parallel processing of summary, tasks, and embeddings...');
@@ -396,7 +404,7 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
       console.error('Error generating embeddings:', embeddingsResult.reason);
     }
 
-    return new Response(JSON.stringify({ 
+    const finalResult = { 
       processedTranscript, 
       summary,
       tasks,
@@ -404,7 +412,16 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
         chunks: embeddingChunks,
         embeddings: embeddings
       } : null
-    }), {
+    };
+
+    console.log('Final result summary:', {
+      processedTranscriptLength: finalResult.processedTranscript?.length || 0,
+      summaryLength: finalResult.summary?.length || 0,
+      tasksCount: finalResult.tasks?.length || 0,
+      embeddingsCount: finalResult.embeddings?.embeddings?.length || 0
+    });
+
+    return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
