@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -9,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, Plus, Trash2, Edit, Save, X } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Edit, Save, X, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { TodoComments } from "@/components/TodoComments";
 
 interface Participant {
   id: string;
@@ -31,10 +31,10 @@ interface Todo {
   meeting_id: string | null;
   assigned_to: string | null;
   created_at: string;
-  meeting?: {
+  meetings?: {
     title: string;
   };
-  participant?: {
+  participants?: {
     name: string;
   };
 }
@@ -45,12 +45,13 @@ const Todos = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newTodoDescription, setNewTodoDescription] = useState("");
-  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
-  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<string>("");
+  const [selectedParticipant, setSelectedParticipant] = useState<string>("");
   const [activeTab, setActiveTab] = useState("all");
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -123,16 +124,16 @@ const Todos = () => {
     if (!newTodoDescription.trim()) return;
 
     try {
+      const todoData = {
+        description: newTodoDescription,
+        status: "pending",
+        meeting_id: selectedMeeting || null,
+        assigned_to: selectedParticipant || null,
+      };
+
       const { data, error } = await supabase
         .from("todos")
-        .insert([
-          {
-            description: newTodoDescription,
-            meeting_id: selectedMeeting,
-            assigned_to: selectedParticipant,
-            status: "pending",
-          },
-        ])
+        .insert([todoData])
         .select(`
           id, 
           description, 
@@ -142,15 +143,16 @@ const Todos = () => {
           created_at,
           meetings:meeting_id (title),
           participants:assigned_to (name)
-        `);
+        `)
+        .single();
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setTodos([data[0], ...todos]);
+      if (data) {
+        setTodos([data, ...todos]);
         setNewTodoDescription("");
-        setSelectedMeeting(null);
-        setSelectedParticipant(null);
+        setSelectedMeeting("");
+        setSelectedParticipant("");
         setDialogOpen(false);
         
         toast({
@@ -304,7 +306,7 @@ const Todos = () => {
               </div>
               <div>
                 <Label htmlFor="meeting">Réunion (optionnel)</Label>
-                <Select value={selectedMeeting || ""} onValueChange={setSelectedMeeting}>
+                <Select value={selectedMeeting} onValueChange={setSelectedMeeting}>
                   <SelectTrigger id="meeting" className="mt-1">
                     <SelectValue placeholder="Sélectionner une réunion" />
                   </SelectTrigger>
@@ -320,7 +322,7 @@ const Todos = () => {
               </div>
               <div>
                 <Label htmlFor="assignee">Assignée à (optionnel)</Label>
-                <Select value={selectedParticipant || ""} onValueChange={setSelectedParticipant}>
+                <Select value={selectedParticipant} onValueChange={setSelectedParticipant}>
                   <SelectTrigger id="assignee" className="mt-1">
                     <SelectValue placeholder="Assignée à" />
                   </SelectTrigger>
@@ -429,20 +431,27 @@ const Todos = () => {
                               {todo.description}
                             </p>
                             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {todo.participant && (
+                              {todo.participants && (
                                 <Badge variant="outline">
-                                  Assignée à: {todo.participant.name}
+                                  Assignée à: {todo.participants.name}
                                 </Badge>
                               )}
-                              {todo.meeting && (
+                              {todo.meetings && (
                                 <Badge variant="outline">
-                                  Réunion: {todo.meeting.title}
+                                  Réunion: {todo.meetings.title}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2 self-end sm:self-center mt-2 sm:mt-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setCommentsOpen(todo.id)}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
                           <Button
                             size="icon"
                             variant="ghost"
@@ -486,6 +495,12 @@ const Todos = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      <TodoComments
+        todoId={commentsOpen || ""}
+        isOpen={!!commentsOpen}
+        onClose={() => setCommentsOpen(null)}
+      />
     </div>
   );
 };

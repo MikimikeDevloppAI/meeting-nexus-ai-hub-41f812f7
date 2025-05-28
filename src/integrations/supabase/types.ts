@@ -177,32 +177,67 @@ export type Database = {
         }
         Relationships: []
       }
+      todo_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          todo_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          todo_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          todo_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_comments_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todos: {
         Row: {
-          assigned_to: string
+          assigned_to: string | null
           created_at: string
           description: string
           due_date: string | null
           id: string
-          meeting_id: string
+          meeting_id: string | null
           status: string
         }
         Insert: {
-          assigned_to: string
+          assigned_to?: string | null
           created_at?: string
           description: string
           due_date?: string | null
           id?: string
-          meeting_id: string
+          meeting_id?: string | null
           status?: string
         }
         Update: {
-          assigned_to?: string
+          assigned_to?: string | null
           created_at?: string
           description?: string
           due_date?: string | null
           id?: string
-          meeting_id?: string
+          meeting_id?: string | null
           status?: string
         }
         Relationships: [
