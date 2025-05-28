@@ -31,7 +31,6 @@ export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string>
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ASSEMBLYAI_API_KEY}`,
-        'Content-Type': 'application/octet-stream',
       },
       body: audioBlob,
     });
@@ -59,12 +58,10 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
       audio_url: uploadUrl,
       speaker_labels: true,
       speakers_expected: Math.max(participantCount, 2),
-      language_code: 'auto', // Auto-detect language instead of forcing French
+      language_detection: true,
       punctuate: true,
       format_text: true,
-      diarization: true,
-      // Additional settings for better speaker detection
-      speech_model: 'best',
+      speech_model: 'nano',
       dual_channel: false,
     };
 
@@ -111,29 +108,31 @@ export const getTranscriptionResult = async (transcriptId: string): Promise<Tran
     const result = await response.json();
     console.log('[ASSEMBLYAI] Transcription status:', result.status);
     
-    // Log transcript details for debugging
-    if (result.text) {
-      console.log(`[ASSEMBLYAI] Transcript length: ${result.text.length} characters`);
-      console.log(`[ASSEMBLYAI] Transcript word count: ${result.text.split(/\s+/).length} words`);
-    }
-
-    // Check if we have utterances (speaker diarization)
-    if (result.utterances && result.utterances.length > 0) {
-      console.log(`[ASSEMBLYAI] Found ${result.utterances.length} speaker utterances`);
-      
-      // Format transcript with speaker labels
-      const formattedTranscript = result.utterances
-        .map((utterance: any) => `Speaker ${utterance.speaker}: ${utterance.text}`)
-        .join('\n\n');
-      
-      result.text = formattedTranscript;
-      console.log('[ASSEMBLYAI] Formatted transcript with speaker labels');
-    } else {
-      console.warn('[ASSEMBLYAI] No speaker utterances found, using plain transcript');
+    if (result.status === 'completed') {
+      // Log transcript details for debugging
       if (result.text) {
-        // If no speaker diarization but we have text, format it as a single speaker
-        result.text = `Speaker A: ${result.text}`;
-        console.log('[ASSEMBLYAI] Formatted as single speaker transcript');
+        console.log(`[ASSEMBLYAI] Transcript length: ${result.text.length} characters`);
+        console.log(`[ASSEMBLYAI] Transcript word count: ${result.text.split(/\s+/).length} words`);
+      }
+
+      // Check if we have utterances (speaker diarization)
+      if (result.utterances && result.utterances.length > 0) {
+        console.log(`[ASSEMBLYAI] Found ${result.utterances.length} speaker utterances`);
+        
+        // Format transcript with speaker labels
+        const formattedTranscript = result.utterances
+          .map((utterance: any) => `Speaker ${utterance.speaker}: ${utterance.text}`)
+          .join('\n\n');
+        
+        result.text = formattedTranscript;
+        console.log('[ASSEMBLYAI] Formatted transcript with speaker labels');
+      } else {
+        console.warn('[ASSEMBLYAI] No speaker utterances found, using plain transcript');
+        if (result.text) {
+          // If no speaker diarization but we have text, format it as a single speaker
+          result.text = `Speaker A: ${result.text}`;
+          console.log('[ASSEMBLYAI] Formatted as single speaker transcript');
+        }
       }
     }
 
