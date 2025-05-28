@@ -168,17 +168,41 @@ ${transcriptToProcess}`;
     console.log('Transcript cleaning completed, length:', cleanedTranscript.length);
 
     // Step 2: Generate summary using cleaned transcript
-    const summaryPrompt = `Tu es un assistant IA spécialisé dans la création de résumés de réunions.
+    const summaryPrompt = `Tu es un assistant IA spécialisé dans la création de résumés de réunions pour cabinet médical.
 
-Voici le transcript nettoyé d'une réunion avec les participants: ${participantList}
+Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
-Crée un résumé complet en français (3-4 paragraphes) qui inclut:
-- Points techniques abordés
-- Décisions prises
-- Prochaines étapes
-- Utilise les vrais noms des participants
+Crée un résumé détaillé et complet en français qui N'OMET AUCUN POINT IMPORTANT et organise les informations par catégories suivantes:
 
-Retourne UNIQUEMENT le résumé, sans autre texte.
+## GESTION DES PATIENTS
+- Nouveaux patients
+- Cas complexes
+- Suivis particuliers
+- Problématiques médicales discutées
+
+## ORGANISATION DU CABINET
+- Planning et rendez-vous
+- Gestion administrative
+- Équipements et matériel
+- Procédures
+
+## DÉCISIONS PRISES
+- Décisions médicales
+- Décisions administratives
+- Nouvelles protocoles
+
+## FORMATION ET DÉVELOPPEMENT
+- Formations prévues
+- Nouvelles compétences
+- Mise à jour des connaissances
+
+## ACTIONS À SUIVRE
+- Prochaines étapes importantes
+- Échéances à respecter
+
+Assure-toi de couvrir TOUS les points mentionnés dans la réunion, même les détails qui peuvent sembler mineurs. Utilise les vrais noms des participants.
+
+Retourne UNIQUEMENT le résumé organisé par catégories, sans autre texte.
 
 Transcript:
 ${cleanedTranscript}`;
@@ -196,14 +220,14 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions. Tu retournes UNIQUEMENT le résumé.'
+            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT le résumé organisé par catégories.'
           },
           {
             role: 'user',
             content: summaryPrompt
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 2000,
         temperature: 0.1,
       }),
     });
@@ -218,16 +242,24 @@ ${cleanedTranscript}`;
     }
 
     // Step 3: Extract tasks using cleaned transcript
-    const tasksPrompt = `Tu es un assistant IA spécialisé dans l'extraction de tâches à partir de transcripts de réunions.
+    const tasksPrompt = `Tu es un assistant IA spécialisé dans l'extraction de tâches pour cabinet médical.
 
-Voici le transcript nettoyé d'une réunion avec les participants: ${participantList}
+Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
-Extrais toutes les tâches et actions mentionnées et retourne un tableau JSON avec cette structure exacte:
+Extrais TOUTES les tâches et actions mentionnées et retourne un tableau JSON avec cette structure exacte:
 ["tâche 1", "tâche 2", "tâche 3"]
 
-Inclus le nom de la personne responsable quand c'est mentionné.
-Formule chaque tâche de manière claire et actionnable.
-Maximum 10 tâches les plus importantes.
+INSTRUCTIONS SPÉCIFIQUES POUR CABINET MÉDICAL:
+- Inclus les tâches administratives (commandes, plannings, dossiers)
+- Inclus les suivis patients spécifiques
+- Inclus les tâches de formation et développement
+- Inclus les tâches d'équipement et maintenance
+- Inclus les rendez-vous et contacts à prendre
+- Inclus le nom de la personne responsable quand c'est mentionné
+- Formule chaque tâche de manière claire et actionnable
+- Inclus les échéances quand elles sont mentionnées
+
+N'OMETS AUCUNE TÂCHE, même les plus petites. Maximum 20 tâches les plus importantes.
 
 Retourne UNIQUEMENT le tableau JSON, sans autre texte.
 
@@ -247,14 +279,14 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches. Tu retournes UNIQUEMENT un tableau JSON.'
+            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches.'
           },
           {
             role: 'user',
             content: tasksPrompt
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0.1,
       }),
     });
