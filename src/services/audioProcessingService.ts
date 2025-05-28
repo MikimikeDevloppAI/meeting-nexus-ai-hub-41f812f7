@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -35,8 +34,8 @@ const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 1
       const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + sentence;
       
       if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
-        // Save current chunk
-        chunks.push(currentChunk.trim() + '.');
+        // Save current chunk with unique identifier
+        chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}.`);
         
         // Start new chunk with overlap from previous
         const words = currentChunk.split(' ');
@@ -49,19 +48,17 @@ const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 1
     
     // Add the final chunk if it has content
     if (currentChunk.trim().length > 0) {
-      chunks.push(currentChunk.trim() + (currentChunk.endsWith('.') ? '' : '.'));
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}${currentChunk.endsWith('.') ? '' : '.'}`);
     }
   }
   
-  // Filter out very small chunks and duplicates
+  // Filter out very small chunks and ensure uniqueness
   return chunks
-    .filter((chunk, index, array) => 
-      chunk.length > 50 && // Minimum chunk size
-      array.indexOf(chunk) === index // Remove duplicates
-    )
+    .filter(chunk => chunk.length > 50) // Minimum chunk size
     .map((chunk, index) => {
-      // Add chunk identifier for better tracking
-      return `[Chunk ${index + 1}] ${chunk}`;
+      // Ensure each chunk is unique by adding a timestamp or unique content
+      const uniqueContent = chunk.includes('[Segment') ? chunk : `[Part ${index + 1}] ${chunk}`;
+      return uniqueContent;
     });
 };
 
@@ -202,52 +199,23 @@ export class AudioProcessingService {
     console.log('[OPENAI] Starting transcript processing...');
     
     try {
-      const response = await fetch(
-        `https://ecziljpkvshvapjsxaty.functions.supabase.co/functions/v1/process-transcript`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
-          },
-          body: JSON.stringify({
-            transcript,
-            participants,
-            meetingId
-          }),
+      const response = await supabase.functions.invoke('process-transcript', {
+        body: {
+          meetingId,
+          audioUrl: null, // We already have the transcript
+          participants,
+          transcript // Pass the transcript directly
         }
-      );
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenAI processing failed: ${errorText}`);
+      if (response.error) {
+        throw new Error(`OpenAI processing failed: ${response.error.message}`);
       }
 
-      const result = await response.json();
+      const result = response.data;
       console.log('[OPENAI] Processing completed successfully');
 
-      // CRITICAL: Save processed transcript if available
-      if (result.processedTranscript && result.processedTranscript.length > 0) {
-        console.log('[SAVE] Saving processed transcript to replace raw version...');
-        await this.saveProcessedTranscript(meetingId, result.processedTranscript);
-        console.log('[SAVE] Processed transcript saved successfully, length:', result.processedTranscript.length);
-      } else {
-        console.warn('[SAVE] No processed transcript returned, keeping raw version');
-      }
-
-      // Save summary if available
-      if (result.summary) {
-        console.log('[SAVE] Saving summary...');
-        await this.saveSummary(meetingId, result.summary);
-      }
-
-      // Save tasks if available
-      if (result.tasks && result.tasks.length > 0) {
-        console.log(`[SAVE] Saving ${result.tasks.length} tasks...`);
-        await this.saveTasks(meetingId, result.tasks, participants);
-      }
-
-      // Save embeddings if available with better chunking
+      // Save embeddings if we have processed transcript
       if (result.processedTranscript || transcript) {
         console.log('[EMBEDDINGS] Creating embeddings for transcript...');
         const textToEmbed = result.processedTranscript || transcript;
@@ -263,67 +231,6 @@ export class AudioProcessingService {
       return result;
     } catch (error: any) {
       console.error('[OPENAI] Processing failed:', error);
-      throw error;
-    }
-  }
-
-  private static async saveProcessedTranscript(meetingId: string, transcript: string) {
-    console.log('[SAVE] Updating meeting transcript with processed version...');
-    try {
-      await MeetingService.updateMeetingField(meetingId, 'transcript', transcript);
-      console.log('[SAVE] Processed transcript saved successfully');
-    } catch (error) {
-      console.error('[SAVE] Failed to save processed transcript:', error);
-      throw error;
-    }
-  }
-
-  private static async saveSummary(meetingId: string, summary: string) {
-    console.log('[SAVE] Saving summary...');
-    await MeetingService.updateMeetingField(meetingId, 'summary', summary);
-    console.log('[SAVE] Summary saved successfully');
-  }
-
-  private static async saveTasks(meetingId: string, tasks: any[], participants: any[]) {
-    try {
-      const tasksToSave = tasks.map(task => {
-        // Find participant by name if assigned
-        let assignedParticipantId = null;
-        if (task.assigned_to) {
-          const participant = participants.find(p => 
-            p.name.toLowerCase().includes(task.assigned_to.toLowerCase()) ||
-            task.assigned_to.toLowerCase().includes(p.name.toLowerCase())
-          );
-          if (participant) {
-            assignedParticipantId = participant.id;
-          }
-        }
-
-        return {
-          meeting_id: meetingId,
-          description: task.description,
-          assigned_to: assignedParticipantId,
-          due_date: task.due_date || null,
-          status: 'pending'
-        };
-      }).filter(task => task.assigned_to); // Only save tasks with valid participants
-
-      if (tasksToSave.length > 0) {
-        const { error } = await supabase
-          .from('todos')
-          .insert(tasksToSave);
-
-        if (error) {
-          console.error('[TASKS] Error saving tasks:', error);
-          throw error;
-        }
-
-        console.log(`[TASKS] Successfully saved ${tasksToSave.length} tasks`);
-      } else {
-        console.log('[TASKS] No tasks with valid participants to save');
-      }
-    } catch (error) {
-      console.error('[TASKS] Failed to save tasks:', error);
       throw error;
     }
   }

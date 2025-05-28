@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -12,70 +13,92 @@ serve(async (req) => {
   }
 
   try {
-    const { meetingId, audioUrl, participants } = await req.json();
+    const { meetingId, audioUrl, participants, transcript: providedTranscript } = await req.json();
     
     console.log('Processing transcript for meeting:', meetingId);
     console.log('Audio URL:', audioUrl);
+    console.log('Provided transcript length:', providedTranscript?.length || 0);
     console.log('Available participants:', participants?.length || 0);
 
-    const assemblyAIApiKey = Deno.env.get('ASSEMBLYAI_API_KEY');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!assemblyAIApiKey || !openAIApiKey) {
-      throw new Error('Required API keys not configured');
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not configured');
+      // If no OpenAI key, just return the provided transcript without processing
+      return new Response(JSON.stringify({ 
+        success: true, 
+        processedTranscript: providedTranscript || '',
+        summary: 'Résumé non disponible - clé API OpenAI manquante',
+        tasks: [],
+        message: 'OpenAI processing skipped - API key not configured'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Submit audio for transcription
-    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
-      method: 'POST',
-      headers: {
-        'authorization': assemblyAIApiKey,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        audio_url: audioUrl,
-        speaker_labels: true,
-      }),
-    });
+    let transcriptToProcess = providedTranscript;
 
-    const transcript = await transcriptResponse.json();
-    
-    if (!transcript.id) {
-      throw new Error('Failed to submit audio for transcription');
-    }
+    // If no transcript provided but we have audio URL, try to get transcript from AssemblyAI
+    if (!transcriptToProcess && audioUrl) {
+      const assemblyAIApiKey = Deno.env.get('ASSEMBLYAI_API_KEY');
+      
+      if (assemblyAIApiKey) {
+        console.log('No transcript provided, attempting AssemblyAI transcription...');
+        
+        // Submit audio for transcription
+        const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+          method: 'POST',
+          headers: {
+            'authorization': assemblyAIApiKey,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            audio_url: audioUrl,
+            speaker_labels: true,
+          }),
+        });
 
-    // Poll for completion
-    let transcriptData;
-    let attempts = 0;
-    const maxAttempts = 60; // 5 minutes maximum
+        const transcript = await transcriptResponse.json();
+        
+        if (transcript.id) {
+          // Poll for completion
+          let transcriptData;
+          let attempts = 0;
+          const maxAttempts = 60; // 5 minutes maximum
 
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-      
-      const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcript.id}`, {
-        headers: { 'authorization': assemblyAIApiKey },
-      });
-      
-      transcriptData = await statusResponse.json();
-      
-      if (transcriptData.status === 'completed') {
-        break;
-      } else if (transcriptData.status === 'error') {
-        throw new Error(`Transcription failed: ${transcriptData.error}`);
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            
+            const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcript.id}`, {
+              headers: { 'authorization': assemblyAIApiKey },
+            });
+            
+            transcriptData = await statusResponse.json();
+            
+            if (transcriptData.status === 'completed') {
+              transcriptToProcess = transcriptData.text;
+              console.log('AssemblyAI transcription completed, length:', transcriptToProcess?.length || 0);
+              break;
+            } else if (transcriptData.status === 'error') {
+              console.error('AssemblyAI transcription failed:', transcriptData.error);
+              break;
+            }
+            
+            attempts++;
+          }
+        }
       }
-      
-      attempts++;
     }
 
-    if (!transcriptData || transcriptData.status !== 'completed') {
-      throw new Error('Transcription timed out');
+    if (!transcriptToProcess) {
+      throw new Error('No transcript available for processing');
     }
 
-    console.log('Transcription completed, processing with OpenAI...');
+    console.log('Processing transcript with OpenAI, length:', transcriptToProcess.length);
 
     // Process transcript with OpenAI for summary and tasks
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -90,22 +113,23 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are an AI assistant that processes meeting transcripts. Your tasks:
-1. Create a clear, structured summary of the meeting
+1. Create a clear, structured summary of the meeting in French
 2. Extract all action items and tasks mentioned
-3. Format tasks as a simple list, one task per line
+3. Format your response as JSON with this exact structure:
+{
+  "summary": "meeting summary in French",
+  "tasks": ["task 1", "task 2", "task 3"]
+}
 
 Available participants for assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
 
-When extracting tasks, be comprehensive and include all actionable items discussed.`
+When extracting tasks, be comprehensive and include all actionable items discussed. Tasks should be in French.`
           },
           {
             role: 'user',
-            content: `Please process this meeting transcript and provide:
+            content: `Please process this meeting transcript:
 
-1. A structured summary of the meeting
-2. A list of all tasks and action items (one per line, starting with "- ")
-
-Transcript: ${transcriptData.text}`
+${transcriptToProcess}`
           }
         ],
         max_tokens: 2000,
@@ -113,32 +137,47 @@ Transcript: ${transcriptData.text}`
       }),
     });
 
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      throw new Error(`OpenAI API error: ${errorText}`);
+    }
+
     const openAIData = await openAIResponse.json();
     const processedContent = openAIData.choices[0].message.content;
 
-    console.log('OpenAI processing completed');
+    console.log('OpenAI processing completed, response length:', processedContent?.length || 0);
 
-    // Extract summary and tasks
-    const lines = processedContent.split('\n');
+    // Try to parse as JSON first
     let summary = '';
     let tasks: string[] = [];
-    let inTasksSection = false;
 
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.toLowerCase().includes('task') || trimmedLine.toLowerCase().includes('action')) {
-        inTasksSection = true;
-        continue;
-      }
+    try {
+      const parsed = JSON.parse(processedContent);
+      summary = parsed.summary || '';
+      tasks = parsed.tasks || [];
+    } catch (e) {
+      console.log('Failed to parse as JSON, extracting manually...');
       
-      if (inTasksSection && trimmedLine.startsWith('- ')) {
-        tasks.push(trimmedLine.substring(2).trim());
-      } else if (!inTasksSection && trimmedLine) {
-        summary += trimmedLine + '\n';
-      }
-    }
+      // Fallback to manual extraction
+      const lines = processedContent.split('\n');
+      let inTasksSection = false;
 
-    summary = summary.trim();
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.toLowerCase().includes('task') || trimmedLine.toLowerCase().includes('action') || trimmedLine.toLowerCase().includes('tâche')) {
+          inTasksSection = true;
+          continue;
+        }
+        
+        if (inTasksSection && (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• '))) {
+          tasks.push(trimmedLine.substring(2).trim());
+        } else if (!inTasksSection && trimmedLine) {
+          summary += trimmedLine + '\n';
+        }
+      }
+
+      summary = summary.trim();
+    }
 
     console.log('Extracted summary length:', summary.length);
     console.log('Extracted tasks count:', tasks.length);
@@ -147,7 +186,7 @@ Transcript: ${transcriptData.text}`
     const { error: updateError } = await supabase
       .from('meetings')
       .update({
-        transcript: processedContent, // Save the full processed content
+        transcript: transcriptToProcess,
         summary: summary || 'Résumé en cours de traitement...'
       })
       .eq('id', meetingId);
@@ -176,7 +215,7 @@ Transcript: ${transcriptData.text}`
             description: task.trim(),
             status: 'pending',
             meeting_id: meetingId,
-            assigned_to: assignedParticipantId, // Keep for backward compatibility
+            assigned_to: assignedParticipantId,
           })
           .select()
           .single();
@@ -199,36 +238,14 @@ Transcript: ${transcriptData.text}`
             console.error('Error creating todo-participant relationship:', participantError);
           }
         }
-
-        // Generate AI recommendation in background
-        if (todoData) {
-          try {
-            const aiResponse = await fetch(`${supabaseUrl}/functions/v1/todo-recommendations`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${supabaseKey}`,
-              },
-              body: JSON.stringify({
-                todoId: todoData.id,
-                description: task.trim(),
-                meetingContext: `Meeting transcript processed`
-              }),
-            });
-            
-            if (!aiResponse.ok) {
-              console.error('AI recommendation request failed');
-            }
-          } catch (error) {
-            console.error('Error generating AI recommendation:', error);
-          }
-        }
       }
     }
 
     return new Response(JSON.stringify({ 
       success: true, 
+      processedTranscript: transcriptToProcess,
       summary: summary,
+      tasks: tasks,
       tasksCount: tasks.length 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
