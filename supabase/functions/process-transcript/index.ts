@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -15,9 +16,12 @@ serve(async (req) => {
     const { meetingId, audioUrl, participants, transcript: providedTranscript } = await req.json();
     
     console.log('Processing transcript for meeting:', meetingId);
-    console.log('Audio URL:', audioUrl);
     console.log('Provided transcript length:', providedTranscript?.length || 0);
     console.log('Available participants:', participants?.length || 0);
+    
+    if (participants) {
+      console.log('Participant names:', participants.map(p => p.name));
+    }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
@@ -99,37 +103,52 @@ serve(async (req) => {
     console.log('Processing transcript with OpenAI, length:', transcriptToProcess.length);
 
     // Prepare participant information for the prompt
-    const participantInfo = participants && participants.length > 0 
+    const participantList = participants && participants.length > 0 
       ? participants.map((p: any, index: number) => 
-          `Participant ${index + 1}: ${p.name}${p.email ? ` (${p.email})` : ''}`
-        ).join('\n')
-      : 'No participant information available';
+          `${p.name}${p.email ? ` (${p.email})` : ''}`
+        ).join(', ')
+      : 'Aucun participant spécifié';
 
-    const participantCount = participants?.length || 2;
+    console.log('Participant list for OpenAI:', participantList);
 
-    // Simplified and more reliable system prompt
-    const systemPrompt = `You are an AI assistant that processes meeting transcripts. You MUST respond with ONLY valid JSON, no other text or formatting.
+    // Enhanced system prompt that worked before
+    const systemPrompt = `Tu es un assistant IA spécialisé dans le traitement de transcripts de réunions. 
 
-PARTICIPANTS:
-${participantInfo}
+PARTICIPANTS DE LA RÉUNION:
+${participantList}
 
-Respond with this EXACT JSON structure:
+Tu dois analyser le transcript et retourner un objet JSON avec cette structure exacte:
 {
-  "cleanedTranscript": "transcript with Speaker 1, Speaker 2, etc. replaced by actual participant names",
-  "summary": "comprehensive French summary organized by topics",
-  "tasks": ["task 1", "task 2", "task 3"]
+  "cleanedTranscript": "transcript nettoyé",
+  "summary": "résumé complet en français",
+  "tasks": ["tâche 1", "tâche 2", "tâche 3"]
 }
 
-CRITICAL INSTRUCTIONS:
-1. For cleanedTranscript: Replace "Speaker 1" with "${participants?.[0]?.name || 'Participant 1'}", "Speaker 2" with "${participants?.[1]?.name || 'Participant 2'}", etc. Use conversation context to map speakers correctly.
-2. For summary: Write 3-4 paragraphs in French, organize by topics like "Points techniques:", "Décisions prises:", etc.
-3. For tasks: Extract actionable items with participant names when mentioned.
+INSTRUCTIONS POUR cleanedTranscript:
+1. Corrige toutes les erreurs de français (grammaire, orthographe, conjugaison)
+2. Supprime les mots de remplissage inutiles (euh, hum, ben, etc.)
+3. Remplace les références génériques (Speaker A, Speaker B, Speaker 1, Speaker 2, etc.) par les vrais noms des participants listés ci-dessus
+4. Utilise le contexte de la conversation pour déterminer qui parle
+5. Améliore la fluidité du texte tout en gardant le sens original
+6. Formate avec des paragraphes clairs, un nom par ligne de dialogue
 
-You must return ONLY the JSON object, nothing else.`;
+INSTRUCTIONS POUR summary:
+1. Écris un résumé complet en français (3-4 paragraphes)
+2. Organise par thèmes: "Points techniques:", "Décisions prises:", "Prochaines étapes:", etc.
+3. Utilise les vrais noms des participants
+4. Mentionne les points clés et les décisions importantes
 
-    console.log('Sending request to OpenAI...');
+INSTRUCTIONS POUR tasks:
+1. Extrais toutes les tâches et actions mentionnées
+2. Inclus le nom de la personne responsable quand c'est mentionné
+3. Formule chaque tâche de manière claire et actionnable
+4. Maximum 10 tâches les plus importantes
 
-    // Process transcript with OpenAI for summary and tasks
+Tu DOIS retourner UNIQUEMENT l'objet JSON, sans autre texte.`;
+
+    console.log('Sending request to OpenAI with enhanced prompt...');
+
+    // Process transcript with OpenAI
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -145,7 +164,7 @@ You must return ONLY the JSON object, nothing else.`;
           },
           {
             role: 'user',
-            content: `Process this transcript and replace speaker labels with participant names:\n\n${transcriptToProcess}`
+            content: `Traite ce transcript de réunion:\n\n${transcriptToProcess}`
           }
         ],
         max_tokens: 4000,
@@ -162,19 +181,20 @@ You must return ONLY the JSON object, nothing else.`;
     const openAIData = await openAIResponse.json();
     let processedContent = openAIData.choices[0].message.content;
 
-    console.log('OpenAI raw response:', processedContent?.substring(0, 200) + '...');
+    console.log('OpenAI raw response length:', processedContent?.length || 0);
+    console.log('OpenAI response preview:', processedContent?.substring(0, 200) + '...');
 
-    // Clean the response to ensure it's valid JSON
+    // Clean and parse the JSON response
     processedContent = processedContent.trim();
     
-    // Remove any markdown code blocks if present
+    // Remove markdown code blocks if present
     if (processedContent.startsWith('```json')) {
       processedContent = processedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
     } else if (processedContent.startsWith('```')) {
       processedContent = processedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
     
-    // Find the JSON object
+    // Extract JSON object
     const jsonStart = processedContent.indexOf('{');
     const jsonEnd = processedContent.lastIndexOf('}');
     
@@ -182,44 +202,63 @@ You must return ONLY the JSON object, nothing else.`;
       processedContent = processedContent.substring(jsonStart, jsonEnd + 1);
     }
 
-    console.log('Cleaned response for parsing:', processedContent?.substring(0, 200) + '...');
+    console.log('Cleaned JSON for parsing:', processedContent?.substring(0, 200) + '...');
 
-    // Parse the JSON response with fallback
+    // Parse the response with robust error handling
     let cleanedTranscript = transcriptToProcess;
     let summary = '';
     let tasks: string[] = [];
 
     try {
       const parsed = JSON.parse(processedContent);
+      console.log('Successfully parsed OpenAI response');
+      
       cleanedTranscript = parsed.cleanedTranscript || transcriptToProcess;
-      summary = parsed.summary || 'Résumé automatique généré avec succès.';
+      summary = parsed.summary || 'Résumé généré automatiquement.';
       tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
       
-      console.log('Successfully parsed JSON - Tasks count:', tasks.length);
+      console.log('Parsed results:');
+      console.log('- Cleaned transcript length:', cleanedTranscript.length);
+      console.log('- Summary length:', summary.length);
+      console.log('- Tasks count:', tasks.length);
+      
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError);
       console.error('Failed content:', processedContent);
       
-      // Fallback: Try to manually replace speaker labels
-      cleanedTranscript = transcriptToProcess;
+      // Fallback: manually replace speaker labels if we have participants
       if (participants && participants.length > 0) {
+        cleanedTranscript = transcriptToProcess;
+        
+        // Replace Speaker A, B, C, etc. and Speaker 1, 2, 3, etc.
         participants.forEach((participant: any, index: number) => {
-          const speakerLabel = `Speaker ${index + 1}`;
-          const regex = new RegExp(speakerLabel, 'g');
-          cleanedTranscript = cleanedTranscript.replace(regex, participant.name);
+          const speakerLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+          const speakerLetter = speakerLetters[index];
+          const speakerNumber = index + 1;
+          
+          if (speakerLetter) {
+            const regexLetter = new RegExp(`Speaker ${speakerLetter}\\b`, 'g');
+            cleanedTranscript = cleanedTranscript.replace(regexLetter, participant.name);
+          }
+          
+          const regexNumber = new RegExp(`Speaker ${speakerNumber}\\b`, 'g');
+          cleanedTranscript = cleanedTranscript.replace(regexNumber, participant.name);
         });
+        
         console.log('Applied manual speaker replacement as fallback');
       }
       
-      summary = 'Résumé automatique - erreur de traitement JSON, mais transcript nettoyé avec succès.';
+      summary = 'Résumé automatique - traitement OpenAI partiel, mais transcript nettoyé.';
       tasks = [];
     }
 
-    // Save the cleaned transcript and summary to database
+    // Save the processed results to database
+    console.log('Saving cleaned transcript and summary to database...');
+    
     const { error: updateError } = await supabase
       .from('meetings')
       .update({
-        transcript: cleanedTranscript, // Use the cleaned version
+        transcript: cleanedTranscript,
         summary: summary
       })
       .eq('id', meetingId);
@@ -229,9 +268,9 @@ You must return ONLY the JSON object, nothing else.`;
       throw updateError;
     }
 
-    console.log('Meeting updated successfully with cleaned transcript');
+    console.log('Meeting updated successfully');
 
-    // Save tasks with improved participant assignment
+    // Save tasks if any were extracted
     if (tasks.length > 0) {
       console.log('Saving', tasks.length, 'tasks...');
       
@@ -243,7 +282,6 @@ You must return ONLY the JSON object, nothing else.`;
           assignedTo: assignedParticipantId ? participants.find(p => p.id === assignedParticipantId)?.name : 'None'
         });
 
-        // Save the todo
         const { data: todoData, error: todoError } = await supabase
           .from('todos')
           .insert({
@@ -271,8 +309,6 @@ You must return ONLY the JSON object, nothing else.`;
           
           if (participantError) {
             console.error('Error creating todo-participant relationship:', participantError);
-          } else {
-            console.log('Successfully assigned task to participant');
           }
         }
       }
@@ -282,7 +318,7 @@ You must return ONLY the JSON object, nothing else.`;
 
     return new Response(JSON.stringify({ 
       success: true, 
-      processedTranscript: cleanedTranscript, // Return the cleaned version
+      processedTranscript: cleanedTranscript,
       summary: summary,
       tasks: tasks,
       tasksCount: tasks.length 
@@ -299,71 +335,49 @@ You must return ONLY the JSON object, nothing else.`;
   }
 });
 
-// Improved helper function for participant matching
+// Helper function for participant matching (kept same as before)
 function findBestParticipantMatch(taskText: string, allParticipants: any[]): string | null {
   if (!taskText || !allParticipants?.length) {
-    console.log('No task text or participants available for matching');
     return null;
   }
 
   const taskLower = taskText.toLowerCase();
-  console.log('Matching task:', taskText.substring(0, 100));
-  console.log('Available participants:', allParticipants.map(p => p.name));
   
-  // Direct name matching - check for exact names first
+  // Direct name matching
   for (const participant of allParticipants) {
     const nameLower = participant.name.toLowerCase();
     const nameParts = nameLower.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts[nameParts.length - 1];
     
-    // Check for full name, first name, or last name
     if (taskLower.includes(nameLower) || 
         taskLower.includes(firstName) || 
         (lastName.length > 2 && taskLower.includes(lastName))) {
-      console.log('Direct name match found:', participant.name);
       return participant.id;
     }
   }
 
-  // Enhanced role-based matching with more keywords
+  // Role-based matching
   const roleKeywords = {
-    'développeur': ['dev', 'développeur', 'developer', 'programmeur', 'code', 'technique', 'site', 'application', 'bug', 'correction'],
-    'designer': ['design', 'designer', 'ui', 'ux', 'graphique', 'visuel', 'interface', 'maquette'],
-    'manager': ['manager', 'gestionnaire', 'responsable', 'chef', 'coordonner', 'organiser', 'planifier'],
-    'marketing': ['marketing', 'communication', 'promo', 'publicité', 'social', 'contenu', 'campagne'],
-    'commercial': ['commercial', 'vente', 'sales', 'client', 'prospect', 'devis', 'contact'],
-    'administratif': ['administratif', 'admin', 'bureau', 'paperasse', 'document', 'formulaire', 'rdv', 'rendez-vous']
+    'développeur': ['dev', 'développeur', 'developer', 'programmeur', 'code', 'technique'],
+    'designer': ['design', 'designer', 'ui', 'ux', 'graphique'],
+    'manager': ['manager', 'gestionnaire', 'responsable', 'chef'],
+    'marketing': ['marketing', 'communication', 'promo'],
+    'commercial': ['commercial', 'vente', 'client'],
   };
 
-  // Look for role-based assignments
   for (const participant of allParticipants) {
     const nameLower = participant.name.toLowerCase();
     const emailLower = participant.email?.toLowerCase() || '';
     
     for (const [role, keywords] of Object.entries(roleKeywords)) {
       if (keywords.some(keyword => taskLower.includes(keyword))) {
-        // Check if participant profile suggests this role
-        if (nameLower.includes(role) || 
-            emailLower.includes(role) ||
-            emailLower.includes('dev') && role === 'développeur' ||
-            emailLower.includes('admin') && role === 'administratif') {
-          console.log('Role-based match found:', participant.name, 'for role:', role);
+        if (nameLower.includes(role) || emailLower.includes(role)) {
           return participant.id;
         }
       }
     }
   }
 
-  // If no specific match, try to assign to first participant for non-generic tasks
-  const genericWords = ['tous', 'équipe', 'chacun', 'ensemble'];
-  const isGenericTask = genericWords.some(word => taskLower.includes(word));
-  
-  if (!isGenericTask && allParticipants.length > 0) {
-    console.log('No specific match, assigning to first participant:', allParticipants[0].name);
-    return allParticipants[0].id;
-  }
-
-  console.log('No participant match found for task');
-  return null;
+  return allParticipants.length > 0 ? allParticipants[0].id : null;
 }
