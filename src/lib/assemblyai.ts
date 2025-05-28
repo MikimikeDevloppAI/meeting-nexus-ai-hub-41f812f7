@@ -1,5 +1,4 @@
 
-
 const ASSEMBLYAI_API_KEY = "7501ed0e8e0a4fc9acb21a7df6a6b31c";
 const ASSEMBLYAI_BASE_URL = "https://api.assemblyai.com/v2";
 
@@ -13,6 +12,7 @@ export interface TranscriptResult {
     start: number;
     end: number;
   }>;
+  error?: string;
 }
 
 export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string> => {
@@ -22,12 +22,19 @@ export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string>
     // First fetch the audio file
     const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
-      throw new Error(`Failed to fetch audio file: ${audioResponse.status} ${audioResponse.statusText}`);
+      const errorMsg = `Failed to fetch audio file: ${audioResponse.status} ${audioResponse.statusText}`;
+      console.error('[ASSEMBLYAI]', errorMsg);
+      throw new Error(errorMsg);
     }
     
     const audioBlob = await audioResponse.blob();
     console.log('[ASSEMBLYAI] Audio file fetched, size:', audioBlob.size, 'bytes');
 
+    if (audioBlob.size === 0) {
+      throw new Error('Audio file is empty (0 bytes)');
+    }
+
+    console.log('[ASSEMBLYAI] Uploading audio to AssemblyAI API...');
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/upload`, {
       method: 'POST',
       headers: {
@@ -36,13 +43,24 @@ export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string>
       body: audioBlob,
     });
 
+    const responseText = await response.text();
+    console.log('[ASSEMBLYAI] Upload response:', response.status, responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[ASSEMBLYAI] Upload failed:', response.status, errorText);
-      throw new Error(`Failed to upload audio: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Failed to upload audio: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Invalid JSON response from AssemblyAI: ${responseText}`);
+    }
+
+    if (!data.upload_url) {
+      throw new Error(`AssemblyAI did not return an upload URL: ${JSON.stringify(data)}`);
+    }
+
     console.log('[ASSEMBLYAI] Audio uploaded successfully, URL:', data.upload_url);
     return data.upload_url;
   } catch (error) {
@@ -77,13 +95,24 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
       body: JSON.stringify(transcriptionConfig),
     });
 
+    const responseText = await response.text();
+    console.log('[ASSEMBLYAI] Transcription request response:', response.status, responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[ASSEMBLYAI] Transcription request failed:', response.status, errorText);
-      throw new Error(`Failed to request transcription: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Failed to request transcription: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Invalid JSON response from AssemblyAI: ${responseText}`);
+    }
+
+    if (!data.id) {
+      throw new Error(`AssemblyAI did not return a transcript ID: ${JSON.stringify(data)}`);
+    }
+
     console.log('[ASSEMBLYAI] Transcription requested successfully, ID:', data.id);
     return data.id;
   } catch (error) {
@@ -94,26 +123,42 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
 
 export const getTranscriptionResult = async (transcriptId: string): Promise<TranscriptResult> => {
   try {
+    console.log(`[ASSEMBLYAI] Fetching transcript status for ID: ${transcriptId}`);
+    
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/transcript/${transcriptId}`, {
       headers: {
         'Authorization': `Bearer ${ASSEMBLYAI_API_KEY}`,
       },
     });
 
+    const responseText = await response.text();
+    console.log('[ASSEMBLYAI] Transcript status response:', response.status, responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[ASSEMBLYAI] Get transcription failed:', response.status, errorText);
-      throw new Error(`Failed to get transcription: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Failed to get transcription: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Invalid JSON response from AssemblyAI: ${responseText}`);
+    }
+    
     console.log('[ASSEMBLYAI] Transcription status:', result.status);
+    
+    if (result.status === 'error') {
+      console.error('[ASSEMBLYAI] Transcription error:', result.error);
+      throw new Error(`AssemblyAI transcription failed: ${result.error || 'Unknown error'}`);
+    }
     
     if (result.status === 'completed') {
       // Log transcript details for debugging
       if (result.text) {
         console.log(`[ASSEMBLYAI] Transcript length: ${result.text.length} characters`);
         console.log(`[ASSEMBLYAI] Transcript word count: ${result.text.split(/\s+/).length} words`);
+      } else {
+        console.warn('[ASSEMBLYAI] Completed transcript has no text');
       }
 
       // Check if we have utterances (speaker diarization)
@@ -165,7 +210,7 @@ export const pollForTranscription = async (transcriptId: string): Promise<Transc
       }
       
       if (result.status === 'error') {
-        throw new Error('AssemblyAI transcription failed with error status');
+        throw new Error(`AssemblyAI transcription failed: ${result.error || 'Unknown error'}`);
       }
 
       console.log(`[ASSEMBLYAI] Polling attempt ${attempts + 1}/${maxAttempts}, status: ${result.status}`);
@@ -181,4 +226,3 @@ export const pollForTranscription = async (transcriptId: string): Promise<Transc
 
   throw new Error('Transcription timeout after 5 minutes');
 };
-

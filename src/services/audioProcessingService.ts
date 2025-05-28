@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -44,30 +43,45 @@ const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
 
 export class AudioProcessingService {
   static async uploadAudio(audioBlob: Blob | null, audioFile: File | null): Promise<string> {
+    console.log('[UPLOAD] Starting audio upload...');
+
+    if (!audioBlob && !audioFile) {
+      throw new Error("Aucun fichier audio fourni pour le téléchargement");
+    }
+
     const fileToUpload = audioFile || new File([audioBlob!], "recording.webm", { 
       type: audioBlob?.type || "audio/webm" 
     });
     
-    const fileName = `meetings/${Date.now()}-${fileToUpload.name}`;
-    console.log('[UPLOAD] Uploading audio file:', fileName);
-
-    const { data, error } = await supabase.storage
-      .from("meeting-audio")
-      .upload(fileName, fileToUpload);
-
-    if (error) {
-      console.error('[UPLOAD] Storage upload error:', error);
-      throw error;
+    if (fileToUpload.size === 0) {
+      throw new Error("Le fichier audio est vide (0 octets)");
     }
     
-    const { data: publicUrlData } = supabase.storage
-      .from("meeting-audio")
-      .getPublicUrl(fileName);
-    
-    const audioFileUrl = publicUrlData.publicUrl;
-    console.log('[UPLOAD] Audio uploaded to:', audioFileUrl);
-    
-    return audioFileUrl;
+    const fileName = `meetings/${Date.now()}-${fileToUpload.name}`;
+    console.log('[UPLOAD] Uploading audio file:', fileName, 'Size:', fileToUpload.size, 'bytes');
+
+    try {
+      const { data, error } = await supabase.storage
+        .from("meeting-audio")
+        .upload(fileName, fileToUpload);
+
+      if (error) {
+        console.error('[UPLOAD] Storage upload error:', error);
+        throw new Error(`Erreur de stockage: ${error.message}`);
+      }
+      
+      const { data: publicUrlData } = supabase.storage
+        .from("meeting-audio")
+        .getPublicUrl(fileName);
+      
+      const audioFileUrl = publicUrlData.publicUrl;
+      console.log('[UPLOAD] Audio uploaded to:', audioFileUrl);
+      
+      return audioFileUrl;
+    } catch (error: any) {
+      console.error('[UPLOAD] Upload error:', error);
+      throw new Error(`Erreur de téléchargement: ${error.message}`);
+    }
   }
 
   static async saveAudioUrl(meetingId: string, audioUrl: string): Promise<void> {
@@ -84,9 +98,9 @@ export class AudioProcessingService {
     try {
       await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
       console.log('[SAVE_AUDIO] Audio URL saved successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('[SAVE_AUDIO] Failed to save audio URL for meeting:', meetingId, error);
-      throw error;
+      throw new Error(`Échec de l'enregistrement de l'URL audio: ${error.message}`);
     }
   }
 
@@ -95,24 +109,38 @@ export class AudioProcessingService {
     participantCount: number,
     meetingId: string
   ): Promise<string> {
-    console.log('[TRANSCRIBE] Starting transcription process...');
+    console.log('[TRANSCRIBE] Starting transcription process with AssemblyAI...');
     
-    const uploadUrl = await uploadAudioToAssemblyAI(audioUrl);
-    const transcriptId = await requestTranscription(uploadUrl, participantCount);
-    const result = await pollForTranscription(transcriptId);
-    
-    if (!result.text) {
-      throw new Error("No transcript text received");
+    if (!audioUrl) {
+      throw new Error("URL audio manquante pour la transcription");
     }
+    
+    try {
+      console.log('[TRANSCRIBE] Uploading audio to AssemblyAI:', audioUrl);
+      const uploadUrl = await uploadAudioToAssemblyAI(audioUrl);
+      
+      console.log('[TRANSCRIBE] Requesting transcription with', participantCount, 'participants');
+      const transcriptId = await requestTranscription(uploadUrl, participantCount);
+      
+      console.log('[TRANSCRIBE] Polling for transcription results');
+      const result = await pollForTranscription(transcriptId);
+      
+      if (!result.text) {
+        throw new Error("La transcription a été complétée mais aucun texte n'a été reçu");
+      }
 
-    console.log('[TRANSCRIBE] Transcript received, length:', result.text.length);
-    
-    // Save original transcript immediately
-    console.log('[TRANSCRIBE] Saving transcript to database...');
-    await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
-    console.log('[TRANSCRIBE] Transcript saved successfully');
-    
-    return result.text;
+      console.log('[TRANSCRIBE] Transcript received, length:', result.text.length);
+      
+      // Save original transcript immediately
+      console.log('[TRANSCRIBE] Saving transcript to database...');
+      await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
+      console.log('[TRANSCRIBE] Transcript saved successfully');
+      
+      return result.text;
+    } catch (error: any) {
+      console.error('[TRANSCRIBE] Transcription error:', error);
+      throw new Error(`Erreur de transcription: ${error.message}`);
+    }
   }
 
   static async processTranscriptWithAI(
@@ -122,52 +150,57 @@ export class AudioProcessingService {
   ): Promise<{ processedTranscript?: string; summary?: string }> {
     console.log('[PROCESS] Sending transcript to OpenAI for processing...');
     
-    const { data: functionResult, error: functionError } = await supabase.functions.invoke('process-transcript', {
-      body: {
-        transcript,
-        participants,
-        meetingId
+    try {
+      const { data: functionResult, error: functionError } = await supabase.functions.invoke('process-transcript', {
+        body: {
+          transcript,
+          participants,
+          meetingId
+        }
+      });
+
+      if (functionError) {
+        console.error('[PROCESS] OpenAI processing error:', functionError);
+        throw new Error(`Erreur de traitement OpenAI: ${functionError.message}`);
       }
-    });
 
-    if (functionError) {
-      console.error('[PROCESS] OpenAI processing error:', functionError);
-      throw functionError;
-    }
+      const result: { processedTranscript?: string; summary?: string } = {};
+      const updates: Record<string, any> = {};
 
-    const result: { processedTranscript?: string; summary?: string } = {};
-    const updates: Record<string, any> = {};
+      if (functionResult?.processedTranscript) {
+        const processedTranscript = functionResult.processedTranscript;
+        console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
+        updates.transcript = processedTranscript;
+        result.processedTranscript = processedTranscript;
 
-    if (functionResult?.processedTranscript) {
-      const processedTranscript = functionResult.processedTranscript;
-      console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
-      updates.transcript = processedTranscript;
-      result.processedTranscript = processedTranscript;
-
-      // Store in vector database
-      try {
-        await this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants);
-      } catch (embeddingError) {
-        console.error('[EMBEDDINGS] Failed to store in vector DB:', embeddingError);
-        // Continue without failing the whole process
+        // Store in vector database
+        try {
+          await this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants);
+        } catch (embeddingError: any) {
+          console.error('[EMBEDDINGS] Failed to store in vector DB:', embeddingError);
+          // Continue without failing the whole process
+        }
       }
-    }
 
-    if (functionResult?.summary) {
-      const summary = functionResult.summary;
-      console.log('[SUMMARY] Summary received, length:', summary.length);
-      updates.summary = summary;
-      result.summary = summary;
-    }
+      if (functionResult?.summary) {
+        const summary = functionResult.summary;
+        console.log('[SUMMARY] Summary received, length:', summary.length);
+        updates.summary = summary;
+        result.summary = summary;
+      }
 
-    // Use batch update instead of multiple individual updates
-    if (Object.keys(updates).length > 0) {
-      console.log('[PROCESS] Saving processed data to database...');
-      await MeetingService.batchUpdateMeeting(meetingId, updates);
-      console.log('[PROCESS] Processed data saved successfully');
-    }
+      // Use batch update instead of multiple individual updates
+      if (Object.keys(updates).length > 0) {
+        console.log('[PROCESS] Saving processed data to database...');
+        await MeetingService.batchUpdateMeeting(meetingId, updates);
+        console.log('[PROCESS] Processed data saved successfully');
+      }
 
-    return result;
+      return result;
+    } catch (error: any) {
+      console.error('[PROCESS] Processing error:', error);
+      throw new Error(`Erreur de traitement: ${error.message}`);
+    }
   }
 
   static async storeTranscriptInVectorDB(
