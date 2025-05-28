@@ -1,429 +1,239 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to chunk text by speakers with 700 char max, but allow longer chunks for single speaker monologues
-const chunkBySpeakers = (text: string, maxChunkSize: number = 700): string[] => {
-  const lines = text.split('\n').filter(line => line.trim().length > 0);
-  const chunks: string[] = [];
-  let currentChunk = '';
-
-  for (const line of lines) {
-    // Check if line starts with a speaker (e.g., "Dr. X:" or "Speaker A:")
-    const isSpeakerLine = /^(Dr\.|Speaker|Docteur|M\.|Mme\.|Mr\.|Mrs\.)\s*\w+\s*:/.test(line.trim());
-    
-    if (isSpeakerLine && currentChunk.length > 0) {
-      // If we're starting a new speaker and current chunk would exceed limit
-      if ((currentChunk.length + line.length) > maxChunkSize) {
-        // Save current chunk and start new one
-        chunks.push(currentChunk.trim());
-        currentChunk = line;
-      } else {
-        // Add to current chunk
-        currentChunk += (currentChunk.length > 0 ? '\n' : '') + line;
-      }
-    } else if (!isSpeakerLine && currentChunk.length > 0) {
-      // This is a continuation of the current speaker
-      const potentialChunk = currentChunk + '\n' + line;
-      
-      if (potentialChunk.length > maxChunkSize) {
-        // If adding this line would exceed limit, check if we can split within the speaker
-        const currentSpeakerContent = currentChunk.split('\n');
-        const speakerHeader = currentSpeakerContent[0]; // The "Dr. X:" part
-        const speakerText = currentSpeakerContent.slice(1).join('\n') + '\n' + line;
-        
-        // If the speaker's content is very long, we can split it in the middle
-        if (speakerText.length > maxChunkSize) {
-          // Split the speaker's text in chunks of maxChunkSize
-          const words = speakerText.split(' ');
-          let tempChunk = speakerHeader;
-          let tempText = '';
-          
-          for (const word of words) {
-            if ((tempText + ' ' + word).length > maxChunkSize && tempText.length > 0) {
-              // Complete the current chunk
-              chunks.push((tempChunk + '\n' + tempText).trim());
-              // Start a new chunk with the same speaker
-              tempChunk = speakerHeader;
-              tempText = word;
-            } else {
-              tempText += (tempText.length > 0 ? ' ' : '') + word;
-            }
-          }
-          
-          // Set remaining content as current chunk
-          currentChunk = (tempChunk + '\n' + tempText).trim();
-        } else {
-          // Speaker content fits in one chunk, save current and start new
-          chunks.push(currentChunk.trim());
-          currentChunk = speakerHeader + '\n' + line;
-        }
-      } else {
-        // Add line to current chunk
-        currentChunk = potentialChunk;
-      }
-    } else {
-      // First line or orphaned content
-      currentChunk += (currentChunk.length > 0 ? '\n' : '') + line;
-    }
-  }
-  
-  if (currentChunk.trim().length > 0) {
-    chunks.push(currentChunk.trim());
-  }
-  
-  return chunks.filter(chunk => chunk.length > 0);
-};
-
-// Function to process a single chunk with OpenAI
-const processChunk = async (chunk: string, participants: any[], chunkIndex: number): Promise<string> => {
-  const participantsList = participants.map((p: any) => p.name).join(', ');
-  
-  const prompt = `Nettoie ce transcript de réunion médicale. Participants: ${participantsList}
-
-${chunk}
-
-INSTRUCTIONS STRICTES:
-1. Remplace "Speaker A", "Speaker B", etc. par les vrais noms des participants
-2. Supprime COMPLÈTEMENT: hésitations (euh, hmm), répétitions, interruptions inutiles, mots de remplissage
-3. Garde SEULEMENT le contenu médical/administratif important et utile
-4. Corrige les erreurs évidentes de transcription
-5. Format final: "Dr. X: [contenu nettoyé]"
-6. Enlève tout ce qui n'est pas essentiel à la compréhension
-
-Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1,
-      max_tokens: 2000,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error for chunk ${chunkIndex + 1}: ${await response.text()}`);
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
-};
-
-// Function to generate comprehensive summary
-const generateSummary = async (cleanTranscript: string, participants: any[]): Promise<string> => {
-  const participantsList = participants.map((p: any) => p.name).join(', ');
-  
-  const summaryPrompt = `Rédige un résumé COMPLET et STRUCTURÉ de cette réunion médicale. N'OUBLIE RIEN d'important:
-
-${cleanTranscript}
-
-Participants: ${participantsList}
-
-Format requis:
-**CONTEXTE ET OBJET**
-[Détail de l'objet de la réunion et contexte]
-
-**POINTS CLÉS DISCUTÉS**
-• Organisation: [tous les points organisationnels abordés]
-• Patients: [toutes les discussions concernant les patients]
-• Équipement médical: [tout le matériel médical évoqué]
-• Finances: [tous les aspects financiers mentionnés]
-• Procédures: [toutes les procédures discutées]
-
-**DÉCISIONS PRISES**
-• [liste COMPLÈTE de toutes les décisions prises]
-
-**INFORMATIONS IMPORTANTES**
-• [toute information critique ou importante mentionnée]
-
-Sois exhaustif et ne manque aucun détail important:`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: summaryPrompt }],
-      temperature: 0.2,
-      max_tokens: 2000,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error for summary: ${await response.text()}`);
-  }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
-};
-
-// Function to extract tasks from transcript
-const extractTasks = async (cleanTranscript: string, participants: any[]): Promise<any[]> => {
-  const participantsList = participants.map((p: any) => p.name).join(', ');
-  
-  const tasksPrompt = `Analyse ce transcript de réunion et extrais TOUTES les tâches/actions à faire mentionnées. Participants: ${participantsList}
-
-${cleanTranscript}
-
-INSTRUCTIONS:
-1. Identifie TOUTES les tâches, actions, suivis mentionnés
-2. Pour chaque tâche, détermine si elle est assignée à quelqu'un spécifiquement
-3. Extrais la date limite si mentionnée (format YYYY-MM-DD)
-4. Sois très précis sur la description de la tâche
-
-Retourne UNIQUEMENT un JSON valide avec ce format exact (pas de markdown, pas de backticks):
-{
-  "tasks": [
-    {
-      "description": "Description précise de la tâche",
-      "assigned_to": "Nom exact du participant ou null",
-      "due_date": "YYYY-MM-DD ou null",
-      "priority": "high ou medium ou low"
-    }
-  ]
-}`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: tasksPrompt }],
-      temperature: 0.1,
-      max_tokens: 1500,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error for tasks: ${await response.text()}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0].message.content.trim();
-  
   try {
-    // Clean the content to remove markdown formatting if present
-    const cleanContent = content.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
-    const taskData = JSON.parse(cleanContent);
-    return taskData.tasks || [];
-  } catch (error) {
-    console.error('Error parsing tasks JSON:', error);
-    console.error('Raw content:', content);
-    return [];
-  }
-};
+    const { meetingId, audioUrl, participants } = await req.json();
+    
+    console.log('Processing transcript for meeting:', meetingId);
+    console.log('Audio URL:', audioUrl);
+    console.log('Available participants:', participants?.length || 0);
 
-// Function to generate embeddings for chunks
-const generateEmbeddings = async (chunks: string[]): Promise<number[][]> => {
-  const embeddings: number[][] = [];
-  
-  console.log(`Generating embeddings for ${chunks.length} chunks (max 700 chars each)`);
-  
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    console.log(`Processing embedding for chunk ${i + 1}/${chunks.length} (length: ${chunk.length} chars)`);
+    const assemblyAIApiKey = Deno.env.get('ASSEMBLYAI_API_KEY');
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    
+    if (!assemblyAIApiKey || !openAIApiKey) {
+      throw new Error('Required API keys not configured');
+    }
 
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Submit audio for transcription
+    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: {
+        'authorization': assemblyAIApiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        audio_url: audioUrl,
+        speaker_labels: true,
+      }),
+    });
+
+    const transcript = await transcriptResponse.json();
+    
+    if (!transcript.id) {
+      throw new Error('Failed to submit audio for transcription');
+    }
+
+    // Poll for completion
+    let transcriptData;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes maximum
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      
+      const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcript.id}`, {
+        headers: { 'authorization': assemblyAIApiKey },
+      });
+      
+      transcriptData = await statusResponse.json();
+      
+      if (transcriptData.status === 'completed') {
+        break;
+      } else if (transcriptData.status === 'error') {
+        throw new Error(`Transcription failed: ${transcriptData.error}`);
+      }
+      
+      attempts++;
+    }
+
+    if (!transcriptData || transcriptData.status !== 'completed') {
+      throw new Error('Transcription timed out');
+    }
+
+    console.log('Transcription completed, processing with OpenAI...');
+
+    // Process transcript with OpenAI for summary and tasks
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: chunk,
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an AI assistant that processes meeting transcripts. Your tasks:
+1. Create a clear, structured summary of the meeting
+2. Extract all action items and tasks mentioned
+3. Format tasks as a simple list, one task per line
+
+Available participants for assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
+
+When extracting tasks, be comprehensive and include all actionable items discussed.`
+          },
+          {
+            role: 'user',
+            content: `Please process this meeting transcript and provide:
+
+1. A structured summary of the meeting
+2. A list of all tasks and action items (one per line, starting with "- ")
+
+Transcript: ${transcriptData.text}`
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
       }),
     });
 
-    if (!response.ok) {
-      console.error(`OpenAI API error for embedding ${i + 1}: ${await response.text()}`);
-      continue; // Skip this embedding but continue with others
-    }
+    const openAIData = await openAIResponse.json();
+    const processedContent = openAIData.choices[0].message.content;
 
-    const data = await response.json();
-    embeddings.push(data.data[0].embedding);
-  }
-  
-  console.log(`Successfully generated ${embeddings.length} embeddings`);
-  return embeddings;
-};
+    console.log('OpenAI processing completed');
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+    // Extract summary and tasks
+    const lines = processedContent.split('\n');
+    let summary = '';
+    let tasks: string[] = [];
+    let inTasksSection = false;
 
-  try {
-    const { transcript, participants, meetingId } = await req.json();
-
-    if (!transcript) {
-      throw new Error('No transcript provided');
-    }
-
-    if (!meetingId) {
-      throw new Error('No meeting ID provided');
-    }
-
-    console.log(`Processing transcript for meeting ${meetingId} - Length: ${transcript.length} characters`);
-
-    // Check if transcript is too long for single processing
-    const maxSingleProcessSize = 6000;
-    let processedTranscript: string;
-
-    if (transcript.length <= maxSingleProcessSize) {
-      // Process as single chunk
-      console.log('Processing transcript as single chunk');
-      
-      const participantsList = participants.map((p: any) => p.name).join(', ');
-      const prompt = `Nettoie ce transcript de réunion médicale. Participants: ${participantsList}
-
-${transcript}
-
-INSTRUCTIONS STRICTES:
-1. Remplace "Speaker A", "Speaker B", etc. par les vrais noms des participants
-2. Supprime COMPLÈTEMENT: hésitations (euh, hmm), répétitions, interruptions inutiles, mots de remplissage
-3. Garde SEULEMENT le contenu médical/administratif important et utile
-4. Corrige les erreurs évidentes de transcription
-5. Format final: "Dr. X: [contenu nettoyé]"
-6. Enlève tout ce qui n'est pas essentiel à la compréhension
-
-Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-          max_tokens: 3000,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', errorText);
-        throw new Error(`OpenAI API error: ${errorText}`);
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.toLowerCase().includes('task') || trimmedLine.toLowerCase().includes('action')) {
+        inTasksSection = true;
+        continue;
       }
-
-      const data = await response.json();
-      processedTranscript = data.choices[0].message.content;
       
-      if (!processedTranscript || processedTranscript.length === 0) {
-        console.warn('OpenAI returned empty processed transcript, using original');
-        processedTranscript = transcript;
+      if (inTasksSection && trimmedLine.startsWith('- ')) {
+        tasks.push(trimmedLine.substring(2).trim());
+      } else if (!inTasksSection && trimmedLine) {
+        summary += trimmedLine + '\n';
       }
-    } else {
-      // Process in chunks
-      console.log('Processing transcript in chunks due to length');
+    }
+
+    summary = summary.trim();
+
+    console.log('Extracted summary length:', summary.length);
+    console.log('Extracted tasks count:', tasks.length);
+
+    // Save processed transcript and summary to database
+    const { error: updateError } = await supabase
+      .from('meetings')
+      .update({
+        transcript: processedContent, // Save the full processed content
+        summary: summary || 'Résumé en cours de traitement...'
+      })
+      .eq('id', meetingId);
+
+    if (updateError) {
+      console.error('Error updating meeting:', updateError);
+      throw updateError;
+    }
+
+    // Save tasks with improved participant assignment
+    if (tasks.length > 0) {
+      console.log('Saving tasks with participant assignment...');
       
-      const chunks = chunkBySpeakers(transcript, 4000);
-      console.log(`Split transcript into ${chunks.length} chunks`);
-      
-      const processedChunks: string[] = [];
-      
-      for (let i = 0; i < chunks.length; i++) {
-        console.log(`Processing chunk ${i + 1}/${chunks.length}`);
-        try {
-          const processedChunk = await processChunk(chunks[i], participants, i);
-          processedChunks.push(processedChunk);
-        } catch (error) {
-          console.error(`Error processing chunk ${i + 1}:`, error);
-          // Fallback to original chunk if processing fails
-          processedChunks.push(chunks[i]);
+      for (const task of tasks) {
+        const assignedParticipantId = findBestParticipantMatch(task, participants || []);
+        
+        console.log('Task assignment:', { 
+          task: task.substring(0, 50), 
+          assignedTo: assignedParticipantId 
+        });
+
+        // Save the todo
+        const { data: todoData, error: todoError } = await supabase
+          .from('todos')
+          .insert({
+            description: task.trim(),
+            status: 'pending',
+            meeting_id: meetingId,
+            assigned_to: assignedParticipantId, // Keep for backward compatibility
+          })
+          .select()
+          .single();
+
+        if (todoError) {
+          console.error('Error saving task:', todoError);
+          continue;
+        }
+
+        // Create many-to-many relationship if participant assigned
+        if (assignedParticipantId && todoData) {
+          const { error: participantError } = await supabase
+            .from('todo_participants')
+            .insert({
+              todo_id: todoData.id,
+              participant_id: assignedParticipantId
+            });
+          
+          if (participantError) {
+            console.error('Error creating todo-participant relationship:', participantError);
+          }
+        }
+
+        // Generate AI recommendation in background
+        if (todoData) {
+          try {
+            const aiResponse = await fetch(`${supabaseUrl}/functions/v1/todo-recommendations`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                todoId: todoData.id,
+                description: task.trim(),
+                meetingContext: `Meeting transcript processed`
+              }),
+            });
+            
+            if (!aiResponse.ok) {
+              console.error('AI recommendation request failed');
+            }
+          } catch (error) {
+            console.error('Error generating AI recommendation:', error);
+          }
         }
       }
-      
-      // Combine all processed chunks
-      processedTranscript = processedChunks.join('\n\n');
     }
 
-    console.log(`Processed transcript length: ${processedTranscript.length} characters`);
-    console.log('First 200 chars of processed transcript:', processedTranscript.substring(0, 200));
-
-    // Run summary, tasks extraction, and embeddings generation in parallel
-    console.log('Starting parallel processing of summary, tasks, and embeddings...');
-    
-    // Create 700-character chunks for embeddings (with speaker-based exceptions)
-    const embeddingChunks = chunkBySpeakers(processedTranscript, 700);
-    console.log(`Created ${embeddingChunks.length} embedding chunks (700 char max)`);
-    
-    const [summaryResult, tasksResult, embeddingsResult] = await Promise.allSettled([
-      generateSummary(processedTranscript, participants),
-      extractTasks(processedTranscript, participants),
-      generateEmbeddings(embeddingChunks)
-    ]);
-
-    let summary: string | null = null;
-    let tasks: any[] = [];
-    let embeddings: number[][] = [];
-
-    // Handle summary result
-    if (summaryResult.status === 'fulfilled') {
-      summary = summaryResult.value;
-      console.log(`Generated summary length: ${summary.length} characters`);
-    } else {
-      console.error('Error generating summary:', summaryResult.reason);
-    }
-
-    // Handle tasks result
-    if (tasksResult.status === 'fulfilled') {
-      tasks = tasksResult.value;
-      console.log(`Extracted ${tasks.length} tasks`);
-    } else {
-      console.error('Error extracting tasks:', tasksResult.reason);
-    }
-
-    // Handle embeddings result
-    if (embeddingsResult.status === 'fulfilled') {
-      embeddings = embeddingsResult.value;
-      console.log(`Generated ${embeddings.length} embeddings`);
-    } else {
-      console.error('Error generating embeddings:', embeddingsResult.reason);
-    }
-
-    const finalResult = { 
-      processedTranscript, 
-      summary,
-      tasks,
-      embeddings: embeddings.length > 0 ? {
-        chunks: embeddingChunks,
-        embeddings: embeddings
-      } : null
-    };
-
-    console.log('Final result summary:', {
-      processedTranscriptLength: finalResult.processedTranscript?.length || 0,
-      summaryLength: finalResult.summary?.length || 0,
-      tasksCount: finalResult.tasks?.length || 0,
-      embeddingsCount: finalResult.embeddings?.embeddings?.length || 0
-    });
-
-    return new Response(JSON.stringify(finalResult), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      summary: summary,
+      tasksCount: tasks.length 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error) {
     console.error('Error in process-transcript function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
@@ -432,3 +242,44 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
     });
   }
 });
+
+// Helper function for participant matching
+function findBestParticipantMatch(taskText: string, allParticipants: any[]): string | null {
+  if (!taskText || !allParticipants?.length) return null;
+
+  const taskLower = taskText.toLowerCase();
+  
+  // Direct name matching
+  for (const participant of allParticipants) {
+    const nameLower = participant.name.toLowerCase();
+    const firstNameLower = nameLower.split(' ')[0];
+    
+    if (taskLower.includes(nameLower) || taskLower.includes(firstNameLower)) {
+      return participant.id;
+    }
+  }
+
+  // Role-based matching
+  const roleKeywords = {
+    'développeur': ['dev', 'développeur', 'developer', 'programmeur', 'code', 'technique'],
+    'designer': ['design', 'designer', 'ui', 'ux', 'graphique', 'visuel'],
+    'manager': ['manager', 'gestionnaire', 'responsable', 'chef', 'coordonner'],
+    'marketing': ['marketing', 'communication', 'promo', 'publicité', 'social'],
+    'commercial': ['commercial', 'vente', 'sales', 'client', 'prospect'],
+  };
+
+  for (const participant of allParticipants) {
+    const nameLower = participant.name.toLowerCase();
+    const emailLower = participant.email?.toLowerCase() || '';
+    
+    for (const [role, keywords] of Object.entries(roleKeywords)) {
+      if (keywords.some(keyword => taskLower.includes(keyword))) {
+        if (nameLower.includes(role) || emailLower.includes(role)) {
+          return participant.id;
+        }
+      }
+    }
+  }
+
+  return null;
+}

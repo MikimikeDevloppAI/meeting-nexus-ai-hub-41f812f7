@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +12,7 @@ import { CheckSquare, Plus, Trash2, Edit, Save, X, MessageCircle } from "lucide-
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TodoComments } from "@/components/TodoComments";
+import { TodoParticipantManager } from "@/components/TodoParticipantManager";
 
 interface Participant {
   id: string;
@@ -33,12 +32,21 @@ interface Todo {
   meeting_id: string | null;
   assigned_to: string | null;
   created_at: string;
+  ai_recommendation_generated: boolean | null;
   meetings?: {
     title: string;
   }[] | null;
   participants?: {
     name: string;
   }[] | null;
+  todo_participants?: {
+    participant_id: string;
+    participants: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }[];
 }
 
 const Todos = () => {
@@ -54,6 +62,7 @@ const Todos = () => {
   const [editDescription, setEditDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState<string | null>(null);
+  const [expandedTodoId, setExpandedTodoId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -75,8 +84,17 @@ const Todos = () => {
           meeting_id, 
           assigned_to, 
           created_at,
+          ai_recommendation_generated,
           meetings!meeting_id (title),
-          participants!assigned_to (name)
+          participants!assigned_to (name),
+          todo_participants!inner (
+            participant_id,
+            participants!inner (
+              id,
+              name,
+              email
+            )
+          )
         `)
         .order("created_at", { ascending: false });
 
@@ -143,8 +161,17 @@ const Todos = () => {
           meeting_id, 
           assigned_to, 
           created_at,
+          ai_recommendation_generated,
           meetings!meeting_id (title),
-          participants!assigned_to (name)
+          participants!assigned_to (name),
+          todo_participants!inner (
+            participant_id,
+            participants!inner (
+              id,
+              name,
+              email
+            )
+          )
         `)
         .single();
 
@@ -187,9 +214,12 @@ const Todos = () => {
         )
       );
       
+      const statusText = newStatus === "completed" ? "complétée" : 
+                        newStatus === "confirmed" ? "confirmée" : "en attente";
+      
       toast({
         title: "Statut mis à jour",
-        description: `La tâche est maintenant ${newStatus === "completed" ? "complétée" : "en attente"}.`,
+        description: `La tâche est maintenant ${statusText}.`,
       });
     } catch (error: any) {
       console.error("Error updating todo:", error);
@@ -272,6 +302,14 @@ const Todos = () => {
     if (activeTab === "completed") return todo.status === "completed";
     return true; // All todos
   });
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "completed": return "default";
+      case "confirmed": return "secondary";
+      default: return "outline";
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -370,111 +408,161 @@ const Todos = () => {
             </div>
           ) : filteredTodos.length > 0 ? (
             <div className="space-y-4">
-              {filteredTodos.map((todo) => (
-                <Card key={todo.id}>
-                  <CardContent className="p-4">
-                    {editingTodoId === todo.id ? (
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          className="flex-1"
-                          autoFocus
-                        />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => saveEditing(todo.id)}
-                        >
-                          <Save className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={cancelEditing}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3">
+              {filteredTodos.map((todo) => {
+                const assignedParticipants = todo.todo_participants?.map(tp => tp.participants) || [];
+                
+                return (
+                  <Card key={todo.id}>
+                    <CardContent className="p-4">
+                      {editingTodoId === todo.id ? (
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            className="flex-1"
+                            autoFocus
+                          />
                           <Button
-                            variant={
-                              todo.status === "completed" ? "default" : "outline"
-                            }
                             size="icon"
-                            className={
-                              todo.status === "completed"
-                                ? "h-6 w-6 bg-green-500 hover:bg-green-600"
-                                : "h-6 w-6"
-                            }
-                            onClick={() =>
-                              handleStatusChange(
-                                todo.id,
-                                todo.status === "completed"
-                                  ? "pending"
-                                  : "completed"
-                              )
-                            }
+                            variant="ghost"
+                            onClick={() => saveEditing(todo.id)}
                           >
-                            {todo.status === "completed" && (
-                              <CheckSquare className="h-4 w-4" />
-                            )}
+                            <Save className="h-4 w-4" />
                           </Button>
-                          <div className="space-y-1">
-                            <p
-                              className={`text-md ${
-                                todo.status === "completed"
-                                  ? "line-through text-muted-foreground"
-                                  : ""
-                              }`}
-                            >
-                              {todo.description}
-                            </p>
-                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {todo.participants && todo.participants.length > 0 && (
-                                <Badge variant="outline">
-                                  Assignée à: {todo.participants[0].name}
-                                </Badge>
-                              )}
-                              {todo.meetings && todo.meetings.length > 0 && (
-                                <Badge variant="outline">
-                                  Réunion: {todo.meetings[0].title}
-                                </Badge>
-                              )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={cancelEditing}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant={todo.status === "completed" ? "default" : "outline"}
+                                  size="icon"
+                                  className={
+                                    todo.status === "completed"
+                                      ? "h-6 w-6 bg-green-500 hover:bg-green-600"
+                                      : "h-6 w-6"
+                                  }
+                                  onClick={() =>
+                                    handleStatusChange(
+                                      todo.id,
+                                      todo.status === "completed" ? "pending" : "completed"
+                                    )
+                                  }
+                                >
+                                  {todo.status === "completed" && (
+                                    <CheckSquare className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                {todo.status === "pending" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleStatusChange(todo.id, "confirmed")}
+                                  >
+                                    Confirmer
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="space-y-1 flex-1">
+                                <p
+                                  className={`text-md ${
+                                    todo.status === "completed"
+                                      ? "line-through text-muted-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  {todo.description}
+                                </p>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <Badge variant={getStatusBadgeVariant(todo.status)}>
+                                    {todo.status === "completed" ? "Complétée" : 
+                                     todo.status === "confirmed" ? "Confirmée" : "En attente"}
+                                  </Badge>
+                                  {todo.meetings && todo.meetings.length > 0 && (
+                                    <Badge variant="outline">
+                                      Réunion: {todo.meetings[0].title}
+                                    </Badge>
+                                  )}
+                                  {todo.ai_recommendation_generated && (
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                      IA consultée
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 self-end sm:self-center mt-2 sm:mt-0">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setCommentsOpen(todo.id)}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => startEditing(todo)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => deleteTodo(todo.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
+                          
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">Participants assignés:</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExpandedTodoId(expandedTodoId === todo.id ? null : todo.id)}
+                              >
+                                {expandedTodoId === todo.id ? "Masquer" : "Gérer"}
+                              </Button>
+                            </div>
+                            
+                            {expandedTodoId === todo.id ? (
+                              <TodoParticipantManager
+                                todoId={todo.id}
+                                currentParticipants={assignedParticipants}
+                                onParticipantsUpdate={fetchTodos}
+                              />
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {assignedParticipants.length > 0 ? (
+                                  assignedParticipants.map((participant) => (
+                                    <Badge key={participant.id} variant="secondary">
+                                      {participant.name}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">Non assignée</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2 self-end sm:self-center mt-2 sm:mt-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setCommentsOpen(todo.id)}
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => startEditing(todo)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => deleteTodo(todo.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <Card>

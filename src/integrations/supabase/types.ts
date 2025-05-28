@@ -212,8 +212,45 @@ export type Database = {
           },
         ]
       }
+      todo_participants: {
+        Row: {
+          created_at: string
+          id: string
+          participant_id: string
+          todo_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participant_id: string
+          todo_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participant_id?: string
+          todo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_participants_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todo_participants_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todos: {
         Row: {
+          ai_recommendation_generated: boolean | null
           assigned_to: string | null
           created_at: string
           description: string
@@ -223,6 +260,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          ai_recommendation_generated?: boolean | null
           assigned_to?: string | null
           created_at?: string
           description: string
@@ -232,6 +270,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          ai_recommendation_generated?: boolean | null
           assigned_to?: string | null
           created_at?: string
           description?: string
