@@ -136,19 +136,17 @@ INSTRUCTIONS:
 3. Extrais la date limite si mentionnée
 4. Sois très précis sur la description de la tâche
 
-Retourne un JSON avec ce format exact:
+Retourne UNIQUEMENT un JSON valide avec ce format exact (pas de markdown, pas de backticks):
 {
   "tasks": [
     {
       "description": "Description précise de la tâche",
-      "assigned_to": "Nom exact du participant" ou null,
-      "due_date": "YYYY-MM-DD" ou null,
-      "priority": "high" ou "medium" ou "low"
+      "assigned_to": "Nom exact du participant ou null",
+      "due_date": "YYYY-MM-DD ou null",
+      "priority": "high ou medium ou low"
     }
   ]
-}
-
-Retourne UNIQUEMENT le JSON valide:`;
+}`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -169,11 +167,16 @@ Retourne UNIQUEMENT le JSON valide:`;
   }
 
   const data = await response.json();
+  const content = data.choices[0].message.content.trim();
+  
   try {
-    const taskData = JSON.parse(data.choices[0].message.content);
+    // Clean the content to remove markdown formatting if present
+    const cleanContent = content.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
+    const taskData = JSON.parse(cleanContent);
     return taskData.tasks || [];
   } catch (error) {
     console.error('Error parsing tasks JSON:', error);
+    console.error('Raw content:', content);
     return [];
   }
 };
@@ -267,26 +270,31 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
 
     console.log(`Processed transcript length: ${processedTranscript.length} characters`);
 
-    // Generate summary
-    console.log('Generating comprehensive summary...');
-    let summary: string | null = null;
+    // Run summary, tasks extraction, and embeddings generation in parallel
+    console.log('Starting parallel processing of summary, tasks, and embeddings...');
     
-    try {
-      summary = await generateSummary(processedTranscript, participants);
+    const [summaryResult, tasksResult] = await Promise.allSettled([
+      generateSummary(processedTranscript, participants),
+      extractTasks(processedTranscript, participants)
+    ]);
+
+    let summary: string | null = null;
+    let tasks: any[] = [];
+
+    // Handle summary result
+    if (summaryResult.status === 'fulfilled') {
+      summary = summaryResult.value;
       console.log(`Generated summary length: ${summary.length} characters`);
-    } catch (error) {
-      console.error('Error generating summary:', error);
+    } else {
+      console.error('Error generating summary:', summaryResult.reason);
     }
 
-    // Extract tasks
-    console.log('Extracting tasks from transcript...');
-    let tasks: any[] = [];
-    
-    try {
-      tasks = await extractTasks(processedTranscript, participants);
+    // Handle tasks result
+    if (tasksResult.status === 'fulfilled') {
+      tasks = tasksResult.value;
       console.log(`Extracted ${tasks.length} tasks`);
-    } catch (error) {
-      console.error('Error extracting tasks:', error);
+    } else {
+      console.error('Error extracting tasks:', tasksResult.reason);
     }
 
     return new Response(JSON.stringify({ 

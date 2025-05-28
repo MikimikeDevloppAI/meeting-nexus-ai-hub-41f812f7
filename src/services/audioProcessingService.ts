@@ -30,16 +30,22 @@ const chunkText = (text: string, maxChunkSize: number = 1000): string[] => {
 const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
   console.log('[EMBEDDINGS] Generating embeddings for', texts.length, 'chunks');
   
-  const { data: functionResult, error: functionError } = await supabase.functions.invoke('generate-embeddings', {
-    body: { texts }
-  });
+  try {
+    const { data: functionResult, error: functionError } = await supabase.functions.invoke('generate-embeddings', {
+      body: { texts }
+    });
 
-  if (functionError) {
-    console.error('[EMBEDDINGS] Error generating embeddings:', functionError);
-    throw functionError;
+    if (functionError) {
+      console.error('[EMBEDDINGS] Error generating embeddings:', functionError);
+      throw functionError;
+    }
+
+    console.log('[EMBEDDINGS] Successfully generated embeddings');
+    return functionResult.embeddings;
+  } catch (error) {
+    console.error('[EMBEDDINGS] Failed to generate embeddings:', error);
+    throw error;
   }
-
-  return functionResult.embeddings;
 };
 
 export class AudioProcessingService {
@@ -174,13 +180,9 @@ export class AudioProcessingService {
         updates.transcript = processedTranscript; // Save the PROCESSED transcript, not the original
         result.processedTranscript = processedTranscript;
 
-        // Store processed transcript in vector database
-        try {
-          await this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants);
-        } catch (embeddingError: any) {
-          console.error('[EMBEDDINGS] Failed to store in vector DB:', embeddingError);
-          // Continue without failing the whole process
-        }
+        // Start embeddings generation in parallel (don't await)
+        this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants)
+          .catch(error => console.error('[EMBEDDINGS] Failed to store in vector DB:', error));
       }
 
       if (functionResult?.summary) {
@@ -194,16 +196,12 @@ export class AudioProcessingService {
         console.log('[TASKS] Tasks received:', functionResult.tasks.length);
         result.tasks = functionResult.tasks;
         
-        // Save tasks to database
-        try {
-          await this.saveTasks(functionResult.tasks, meetingId, participants);
-        } catch (taskError: any) {
-          console.error('[TASKS] Failed to save tasks:', taskError);
-          // Continue without failing the whole process
-        }
+        // Start tasks saving in parallel (don't await)
+        this.saveTasks(functionResult.tasks, meetingId, participants)
+          .catch(error => console.error('[TASKS] Failed to save tasks:', error));
       }
 
-      // Use batch update instead of multiple individual updates
+      // Use batch update for meeting data
       if (Object.keys(updates).length > 0) {
         console.log('[PROCESS] Saving processed data to database...');
         await MeetingService.batchUpdateMeeting(meetingId, updates);
@@ -221,7 +219,7 @@ export class AudioProcessingService {
     console.log('[TASKS] Saving', tasks.length, 'tasks to database...');
     
     try {
-      for (const task of tasks) {
+      const tasksToInsert = tasks.map(task => {
         let assignedToId = null;
         
         // Try to match assigned_to name with participant
@@ -235,22 +233,26 @@ export class AudioProcessingService {
           }
         }
 
-        const { error } = await supabase
-          .from('todos')
-          .insert({
-            description: task.description,
-            meeting_id: meetingId,
-            assigned_to: assignedToId,
-            status: 'pending', // All tasks start as pending
-            due_date: task.due_date || null
-          });
+        return {
+          description: task.description,
+          meeting_id: meetingId,
+          assigned_to: assignedToId,
+          status: 'pending', // All tasks start as pending
+          due_date: task.due_date || null
+        };
+      });
 
-        if (error) {
-          console.error('[TASKS] Error saving task:', error);
-        }
+      // Batch insert all tasks
+      const { error } = await supabase
+        .from('todos')
+        .insert(tasksToInsert);
+
+      if (error) {
+        console.error('[TASKS] Error saving tasks:', error);
+        throw error;
       }
       
-      console.log('[TASKS] Tasks saved successfully');
+      console.log('[TASKS] All tasks saved successfully');
     } catch (error) {
       console.error('[TASKS] Error saving tasks:', error);
       throw error;
