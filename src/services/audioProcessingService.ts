@@ -179,7 +179,7 @@ export class AudioProcessingService {
 
       console.log('[TRANSCRIBE] Raw transcript received, length:', result.text.length);
       
-      // Save original transcript with a different field temporarily
+      // Save original transcript as a backup
       console.log('[TRANSCRIBE] Saving raw transcript as backup...');
       await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
       console.log('[TRANSCRIBE] Raw transcript saved successfully');
@@ -215,16 +215,23 @@ export class AudioProcessingService {
       const result = response.data;
       console.log('[OPENAI] Processing completed successfully');
 
-      // Save embeddings if we have processed transcript
-      if (result.processedTranscript || transcript) {
-        console.log('[EMBEDDINGS] Creating embeddings for transcript...');
-        const textToEmbed = result.processedTranscript || transcript;
+      // Save embeddings using the CLEANED transcript from OpenAI
+      if (result.processedTranscript) {
+        console.log('[EMBEDDINGS] Creating embeddings for cleaned transcript...');
+        const textToEmbed = result.processedTranscript; // Use the cleaned version
         const chunks = chunkText(textToEmbed);
         
         if (chunks.length > 0) {
-          console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks`);
+          console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks from cleaned transcript`);
           const embeddings = await generateEmbeddings(chunks);
           await this.saveEmbeddings(meetingId, chunks, embeddings, textToEmbed);
+        }
+      } else {
+        console.warn('[EMBEDDINGS] No processed transcript available, using original');
+        const chunks = chunkText(transcript);
+        if (chunks.length > 0) {
+          const embeddings = await generateEmbeddings(chunks);
+          await this.saveEmbeddings(meetingId, chunks, embeddings, transcript);
         }
       }
 

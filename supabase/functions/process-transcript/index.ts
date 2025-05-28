@@ -24,7 +24,6 @@ serve(async (req) => {
     
     if (!openAIApiKey) {
       console.error('OpenAI API key not configured');
-      // If no OpenAI key, just return the provided transcript without processing
       return new Response(JSON.stringify({ 
         success: true, 
         processedTranscript: providedTranscript || '',
@@ -100,6 +99,40 @@ serve(async (req) => {
 
     console.log('Processing transcript with OpenAI, length:', transcriptToProcess.length);
 
+    // Enhanced system prompt for better summary and task extraction
+    const systemPrompt = `You are an AI assistant that processes meeting transcripts. You MUST respond with valid JSON only, no other text.
+
+Your response must be EXACTLY in this format:
+{
+  "cleanedTranscript": "improved and cleaned version of the transcript with better formatting and speaker identification",
+  "summary": "comprehensive meeting summary organized by topics",
+  "tasks": ["actionable task 1", "actionable task 2", "actionable task 3"]
+}
+
+For the cleanedTranscript:
+- Clean up the raw transcript text
+- Fix any transcription errors you can identify
+- Improve speaker identification and formatting
+- Make it more readable while preserving all content
+- Keep all the original information but present it clearly
+
+For the summary:
+- Write a comprehensive summary in French (3-4 paragraphs minimum)
+- Organize by main topics discussed (e.g., "Points techniques:", "Décisions prises:", "Sujets administratifs:", etc.)
+- Include all important points, decisions, and discussions
+- Don't miss any significant topics or decisions
+- Be detailed and thorough
+
+For tasks:
+- Extract ALL actionable items, decisions, follow-ups, and commitments mentioned
+- Include WHO should do WHAT when clearly mentioned
+- Each task should be a complete, actionable sentence in French
+- Include deadlines or timeframes when mentioned
+- Be specific about what needs to be done
+- Available participants for potential assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
+
+CRITICAL: Your response must be valid JSON only, starting with { and ending with }`;
+
     // Process transcript with OpenAI for summary and tasks
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -112,31 +145,17 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant that processes meeting transcripts. You MUST respond with valid JSON only, no other text.
-
-Your response must be EXACTLY in this format:
-{
-  "summary": "detailed meeting summary in French",
-  "tasks": ["task 1 in French", "task 2 in French", "task 3 in French"]
-}
-
-Rules:
-- summary: Write a comprehensive summary of the meeting in French (2-3 paragraphs)
-- tasks: Extract ALL actionable items, decisions, and follow-ups mentioned in the meeting
-- Each task should be a complete, actionable sentence in French
-- If no tasks are found, return an empty array for tasks
-- Available participants for assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
-- CRITICAL: Your response must be valid JSON only, starting with { and ending with }`
+            content: systemPrompt
           },
           {
             role: 'user',
-            content: `Process this meeting transcript and extract summary and tasks:
+            content: `Process this meeting transcript:
 
 ${transcriptToProcess}`
           }
         ],
-        max_tokens: 2000,
-        temperature: 0.3,
+        max_tokens: 3000,
+        temperature: 0.2,
       }),
     });
 
@@ -179,61 +198,32 @@ ${transcriptToProcess}`
     console.log('Cleaned OpenAI response:', cleanedContent);
 
     // Parse the JSON response
+    let cleanedTranscript = transcriptToProcess;
     let summary = '';
     let tasks: string[] = [];
 
     try {
       const parsed = JSON.parse(cleanedContent);
+      cleanedTranscript = parsed.cleanedTranscript || transcriptToProcess;
       summary = parsed.summary || 'Résumé en cours de traitement...';
       tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
       
-      console.log('Successfully parsed JSON - Summary length:', summary.length, 'Tasks count:', tasks.length);
+      console.log('Successfully parsed JSON - Cleaned transcript length:', cleanedTranscript.length, 'Summary length:', summary.length, 'Tasks count:', tasks.length);
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError);
       console.log('Failed content:', cleanedContent);
       
-      // Fallback: try to extract summary and tasks manually
-      console.log('Attempting manual extraction...');
-      
-      const lines = processedContent.split('\n').map(line => line.trim()).filter(line => line);
-      let currentSection = '';
-      
-      for (const line of lines) {
-        const lowerLine = line.toLowerCase();
-        
-        // Look for summary indicators
-        if (lowerLine.includes('summary') || lowerLine.includes('résumé') || lowerLine.includes('sommaire')) {
-          currentSection = 'summary';
-          continue;
-        }
-        
-        // Look for tasks indicators
-        if (lowerLine.includes('task') || lowerLine.includes('tâche') || lowerLine.includes('action') || 
-            lowerLine.includes('todo') || lowerLine.includes('à faire')) {
-          currentSection = 'tasks';
-          continue;
-        }
-        
-        // Extract content based on current section
-        if (currentSection === 'summary' && line && !line.startsWith('-') && !line.startsWith('•')) {
-          summary += line + ' ';
-        } else if (currentSection === 'tasks' && (line.startsWith('-') || line.startsWith('•') || line.match(/^\d+\./))) {
-          const taskText = line.replace(/^[-•\d\.]\s*/, '').trim();
-          if (taskText) {
-            tasks.push(taskText);
-          }
-        }
-      }
-      
-      summary = summary.trim() || 'Résumé automatique non disponible.';
-      console.log('Manual extraction completed - Summary length:', summary.length, 'Tasks count:', tasks.length);
+      // Use original transcript if parsing fails
+      cleanedTranscript = transcriptToProcess;
+      summary = 'Résumé automatique non disponible - erreur de traitement.';
+      tasks = [];
     }
 
-    // Save processed transcript and summary to database
+    // Save the cleaned transcript and summary to database
     const { error: updateError } = await supabase
       .from('meetings')
       .update({
-        transcript: transcriptToProcess,
+        transcript: cleanedTranscript, // Use the cleaned version from OpenAI
         summary: summary
       })
       .eq('id', meetingId);
@@ -243,9 +233,9 @@ ${transcriptToProcess}`
       throw updateError;
     }
 
-    console.log('Meeting updated successfully');
+    console.log('Meeting updated successfully with cleaned transcript');
 
-    // Save tasks with participant assignment
+    // Save tasks with improved participant assignment
     if (tasks.length > 0) {
       console.log('Saving', tasks.length, 'tasks...');
       
@@ -254,7 +244,7 @@ ${transcriptToProcess}`
         
         console.log('Saving task:', { 
           task: task.substring(0, 50) + (task.length > 50 ? '...' : ''), 
-          assignedTo: assignedParticipantId 
+          assignedTo: assignedParticipantId ? participants.find(p => p.id === assignedParticipantId)?.name : 'None'
         });
 
         // Save the todo
@@ -285,6 +275,8 @@ ${transcriptToProcess}`
           
           if (participantError) {
             console.error('Error creating todo-participant relationship:', participantError);
+          } else {
+            console.log('Successfully assigned task to participant');
           }
         }
       }
@@ -294,7 +286,7 @@ ${transcriptToProcess}`
 
     return new Response(JSON.stringify({ 
       success: true, 
-      processedTranscript: transcriptToProcess,
+      processedTranscript: cleanedTranscript, // Return the cleaned version
       summary: summary,
       tasks: tasks,
       tasksCount: tasks.length 
@@ -311,43 +303,71 @@ ${transcriptToProcess}`
   }
 });
 
-// Helper function for participant matching
+// Improved helper function for participant matching
 function findBestParticipantMatch(taskText: string, allParticipants: any[]): string | null {
-  if (!taskText || !allParticipants?.length) return null;
+  if (!taskText || !allParticipants?.length) {
+    console.log('No task text or participants available for matching');
+    return null;
+  }
 
   const taskLower = taskText.toLowerCase();
+  console.log('Matching task:', taskText.substring(0, 100));
+  console.log('Available participants:', allParticipants.map(p => p.name));
   
-  // Direct name matching
+  // Direct name matching - check for exact names first
   for (const participant of allParticipants) {
     const nameLower = participant.name.toLowerCase();
-    const firstNameLower = nameLower.split(' ')[0];
+    const nameParts = nameLower.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts[nameParts.length - 1];
     
-    if (taskLower.includes(nameLower) || taskLower.includes(firstNameLower)) {
+    // Check for full name, first name, or last name
+    if (taskLower.includes(nameLower) || 
+        taskLower.includes(firstName) || 
+        (lastName.length > 2 && taskLower.includes(lastName))) {
+      console.log('Direct name match found:', participant.name);
       return participant.id;
     }
   }
 
-  // Role-based matching
+  // Enhanced role-based matching with more keywords
   const roleKeywords = {
-    'développeur': ['dev', 'développeur', 'developer', 'programmeur', 'code', 'technique'],
-    'designer': ['design', 'designer', 'ui', 'ux', 'graphique', 'visuel'],
-    'manager': ['manager', 'gestionnaire', 'responsable', 'chef', 'coordonner'],
-    'marketing': ['marketing', 'communication', 'promo', 'publicité', 'social'],
-    'commercial': ['commercial', 'vente', 'sales', 'client', 'prospect'],
+    'développeur': ['dev', 'développeur', 'developer', 'programmeur', 'code', 'technique', 'site', 'application', 'bug', 'correction'],
+    'designer': ['design', 'designer', 'ui', 'ux', 'graphique', 'visuel', 'interface', 'maquette'],
+    'manager': ['manager', 'gestionnaire', 'responsable', 'chef', 'coordonner', 'organiser', 'planifier'],
+    'marketing': ['marketing', 'communication', 'promo', 'publicité', 'social', 'contenu', 'campagne'],
+    'commercial': ['commercial', 'vente', 'sales', 'client', 'prospect', 'devis', 'contact'],
+    'administratif': ['administratif', 'admin', 'bureau', 'paperasse', 'document', 'formulaire', 'rdv', 'rendez-vous']
   };
 
+  // Look for role-based assignments
   for (const participant of allParticipants) {
     const nameLower = participant.name.toLowerCase();
     const emailLower = participant.email?.toLowerCase() || '';
     
     for (const [role, keywords] of Object.entries(roleKeywords)) {
       if (keywords.some(keyword => taskLower.includes(keyword))) {
-        if (nameLower.includes(role) || emailLower.includes(role)) {
+        // Check if participant profile suggests this role
+        if (nameLower.includes(role) || 
+            emailLower.includes(role) ||
+            emailLower.includes('dev') && role === 'développeur' ||
+            emailLower.includes('admin') && role === 'administratif') {
+          console.log('Role-based match found:', participant.name, 'for role:', role);
           return participant.id;
         }
       }
     }
   }
 
+  // If no specific match, try to assign to first participant for non-generic tasks
+  const genericWords = ['tous', 'équipe', 'chacun', 'ensemble'];
+  const isGenericTask = genericWords.some(word => taskLower.includes(word));
+  
+  if (!isGenericTask && allParticipants.length > 0) {
+    console.log('No specific match, assigning to first participant:', allParticipants[0].name);
+    return allParticipants[0].id;
+  }
+
+  console.log('No participant match found for task');
   return null;
 }
