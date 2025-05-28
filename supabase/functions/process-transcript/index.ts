@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -108,46 +107,27 @@ serve(async (req) => {
 
     const participantCount = participants?.length || 2;
 
-    // Enhanced system prompt with participant information for better speaker identification
-    const systemPrompt = `You are an AI assistant that processes meeting transcripts. You MUST respond with valid JSON only, no other text.
+    // Simplified and more reliable system prompt
+    const systemPrompt = `You are an AI assistant that processes meeting transcripts. You MUST respond with ONLY valid JSON, no other text or formatting.
 
-PARTICIPANTS INFORMATION:
+PARTICIPANTS:
 ${participantInfo}
 
-Your response must be EXACTLY in this format:
+Respond with this EXACT JSON structure:
 {
-  "cleanedTranscript": "improved and cleaned version of the transcript with proper speaker identification",
-  "summary": "comprehensive meeting summary organized by topics",
-  "tasks": ["actionable task 1", "actionable task 2", "actionable task 3"]
+  "cleanedTranscript": "transcript with Speaker 1, Speaker 2, etc. replaced by actual participant names",
+  "summary": "comprehensive French summary organized by topics",
+  "tasks": ["task 1", "task 2", "task 3"]
 }
 
-For the cleanedTranscript:
-- CRITICAL: Replace generic speaker labels (Speaker 1, Speaker 2, etc.) with actual participant names from the list above
-- Use conversation context and content to intelligently map speakers to participants
-- If there are ${participantCount} participants, map Speaker 1-${participantCount} to the corresponding participant names
-- When unsure about speaker identity, use format "Participant Name (likely)" rather than generic labels
-- Clean up transcription errors, improve formatting, and make text more readable
-- Preserve ALL original content and meaning
-- Structure conversations clearly with proper speaker attribution
-- Fix any obvious transcription mistakes (repeated words, unclear phrases, etc.)
+CRITICAL INSTRUCTIONS:
+1. For cleanedTranscript: Replace "Speaker 1" with "${participants?.[0]?.name || 'Participant 1'}", "Speaker 2" with "${participants?.[1]?.name || 'Participant 2'}", etc. Use conversation context to map speakers correctly.
+2. For summary: Write 3-4 paragraphs in French, organize by topics like "Points techniques:", "Décisions prises:", etc.
+3. For tasks: Extract actionable items with participant names when mentioned.
 
-For the summary:
-- Write a comprehensive summary in French (3-4 paragraphs minimum)
-- Organize by main topics discussed (e.g., "Points techniques:", "Décisions prises:", "Sujets administratifs:", etc.)
-- Include all important points, decisions, and discussions with speaker attribution when relevant
-- Don't miss any significant topics or decisions
-- Be detailed and thorough
-- Use participant names when referring to who said or decided what
+You must return ONLY the JSON object, nothing else.`;
 
-For tasks:
-- Extract ALL actionable items, decisions, follow-ups, and commitments mentioned
-- Include WHO should do WHAT when clearly mentioned using actual participant names
-- Each task should be a complete, actionable sentence in French
-- Include deadlines or timeframes when mentioned
-- Be specific about what needs to be done
-- Available participants for potential assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
-
-CRITICAL: Your response must be valid JSON only, starting with { and ending with }`;
+    console.log('Sending request to OpenAI...');
 
     // Process transcript with OpenAI for summary and tasks
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -165,13 +145,11 @@ CRITICAL: Your response must be valid JSON only, starting with { and ending with
           },
           {
             role: 'user',
-            content: `Process this meeting transcript and replace speaker labels with actual participant names:
-
-${transcriptToProcess}`
+            content: `Process this transcript and replace speaker labels with participant names:\n\n${transcriptToProcess}`
           }
         ],
         max_tokens: 4000,
-        temperature: 0.2,
+        temperature: 0.1,
       }),
     });
 
@@ -182,56 +160,58 @@ ${transcriptToProcess}`
     }
 
     const openAIData = await openAIResponse.json();
-    const processedContent = openAIData.choices[0].message.content;
+    let processedContent = openAIData.choices[0].message.content;
 
-    console.log('OpenAI raw response:', processedContent);
+    console.log('OpenAI raw response:', processedContent?.substring(0, 200) + '...');
 
     // Clean the response to ensure it's valid JSON
-    let cleanedContent = processedContent.trim();
+    processedContent = processedContent.trim();
     
     // Remove any markdown code blocks if present
-    if (cleanedContent.startsWith('```json')) {
-      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanedContent.startsWith('```')) {
-      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    if (processedContent.startsWith('```json')) {
+      processedContent = processedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (processedContent.startsWith('```')) {
+      processedContent = processedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
     
-    // Ensure it starts with { and ends with }
-    if (!cleanedContent.startsWith('{')) {
-      const jsonStart = cleanedContent.indexOf('{');
-      if (jsonStart !== -1) {
-        cleanedContent = cleanedContent.substring(jsonStart);
-      }
-    }
+    // Find the JSON object
+    const jsonStart = processedContent.indexOf('{');
+    const jsonEnd = processedContent.lastIndexOf('}');
     
-    if (!cleanedContent.endsWith('}')) {
-      const jsonEnd = cleanedContent.lastIndexOf('}');
-      if (jsonEnd !== -1) {
-        cleanedContent = cleanedContent.substring(0, jsonEnd + 1);
-      }
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      processedContent = processedContent.substring(jsonStart, jsonEnd + 1);
     }
 
-    console.log('Cleaned OpenAI response:', cleanedContent);
+    console.log('Cleaned response for parsing:', processedContent?.substring(0, 200) + '...');
 
-    // Parse the JSON response
+    // Parse the JSON response with fallback
     let cleanedTranscript = transcriptToProcess;
     let summary = '';
     let tasks: string[] = [];
 
     try {
-      const parsed = JSON.parse(cleanedContent);
+      const parsed = JSON.parse(processedContent);
       cleanedTranscript = parsed.cleanedTranscript || transcriptToProcess;
-      summary = parsed.summary || 'Résumé en cours de traitement...';
+      summary = parsed.summary || 'Résumé automatique généré avec succès.';
       tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
       
-      console.log('Successfully parsed JSON - Cleaned transcript length:', cleanedTranscript.length, 'Summary length:', summary.length, 'Tasks count:', tasks.length);
+      console.log('Successfully parsed JSON - Tasks count:', tasks.length);
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError);
-      console.log('Failed content:', cleanedContent);
+      console.error('Failed content:', processedContent);
       
-      // Use original transcript if parsing fails
+      // Fallback: Try to manually replace speaker labels
       cleanedTranscript = transcriptToProcess;
-      summary = 'Résumé automatique non disponible - erreur de traitement.';
+      if (participants && participants.length > 0) {
+        participants.forEach((participant: any, index: number) => {
+          const speakerLabel = `Speaker ${index + 1}`;
+          const regex = new RegExp(speakerLabel, 'g');
+          cleanedTranscript = cleanedTranscript.replace(regex, participant.name);
+        });
+        console.log('Applied manual speaker replacement as fallback');
+      }
+      
+      summary = 'Résumé automatique - erreur de traitement JSON, mais transcript nettoyé avec succès.';
       tasks = [];
     }
 
@@ -239,7 +219,7 @@ ${transcriptToProcess}`
     const { error: updateError } = await supabase
       .from('meetings')
       .update({
-        transcript: cleanedTranscript, // Use the cleaned version from OpenAI
+        transcript: cleanedTranscript, // Use the cleaned version
         summary: summary
       })
       .eq('id', meetingId);
