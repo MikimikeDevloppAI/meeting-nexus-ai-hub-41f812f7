@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -9,8 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to chunk text by speakers (max 5000 chars, split only between speakers)
-const chunkBySpeakers = (text: string, maxChunkSize: number = 5000): string[] => {
+// Function to chunk text by speakers with 700 char max, but allow longer chunks for single speaker monologues
+const chunkBySpeakers = (text: string, maxChunkSize: number = 700): string[] => {
   const lines = text.split('\n').filter(line => line.trim().length > 0);
   const chunks: string[] = [];
   let currentChunk = '';
@@ -19,11 +18,58 @@ const chunkBySpeakers = (text: string, maxChunkSize: number = 5000): string[] =>
     // Check if line starts with a speaker (e.g., "Dr. X:" or "Speaker A:")
     const isSpeakerLine = /^(Dr\.|Speaker|Docteur|M\.|Mme\.|Mr\.|Mrs\.)\s*\w+\s*:/.test(line.trim());
     
-    if (isSpeakerLine && currentChunk.length > 0 && (currentChunk.length + line.length) > maxChunkSize) {
-      // Start new chunk at speaker boundary if current chunk would exceed limit
-      chunks.push(currentChunk.trim());
-      currentChunk = line;
+    if (isSpeakerLine && currentChunk.length > 0) {
+      // If we're starting a new speaker and current chunk would exceed limit
+      if ((currentChunk.length + line.length) > maxChunkSize) {
+        // Save current chunk and start new one
+        chunks.push(currentChunk.trim());
+        currentChunk = line;
+      } else {
+        // Add to current chunk
+        currentChunk += (currentChunk.length > 0 ? '\n' : '') + line;
+      }
+    } else if (!isSpeakerLine && currentChunk.length > 0) {
+      // This is a continuation of the current speaker
+      const potentialChunk = currentChunk + '\n' + line;
+      
+      if (potentialChunk.length > maxChunkSize) {
+        // If adding this line would exceed limit, check if we can split within the speaker
+        const currentSpeakerContent = currentChunk.split('\n');
+        const speakerHeader = currentSpeakerContent[0]; // The "Dr. X:" part
+        const speakerText = currentSpeakerContent.slice(1).join('\n') + '\n' + line;
+        
+        // If the speaker's content is very long, we can split it in the middle
+        if (speakerText.length > maxChunkSize) {
+          // Split the speaker's text in chunks of maxChunkSize
+          const words = speakerText.split(' ');
+          let tempChunk = speakerHeader;
+          let tempText = '';
+          
+          for (const word of words) {
+            if ((tempText + ' ' + word).length > maxChunkSize && tempText.length > 0) {
+              // Complete the current chunk
+              chunks.push((tempChunk + '\n' + tempText).trim());
+              // Start a new chunk with the same speaker
+              tempChunk = speakerHeader;
+              tempText = word;
+            } else {
+              tempText += (tempText.length > 0 ? ' ' : '') + word;
+            }
+          }
+          
+          // Set remaining content as current chunk
+          currentChunk = (tempChunk + '\n' + tempText).trim();
+        } else {
+          // Speaker content fits in one chunk, save current and start new
+          chunks.push(currentChunk.trim());
+          currentChunk = speakerHeader + '\n' + line;
+        }
+      } else {
+        // Add line to current chunk
+        currentChunk = potentialChunk;
+      }
     } else {
+      // First line or orphaned content
       currentChunk += (currentChunk.length > 0 ? '\n' : '') + line;
     }
   }
@@ -189,11 +235,11 @@ Retourne UNIQUEMENT un JSON valide avec ce format exact (pas de markdown, pas de
 const generateEmbeddings = async (chunks: string[]): Promise<number[][]> => {
   const embeddings: number[][] = [];
   
-  console.log(`Generating embeddings for ${chunks.length} chunks`);
+  console.log(`Generating embeddings for ${chunks.length} chunks (max 700 chars each)`);
   
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    console.log(`Processing embedding for chunk ${i + 1}/${chunks.length} (length: ${chunk.length})`);
+    console.log(`Processing embedding for chunk ${i + 1}/${chunks.length} (length: ${chunk.length} chars)`);
 
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
@@ -312,9 +358,9 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
     // Run summary, tasks extraction, and embeddings generation in parallel
     console.log('Starting parallel processing of summary, tasks, and embeddings...');
     
-    // Create speaker-based chunks for embeddings
-    const embeddingChunks = chunkBySpeakers(processedTranscript, 5000);
-    console.log(`Created ${embeddingChunks.length} embedding chunks`);
+    // Create 700-character chunks for embeddings (with speaker-based exceptions)
+    const embeddingChunks = chunkBySpeakers(processedTranscript, 700);
+    console.log(`Created ${embeddingChunks.length} embedding chunks (700 char max)`);
     
     const [summaryResult, tasksResult, embeddingsResult] = await Promise.allSettled([
       generateSummary(processedTranscript, participants),
