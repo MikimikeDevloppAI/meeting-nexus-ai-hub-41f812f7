@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -33,10 +34,10 @@ interface Todo {
   created_at: string;
   meetings?: {
     title: string;
-  };
+  } | null;
   participants?: {
     name: string;
-  };
+  } | null;
 }
 
 const Todos = () => {
