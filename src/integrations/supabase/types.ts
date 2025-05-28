@@ -182,6 +182,7 @@ export type Database = {
           assigned_to: string
           created_at: string
           description: string
+          due_date: string | null
           id: string
           meeting_id: string
           status: string
@@ -190,6 +191,7 @@ export type Database = {
           assigned_to: string
           created_at?: string
           description: string
+          due_date?: string | null
           id?: string
           meeting_id: string
           status?: string
@@ -198,6 +200,7 @@ export type Database = {
           assigned_to?: string
           created_at?: string
           description?: string
+          due_date?: string | null
           id?: string
           meeting_id?: string
           status?: string

@@ -9,18 +9,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to chunk text into smaller pieces
-const chunkText = (text: string, maxChunkSize: number = 4000): string[] => {
-  const sentences = text.split(/[.!?]+/);
+// Function to chunk text by speakers (max 5000 chars, split only between speakers)
+const chunkBySpeakers = (text: string, maxChunkSize: number = 5000): string[] => {
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
   const chunks: string[] = [];
   let currentChunk = '';
 
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
+  for (const line of lines) {
+    // Check if line starts with a speaker (e.g., "Dr. X:" or "Speaker A:")
+    const isSpeakerLine = /^(Dr\.|Speaker|Docteur|M\.|Mme\.|Mr\.|Mrs\.)\s*\w+\s*:/.test(line.trim());
+    
+    if (isSpeakerLine && currentChunk.length > 0 && (currentChunk.length + line.length) > maxChunkSize) {
+      // Start new chunk at speaker boundary if current chunk would exceed limit
       chunks.push(currentChunk.trim());
-      currentChunk = sentence;
+      currentChunk = line;
     } else {
-      currentChunk += sentence + '.';
+      currentChunk += (currentChunk.length > 0 ? '\n' : '') + line;
     }
   }
   
@@ -133,7 +137,7 @@ ${cleanTranscript}
 INSTRUCTIONS:
 1. Identifie TOUTES les tâches, actions, suivis mentionnés
 2. Pour chaque tâche, détermine si elle est assignée à quelqu'un spécifiquement
-3. Extrais la date limite si mentionnée
+3. Extrais la date limite si mentionnée (format YYYY-MM-DD)
 4. Sois très précis sur la description de la tâche
 
 Retourne UNIQUEMENT un JSON valide avec ce format exact (pas de markdown, pas de backticks):
@@ -179,6 +183,41 @@ Retourne UNIQUEMENT un JSON valide avec ce format exact (pas de markdown, pas de
     console.error('Raw content:', content);
     return [];
   }
+};
+
+// Function to generate embeddings for chunks
+const generateEmbeddings = async (chunks: string[]): Promise<number[][]> => {
+  const embeddings: number[][] = [];
+  
+  console.log(`Generating embeddings for ${chunks.length} chunks`);
+  
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    console.log(`Processing embedding for chunk ${i + 1}/${chunks.length} (length: ${chunk.length})`);
+
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: chunk,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`OpenAI API error for embedding ${i + 1}: ${await response.text()}`);
+      continue; // Skip this embedding but continue with others
+    }
+
+    const data = await response.json();
+    embeddings.push(data.data[0].embedding);
+  }
+  
+  console.log(`Successfully generated ${embeddings.length} embeddings`);
+  return embeddings;
 };
 
 serve(async (req) => {
@@ -247,7 +286,7 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
       // Process in chunks
       console.log('Processing transcript in chunks due to length');
       
-      const chunks = chunkText(transcript, 4000);
+      const chunks = chunkBySpeakers(transcript, 4000);
       console.log(`Split transcript into ${chunks.length} chunks`);
       
       const processedChunks: string[] = [];
@@ -273,13 +312,19 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
     // Run summary, tasks extraction, and embeddings generation in parallel
     console.log('Starting parallel processing of summary, tasks, and embeddings...');
     
-    const [summaryResult, tasksResult] = await Promise.allSettled([
+    // Create speaker-based chunks for embeddings
+    const embeddingChunks = chunkBySpeakers(processedTranscript, 5000);
+    console.log(`Created ${embeddingChunks.length} embedding chunks`);
+    
+    const [summaryResult, tasksResult, embeddingsResult] = await Promise.allSettled([
       generateSummary(processedTranscript, participants),
-      extractTasks(processedTranscript, participants)
+      extractTasks(processedTranscript, participants),
+      generateEmbeddings(embeddingChunks)
     ]);
 
     let summary: string | null = null;
     let tasks: any[] = [];
+    let embeddings: number[][] = [];
 
     // Handle summary result
     if (summaryResult.status === 'fulfilled') {
@@ -297,10 +342,22 @@ Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
       console.error('Error extracting tasks:', tasksResult.reason);
     }
 
+    // Handle embeddings result
+    if (embeddingsResult.status === 'fulfilled') {
+      embeddings = embeddingsResult.value;
+      console.log(`Generated ${embeddings.length} embeddings`);
+    } else {
+      console.error('Error generating embeddings:', embeddingsResult.reason);
+    }
+
     return new Response(JSON.stringify({ 
       processedTranscript, 
       summary,
-      tasks
+      tasks,
+      embeddings: embeddings.length > 0 ? {
+        chunks: embeddingChunks,
+        embeddings: embeddings
+      } : null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

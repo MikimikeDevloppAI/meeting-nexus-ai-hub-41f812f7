@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -152,159 +151,192 @@ export class AudioProcessingService {
 
   static async processTranscriptWithAI(
     transcript: string,
-    participants: Participant[],
+    participants: any[],
     meetingId: string
-  ): Promise<{ processedTranscript?: string; summary?: string; tasks?: any[] }> {
-    console.log('[PROCESS] Sending transcript to OpenAI for processing...');
+  ) {
+    console.log('[OPENAI] Starting transcript processing...');
     
     try {
-      const { data: functionResult, error: functionError } = await supabase.functions.invoke('process-transcript', {
-        body: {
-          transcript,
-          participants,
-          meetingId
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-transcript`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            transcript,
+            participants,
+            meetingId
+          }),
         }
-      });
+      );
 
-      if (functionError) {
-        console.error('[PROCESS] OpenAI processing error:', functionError);
-        throw new Error(`Erreur de traitement OpenAI: ${functionError.message}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenAI processing failed: ${errorText}`);
       }
 
-      const result: { processedTranscript?: string; summary?: string; tasks?: any[] } = {};
-      const updates: Record<string, any> = {};
+      const result = await response.json();
+      console.log('[OPENAI] Processing completed successfully');
 
-      if (functionResult?.processedTranscript) {
-        const processedTranscript = functionResult.processedTranscript;
-        console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
-        updates.transcript = processedTranscript; // Save the PROCESSED transcript, not the original
-        result.processedTranscript = processedTranscript;
-
-        // Start embeddings generation in parallel (don't await)
-        this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants)
-          .catch(error => console.error('[EMBEDDINGS] Failed to store in vector DB:', error));
+      // Save processed transcript if available
+      if (result.processedTranscript) {
+        console.log('[SAVE] Saving processed transcript...');
+        await this.saveProcessedTranscript(meetingId, result.processedTranscript);
       }
 
-      if (functionResult?.summary) {
-        const summary = functionResult.summary;
-        console.log('[SUMMARY] Summary received, length:', summary.length);
-        updates.summary = summary;
-        result.summary = summary;
+      // Save summary if available
+      if (result.summary) {
+        console.log('[SAVE] Saving summary...');
+        await this.saveSummary(meetingId, result.summary);
       }
 
-      if (functionResult?.tasks && Array.isArray(functionResult.tasks)) {
-        console.log('[TASKS] Tasks received:', functionResult.tasks.length);
-        result.tasks = functionResult.tasks;
-        
-        // Start tasks saving in parallel (don't await)
-        this.saveTasks(functionResult.tasks, meetingId, participants)
-          .catch(error => console.error('[TASKS] Failed to save tasks:', error));
+      // Save tasks if available
+      if (result.tasks && result.tasks.length > 0) {
+        console.log(`[SAVE] Saving ${result.tasks.length} tasks...`);
+        await this.saveTasks(meetingId, result.tasks, participants);
       }
 
-      // Use batch update for meeting data
-      if (Object.keys(updates).length > 0) {
-        console.log('[PROCESS] Saving processed data to database...');
-        await MeetingService.batchUpdateMeeting(meetingId, updates);
-        console.log('[PROCESS] Processed data saved successfully');
+      // Save embeddings if available
+      if (result.embeddings && result.embeddings.chunks && result.embeddings.embeddings) {
+        console.log(`[SAVE] Saving ${result.embeddings.embeddings.length} embeddings...`);
+        await this.saveEmbeddings(
+          meetingId, 
+          result.embeddings.chunks, 
+          result.embeddings.embeddings,
+          result.processedTranscript || transcript
+        );
       }
 
       return result;
     } catch (error: any) {
-      console.error('[PROCESS] Processing error:', error);
-      throw new Error(`Erreur de traitement: ${error.message}`);
+      console.error('[OPENAI] Processing failed:', error);
+      throw error;
     }
   }
 
-  static async saveTasks(tasks: any[], meetingId: string, participants: Participant[]): Promise<void> {
-    console.log('[TASKS] Saving', tasks.length, 'tasks to database...');
-    
+  private static async saveProcessedTranscript(meetingId: string, transcript: string) {
+    console.log('[SAVE] Saving processed transcript...');
+    await MeetingService.updateMeetingField(meetingId, 'transcript', transcript);
+    console.log('[SAVE] Processed transcript saved successfully');
+  }
+
+  private static async saveSummary(meetingId: string, summary: string) {
+    console.log('[SAVE] Saving summary...');
+    await MeetingService.updateMeetingField(meetingId, 'summary', summary);
+    console.log('[SAVE] Summary saved successfully');
+  }
+
+  private static async saveTasks(meetingId: string, tasks: any[], participants: any[]) {
     try {
-      const tasksToInsert = tasks.map(task => {
-        let assignedToId = null;
-        
-        // Try to match assigned_to name with participant
+      const tasksToSave = tasks.map(task => {
+        // Find participant by name if assigned
+        let assignedParticipantId = null;
         if (task.assigned_to) {
           const participant = participants.find(p => 
             p.name.toLowerCase().includes(task.assigned_to.toLowerCase()) ||
             task.assigned_to.toLowerCase().includes(p.name.toLowerCase())
           );
           if (participant) {
-            assignedToId = participant.id;
+            assignedParticipantId = participant.id;
           }
         }
 
         return {
-          description: task.description,
           meeting_id: meetingId,
-          assigned_to: assignedToId,
-          status: 'pending', // All tasks start as pending
-          due_date: task.due_date || null
+          description: task.description,
+          assigned_to: assignedParticipantId,
+          due_date: task.due_date || null,
+          status: 'pending'
         };
-      });
+      }).filter(task => task.assigned_to); // Only save tasks with valid participants
 
-      // Batch insert all tasks
-      const { error } = await supabase
-        .from('todos')
-        .insert(tasksToInsert);
+      if (tasksToSave.length > 0) {
+        const { error } = await supabase
+          .from('todos')
+          .insert(tasksToSave);
 
-      if (error) {
-        console.error('[TASKS] Error saving tasks:', error);
-        throw error;
+        if (error) {
+          console.error('[TASKS] Error saving tasks:', error);
+          throw error;
+        }
+
+        console.log(`[TASKS] Successfully saved ${tasksToSave.length} tasks`);
+      } else {
+        console.log('[TASKS] No tasks with valid participants to save');
       }
-      
-      console.log('[TASKS] All tasks saved successfully');
     } catch (error) {
-      console.error('[TASKS] Error saving tasks:', error);
+      console.error('[TASKS] Failed to save tasks:', error);
       throw error;
     }
   }
 
-  static async storeTranscriptInVectorDB(
-    transcript: string,
-    meetingId: string,
-    participants: Participant[]
-  ): Promise<void> {
-    console.log('[VECTOR_DB] Storing processed transcript in vector database...');
-    
+  private static async saveEmbeddings(
+    meetingId: string, 
+    chunks: string[], 
+    embeddings: number[][],
+    fullTranscript: string
+  ) {
     try {
-      // Chunk the processed transcript
-      const chunks = chunkText(transcript, 1000);
-      console.log('[VECTOR_DB] Created', chunks.length, 'chunks from processed transcript');
-
-      // Generate embeddings for all chunks
-      const embeddings = await generateEmbeddings(chunks);
-      console.log('[VECTOR_DB] Generated embeddings for', embeddings.length, 'chunks');
-
-      // Store in vector database using the helper function
-      const { storeDocumentWithEmbeddings } = await import("@/integrations/supabase/client");
+      console.log(`[EMBEDDINGS] Starting to save ${embeddings.length} embeddings for meeting ${meetingId}`);
       
-      const participantNames = participants.map(p => p.name).join(', ');
-      const metadata = {
-        meeting_id: meetingId,
-        participants: participantNames,
-        chunk_count: chunks.length,
-        processed: true
-      };
+      // First, store the document
+      const { data: documentData, error: documentError } = await supabase
+        .from('documents')
+        .insert({
+          title: `Meeting Transcript - ${meetingId}`,
+          type: 'meeting_transcript',
+          content: fullTranscript,
+          metadata: { meeting_id: meetingId }
+        })
+        .select()
+        .single();
 
-      const documentId = await storeDocumentWithEmbeddings(
-        `Meeting Transcript (Processed) - ${meetingId}`,
-        'meeting_transcript',
-        transcript, // Use processed transcript
-        chunks,
-        embeddings,
-        metadata,
-        undefined, // createdBy will be handled by RLS
-        meetingId
-      );
-
-      if (documentId) {
-        console.log('[VECTOR_DB] Successfully stored processed transcript with document ID:', documentId);
-      } else {
-        throw new Error('Failed to store document - no ID returned');
+      if (documentError) {
+        console.error('[EMBEDDINGS] Error creating document:', documentError);
+        throw documentError;
       }
 
+      console.log(`[EMBEDDINGS] Document created with ID: ${documentData.id}`);
+
+      // Then store embeddings in batches
+      const batchSize = 10;
+      for (let i = 0; i < embeddings.length; i += batchSize) {
+        const batch = [];
+        const endIndex = Math.min(i + batchSize, embeddings.length);
+        
+        for (let j = i; j < endIndex; j++) {
+          // Convert embedding array to the format expected by the vector type
+          const embeddingVector = `[${embeddings[j].join(',')}]`;
+          
+          batch.push({
+            document_id: documentData.id,
+            meeting_id: meetingId,
+            embedding: embeddingVector,
+            chunk_text: chunks[j],
+            chunk_index: j,
+            type: 'meeting_transcript',
+            metadata: { meeting_id: meetingId, chunk_index: j }
+          });
+        }
+
+        const { error: embeddingError } = await supabase
+          .from('document_embeddings')
+          .insert(batch);
+
+        if (embeddingError) {
+          console.error(`[EMBEDDINGS] Error saving batch ${i / batchSize + 1}:`, embeddingError);
+          throw embeddingError;
+        }
+
+        console.log(`[EMBEDDINGS] Saved batch ${i / batchSize + 1}/${Math.ceil(embeddings.length / batchSize)}`);
+      }
+
+      console.log(`[EMBEDDINGS] Successfully saved all ${embeddings.length} embeddings`);
     } catch (error) {
-      console.error('[VECTOR_DB] Error storing processed transcript in vector database:', error);
+      console.error('[EMBEDDINGS] Failed to save embeddings:', error);
       throw error;
     }
   }
