@@ -172,37 +172,65 @@ ${transcriptToProcess}`;
 
 Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
-Crée un résumé détaillé et complet en français qui N'OMET AUCUN POINT IMPORTANT et organise les informations par catégories suivantes:
+Crée un résumé détaillé et complet en HTML qui N'OMET AUCUN POINT IMPORTANT et organise les informations par catégories suivantes:
 
-## GESTION DES PATIENTS
-- Nouveaux patients
-- Cas complexes
-- Suivis particuliers
-- Problématiques médicales discutées
+<h3><strong>🏥 GESTION DES PATIENTS</strong></h3>
+<ul>
+<li>Nouveaux patients et leurs besoins</li>
+<li>Cas complexes et suivis particuliers</li>
+<li>Problématiques médicales discutées</li>
+<li>Rendez-vous et consultations spéciales</li>
+</ul>
 
-## ORGANISATION DU CABINET
-- Planning et rendez-vous
-- Gestion administrative
-- Équipements et matériel
-- Procédures
+<h3><strong>🩺 MATÉRIEL MÉDICAL ET ÉQUIPEMENTS</strong></h3>
+<ul>
+<li>Nouveaux équipements à acquérir</li>
+<li>Maintenance et réparations</li>
+<li>Problèmes techniques</li>
+<li>Commandes de matériel</li>
+</ul>
 
-## DÉCISIONS PRISES
-- Décisions médicales
-- Décisions administratives
-- Nouvelles protocoles
+<h3><strong>📋 ORGANISATION DU CABINET</strong></h3>
+<ul>
+<li>Planning et gestion des rendez-vous</li>
+<li>Procédures administratives</li>
+<li>Gestion du personnel</li>
+<li>Organisation des espaces</li>
+</ul>
 
-## FORMATION ET DÉVELOPPEMENT
-- Formations prévues
-- Nouvelles compétences
-- Mise à jour des connaissances
+<h3><strong>✅ DÉCISIONS PRISES</strong></h3>
+<ul>
+<li>Décisions médicales importantes</li>
+<li>Décisions administratives</li>
+<li>Nouveaux protocoles adoptés</li>
+<li>Changements organisationnels</li>
+</ul>
 
-## ACTIONS À SUIVRE
-- Prochaines étapes importantes
-- Échéances à respecter
+<h3><strong>📚 FORMATION ET DÉVELOPPEMENT</strong></h3>
+<ul>
+<li>Formations prévues ou planifiées</li>
+<li>Nouvelles compétences à développer</li>
+<li>Mise à jour des connaissances médicales</li>
+<li>Conférences et séminaires</li>
+</ul>
 
-Assure-toi de couvrir TOUS les points mentionnés dans la réunion, même les détails qui peuvent sembler mineurs. Utilise les vrais noms des participants.
+<h3><strong>🎯 ACTIONS À SUIVRE</strong></h3>
+<ul>
+<li>Prochaines étapes importantes</li>
+<li>Échéances à respecter</li>
+<li>Contacts à prendre</li>
+<li>Dossiers à finaliser</li>
+</ul>
 
-Retourne UNIQUEMENT le résumé organisé par catégories, sans autre texte.
+INSTRUCTIONS STRICTES:
+- Utilise uniquement du HTML valide avec les balises <h3>, <strong>, <ul>, <li>
+- Assure-toi de couvrir TOUS les points mentionnés dans la réunion
+- Utilise les vrais noms des participants dans le contenu
+- Chaque catégorie doit contenir des informations spécifiques si elles ont été mentionnées
+- Si une catégorie n'a pas d'informations, écris simplement <li>Aucun point discuté dans cette catégorie</li>
+- Sois précis et détaillé pour chaque point important
+
+Retourne UNIQUEMENT le résumé HTML structuré, sans autre texte.
 
 Transcript:
 ${cleanedTranscript}`;
@@ -220,7 +248,7 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT le résumé organisé par catégories.'
+            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT du HTML valide et structuré par catégories.'
           },
           {
             role: 'user',
@@ -232,7 +260,7 @@ ${cleanedTranscript}`;
       }),
     });
 
-    let summary = 'Résumé automatique généré.';
+    let summary = '<p>Résumé automatique généré.</p>';
     if (summaryResponse.ok) {
       const summaryData = await summaryResponse.json();
       summary = summaryData.choices[0].message.content.trim();

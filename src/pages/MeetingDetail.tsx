@@ -157,32 +157,10 @@ export default function MeetingDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose max-w-none">
-              {meeting.summary.split('\n').map((paragraph, index) => {
-                if (paragraph.startsWith('## ')) {
-                  return (
-                    <h3 key={index} className="text-lg font-semibold mt-4 mb-2">
-                      {paragraph.replace('## ', '')}
-                    </h3>
-                  );
-                }
-                if (paragraph.startsWith('- ')) {
-                  return (
-                    <li key={index} className="ml-4">
-                      {paragraph.replace('- ', '')}
-                    </li>
-                  );
-                }
-                if (paragraph.trim()) {
-                  return (
-                    <p key={index} className="mb-2">
-                      {paragraph}
-                    </p>
-                  );
-                }
-                return null;
-              })}
-            </div>
+            <div 
+              className="prose max-w-none"
+              dangerouslySetInnerHTML={{ __html: meeting.summary }}
+            />
           </CardContent>
         </Card>
       )}
