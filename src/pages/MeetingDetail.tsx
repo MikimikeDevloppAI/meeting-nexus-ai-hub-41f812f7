@@ -1,119 +1,78 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { CheckCircle, Clock, Download, FileText, ListChecks, Users } from "lucide-react";
-
-interface Participant {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface Todo {
-  id: string;
-  description: string;
-  status: string;
-  assigned_to: string;
-  participant?: {
-    name: string;
-  };
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Users, FileText, CheckSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { MeetingTodos } from "@/components/MeetingTodos";
 
 interface Meeting {
   id: string;
   title: string;
   created_at: string;
-  audio_url: string;
   transcript: string | null;
   summary: string | null;
+  audio_url: string | null;
+  participants: { name: string; email: string }[];
 }
 
-const MeetingDetail = () => {
-  const { id } = useParams<{ id: string }>();
+export default function MeetingDetail() {
+  const { id } = useParams();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const fetchMeetingDetails = async () => {
-      if (!id) return;
-      
-      setLoading(true);
-      try {
-        // Fetch meeting details (includes transcript & summary now)
-        const { data: meetingData, error: meetingError } = await supabase
-          .from("meetings")
-          .select("*")
-          .eq("id", id)
-          .single();
-        
-        if (meetingError) throw meetingError;
-        setMeeting(meetingData);
-
-        // Fetch participants
-        const { data: participantsData, error: participantsError } = await supabase
-          .from("meeting_participants")
-          .select(`
-            participant_id,
-            participants (
-              id, name, email
-            )
-          `)
-          .eq("meeting_id", id);
-          
-        if (participantsError) throw participantsError;
-        
-        // Extract participant objects from the nested structure
-        const formattedParticipants: Participant[] = participantsData.map((item: any) => ({
-          id: item.participants.id,
-          name: item.participants.name,
-          email: item.participants.email
-        }));
-        
-        setParticipants(formattedParticipants);
-
-        // Fetch todos
-        const { data: todosData, error: todosError } = await supabase
-          .from("todos")
-          .select(`
-            id, description, status, assigned_to,
-            participants (
-              name
-            )
-          `)
-          .eq("meeting_id", id);
-          
-        if (!todosError && todosData) {
-          setTodos(todosData);
-        }
-
-      } catch (error) {
-        console.error("Erreur lors du chargement des détails de la réunion:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMeetingDetails();
+    if (id) {
+      fetchMeeting(id);
+    }
   }, [id]);
+
+  const fetchMeeting = async (meetingId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("meetings")
+        .select(`
+          id,
+          title,
+          created_at,
+          transcript,
+          summary,
+          audio_url,
+          meeting_participants(
+            participants(name, email)
+          )
+        `)
+        .eq("id", meetingId)
+        .single();
+
+      if (error) throw error;
+
+      const meetingData = {
+        ...data,
+        participants: data.meeting_participants?.map((mp: any) => mp.participants) || []
+      };
+
+      setMeeting(meetingData);
+    } catch (error: any) {
+      console.error("Error fetching meeting:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les détails de la réunion",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="animate-fade-in">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Détails de la réunion</h1>
-          <p className="text-muted-foreground">Chargement des informations...</p>
-        </div>
-        <div className="space-y-4">
-          <div className="animate-pulse h-12 w-3/4 bg-primary/10 rounded"></div>
-          <div className="animate-pulse h-80 bg-primary/5 rounded"></div>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Chargement...</div>
         </div>
       </div>
     );
@@ -121,207 +80,140 @@ const MeetingDetail = () => {
 
   if (!meeting) {
     return (
-      <div className="animate-fade-in">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Réunion introuvable</h1>
-          <p className="text-muted-foreground">La réunion demandée n'existe pas.</p>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-gray-500">Réunion non trouvée</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">{meeting.title}</h1>
-        <p className="text-muted-foreground">
-          {meeting.created_at ? format(new Date(meeting.created_at), "PPP", { locale: fr }) : "Date indisponible"}
-        </p>
+        <h1 className="text-3xl font-bold mb-2">{meeting.title}</h1>
+        <div className="flex items-center gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-4 w-4" />
+            {new Date(meeting.created_at).toLocaleDateString("fr-FR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-4 w-4" />
+            {meeting.participants.length} participant(s)
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        {/* Stats Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
-          <CardHeader className="py-4">
-            <CardTitle className="flex items-center text-sm font-medium">
-              <Users className="mr-2 h-4 w-4 text-primary" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
               Participants
             </CardTitle>
           </CardHeader>
-          <CardContent className="py-1">
-            <p className="text-2xl font-bold">{participants.length}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="py-4">
-            <CardTitle className="flex items-center text-sm font-medium">
-              <FileText className="mr-2 h-4 w-4 text-primary" />
-              Transcription
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1">
-            <p className="text-2xl font-bold">{meeting.transcript ? "Disponible" : "Indisponible"}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="py-4">
-            <CardTitle className="flex items-center text-sm font-medium">
-              <ListChecks className="mr-2 h-4 w-4 text-primary" />
-              Tâches
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1">
-            <p className="text-2xl font-bold">{todos.length}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="py-4">
-            <CardTitle className="flex items-center text-sm font-medium">
-              <Clock className="mr-2 h-4 w-4 text-primary" />
-              Statut
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-1">
-            <div className="flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-              <p className="text-sm font-medium">Terminée</p>
+          <CardContent>
+            <div className="space-y-2">
+              {meeting.participants.map((participant, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <span className="font-medium">{participant.name}</span>
+                  <Badge variant="outline">{participant.email}</Badge>
+                </div>
+              ))}
+              {meeting.participants.length === 0 && (
+                <p className="text-gray-500">Aucun participant</p>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {meeting.audio_url && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Enregistrement audio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <audio controls className="w-full">
+                <source src={meeting.audio_url} type="audio/wav" />
+                Votre navigateur ne supporte pas l'élément audio.
+              </audio>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      <Tabs defaultValue="summary" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="summary">Résumé</TabsTrigger>
-          <TabsTrigger value="transcript">Transcription</TabsTrigger>
-          <TabsTrigger value="todos">Tâches</TabsTrigger>
-          <TabsTrigger value="participants">Participants</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="summary" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Résumé de la réunion</CardTitle>
-              <CardDescription>
-                Résumé automatique des points clés de discussion
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {meeting.summary ? (
-                <p className="whitespace-pre-line">{meeting.summary}</p>
-              ) : (
-                <p className="text-muted-foreground">Aucun résumé disponible pour cette réunion.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="transcript" className="mt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Transcription</CardTitle>
-                <CardDescription>
-                  Transcription complète de l'enregistrement
-                </CardDescription>
-              </div>
-              <Button variant="outline" size="sm" className="h-8">
-                <Download className="h-4 w-4 mr-2" />
-                Exporter
-              </Button>
-            </CardHeader>
-            <CardContent className="max-h-96 overflow-y-auto">
-              {meeting.transcript ? (
-                <p className="whitespace-pre-line">{meeting.transcript}</p>
-              ) : (
-                <p className="text-muted-foreground">Aucune transcription disponible pour cette réunion.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="todos" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tâches à effectuer</CardTitle>
-              <CardDescription>
-                Tâches assignées lors de cette réunion
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {todos.length > 0 ? (
-                <div className="space-y-4">
-                  {todos.map((todo) => (
-                    <div key={todo.id} className="flex items-start space-x-4 p-3 border rounded-md">
-                      <div className={`h-5 w-5 rounded-full ${todo.status === 'completed' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
-                      <div className="flex-1">
-                        <p className="font-medium">{todo.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Assigné à: {todo.participant?.name || "Non assigné"}
-                        </p>
-                      </div>
-                      <div className="text-xs text-white px-2 py-1 rounded-full bg-primary">
-                        {todo.status === 'completed' ? 'Terminé' : 'En cours'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">Aucune tâche n'a été créée pour cette réunion.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="participants" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Participants</CardTitle>
-              <CardDescription>
-                Personnes présentes à cette réunion
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {participants.length > 0 ? (
-                <div className="space-y-2">
-                  {participants.map((participant) => (
-                    <div key={participant.id} className="flex items-center justify-between p-3 border rounded-md">
-                      <div>
-                        <p className="font-medium">{participant.name}</p>
-                        <p className="text-sm text-muted-foreground">{participant.email}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">Aucun participant n'a été ajouté à cette réunion.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {meeting.audio_url && (
-        <Card>
+      {meeting.summary && (
+        <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Enregistrement de la réunion</CardTitle>
-            <CardDescription>
-              Enregistrement audio de cette réunion
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Résumé de la réunion
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <audio controls className="w-full">
-              <source src={meeting.audio_url} type="audio/mpeg" />
-              Votre navigateur ne prend pas en charge l'élément audio.
-            </audio>
+            <div className="prose max-w-none">
+              {meeting.summary.split('\n').map((paragraph, index) => {
+                if (paragraph.startsWith('## ')) {
+                  return (
+                    <h3 key={index} className="text-lg font-semibold mt-4 mb-2">
+                      {paragraph.replace('## ', '')}
+                    </h3>
+                  );
+                }
+                if (paragraph.startsWith('- ')) {
+                  return (
+                    <li key={index} className="ml-4">
+                      {paragraph.replace('- ', '')}
+                    </li>
+                  );
+                }
+                if (paragraph.trim()) {
+                  return (
+                    <p key={index} className="mb-2">
+                      {paragraph}
+                    </p>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckSquare className="h-5 w-5" />
+            Tâches extraites
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MeetingTodos meetingId={meeting.id} />
+        </CardContent>
+      </Card>
+
+      {meeting.transcript && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Transcript de la réunion
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+              {meeting.transcript}
+            </div>
           </CardContent>
         </Card>
       )}
     </div>
   );
-};
-
-export default MeetingDetail;
+}

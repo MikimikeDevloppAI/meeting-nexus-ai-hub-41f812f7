@@ -247,7 +247,7 @@ ${cleanedTranscript}`;
 Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
 Extrais TOUTES les tâches et actions mentionnées et retourne un tableau JSON avec cette structure exacte:
-["tâche 1", "tâche 2", "tâche 3"]
+[{"task": "description de la tâche", "assignedTo": "nom du participant ou null"}]
 
 INSTRUCTIONS SPÉCIFIQUES POUR CABINET MÉDICAL:
 - Inclus les tâches administratives (commandes, plannings, dossiers)
@@ -255,7 +255,8 @@ INSTRUCTIONS SPÉCIFIQUES POUR CABINET MÉDICAL:
 - Inclus les tâches de formation et développement
 - Inclus les tâches d'équipement et maintenance
 - Inclus les rendez-vous et contacts à prendre
-- Inclus le nom de la personne responsable quand c'est mentionné
+- Si un nom est mentionné dans la tâche, l'inclure dans "assignedTo", sinon mettre null
+- NE PAS inclure ", responsable:" dans la description de la tâche
 - Formule chaque tâche de manière claire et actionnable
 - Inclus les échéances quand elles sont mentionnées
 
@@ -279,7 +280,7 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches.'
+            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches avec leur assignation.'
           },
           {
             role: 'user',
@@ -291,7 +292,7 @@ ${cleanedTranscript}`;
       }),
     });
 
-    let tasks: string[] = [];
+    let tasks: any[] = [];
     if (tasksResponse.ok) {
       const tasksData = await tasksResponse.json();
       let tasksContent = tasksData.choices[0].message.content.trim();
@@ -339,18 +340,29 @@ ${cleanedTranscript}`;
     if (tasks.length > 0) {
       console.log('Saving', tasks.length, 'tasks...');
       
-      for (const task of tasks) {
-        const assignedParticipantId = findBestParticipantMatch(task, participants || []);
+      for (const taskObj of tasks) {
+        const taskDescription = typeof taskObj === 'string' ? taskObj : taskObj.task;
+        const assignedToName = typeof taskObj === 'object' ? taskObj.assignedTo : null;
         
+        // Find participant by name
+        let assignedParticipantId = null;
+        if (assignedToName && participants) {
+          const participant = participants.find(p => 
+            p.name.toLowerCase().includes(assignedToName.toLowerCase()) ||
+            assignedToName.toLowerCase().includes(p.name.toLowerCase().split(' ')[0])
+          );
+          assignedParticipantId = participant?.id || null;
+        }
+
         console.log('Saving task:', { 
-          task: task.substring(0, 50) + (task.length > 50 ? '...' : ''), 
+          task: taskDescription.substring(0, 50) + (taskDescription.length > 50 ? '...' : ''), 
           assignedTo: assignedParticipantId ? participants.find(p => p.id === assignedParticipantId)?.name : 'None'
         });
 
         const { data: todoData, error: todoError } = await supabase
           .from('todos')
           .insert({
-            description: task.trim(),
+            description: taskDescription.trim(),
             status: 'pending',
             meeting_id: meetingId,
             assigned_to: assignedParticipantId,
@@ -376,6 +388,32 @@ ${cleanedTranscript}`;
             console.error('Error creating todo-participant relationship:', participantError);
           }
         }
+
+        // Generate AI recommendation for this task
+        if (todoData) {
+          try {
+            const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/todo-recommendations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                todoId: todoData.id,
+                description: taskDescription.trim(),
+                meetingContext: `Réunion de cabinet médical avec participants: ${participantList}`
+              }),
+            });
+            
+            if (!response.ok) {
+              console.error('AI recommendation request failed:', await response.text());
+            } else {
+              console.log('AI recommendation generated for task:', taskDescription.substring(0, 50));
+            }
+          } catch (error) {
+            console.error('Error generating AI recommendation:', error);
+          }
+        }
       }
     }
 
@@ -385,7 +423,7 @@ ${cleanedTranscript}`;
       success: true, 
       processedTranscript: cleanedTranscript,
       summary: summary,
-      tasks: tasks,
+      tasks: tasks.map(t => typeof t === 'string' ? t : t.task),
       tasksCount: tasks.length 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
