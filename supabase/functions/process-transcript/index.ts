@@ -112,22 +112,25 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant that processes meeting transcripts. Your tasks:
-1. Create a clear, structured summary of the meeting in French
-2. Extract all action items and tasks mentioned
-3. Format your response as JSON with this exact structure:
+            content: `You are an AI assistant that processes meeting transcripts. You MUST respond with valid JSON only, no other text.
+
+Your response must be EXACTLY in this format:
 {
-  "summary": "meeting summary in French",
-  "tasks": ["task 1", "task 2", "task 3"]
+  "summary": "detailed meeting summary in French",
+  "tasks": ["task 1 in French", "task 2 in French", "task 3 in French"]
 }
 
-Available participants for assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
-
-When extracting tasks, be comprehensive and include all actionable items discussed. Tasks should be in French.`
+Rules:
+- summary: Write a comprehensive summary of the meeting in French (2-3 paragraphs)
+- tasks: Extract ALL actionable items, decisions, and follow-ups mentioned in the meeting
+- Each task should be a complete, actionable sentence in French
+- If no tasks are found, return an empty array for tasks
+- Available participants for assignment: ${participants?.map((p: any) => p.name).join(', ') || 'None'}
+- CRITICAL: Your response must be valid JSON only, starting with { and ending with }`
           },
           {
             role: 'user',
-            content: `Please process this meeting transcript:
+            content: `Process this meeting transcript and extract summary and tasks:
 
 ${transcriptToProcess}`
           }
@@ -139,55 +142,99 @@ ${transcriptToProcess}`
 
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
+      console.error('OpenAI API error response:', errorText);
       throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const openAIData = await openAIResponse.json();
     const processedContent = openAIData.choices[0].message.content;
 
-    console.log('OpenAI processing completed, response length:', processedContent?.length || 0);
+    console.log('OpenAI raw response:', processedContent);
 
-    // Try to parse as JSON first
+    // Clean the response to ensure it's valid JSON
+    let cleanedContent = processedContent.trim();
+    
+    // Remove any markdown code blocks if present
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Ensure it starts with { and ends with }
+    if (!cleanedContent.startsWith('{')) {
+      const jsonStart = cleanedContent.indexOf('{');
+      if (jsonStart !== -1) {
+        cleanedContent = cleanedContent.substring(jsonStart);
+      }
+    }
+    
+    if (!cleanedContent.endsWith('}')) {
+      const jsonEnd = cleanedContent.lastIndexOf('}');
+      if (jsonEnd !== -1) {
+        cleanedContent = cleanedContent.substring(0, jsonEnd + 1);
+      }
+    }
+
+    console.log('Cleaned OpenAI response:', cleanedContent);
+
+    // Parse the JSON response
     let summary = '';
     let tasks: string[] = [];
 
     try {
-      const parsed = JSON.parse(processedContent);
-      summary = parsed.summary || '';
-      tasks = parsed.tasks || [];
-    } catch (e) {
-      console.log('Failed to parse as JSON, extracting manually...');
+      const parsed = JSON.parse(cleanedContent);
+      summary = parsed.summary || 'Résumé en cours de traitement...';
+      tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
       
-      // Fallback to manual extraction
-      const lines = processedContent.split('\n');
-      let inTasksSection = false;
-
+      console.log('Successfully parsed JSON - Summary length:', summary.length, 'Tasks count:', tasks.length);
+    } catch (parseError) {
+      console.error('JSON parsing failed:', parseError);
+      console.log('Failed content:', cleanedContent);
+      
+      // Fallback: try to extract summary and tasks manually
+      console.log('Attempting manual extraction...');
+      
+      const lines = processedContent.split('\n').map(line => line.trim()).filter(line => line);
+      let currentSection = '';
+      
       for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.toLowerCase().includes('task') || trimmedLine.toLowerCase().includes('action') || trimmedLine.toLowerCase().includes('tâche')) {
-          inTasksSection = true;
+        const lowerLine = line.toLowerCase();
+        
+        // Look for summary indicators
+        if (lowerLine.includes('summary') || lowerLine.includes('résumé') || lowerLine.includes('sommaire')) {
+          currentSection = 'summary';
           continue;
         }
         
-        if (inTasksSection && (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• '))) {
-          tasks.push(trimmedLine.substring(2).trim());
-        } else if (!inTasksSection && trimmedLine) {
-          summary += trimmedLine + '\n';
+        // Look for tasks indicators
+        if (lowerLine.includes('task') || lowerLine.includes('tâche') || lowerLine.includes('action') || 
+            lowerLine.includes('todo') || lowerLine.includes('à faire')) {
+          currentSection = 'tasks';
+          continue;
+        }
+        
+        // Extract content based on current section
+        if (currentSection === 'summary' && line && !line.startsWith('-') && !line.startsWith('•')) {
+          summary += line + ' ';
+        } else if (currentSection === 'tasks' && (line.startsWith('-') || line.startsWith('•') || line.match(/^\d+\./))) {
+          const taskText = line.replace(/^[-•\d\.]\s*/, '').trim();
+          if (taskText) {
+            tasks.push(taskText);
+          }
         }
       }
-
-      summary = summary.trim();
+      
+      summary = summary.trim() || 'Résumé automatique non disponible.';
+      console.log('Manual extraction completed - Summary length:', summary.length, 'Tasks count:', tasks.length);
     }
-
-    console.log('Extracted summary length:', summary.length);
-    console.log('Extracted tasks count:', tasks.length);
 
     // Save processed transcript and summary to database
     const { error: updateError } = await supabase
       .from('meetings')
       .update({
         transcript: transcriptToProcess,
-        summary: summary || 'Résumé en cours de traitement...'
+        summary: summary
       })
       .eq('id', meetingId);
 
@@ -196,15 +243,17 @@ ${transcriptToProcess}`
       throw updateError;
     }
 
-    // Save tasks with improved participant assignment
+    console.log('Meeting updated successfully');
+
+    // Save tasks with participant assignment
     if (tasks.length > 0) {
-      console.log('Saving tasks with participant assignment...');
+      console.log('Saving', tasks.length, 'tasks...');
       
       for (const task of tasks) {
         const assignedParticipantId = findBestParticipantMatch(task, participants || []);
         
-        console.log('Task assignment:', { 
-          task: task.substring(0, 50), 
+        console.log('Saving task:', { 
+          task: task.substring(0, 50) + (task.length > 50 ? '...' : ''), 
           assignedTo: assignedParticipantId 
         });
 
@@ -240,6 +289,8 @@ ${transcriptToProcess}`
         }
       }
     }
+
+    console.log('Processing completed successfully');
 
     return new Response(JSON.stringify({ 
       success: true, 
