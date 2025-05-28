@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -74,8 +75,8 @@ const Todos = () => {
           meeting_id, 
           assigned_to, 
           created_at,
-          meetings:meeting_id (title),
-          participants:assigned_to (name)
+          meetings!meeting_id (title),
+          participants!assigned_to (name)
         `)
         .order("created_at", { ascending: false });
 
@@ -142,8 +143,8 @@ const Todos = () => {
           meeting_id, 
           assigned_to, 
           created_at,
-          meetings:meeting_id (title),
-          participants:assigned_to (name)
+          meetings!meeting_id (title),
+          participants!assigned_to (name)
         `)
         .single();
 
