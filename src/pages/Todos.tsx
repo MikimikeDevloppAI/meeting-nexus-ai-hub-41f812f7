@@ -35,10 +35,10 @@ interface Todo {
   created_at: string;
   meetings?: {
     title: string;
-  } | null;
+  }[] | null;
   participants?: {
     name: string;
-  } | null;
+  }[] | null;
 }
 
 const Todos = () => {
@@ -433,14 +433,14 @@ const Todos = () => {
                               {todo.description}
                             </p>
                             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {todo.participants && (
+                              {todo.participants && todo.participants.length > 0 && (
                                 <Badge variant="outline">
-                                  Assignée à: {todo.participants.name}
+                                  Assignée à: {todo.participants[0].name}
                                 </Badge>
                               )}
-                              {todo.meetings && (
+                              {todo.meetings && todo.meetings.length > 0 && (
                                 <Badge variant="outline">
-                                  Réunion: {todo.meetings.title}
+                                  Réunion: {todo.meetings[0].title}
                                 </Badge>
                               )}
                             </div>
