@@ -111,20 +111,15 @@ serve(async (req) => {
 
     console.log('Participant list for OpenAI:', participantList);
 
-    // Enhanced system prompt that worked before
-    const systemPrompt = `Tu es un assistant IA spécialisé dans le traitement de transcripts de réunions. 
+    // Step 1: Clean the transcript
+    const cleanPrompt = `Tu es un assistant IA spécialisé dans le nettoyage de transcripts de réunions. 
 
 PARTICIPANTS DE LA RÉUNION:
 ${participantList}
 
-Tu dois analyser le transcript et retourner un objet JSON avec cette structure exacte:
-{
-  "cleanedTranscript": "transcript nettoyé",
-  "summary": "résumé complet en français",
-  "tasks": ["tâche 1", "tâche 2", "tâche 3"]
-}
+Tu dois nettoyer le transcript et retourner UNIQUEMENT le transcript nettoyé, sans autre texte.
 
-INSTRUCTIONS POUR cleanedTranscript:
+INSTRUCTIONS:
 1. Corrige toutes les erreurs de français (grammaire, orthographe, conjugaison)
 2. Supprime les mots de remplissage inutiles (euh, hum, ben, etc.)
 3. Remplace les références génériques (Speaker A, Speaker B, Speaker 1, Speaker 2, etc.) par les vrais noms des participants listés ci-dessus
@@ -132,24 +127,13 @@ INSTRUCTIONS POUR cleanedTranscript:
 5. Améliore la fluidité du texte tout en gardant le sens original
 6. Formate avec des paragraphes clairs, un nom par ligne de dialogue
 
-INSTRUCTIONS POUR summary:
-1. Écris un résumé complet en français (3-4 paragraphes)
-2. Organise par thèmes: "Points techniques:", "Décisions prises:", "Prochaines étapes:", etc.
-3. Utilise les vrais noms des participants
-4. Mentionne les points clés et les décisions importantes
+Transcript à nettoyer:
+${transcriptToProcess}`;
 
-INSTRUCTIONS POUR tasks:
-1. Extrais toutes les tâches et actions mentionnées
-2. Inclus le nom de la personne responsable quand c'est mentionné
-3. Formule chaque tâche de manière claire et actionnable
-4. Maximum 10 tâches les plus importantes
+    console.log('Sending transcript cleaning request to OpenAI...');
 
-Tu DOIS retourner UNIQUEMENT l'objet JSON, sans autre texte.`;
-
-    console.log('Sending request to OpenAI with enhanced prompt...');
-
-    // Process transcript with OpenAI
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Clean transcript with OpenAI
+    const cleanResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -160,11 +144,11 @@ Tu DOIS retourner UNIQUEMENT l'objet JSON, sans autre texte.`;
         messages: [
           {
             role: 'system',
-            content: systemPrompt
+            content: 'Tu es un assistant spécialisé dans le nettoyage de transcripts. Tu retournes UNIQUEMENT le transcript nettoyé.'
           },
           {
             role: 'user',
-            content: `Traite ce transcript de réunion:\n\n${transcriptToProcess}`
+            content: cleanPrompt
           }
         ],
         max_tokens: 4000,
@@ -172,84 +156,133 @@ Tu DOIS retourner UNIQUEMENT l'objet JSON, sans autre texte.`;
       }),
     });
 
-    if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      console.error('OpenAI API error response:', errorText);
+    if (!cleanResponse.ok) {
+      const errorText = await cleanResponse.text();
+      console.error('OpenAI transcript cleaning error:', errorText);
       throw new Error(`OpenAI API error: ${errorText}`);
     }
 
-    const openAIData = await openAIResponse.json();
-    let processedContent = openAIData.choices[0].message.content;
+    const cleanData = await cleanResponse.json();
+    let cleanedTranscript = cleanData.choices[0].message.content.trim();
 
-    console.log('OpenAI raw response length:', processedContent?.length || 0);
-    console.log('OpenAI response preview:', processedContent?.substring(0, 200) + '...');
+    console.log('Transcript cleaning completed, length:', cleanedTranscript.length);
 
-    // Clean and parse the JSON response
-    processedContent = processedContent.trim();
-    
-    // Remove markdown code blocks if present
-    if (processedContent.startsWith('```json')) {
-      processedContent = processedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (processedContent.startsWith('```')) {
-      processedContent = processedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-    
-    // Extract JSON object
-    const jsonStart = processedContent.indexOf('{');
-    const jsonEnd = processedContent.lastIndexOf('}');
-    
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-      processedContent = processedContent.substring(jsonStart, jsonEnd + 1);
-    }
+    // Step 2: Generate summary using cleaned transcript
+    const summaryPrompt = `Tu es un assistant IA spécialisé dans la création de résumés de réunions.
 
-    console.log('Cleaned JSON for parsing:', processedContent?.substring(0, 200) + '...');
+Voici le transcript nettoyé d'une réunion avec les participants: ${participantList}
 
-    // Parse the response with robust error handling
-    let cleanedTranscript = transcriptToProcess;
-    let summary = '';
-    let tasks: string[] = [];
+Crée un résumé complet en français (3-4 paragraphes) qui inclut:
+- Points techniques abordés
+- Décisions prises
+- Prochaines étapes
+- Utilise les vrais noms des participants
 
-    try {
-      const parsed = JSON.parse(processedContent);
-      console.log('Successfully parsed OpenAI response');
-      
-      cleanedTranscript = parsed.cleanedTranscript || transcriptToProcess;
-      summary = parsed.summary || 'Résumé généré automatiquement.';
-      tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-      
-      console.log('Parsed results:');
-      console.log('- Cleaned transcript length:', cleanedTranscript.length);
-      console.log('- Summary length:', summary.length);
-      console.log('- Tasks count:', tasks.length);
-      
-    } catch (parseError) {
-      console.error('JSON parsing failed:', parseError);
-      console.error('Failed content:', processedContent);
-      
-      // Fallback: manually replace speaker labels if we have participants
-      if (participants && participants.length > 0) {
-        cleanedTranscript = transcriptToProcess;
-        
-        // Replace Speaker A, B, C, etc. and Speaker 1, 2, 3, etc.
-        participants.forEach((participant: any, index: number) => {
-          const speakerLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-          const speakerLetter = speakerLetters[index];
-          const speakerNumber = index + 1;
-          
-          if (speakerLetter) {
-            const regexLetter = new RegExp(`Speaker ${speakerLetter}\\b`, 'g');
-            cleanedTranscript = cleanedTranscript.replace(regexLetter, participant.name);
+Retourne UNIQUEMENT le résumé, sans autre texte.
+
+Transcript:
+${cleanedTranscript}`;
+
+    console.log('Generating summary with OpenAI...');
+
+    const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions. Tu retournes UNIQUEMENT le résumé.'
+          },
+          {
+            role: 'user',
+            content: summaryPrompt
           }
-          
-          const regexNumber = new RegExp(`Speaker ${speakerNumber}\\b`, 'g');
-          cleanedTranscript = cleanedTranscript.replace(regexNumber, participant.name);
-        });
-        
-        console.log('Applied manual speaker replacement as fallback');
+        ],
+        max_tokens: 1000,
+        temperature: 0.1,
+      }),
+    });
+
+    let summary = 'Résumé automatique généré.';
+    if (summaryResponse.ok) {
+      const summaryData = await summaryResponse.json();
+      summary = summaryData.choices[0].message.content.trim();
+      console.log('Summary generated successfully, length:', summary.length);
+    } else {
+      console.error('Summary generation failed');
+    }
+
+    // Step 3: Extract tasks using cleaned transcript
+    const tasksPrompt = `Tu es un assistant IA spécialisé dans l'extraction de tâches à partir de transcripts de réunions.
+
+Voici le transcript nettoyé d'une réunion avec les participants: ${participantList}
+
+Extrais toutes les tâches et actions mentionnées et retourne un tableau JSON avec cette structure exacte:
+["tâche 1", "tâche 2", "tâche 3"]
+
+Inclus le nom de la personne responsable quand c'est mentionné.
+Formule chaque tâche de manière claire et actionnable.
+Maximum 10 tâches les plus importantes.
+
+Retourne UNIQUEMENT le tableau JSON, sans autre texte.
+
+Transcript:
+${cleanedTranscript}`;
+
+    console.log('Extracting tasks with OpenAI...');
+
+    const tasksResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches. Tu retournes UNIQUEMENT un tableau JSON.'
+          },
+          {
+            role: 'user',
+            content: tasksPrompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.1,
+      }),
+    });
+
+    let tasks: string[] = [];
+    if (tasksResponse.ok) {
+      const tasksData = await tasksResponse.json();
+      let tasksContent = tasksData.choices[0].message.content.trim();
+      
+      // Clean JSON response
+      if (tasksContent.startsWith('```json')) {
+        tasksContent = tasksContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (tasksContent.startsWith('```')) {
+        tasksContent = tasksContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
       
-      summary = 'Résumé automatique - traitement OpenAI partiel, mais transcript nettoyé.';
-      tasks = [];
+      try {
+        tasks = JSON.parse(tasksContent);
+        if (!Array.isArray(tasks)) {
+          tasks = [];
+        }
+        console.log('Tasks extracted successfully, count:', tasks.length);
+      } catch (parseError) {
+        console.error('Tasks JSON parsing failed:', parseError);
+        tasks = [];
+      }
+    } else {
+      console.error('Tasks extraction failed');
     }
 
     // Save the processed results to database
