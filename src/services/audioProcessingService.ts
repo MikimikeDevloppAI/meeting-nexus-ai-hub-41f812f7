@@ -1,33 +1,78 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
 
-// Helper function to chunk text for embeddings
-const chunkText = (text: string, maxChunkSize: number = 1000): string[] => {
-  const sentences = text.split(/[.!?]+/);
-  const chunks: string[] = [];
-  let currentChunk = '';
+// Helper function to chunk text for embeddings with better separation
+const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 100): string[] => {
+  if (!text || text.trim().length === 0) {
+    return [];
+  }
 
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
-      chunks.push(currentChunk.trim());
-      currentChunk = sentence;
-    } else {
-      currentChunk += sentence + '.';
+  // Split by paragraphs first, then sentences
+  const paragraphs = text.split(/\n\s*\n/);
+  const chunks: string[] = [];
+  
+  for (const paragraph of paragraphs) {
+    if (paragraph.trim().length === 0) continue;
+    
+    // If paragraph is small enough, add it as a chunk
+    if (paragraph.length <= maxChunkSize) {
+      chunks.push(paragraph.trim());
+      continue;
+    }
+    
+    // Split large paragraphs by sentences
+    const sentences = paragraph.split(/[.!?]+\s+/);
+    let currentChunk = '';
+    
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i].trim();
+      if (!sentence) continue;
+      
+      // Check if adding this sentence would exceed the limit
+      const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + sentence;
+      
+      if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
+        // Save current chunk
+        chunks.push(currentChunk.trim() + '.');
+        
+        // Start new chunk with overlap from previous
+        const words = currentChunk.split(' ');
+        const overlapWords = words.slice(-Math.min(overlap / 5, words.length / 2));
+        currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? '. ' : '') + sentence;
+      } else {
+        currentChunk = potentialChunk;
+      }
+    }
+    
+    // Add the final chunk if it has content
+    if (currentChunk.trim().length > 0) {
+      chunks.push(currentChunk.trim() + (currentChunk.endsWith('.') ? '' : '.'));
     }
   }
   
-  if (currentChunk.trim().length > 0) {
-    chunks.push(currentChunk.trim());
-  }
-  
-  return chunks.filter(chunk => chunk.length > 0);
+  // Filter out very small chunks and duplicates
+  return chunks
+    .filter((chunk, index, array) => 
+      chunk.length > 50 && // Minimum chunk size
+      array.indexOf(chunk) === index // Remove duplicates
+    )
+    .map((chunk, index) => {
+      // Add chunk identifier for better tracking
+      return `[Chunk ${index + 1}] ${chunk}`;
+    });
 };
 
 // Function to generate embeddings using OpenAI
 const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
-  console.log('[EMBEDDINGS] Generating embeddings for', texts.length, 'chunks');
+  console.log('[EMBEDDINGS] Generating embeddings for', texts.length, 'unique chunks');
+  
+  // Log first few characters of each chunk to verify they're different
+  texts.forEach((text, index) => {
+    console.log(`[EMBEDDINGS] Chunk ${index + 1} preview:`, text.substring(0, 100) + '...');
+  });
   
   try {
     const { data: functionResult, error: functionError } = await supabase.functions.invoke('generate-embeddings', {
@@ -202,15 +247,17 @@ export class AudioProcessingService {
         await this.saveTasks(meetingId, result.tasks, participants);
       }
 
-      // Save embeddings if available
-      if (result.embeddings && result.embeddings.chunks && result.embeddings.embeddings) {
-        console.log(`[SAVE] Saving ${result.embeddings.embeddings.length} embeddings...`);
-        await this.saveEmbeddings(
-          meetingId, 
-          result.embeddings.chunks, 
-          result.embeddings.embeddings,
-          result.processedTranscript || transcript
-        );
+      // Save embeddings if available with better chunking
+      if (result.processedTranscript || transcript) {
+        console.log('[EMBEDDINGS] Creating embeddings for transcript...');
+        const textToEmbed = result.processedTranscript || transcript;
+        const chunks = chunkText(textToEmbed);
+        
+        if (chunks.length > 0) {
+          console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks`);
+          const embeddings = await generateEmbeddings(chunks);
+          await this.saveEmbeddings(meetingId, chunks, embeddings, textToEmbed);
+        }
       }
 
       return result;

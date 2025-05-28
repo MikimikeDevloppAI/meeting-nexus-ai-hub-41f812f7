@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export const uploadAudio = async (audioBlob: Blob, meetingId: string) => {
@@ -117,7 +118,7 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabase.supabaseKey}`,
+              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
             },
             body: JSON.stringify({
               todoId: todoData.id,
@@ -140,6 +141,42 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
 
   console.log('Tasks saved successfully:', savedTasks.length);
   return savedTasks;
+};
+
+// Create the MeetingService object
+export const MeetingService = {
+  createMeeting: async (title: string, userId: string): Promise<string> => {
+    const { data, error } = await supabase
+      .from('meetings')
+      .insert({ title, created_by: userId })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data.id;
+  },
+
+  updateMeetingField: async (meetingId: string, field: string, value: any) => {
+    const { error } = await supabase
+      .from('meetings')
+      .update({ [field]: value })
+      .eq('id', meetingId);
+
+    if (error) throw error;
+  },
+
+  addParticipants: async (meetingId: string, participantIds: string[]) => {
+    const meetingParticipants = participantIds.map(participantId => ({
+      meeting_id: meetingId,
+      participant_id: participantId
+    }));
+
+    const { error } = await supabase
+      .from('meeting_participants')
+      .insert(meetingParticipants);
+
+    if (error) throw error;
+  }
 };
 
 // Update the processMeetingData function to fetch all participants
@@ -208,7 +245,7 @@ export const processMeetingData = async (
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
         },
         body: JSON.stringify({
           meetingId,
