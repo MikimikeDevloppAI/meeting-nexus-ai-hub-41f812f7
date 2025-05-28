@@ -1,3 +1,4 @@
+
 const ASSEMBLYAI_API_KEY = "8f65f133ca6f4a1b955636df7fc22ee2";
 const ASSEMBLYAI_BASE_URL = "https://api.assemblyai.com/v2";
 
@@ -16,6 +17,7 @@ export interface TranscriptResult {
 
 export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string> => {
   console.log('[ASSEMBLYAI] Starting audio upload to AssemblyAI...');
+  console.log('[ASSEMBLYAI] Using API key:', ASSEMBLYAI_API_KEY.substring(0, 8) + '...');
   
   try {
     // First fetch the audio file
@@ -37,13 +39,15 @@ export const uploadAudioToAssemblyAI = async (audioUrl: string): Promise<string>
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${ASSEMBLYAI_API_KEY}`,
+        'Authorization': ASSEMBLYAI_API_KEY,
       },
       body: audioBlob,
     });
 
     const responseText = await response.text();
-    console.log('[ASSEMBLYAI] Upload response:', response.status, responseText);
+    console.log('[ASSEMBLYAI] Upload response status:', response.status);
+    console.log('[ASSEMBLYAI] Upload response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('[ASSEMBLYAI] Upload response body:', responseText);
 
     if (!response.ok) {
       throw new Error(`Failed to upload audio: ${response.status} ${response.statusText} - ${responseText}`);
@@ -88,14 +92,15 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/transcript`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${ASSEMBLYAI_API_KEY}`,
+        'Authorization': ASSEMBLYAI_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(transcriptionConfig),
     });
 
     const responseText = await response.text();
-    console.log('[ASSEMBLYAI] Transcription request response:', response.status, responseText);
+    console.log('[ASSEMBLYAI] Transcription request response status:', response.status);
+    console.log('[ASSEMBLYAI] Transcription request response body:', responseText);
 
     if (!response.ok) {
       throw new Error(`Failed to request transcription: ${response.status} ${response.statusText} - ${responseText}`);
