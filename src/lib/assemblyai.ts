@@ -1,4 +1,5 @@
 
+
 const ASSEMBLYAI_API_KEY = "7501ed0e8e0a4fc9acb21a7df6a6b31c";
 const ASSEMBLYAI_BASE_URL = "https://api.assemblyai.com/v2";
 
@@ -180,3 +181,4 @@ export const pollForTranscription = async (transcriptId: string): Promise<Transc
 
   throw new Error('Transcription timeout after 5 minutes');
 };
+
