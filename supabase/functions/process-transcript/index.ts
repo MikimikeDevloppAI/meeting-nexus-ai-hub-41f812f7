@@ -99,33 +99,49 @@ serve(async (req) => {
 
     console.log('Processing transcript with OpenAI, length:', transcriptToProcess.length);
 
-    // Enhanced system prompt for better summary and task extraction
+    // Prepare participant information for the prompt
+    const participantInfo = participants && participants.length > 0 
+      ? participants.map((p: any, index: number) => 
+          `Participant ${index + 1}: ${p.name}${p.email ? ` (${p.email})` : ''}`
+        ).join('\n')
+      : 'No participant information available';
+
+    const participantCount = participants?.length || 2;
+
+    // Enhanced system prompt with participant information for better speaker identification
     const systemPrompt = `You are an AI assistant that processes meeting transcripts. You MUST respond with valid JSON only, no other text.
+
+PARTICIPANTS INFORMATION:
+${participantInfo}
 
 Your response must be EXACTLY in this format:
 {
-  "cleanedTranscript": "improved and cleaned version of the transcript with better formatting and speaker identification",
+  "cleanedTranscript": "improved and cleaned version of the transcript with proper speaker identification",
   "summary": "comprehensive meeting summary organized by topics",
   "tasks": ["actionable task 1", "actionable task 2", "actionable task 3"]
 }
 
 For the cleanedTranscript:
-- Clean up the raw transcript text
-- Fix any transcription errors you can identify
-- Improve speaker identification and formatting
-- Make it more readable while preserving all content
-- Keep all the original information but present it clearly
+- CRITICAL: Replace generic speaker labels (Speaker 1, Speaker 2, etc.) with actual participant names from the list above
+- Use conversation context and content to intelligently map speakers to participants
+- If there are ${participantCount} participants, map Speaker 1-${participantCount} to the corresponding participant names
+- When unsure about speaker identity, use format "Participant Name (likely)" rather than generic labels
+- Clean up transcription errors, improve formatting, and make text more readable
+- Preserve ALL original content and meaning
+- Structure conversations clearly with proper speaker attribution
+- Fix any obvious transcription mistakes (repeated words, unclear phrases, etc.)
 
 For the summary:
 - Write a comprehensive summary in French (3-4 paragraphs minimum)
 - Organize by main topics discussed (e.g., "Points techniques:", "Décisions prises:", "Sujets administratifs:", etc.)
-- Include all important points, decisions, and discussions
+- Include all important points, decisions, and discussions with speaker attribution when relevant
 - Don't miss any significant topics or decisions
 - Be detailed and thorough
+- Use participant names when referring to who said or decided what
 
 For tasks:
 - Extract ALL actionable items, decisions, follow-ups, and commitments mentioned
-- Include WHO should do WHAT when clearly mentioned
+- Include WHO should do WHAT when clearly mentioned using actual participant names
 - Each task should be a complete, actionable sentence in French
 - Include deadlines or timeframes when mentioned
 - Be specific about what needs to be done
@@ -149,12 +165,12 @@ CRITICAL: Your response must be valid JSON only, starting with { and ending with
           },
           {
             role: 'user',
-            content: `Process this meeting transcript:
+            content: `Process this meeting transcript and replace speaker labels with actual participant names:
 
 ${transcriptToProcess}`
           }
         ],
-        max_tokens: 3000,
+        max_tokens: 4000,
         temperature: 0.2,
       }),
     });
