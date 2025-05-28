@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -132,9 +133,9 @@ export class AudioProcessingService {
       console.log('[TRANSCRIBE] Transcript received, length:', result.text.length);
       
       // Save original transcript immediately
-      console.log('[TRANSCRIBE] Saving transcript to database...');
+      console.log('[TRANSCRIBE] Saving original transcript to database...');
       await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
-      console.log('[TRANSCRIBE] Transcript saved successfully');
+      console.log('[TRANSCRIBE] Original transcript saved successfully');
       
       return result.text;
     } catch (error: any) {
@@ -147,7 +148,7 @@ export class AudioProcessingService {
     transcript: string,
     participants: Participant[],
     meetingId: string
-  ): Promise<{ processedTranscript?: string; summary?: string }> {
+  ): Promise<{ processedTranscript?: string; summary?: string; tasks?: any[] }> {
     console.log('[PROCESS] Sending transcript to OpenAI for processing...');
     
     try {
@@ -164,16 +165,16 @@ export class AudioProcessingService {
         throw new Error(`Erreur de traitement OpenAI: ${functionError.message}`);
       }
 
-      const result: { processedTranscript?: string; summary?: string } = {};
+      const result: { processedTranscript?: string; summary?: string; tasks?: any[] } = {};
       const updates: Record<string, any> = {};
 
       if (functionResult?.processedTranscript) {
         const processedTranscript = functionResult.processedTranscript;
         console.log('[PROCESS] Processed transcript received, length:', processedTranscript.length);
-        updates.transcript = processedTranscript;
+        updates.transcript = processedTranscript; // Save the PROCESSED transcript, not the original
         result.processedTranscript = processedTranscript;
 
-        // Store in vector database
+        // Store processed transcript in vector database
         try {
           await this.storeTranscriptInVectorDB(processedTranscript, meetingId, participants);
         } catch (embeddingError: any) {
@@ -187,6 +188,19 @@ export class AudioProcessingService {
         console.log('[SUMMARY] Summary received, length:', summary.length);
         updates.summary = summary;
         result.summary = summary;
+      }
+
+      if (functionResult?.tasks && Array.isArray(functionResult.tasks)) {
+        console.log('[TASKS] Tasks received:', functionResult.tasks.length);
+        result.tasks = functionResult.tasks;
+        
+        // Save tasks to database
+        try {
+          await this.saveTasks(functionResult.tasks, meetingId, participants);
+        } catch (taskError: any) {
+          console.error('[TASKS] Failed to save tasks:', taskError);
+          // Continue without failing the whole process
+        }
       }
 
       // Use batch update instead of multiple individual updates
@@ -203,17 +217,57 @@ export class AudioProcessingService {
     }
   }
 
+  static async saveTasks(tasks: any[], meetingId: string, participants: Participant[]): Promise<void> {
+    console.log('[TASKS] Saving', tasks.length, 'tasks to database...');
+    
+    try {
+      for (const task of tasks) {
+        let assignedToId = null;
+        
+        // Try to match assigned_to name with participant
+        if (task.assigned_to) {
+          const participant = participants.find(p => 
+            p.name.toLowerCase().includes(task.assigned_to.toLowerCase()) ||
+            task.assigned_to.toLowerCase().includes(p.name.toLowerCase())
+          );
+          if (participant) {
+            assignedToId = participant.id;
+          }
+        }
+
+        const { error } = await supabase
+          .from('todos')
+          .insert({
+            description: task.description,
+            meeting_id: meetingId,
+            assigned_to: assignedToId,
+            status: 'pending', // All tasks start as pending
+            due_date: task.due_date || null
+          });
+
+        if (error) {
+          console.error('[TASKS] Error saving task:', error);
+        }
+      }
+      
+      console.log('[TASKS] Tasks saved successfully');
+    } catch (error) {
+      console.error('[TASKS] Error saving tasks:', error);
+      throw error;
+    }
+  }
+
   static async storeTranscriptInVectorDB(
     transcript: string,
     meetingId: string,
     participants: Participant[]
   ): Promise<void> {
-    console.log('[VECTOR_DB] Storing transcript in vector database...');
+    console.log('[VECTOR_DB] Storing processed transcript in vector database...');
     
     try {
-      // Chunk the transcript
+      // Chunk the processed transcript
       const chunks = chunkText(transcript, 1000);
-      console.log('[VECTOR_DB] Created', chunks.length, 'chunks from transcript');
+      console.log('[VECTOR_DB] Created', chunks.length, 'chunks from processed transcript');
 
       // Generate embeddings for all chunks
       const embeddings = await generateEmbeddings(chunks);
@@ -226,13 +280,14 @@ export class AudioProcessingService {
       const metadata = {
         meeting_id: meetingId,
         participants: participantNames,
-        chunk_count: chunks.length
+        chunk_count: chunks.length,
+        processed: true
       };
 
       const documentId = await storeDocumentWithEmbeddings(
-        `Meeting Transcript - ${meetingId}`,
+        `Meeting Transcript (Processed) - ${meetingId}`,
         'meeting_transcript',
-        transcript,
+        transcript, // Use processed transcript
         chunks,
         embeddings,
         metadata,
@@ -241,13 +296,13 @@ export class AudioProcessingService {
       );
 
       if (documentId) {
-        console.log('[VECTOR_DB] Successfully stored transcript with document ID:', documentId);
+        console.log('[VECTOR_DB] Successfully stored processed transcript with document ID:', documentId);
       } else {
         throw new Error('Failed to store document - no ID returned');
       }
 
     } catch (error) {
-      console.error('[VECTOR_DB] Error storing transcript in vector database:', error);
+      console.error('[VECTOR_DB] Error storing processed transcript in vector database:', error);
       throw error;
     }
   }

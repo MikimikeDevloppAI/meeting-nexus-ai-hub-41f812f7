@@ -39,14 +39,15 @@ const processChunk = async (chunk: string, participants: any[], chunkIndex: numb
 
 ${chunk}
 
-INSTRUCTIONS:
-1. Remplace "speaker 1", "speaker 2" par les vrais noms
-2. Supprime: hésitations (euh, hmm), répétitions, interruptions inutiles
-3. Garde SEULEMENT le contenu médical/administratif important
-4. Corrige les erreurs évidentes
-5. Format: "Dr. X: [contenu]"
+INSTRUCTIONS STRICTES:
+1. Remplace "Speaker A", "Speaker B", etc. par les vrais noms des participants
+2. Supprime COMPLÈTEMENT: hésitations (euh, hmm), répétitions, interruptions inutiles, mots de remplissage
+3. Garde SEULEMENT le contenu médical/administratif important et utile
+4. Corrige les erreurs évidentes de transcription
+5. Format final: "Dr. X: [contenu nettoyé]"
+6. Enlève tout ce qui n'est pas essentiel à la compréhension
 
-Retourne UNIQUEMENT le transcript nettoyé:`;
+Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -70,33 +71,34 @@ Retourne UNIQUEMENT le transcript nettoyé:`;
   return data.choices[0].message.content;
 };
 
-// Function to generate summary
+// Function to generate comprehensive summary
 const generateSummary = async (cleanTranscript: string, participants: any[]): Promise<string> => {
   const participantsList = participants.map((p: any) => p.name).join(', ');
   
-  const summaryPrompt = `Rédige un résumé structuré en français de cette réunion médicale:
+  const summaryPrompt = `Rédige un résumé COMPLET et STRUCTURÉ de cette réunion médicale. N'OUBLIE RIEN d'important:
 
 ${cleanTranscript}
 
 Participants: ${participantsList}
 
 Format requis:
-**CONTEXTE**
-[Objet de la réunion]
+**CONTEXTE ET OBJET**
+[Détail de l'objet de la réunion et contexte]
 
-**POINTS CLÉS**
-• Organisation: [points organisationnels]
-• Patients: [discussions patients]
-• Équipement: [matériel médical]
-• Finances: [aspects financiers]
+**POINTS CLÉS DISCUTÉS**
+• Organisation: [tous les points organisationnels abordés]
+• Patients: [toutes les discussions concernant les patients]
+• Équipement médical: [tout le matériel médical évoqué]
+• Finances: [tous les aspects financiers mentionnés]
+• Procédures: [toutes les procédures discutées]
 
-**DÉCISIONS**
-• [liste des décisions prises]
+**DÉCISIONS PRISES**
+• [liste COMPLÈTE de toutes les décisions prises]
 
-**ACTIONS À SUIVRE**
-• [tâches assignées avec responsables]
+**INFORMATIONS IMPORTANTES**
+• [toute information critique ou importante mentionnée]
 
-Reste concis et factuel:`;
+Sois exhaustif et ne manque aucun détail important:`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -108,7 +110,7 @@ Reste concis et factuel:`;
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: summaryPrompt }],
       temperature: 0.2,
-      max_tokens: 1500,
+      max_tokens: 2000,
     }),
   });
 
@@ -118,6 +120,62 @@ Reste concis et factuel:`;
 
   const data = await response.json();
   return data.choices[0].message.content;
+};
+
+// Function to extract tasks from transcript
+const extractTasks = async (cleanTranscript: string, participants: any[]): Promise<any[]> => {
+  const participantsList = participants.map((p: any) => p.name).join(', ');
+  
+  const tasksPrompt = `Analyse ce transcript de réunion et extrais TOUTES les tâches/actions à faire mentionnées. Participants: ${participantsList}
+
+${cleanTranscript}
+
+INSTRUCTIONS:
+1. Identifie TOUTES les tâches, actions, suivis mentionnés
+2. Pour chaque tâche, détermine si elle est assignée à quelqu'un spécifiquement
+3. Extrais la date limite si mentionnée
+4. Sois très précis sur la description de la tâche
+
+Retourne un JSON avec ce format exact:
+{
+  "tasks": [
+    {
+      "description": "Description précise de la tâche",
+      "assigned_to": "Nom exact du participant" ou null,
+      "due_date": "YYYY-MM-DD" ou null,
+      "priority": "high" ou "medium" ou "low"
+    }
+  ]
+}
+
+Retourne UNIQUEMENT le JSON valide:`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: tasksPrompt }],
+      temperature: 0.1,
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error for tasks: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  try {
+    const taskData = JSON.parse(data.choices[0].message.content);
+    return taskData.tasks || [];
+  } catch (error) {
+    console.error('Error parsing tasks JSON:', error);
+    return [];
+  }
 };
 
 serve(async (req) => {
@@ -152,14 +210,15 @@ serve(async (req) => {
 
 ${transcript}
 
-INSTRUCTIONS:
-1. Remplace "speaker 1", "speaker 2" par les vrais noms
-2. Supprime: hésitations (euh, hmm), répétitions, interruptions inutiles
-3. Garde SEULEMENT le contenu médical/administratif important
-4. Corrige les erreurs évidentes
-5. Format: "Dr. X: [contenu]"
+INSTRUCTIONS STRICTES:
+1. Remplace "Speaker A", "Speaker B", etc. par les vrais noms des participants
+2. Supprime COMPLÈTEMENT: hésitations (euh, hmm), répétitions, interruptions inutiles, mots de remplissage
+3. Garde SEULEMENT le contenu médical/administratif important et utile
+4. Corrige les erreurs évidentes de transcription
+5. Format final: "Dr. X: [contenu nettoyé]"
+6. Enlève tout ce qui n'est pas essentiel à la compréhension
 
-Retourne UNIQUEMENT le transcript nettoyé:`;
+Retourne UNIQUEMENT le transcript nettoyé sans commentaires:`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -208,21 +267,8 @@ Retourne UNIQUEMENT le transcript nettoyé:`;
 
     console.log(`Processed transcript length: ${processedTranscript.length} characters`);
 
-    // Validate that we haven't lost too much content
-    const originalWordCount = transcript.split(/\s+/).length;
-    const processedWordCount = processedTranscript.split(/\s+/).length;
-    const retentionRatio = processedWordCount / originalWordCount;
-
-    console.log(`Word count - Original: ${originalWordCount}, Processed: ${processedWordCount}, Retention: ${(retentionRatio * 100).toFixed(1)}%`);
-
-    // If we've lost more than 60% of the content, use original transcript
-    if (retentionRatio < 0.4) {
-      console.warn('Significant content loss detected, falling back to original transcript');
-      processedTranscript = transcript;
-    }
-
     // Generate summary
-    console.log('Generating summary...');
+    console.log('Generating comprehensive summary...');
     let summary: string | null = null;
     
     try {
@@ -230,12 +276,23 @@ Retourne UNIQUEMENT le transcript nettoyé:`;
       console.log(`Generated summary length: ${summary.length} characters`);
     } catch (error) {
       console.error('Error generating summary:', error);
-      // Continue without summary if generation fails
+    }
+
+    // Extract tasks
+    console.log('Extracting tasks from transcript...');
+    let tasks: any[] = [];
+    
+    try {
+      tasks = await extractTasks(processedTranscript, participants);
+      console.log(`Extracted ${tasks.length} tasks`);
+    } catch (error) {
+      console.error('Error extracting tasks:', error);
     }
 
     return new Response(JSON.stringify({ 
       processedTranscript, 
-      summary 
+      summary,
+      tasks
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

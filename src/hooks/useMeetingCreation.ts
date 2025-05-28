@@ -102,7 +102,7 @@ export const useMeetingCreation = () => {
           updateStepStatus('transcribe', 'completed');
           setProgress(60);
           
-          // Step 4: Process transcript with OpenAI
+          // Step 4: Process transcript with OpenAI (including tasks extraction)
           updateStepStatus('process', 'processing');
           setProgress(70);
           
@@ -119,6 +119,7 @@ export const useMeetingCreation = () => {
 
             if (result.processedTranscript) {
               updateStepStatus('process', 'completed');
+              console.log('[PROCESS] Processed transcript saved successfully');
             } else {
               console.warn('[PROCESS] No processed transcript returned, keeping original');
               updateStepStatus('process', 'error');
@@ -126,9 +127,19 @@ export const useMeetingCreation = () => {
 
             if (result.summary) {
               updateStepStatus('summary', 'completed');
+              console.log('[SUMMARY] Summary generated and saved successfully');
             } else {
               console.warn('[SUMMARY] No summary returned from OpenAI');
               updateStepStatus('summary', 'error');
+            }
+
+            if (result.tasks && result.tasks.length > 0) {
+              console.log(`[TASKS] ${result.tasks.length} tasks extracted and saved successfully`);
+              toast({
+                title: "Tâches extraites",
+                description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
+                duration: 5000,
+              });
             }
             
             setProgress(85);
