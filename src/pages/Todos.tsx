@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Circle, Clock, Calendar } from "lucide-react";
+import { CheckCircle, Circle, Clock, Calendar, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -14,6 +14,7 @@ export default function Todos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [openComments, setOpenComments] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function Todos() {
     const variants = {
       'pending': 'secondary',
       'confirmed': 'default',
-      'completed': 'success'
+      'completed': 'default'
     } as const;
 
     const labels = {
@@ -105,8 +106,10 @@ export default function Todos() {
       'completed': 'Terminée'
     };
 
+    const className = status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' : '';
+
     return (
-      <Badge variant={variants[status] || 'secondary'}>
+      <Badge variant={variants[status] || 'secondary'} className={className}>
         {labels[status] || status}
       </Badge>
     );
@@ -232,7 +235,23 @@ export default function Todos() {
                   />
                 </div>
 
-                <TodoComments todoId={todo.id} />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOpenComments(todo.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Commentaires
+                  </Button>
+                </div>
+
+                <TodoComments 
+                  todoId={todo.id} 
+                  isOpen={openComments === todo.id}
+                  onClose={() => setOpenComments(null)}
+                />
               </CardContent>
             </Card>
           ))}

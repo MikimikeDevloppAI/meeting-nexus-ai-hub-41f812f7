@@ -13,6 +13,12 @@ export interface MeetingCreationData {
   audioFile: File | null;
 }
 
+export interface ProcessingStep {
+  id: string;
+  title: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+}
+
 export interface Todo {
   id: string;
   description: string;
