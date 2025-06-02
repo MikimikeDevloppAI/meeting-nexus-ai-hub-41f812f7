@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Edit2, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Editor } from '@tinymce/tinymce-react';
 
 interface EditableContentProps {
   content: string;
@@ -74,13 +75,26 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
     return (
       <div className={className}>
         {type === 'summary' ? (
-          <Textarea
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            className="min-h-32 font-mono text-sm"
-            placeholder="Contenu HTML du résumé..."
-            disabled={isSaving}
-          />
+          <div className="border rounded-md">
+            <Editor
+              apiKey="no-api-key"
+              value={editedContent}
+              onEditorChange={(value) => setEditedContent(value || '')}
+              init={{
+                height: 300,
+                menubar: false,
+                plugins: [
+                  'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                  'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                  'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                branding: false,
+                disabled: isSaving
+              }}
+            />
+          </div>
         ) : (
           <Input
             value={editedContent}
