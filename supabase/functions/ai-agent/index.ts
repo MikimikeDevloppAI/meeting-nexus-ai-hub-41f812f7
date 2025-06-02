@@ -1,4 +1,5 @@
 
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -35,6 +36,7 @@ serve(async (req) => {
 
     let relevantContext = '';
     let contextSources = [];
+    let additionalContext = '';
 
     // Recherche dans les embeddings pour la plupart des questions
     const shouldSearchEmbeddings = !message.toLowerCase().includes('internet') && 
@@ -73,7 +75,7 @@ serve(async (req) => {
           console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
           relevantContext = searchResults
             .map((result: any, index: number) => 
-              `[Contexte ${index + 1} - Similarité: ${(result.similarity * 100).toFixed(1)}%]\n${result.chunk_text}`
+              `[Source ${index + 1} - Document ID: ${result.document_id} - Similarité: ${(result.similarity * 100).toFixed(1)}%]\n${result.chunk_text}`
             )
             .join('\n\n---\n\n');
           contextSources = searchResults;
@@ -81,6 +83,57 @@ serve(async (req) => {
           console.log('[AI-AGENT] No relevant context found in embeddings');
         }
       }
+
+      // Recherche dans les données générales de la base
+      console.log('[AI-AGENT] Fetching additional context from database...');
+      
+      // Récupérer les réunions récentes
+      const { data: recentMeetings } = await supabase
+        .from('meetings')
+        .select('id, title, created_at, summary')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Récupérer les TODOs en cours
+      const { data: activeTodos } = await supabase
+        .from('todos')
+        .select(`
+          id, description, status, created_at, due_date,
+          assigned_to,
+          participants:participants(name)
+        `)
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Récupérer les participants
+      const { data: participants } = await supabase
+        .from('participants')
+        .select('id, name, email')
+        .order('name');
+
+      // Construire le contexte additionnel
+      let dbContext = [];
+      
+      if (recentMeetings && recentMeetings.length > 0) {
+        dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => 
+          `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})\n  Résumé: ${m.summary || 'Pas de résumé disponible'}`
+        ).join('\n')}`);
+      }
+
+      if (activeTodos && activeTodos.length > 0) {
+        dbContext.push(`=== TÂCHES EN COURS ===\n${activeTodos.map(t => 
+          `- ${t.description} (${t.status})\n  Échéance: ${t.due_date ? new Date(t.due_date).toLocaleDateString('fr-FR') : 'Non définie'}\n  Assigné: ${t.participants?.name || 'Non assigné'}`
+        ).join('\n')}`);
+      }
+
+      if (participants && participants.length > 0) {
+        dbContext.push(`=== PARTICIPANTS ===\n${participants.map(p => 
+          `- ${p.name} (${p.email})`
+        ).join('\n')}`);
+      }
+
+      additionalContext = dbContext.join('\n\n');
     }
 
     // Détection automatique pour les recherches internet
@@ -201,8 +254,10 @@ INSTRUCTIONS:
 - RESTE CONCIS : évite les longues explications, privilégie l'essentiel
 - Pour tous les prix mentionnés, utilise les CHF (francs suisses)
 - Si tu utilises des informations d'internet, mentionne-le naturellement dans ta réponse
+- Si tu utilises des sources internes (documents, réunions), mentionne clairement les documents consultés
 
-${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
+${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS/DOCUMENTS ===\n${relevantContext}\n` : ''}
+${additionalContext ? `\n=== CONTEXTE GÉNÉRAL DE LA BASE ===\n${additionalContext}\n` : ''}
 ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -236,7 +291,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
       sources: contextSources || [],
       internetSources: internetSources || [],
       hasInternetContext: internetSearchPerformed,
-      contextFound: !!relevantContext,
+      contextFound: !!relevantContext || !!additionalContext,
       internetAvailable: !!perplexityApiKey
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -253,3 +308,4 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
     });
   }
 });
+
