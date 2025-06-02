@@ -141,9 +141,10 @@ ${relevantContext ? `EXPÉRIENCES PASSÉES SIMILAIRES:\n${relevantContext}\n` : 
 
 ${externalInfo ? `INFORMATIONS ACTUELLES:\n${externalInfo}\n` : ''}
 
-INSTRUCTIONS:
-- Si la tâche est simple et ne nécessite pas de conseil, réponds exactement: "No additional recommendations needed."
-- Sinon, fournis des recommandations CONCRÈTES et ACTIONNABLES incluant:
+INSTRUCTIONS IMPORTANTES:
+- Réponds OBLIGATOIREMENT en français
+- Si la tâche est simple et ne nécessite pas de conseil, réponds exactement: "Aucune recommandation supplémentaire nécessaire."
+- Sinon, fournis des recommandations CONCRÈTES et ACTIONNABLES en français incluant:
   * Stratégies d'implémentation spécifiques au contexte médical
   * Points d'attention et défis potentiels
   * Ressources, outils ou contacts recommandés
@@ -154,7 +155,8 @@ INSTRUCTIONS:
 - Utilise l'historique du cabinet pour adapter tes conseils
 - Sois précis et professionnel
 - Limite-toi à 200 mots maximum
-- Concentre-toi sur la VALEUR AJOUTÉE réelle`;
+- Concentre-toi sur la VALEUR AJOUTÉE réelle
+- Réponds UNIQUEMENT en français`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -165,7 +167,7 @@ INSTRUCTIONS:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Tu es un assistant expert pour cabinet médical qui fournit des recommandations concrètes et utiles.' },
+          { role: 'system', content: 'Tu es un assistant expert pour cabinet médical qui fournit des recommandations concrètes et utiles UNIQUEMENT en français.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 300,
@@ -177,7 +179,7 @@ INSTRUCTIONS:
     const recommendation = aiData.choices[0].message.content.trim();
 
     // Only add comment if AI provides meaningful recommendations
-    if (recommendation && !recommendation.toLowerCase().includes('no additional recommendations needed')) {
+    if (recommendation && !recommendation.toLowerCase().includes('aucune recommandation supplémentaire nécessaire')) {
       console.log('[ENHANCED-TODO] Adding enhanced AI recommendation...');
       
       // Add AI recommendation as a comment with enhanced formatting
