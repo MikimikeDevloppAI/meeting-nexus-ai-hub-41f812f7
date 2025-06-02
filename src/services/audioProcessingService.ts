@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -34,8 +35,10 @@ const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 1
       const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + sentence;
       
       if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
-        // Save current chunk with unique identifier
-        chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}.`);
+        // Only save chunk if it's substantial enough
+        if (currentChunk.trim().length >= 150) {
+          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}.`);
+        }
         
         // Start new chunk with overlap from previous
         const words = currentChunk.split(' ');
@@ -46,19 +49,24 @@ const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 1
       }
     }
     
-    // Add the final chunk if it has content
-    if (currentChunk.trim().length > 0) {
+    // Add the final chunk if it has content and is substantial
+    if (currentChunk.trim().length >= 150) {
       chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}${currentChunk.endsWith('.') ? '' : '.'}`);
     }
   }
   
-  // Filter out very small chunks and ensure uniqueness
+  // Filter out chunks that are too small (increased minimum size) and ensure uniqueness
   return chunks
-    .filter(chunk => chunk.length > 50) // Minimum chunk size
+    .filter(chunk => chunk.length >= 150) // Increased minimum chunk size from 50 to 150
     .map((chunk, index) => {
       // Ensure each chunk is unique by adding a timestamp or unique content
       const uniqueContent = chunk.includes('[Segment') ? chunk : `[Part ${index + 1}] ${chunk}`;
       return uniqueContent;
+    })
+    .filter(chunk => {
+      // Final filter to ensure no chunk is too small after processing
+      const cleanChunk = chunk.replace(/^\[(?:Segment|Part) \d+\]\s*/, '');
+      return cleanChunk.length >= 100; // Ensure at least 100 characters of actual content
     });
 };
 
