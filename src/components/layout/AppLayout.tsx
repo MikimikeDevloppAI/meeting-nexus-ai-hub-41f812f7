@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Logo } from "@/components/Logo";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -61,7 +62,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <div className="min-h-screen flex w-full bg-gray-50">
         <Sidebar>
           <SidebarHeader className="px-6 py-4 border-b">
-            <h1 className="font-bold text-xl text-primary">NexusHub</h1>
+            <Logo />
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
@@ -98,7 +99,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <header className="bg-white shadow-sm p-4 flex justify-between items-center">
             <div className="flex items-center">
               <SidebarTrigger />
-              <h2 className="ml-4 text-lg font-medium">Système de gestion interne</h2>
+              <h2 className="ml-4 text-lg font-medium">OphtaCare Hub - Plateforme intelligente</h2>
             </div>
             <div className="flex items-center gap-2">
               {user && (
