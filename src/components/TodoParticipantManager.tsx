@@ -17,12 +17,14 @@ interface TodoParticipantManagerProps {
   todoId: string;
   currentParticipants: Participant[];
   onParticipantsUpdate: () => void;
+  compact?: boolean;
 }
 
 export const TodoParticipantManager = ({ 
   todoId, 
   currentParticipants, 
-  onParticipantsUpdate 
+  onParticipantsUpdate,
+  compact = false
 }: TodoParticipantManagerProps) => {
   const [allParticipants, setAllParticipants] = useState<Participant[]>([]);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>("");
@@ -112,6 +114,21 @@ export const TodoParticipantManager = ({
   const availableParticipants = allParticipants.filter(
     p => !currentParticipants.some(cp => cp.id === p.id)
   );
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        {currentParticipants.map((participant) => (
+          <Badge key={participant.id} variant="secondary" className="text-xs">
+            {participant.name}
+          </Badge>
+        ))}
+        {currentParticipants.length === 0 && (
+          <span className="text-xs text-muted-foreground">Non assignée</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
