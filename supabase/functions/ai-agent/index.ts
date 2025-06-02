@@ -117,11 +117,11 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT.'
+                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles pour un cabinet d\'ophtalmologie situé à Genève, en Suisse. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT. Pour tous les prix, utilise les francs suisses (CHF).'
               },
               {
                 role: 'user',
-                content: `Recherche des informations récentes et pertinentes sur: ${message}`
+                content: `Pour un cabinet d'ophtalmologie à Genève, Suisse, recherche des informations récentes et pertinentes sur: ${message}`
               }
             ],
             temperature: 0.2,
@@ -151,7 +151,12 @@ serve(async (req) => {
     // Generate contextual response with OpenAI
     console.log('[AI-AGENT] Generating response...');
     
-    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie. Tu peux répondre à toutes sortes de questions, pas seulement celles liées aux réunions.
+    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions, pas seulement celles liées aux réunions.
+
+CONTEXTE IMPORTANT :
+- Cabinet d'ophtalmologie à Genève, Suisse
+- Pour tous les prix, utilise TOUJOURS les francs suisses (CHF)
+- Adapte tes conseils au contexte suisse et genevois
 
 STYLE DE COMMUNICATION - TRÈS IMPORTANT :
 - Sois CONCIS et DIRECT dans tes réponses
@@ -166,6 +171,7 @@ CAPACITÉS:
 - Utiliser le contexte des réunions passées quand pertinent
 - Rechercher des informations actuelles sur internet quand activé
 - Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
+- Donner des informations spécifiques au marché suisse/genevois
 
 INSTRUCTIONS:
 - Réponds toujours en français de manière claire et professionnelle
@@ -175,6 +181,7 @@ INSTRUCTIONS:
 - Adapte ton niveau de détail selon la complexité de la question
 - Sois spécifique et actionnable dans tes recommandations
 - RESTE CONCIS : évite les longues explications, privilégie l'essentiel
+- Pour tous les prix mentionnés, utilise les CHF (francs suisses)
 
 ${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
 ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;

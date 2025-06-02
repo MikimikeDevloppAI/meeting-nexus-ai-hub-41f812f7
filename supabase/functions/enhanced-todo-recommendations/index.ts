@@ -103,11 +103,11 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé en ophtalmologie. Fournis des informations concises et pratiques en français.'
+                content: 'Tu es un assistant spécialisé en ophtalmologie pour un cabinet situé à Genève, en Suisse. Fournis des informations concises et pratiques en français. Pour tous les prix, utilise les francs suisses (CHF).'
               },
               {
                 role: 'user',
-                content: `Pour un cabinet d'ophtalmologie, trouve des informations pratiques et récentes sur: ${description}`
+                content: `Pour un cabinet d'ophtalmologie à Genève, Suisse, trouve des informations pratiques et récentes sur: ${description}`
               }
             ],
             temperature: 0.2,
@@ -130,7 +130,12 @@ serve(async (req) => {
     }
 
     // Generate AI recommendation with strict filtering
-    const prompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie. Analyse cette tâche et fournis une recommandation UNIQUEMENT si elle apporte une valeur ajoutée SIGNIFICATIVE.
+    const prompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie situé à Genève, en Suisse. Analyse cette tâche et fournis une recommandation UNIQUEMENT si elle apporte une valeur ajoutée SIGNIFICATIVE.
+
+CONTEXTE IMPORTANT :
+- Cabinet d'ophtalmologie à Genève, Suisse
+- Pour tous les prix, utilise TOUJOURS les francs suisses (CHF)
+- Adapte tes conseils au contexte suisse et genevois
 
 TÂCHE: ${description}
 
@@ -152,7 +157,8 @@ INSTRUCTIONS CRITIQUES:
 
 - Si tu donnes une recommandation, sois TRÈS CONCIS (maximum 80 mots)
 - Concentre-toi sur l'ESSENTIEL et l'ACTIONNABLE
-- Évite les généralités et les conseils évidents`;
+- Évite les généralités et les conseils évidents
+- Pour tous les prix mentionnés, utilise les CHF (francs suisses)`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -163,7 +169,7 @@ INSTRUCTIONS CRITIQUES:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Tu es un assistant expert en ophtalmologie qui ne donne des conseils que quand ils apportent une vraie valeur ajoutée. Sois très sélectif.' },
+          { role: 'system', content: 'Tu es un assistant expert en ophtalmologie pour un cabinet genevois qui ne donne des conseils que quand ils apportent une vraie valeur ajoutée. Sois très sélectif. Pour tous les prix, utilise les CHF.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 150,

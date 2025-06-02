@@ -39,19 +39,23 @@ serve(async (req) => {
     }
 
     // Generate AI recommendation
-    const prompt = `As an AI assistant, analyze this todo task and provide helpful recommendations or advice ONLY if you can add meaningful value. If the task is straightforward and doesn't need additional guidance, respond with "No additional recommendations needed."
+    const prompt = `Tu es un assistant IA pour un cabinet d'ophtalmologie situé à Genève, en Suisse. Analyse cette tâche et fournis des recommandations utiles SEULEMENT si tu peux ajouter une valeur significative. Si la tâche est simple et ne nécessite pas de conseils supplémentaires, réponds "No additional recommendations needed."
 
-Task: ${description}
-Meeting Context: ${meetingContext || 'No additional context provided'}
+CONTEXTE IMPORTANT :
+- Cabinet d'ophtalmologie à Genève, Suisse
+- Pour tous les prix, utilise TOUJOURS les francs suisses (CHF)
 
-Provide practical, actionable advice that could help with:
-- Implementation strategies
-- Potential challenges to consider
-- Resources or tools that might be helpful
-- Best practices
-- Timeline considerations
+Tâche: ${description}
+Contexte de réunion: ${meetingContext || 'Aucun contexte supplémentaire fourni'}
 
-Keep recommendations concise and focused. Only provide recommendations if they would genuinely help someone complete this task more effectively.`;
+Fournis des conseils pratiques et actionnables qui pourraient aider avec:
+- Stratégies d'implémentation
+- Défis potentiels à considérer
+- Ressources ou outils qui pourraient être utiles
+- Meilleures pratiques
+- Considérations de calendrier
+
+Garde les recommandations concises et ciblées. Ne fournis des recommandations que si elles aideraient vraiment quelqu'un à accomplir cette tâche plus efficacement. Pour tous les prix mentionnés, utilise les CHF.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -62,7 +66,7 @@ Keep recommendations concise and focused. Only provide recommendations if they w
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that provides practical recommendations for todo tasks. Only provide recommendations when they add genuine value.' },
+          { role: 'system', content: 'Tu es un assistant utile qui fournit des recommandations pratiques pour les tâches d\'un cabinet d\'ophtalmologie genevois. Ne fournis des recommandations que quand elles ajoutent une vraie valeur. Pour tous les prix, utilise les CHF.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 300,
