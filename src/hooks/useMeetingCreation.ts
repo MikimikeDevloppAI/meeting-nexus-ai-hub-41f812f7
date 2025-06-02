@@ -29,7 +29,7 @@ export const useMeetingCreation = () => {
         title: "Information manquante",
         description: "Veuillez saisir un titre de réunion",
         variant: "destructive",
-        duration: 5000, // Extended duration for errors
+        duration: 5000,
       });
       return;
     }
@@ -51,11 +51,19 @@ export const useMeetingCreation = () => {
     let meetingId: string | null = null;
 
     try {
-      // Step 1: Create meeting
+      // Step 1: Create meeting and add participants immediately
       updateStepStatus('create', 'processing');
       setProgress(10);
       
       meetingId = await MeetingService.createMeeting(title, user.id);
+      console.log('[CREATE] Meeting created with ID:', meetingId);
+      
+      // Add participants immediately after creating the meeting
+      if (selectedParticipantIds.length > 0) {
+        console.log('[CREATE] Adding participants to meeting:', selectedParticipantIds);
+        await MeetingService.addParticipants(meetingId, selectedParticipantIds);
+        console.log('[CREATE] Participants added successfully');
+      }
       
       updateStepStatus('create', 'completed');
       setProgress(20);
@@ -82,7 +90,7 @@ export const useMeetingCreation = () => {
             title: "Erreur de téléchargement",
             description: uploadError.message || "Le téléchargement audio a échoué",
             variant: "destructive",
-            duration: 10000, // Extended duration for errors
+            duration: 10000,
           });
           throw uploadError;
         }
@@ -165,15 +173,12 @@ export const useMeetingCreation = () => {
             variant: "destructive",
             duration: 10000,
           });
-          throw transcriptionError;
         }
       }
 
-      // Step 5: Add participants
+      // Step 5: Finalize
       updateStepStatus('save', 'processing');
       setProgress(90);
-
-      await MeetingService.addParticipants(meetingId, selectedParticipantIds);
 
       updateStepStatus('save', 'completed');
       setProgress(100);
