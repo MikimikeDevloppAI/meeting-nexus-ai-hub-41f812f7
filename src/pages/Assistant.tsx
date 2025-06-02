@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Globe, Database, Loader2 } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface Message {
   id: string;
@@ -17,6 +15,7 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   sources?: any[];
+  internetSources?: any[];
   hasInternetContext?: boolean;
   contextFound?: boolean;
 }
@@ -25,14 +24,13 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis votre assistant IA spécialisé pour le cabinet médical. J'ai accès à l'historique complet de vos réunions et transcripts. Posez-moi des questions sur vos activités, demandez des conseils, ou cherchez des informations dans vos données !",
+      content: "Bonjour ! Je suis votre assistant IA spécialisé pour le cabinet médical. J'ai accès à l'historique complet de vos réunions et transcripts, et je peux rechercher des informations actuelles sur internet quand nécessaire. Posez-moi des questions sur vos activités, demandez des conseils, ou cherchez des informations !",
       isUser: false,
       timestamp: new Date(),
     }
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useInternet, setUseInternet] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -60,12 +58,10 @@ const Assistant = () => {
 
     try {
       console.log('[ASSISTANT] Sending message to AI agent...');
-      console.log('[ASSISTANT] Internet search enabled:', useInternet);
       
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          message: inputMessage,
-          useInternet: useInternet // S'assurer que le paramètre est bien transmis
+          message: inputMessage
         }
       });
 
@@ -82,6 +78,7 @@ const Assistant = () => {
         isUser: false,
         timestamp: new Date(),
         sources: data.sources || [],
+        internetSources: data.internetSources || [],
         hasInternetContext: data.hasInternetContext,
         contextFound: data.contextFound,
       };
@@ -121,7 +118,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA</h1>
         <p className="text-muted-foreground">
-          Chat avec un assistant IA qui a accès à toutes les données de votre cabinet
+          Chat avec un assistant IA qui a accès à toutes les données de votre cabinet et à internet
         </p>
       </div>
 
@@ -133,19 +130,14 @@ const Assistant = () => {
               <CardTitle>Assistant Intelligent</CardTitle>
             </div>
             <div className="flex items-center space-x-2">
-              <Label htmlFor="internet-mode" className="text-sm">
-                Recherche internet
-              </Label>
-              <Switch
-                id="internet-mode"
-                checked={useInternet}
-                onCheckedChange={setUseInternet}
-              />
-              <Globe className={`h-4 w-4 ${useInternet ? 'text-green-500' : 'text-gray-400'}`} />
+              <Badge variant="outline" className="text-xs">
+                <Globe className="h-3 w-3 mr-1" />
+                Recherche automatique
+              </Badge>
             </div>
           </div>
           <CardDescription>
-            Posez des questions sur vos réunions, demandez des conseils, ou recherchez des informations
+            L'assistant utilise automatiquement internet et vos données internes selon vos besoins
           </CardDescription>
         </CardHeader>
 
@@ -178,23 +170,48 @@ const Assistant = () => {
                       </div>
                       
                       {!message.isUser && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {message.contextFound && (
-                            <Badge variant="outline" className="text-xs">
-                              <Database className="h-3 w-3 mr-1" />
-                              Données internes
-                            </Badge>
-                          )}
-                          {message.hasInternetContext && (
-                            <Badge variant="outline" className="text-xs">
-                              <Globe className="h-3 w-3 mr-1" />
-                              Données externes
-                            </Badge>
-                          )}
-                          {message.sources && message.sources.length > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              {message.sources.length} source(s)
-                            </Badge>
+                        <div className="mt-3 space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            {message.contextFound && (
+                              <Badge variant="outline" className="text-xs">
+                                <Database className="h-3 w-3 mr-1" />
+                                Données internes
+                              </Badge>
+                            )}
+                            {message.hasInternetContext && (
+                              <Badge variant="outline" className="text-xs">
+                                <Globe className="h-3 w-3 mr-1" />
+                                Données internet
+                              </Badge>
+                            )}
+                            {message.sources && message.sources.length > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {message.sources.length} source(s) interne(s)
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {message.internetSources && message.internetSources.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <div className="text-xs font-medium mb-1 text-muted-foreground">
+                                Sources consultées :
+                              </div>
+                              <div className="space-y-1">
+                                {message.internetSources.map((source: any, index: number) => (
+                                  <div key={index} className="text-xs">
+                                    <a 
+                                      href={source.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      {source.title || source.url}
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}
@@ -214,7 +231,7 @@ const Assistant = () => {
                   </div>
                   <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">L'assistant réfléchit...</span>
+                    <span className="text-sm">L'assistant réfléchit et recherche...</span>
                   </div>
                 </div>
               )}

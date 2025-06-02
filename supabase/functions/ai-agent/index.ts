@@ -14,10 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { message, useInternet = false, meetingId = null, todoId = null } = await req.json();
+    const { message, meetingId = null, todoId = null } = await req.json();
     
     console.log('[AI-AGENT] Processing message:', message.substring(0, 100) + '...');
-    console.log('[AI-AGENT] Use internet requested:', useInternet);
     console.log('[AI-AGENT] Meeting ID:', meetingId);
     console.log('[AI-AGENT] Todo ID:', todoId);
 
@@ -87,21 +86,29 @@ serve(async (req) => {
       }
     }
 
-    // Amélioration de la détection automatique pour les recherches internet
-    const shouldUseInternet = useInternet || 
-                             message.toLowerCase().includes('recherche') ||
-                             message.toLowerCase().includes('internet') ||
+    // Détection automatique améliorée pour les recherches internet
+    const shouldUseInternet = message.toLowerCase().includes('recherche') ||
                              message.toLowerCase().includes('actualité') ||
                              message.toLowerCase().includes('récent') ||
                              message.toLowerCase().includes('nouveau') ||
                              message.toLowerCase().includes('prix') ||
                              message.toLowerCase().includes('fournisseur') ||
+                             message.toLowerCase().includes('prestataire') ||
+                             message.toLowerCase().includes('équipement') ||
+                             message.toLowerCase().includes('formation') ||
                              message.toLowerCase().includes('comparaison') ||
-                             message.toLowerCase().includes('tendance');
+                             message.toLowerCase().includes('tendance') ||
+                             message.toLowerCase().includes('solution') ||
+                             message.toLowerCase().includes('technologie') ||
+                             message.toLowerCase().includes('produit') ||
+                             message.toLowerCase().includes('service') ||
+                             message.toLowerCase().includes('logiciel') ||
+                             message.toLowerCase().includes('matériel');
 
-    // Get internet information if requested/needed and API key available
+    // Get internet information if needed and API key available
     let internetContext = '';
     let internetSearchPerformed = false;
+    let internetSources = [];
     
     if (shouldUseInternet && perplexityApiKey) {
       console.log('[AI-AGENT] Fetching internet information via Perplexity...');
@@ -117,7 +124,7 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles pour un cabinet d\'ophtalmologie situé à Genève, en Suisse. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT. Pour tous les prix, utilise les francs suisses (CHF).'
+                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles pour un cabinet d\'ophtalmologie situé à Genève, en Suisse. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT. Pour tous les prix, utilise les francs suisses (CHF). Cite toujours tes sources avec des liens.'
               },
               {
                 role: 'user',
@@ -126,10 +133,11 @@ serve(async (req) => {
             ],
             temperature: 0.2,
             top_p: 0.9,
-            max_tokens: 600,
+            max_tokens: 800,
             return_images: false,
             return_related_questions: false,
             search_recency_filter: 'month',
+            return_citations: true,
           }),
         });
 
@@ -137,6 +145,13 @@ serve(async (req) => {
           const perplexityData = await perplexityResponse.json();
           internetContext = perplexityData.choices[0].message.content;
           internetSearchPerformed = true;
+          
+          // Extraire les citations/sources si disponibles
+          if (perplexityData.citations && perplexityData.citations.length > 0) {
+            internetSources = perplexityData.citations;
+            console.log('[AI-AGENT] Found', internetSources.length, 'internet sources');
+          }
+          
           console.log('[AI-AGENT] Internet context retrieved successfully');
         } else {
           console.error('[AI-AGENT] Perplexity API error:', perplexityResponse.status, await perplexityResponse.text());
@@ -144,8 +159,6 @@ serve(async (req) => {
       } catch (error) {
         console.error('[AI-AGENT] Perplexity error:', error);
       }
-    } else if (shouldUseInternet && !perplexityApiKey) {
-      console.log('[AI-AGENT] Internet search requested but Perplexity API key not available');
     }
 
     // Generate contextual response with OpenAI
@@ -169,7 +182,7 @@ STYLE DE COMMUNICATION - TRÈS IMPORTANT :
 CAPACITÉS:
 - Répondre aux questions générales comme n'importe quel assistant IA
 - Utiliser le contexte des réunions passées quand pertinent
-- Rechercher des informations actuelles sur internet quand activé
+- Utiliser des informations actuelles d'internet quand pertinent
 - Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
 - Donner des informations spécifiques au marché suisse/genevois
 
@@ -182,6 +195,7 @@ INSTRUCTIONS:
 - Sois spécifique et actionnable dans tes recommandations
 - RESTE CONCIS : évite les longues explications, privilégie l'essentiel
 - Pour tous les prix mentionnés, utilise les CHF (francs suisses)
+- Si tu utilises des informations d'internet, mentionne-le naturellement dans ta réponse
 
 ${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
 ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;
@@ -199,7 +213,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
           { role: 'user', content: message }
         ],
         max_tokens: 1500,
-        temperature: 0.2, // Réduction pour plus de cohérence
+        temperature: 0.2,
       }),
     });
 
@@ -212,17 +226,10 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
 
     console.log('[AI-AGENT] Response generated successfully');
 
-    // Amélioration du message de retour pour informer sur les capacités
-    let statusMessage = '';
-    if (useInternet && !perplexityApiKey) {
-      statusMessage = '\n\n💡 Note: La recherche internet n\'est pas disponible (clé API manquante).';
-    } else if (useInternet && !internetSearchPerformed) {
-      statusMessage = '\n\n💡 Note: Recherche internet demandée mais aucun contenu externe trouvé.';
-    }
-
     return new Response(JSON.stringify({ 
-      response: aiResponse + statusMessage,
+      response: aiResponse,
       sources: contextSources || [],
+      internetSources: internetSources || [],
       hasInternetContext: internetSearchPerformed,
       contextFound: !!relevantContext,
       internetAvailable: !!perplexityApiKey

@@ -52,8 +52,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: `Concernant la tâche "${todoDescription}": ${inputMessage}`,
-          todoId: todoId,
-          useInternet: false
+          todoId: todoId
         }
       });
 
