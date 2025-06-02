@@ -87,10 +87,10 @@ serve(async (req) => {
       // Recherche dans les données générales de la base
       console.log('[AI-AGENT] Fetching additional context from database...');
       
-      // Récupérer les réunions récentes
+      // Récupérer les réunions récentes avec transcripts complets
       const { data: recentMeetings } = await supabase
         .from('meetings')
-        .select('id, title, created_at, summary')
+        .select('id, title, created_at, summary, transcript')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -116,9 +116,31 @@ serve(async (req) => {
       let dbContext = [];
       
       if (recentMeetings && recentMeetings.length > 0) {
-        dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => 
-          `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})\n  Résumé: ${m.summary || 'Pas de résumé disponible'}`
-        ).join('\n')}`);
+        // Vérifier si la demande concerne spécifiquement un transcript
+        const requestsTranscript = message.toLowerCase().includes('transcript') || 
+                                  message.toLowerCase().includes('transcription') ||
+                                  message.toLowerCase().includes('verbatim') ||
+                                  message.toLowerCase().includes('conversation') ||
+                                  message.toLowerCase().includes('discussion');
+
+        if (requestsTranscript) {
+          dbContext.push(`=== RÉUNIONS RÉCENTES AVEC TRANSCRIPTS ===\n${recentMeetings.map(m => {
+            let meetingInfo = `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})`;
+            if (m.summary) {
+              meetingInfo += `\n  Résumé: ${m.summary}`;
+            }
+            if (m.transcript) {
+              meetingInfo += `\n  Transcript complet: ${m.transcript}`;
+            } else {
+              meetingInfo += `\n  Transcript: Non disponible`;
+            }
+            return meetingInfo;
+          }).join('\n\n')}`);
+        } else {
+          dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => 
+            `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})\n  Résumé: ${m.summary || 'Pas de résumé disponible'}`
+          ).join('\n')}`);
+        }
       }
 
       if (activeTodos && activeTodos.length > 0) {
@@ -243,6 +265,7 @@ CAPACITÉS:
 - Utiliser des informations actuelles d'internet quand pertinent
 - Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
 - Donner des informations spécifiques au marché suisse/genevois
+- Accéder aux transcripts complets des réunions quand demandé
 
 INSTRUCTIONS:
 - Réponds toujours en français de manière claire et professionnelle
@@ -255,6 +278,7 @@ INSTRUCTIONS:
 - Pour tous les prix mentionnés, utilise les CHF (francs suisses)
 - Si tu utilises des informations d'internet, mentionne-le naturellement dans ta réponse
 - Si tu utilises des sources internes (documents, réunions), mentionne clairement les documents consultés
+- Si on te demande un transcript, fournis-le intégralement si disponible
 
 ${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS/DOCUMENTS ===\n${relevantContext}\n` : ''}
 ${additionalContext ? `\n=== CONTEXTE GÉNÉRAL DE LA BASE ===\n${additionalContext}\n` : ''}
@@ -308,4 +332,3 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
     });
   }
 });
-
