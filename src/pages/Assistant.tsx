@@ -60,10 +60,12 @@ const Assistant = () => {
 
     try {
       console.log('[ASSISTANT] Sending message to AI agent...');
+      console.log('[ASSISTANT] Internet search enabled:', useInternet);
+      
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: inputMessage,
-          useInternet: useInternet
+          useInternet: useInternet // S'assurer que le paramètre est bien transmis
         }
       });
 

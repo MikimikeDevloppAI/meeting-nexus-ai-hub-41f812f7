@@ -17,7 +17,7 @@ serve(async (req) => {
     const { message, useInternet = false, meetingId = null, todoId = null } = await req.json();
     
     console.log('[AI-AGENT] Processing message:', message.substring(0, 100) + '...');
-    console.log('[AI-AGENT] Use internet:', useInternet);
+    console.log('[AI-AGENT] Use internet requested:', useInternet);
     console.log('[AI-AGENT] Meeting ID:', meetingId);
     console.log('[AI-AGENT] Todo ID:', todoId);
 
@@ -28,6 +28,8 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
+    console.log('[AI-AGENT] Perplexity API key available:', !!perplexityApiKey);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -35,12 +37,14 @@ serve(async (req) => {
     let relevantContext = '';
     let contextSources = [];
 
-    // Only search embeddings if there's a potential match (not for general questions)
+    // Amélioration de la détection automatique pour les recherches d'embeddings
     const shouldSearchEmbeddings = message.toLowerCase().includes('réunion') || 
                                    message.toLowerCase().includes('meeting') ||
                                    message.toLowerCase().includes('transcript') ||
                                    message.toLowerCase().includes('discussion') ||
                                    message.toLowerCase().includes('décision') ||
+                                   message.toLowerCase().includes('tâche') ||
+                                   message.toLowerCase().includes('task') ||
                                    todoId; // Always search for todo-specific questions
 
     if (shouldSearchEmbeddings) {
@@ -83,9 +87,23 @@ serve(async (req) => {
       }
     }
 
-    // Get internet information if requested and API key available
+    // Amélioration de la détection automatique pour les recherches internet
+    const shouldUseInternet = useInternet || 
+                             message.toLowerCase().includes('recherche') ||
+                             message.toLowerCase().includes('internet') ||
+                             message.toLowerCase().includes('actualité') ||
+                             message.toLowerCase().includes('récent') ||
+                             message.toLowerCase().includes('nouveau') ||
+                             message.toLowerCase().includes('prix') ||
+                             message.toLowerCase().includes('fournisseur') ||
+                             message.toLowerCase().includes('comparaison') ||
+                             message.toLowerCase().includes('tendance');
+
+    // Get internet information if requested/needed and API key available
     let internetContext = '';
-    if (useInternet && perplexityApiKey) {
+    let internetSearchPerformed = false;
+    
+    if (shouldUseInternet && perplexityApiKey) {
       console.log('[AI-AGENT] Fetching internet information via Perplexity...');
       try {
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -99,7 +117,7 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles. Fournis des informations factuelles, récentes et pertinentes en français.'
+                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT.'
               },
               {
                 role: 'user',
@@ -108,7 +126,7 @@ serve(async (req) => {
             ],
             temperature: 0.2,
             top_p: 0.9,
-            max_tokens: 800,
+            max_tokens: 600,
             return_images: false,
             return_related_questions: false,
             search_recency_filter: 'month',
@@ -118,17 +136,30 @@ serve(async (req) => {
         if (perplexityResponse.ok) {
           const perplexityData = await perplexityResponse.json();
           internetContext = perplexityData.choices[0].message.content;
+          internetSearchPerformed = true;
           console.log('[AI-AGENT] Internet context retrieved successfully');
+        } else {
+          console.error('[AI-AGENT] Perplexity API error:', perplexityResponse.status, await perplexityResponse.text());
         }
       } catch (error) {
         console.error('[AI-AGENT] Perplexity error:', error);
       }
+    } else if (shouldUseInternet && !perplexityApiKey) {
+      console.log('[AI-AGENT] Internet search requested but Perplexity API key not available');
     }
 
     // Generate contextual response with OpenAI
     console.log('[AI-AGENT] Generating response...');
     
     const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie. Tu peux répondre à toutes sortes de questions, pas seulement celles liées aux réunions.
+
+STYLE DE COMMUNICATION - TRÈS IMPORTANT :
+- Sois CONCIS et DIRECT dans tes réponses
+- Évite les phrases d'introduction longues 
+- Va droit au but sans politesses excessives
+- Utilise des listes à puces pour structurer tes réponses
+- Maximum 3-4 phrases par paragraphe
+- Privilégie l'information actionnable
 
 CAPACITÉS:
 - Répondre aux questions générales comme n'importe quel assistant IA
@@ -143,6 +174,7 @@ INSTRUCTIONS:
 - Pour les questions générales, réponds normalement sans chercher obligatoirement dans les transcripts
 - Adapte ton niveau de détail selon la complexité de la question
 - Sois spécifique et actionnable dans tes recommandations
+- RESTE CONCIS : évite les longues explications, privilégie l'essentiel
 
 ${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
 ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;
@@ -160,7 +192,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
           { role: 'user', content: message }
         ],
         max_tokens: 1500,
-        temperature: 0.3,
+        temperature: 0.2, // Réduction pour plus de cohérence
       }),
     });
 
@@ -173,11 +205,20 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
 
     console.log('[AI-AGENT] Response generated successfully');
 
+    // Amélioration du message de retour pour informer sur les capacités
+    let statusMessage = '';
+    if (useInternet && !perplexityApiKey) {
+      statusMessage = '\n\n💡 Note: La recherche internet n\'est pas disponible (clé API manquante).';
+    } else if (useInternet && !internetSearchPerformed) {
+      statusMessage = '\n\n💡 Note: Recherche internet demandée mais aucun contenu externe trouvé.';
+    }
+
     return new Response(JSON.stringify({ 
-      response: aiResponse,
+      response: aiResponse + statusMessage,
       sources: contextSources || [],
-      hasInternetContext: !!internetContext,
-      contextFound: !!relevantContext
+      hasInternetContext: internetSearchPerformed,
+      contextFound: !!relevantContext,
+      internetAvailable: !!perplexityApiKey
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
