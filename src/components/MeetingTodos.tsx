@@ -8,6 +8,8 @@ import { CheckCircle, Trash2, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
+import { TodoAIChat } from "@/components/TodoAIChat";
+import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
 
 interface MeetingTodosProps {
@@ -110,6 +112,12 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     }
   };
 
+  const handleTodoSave = (todoId: string, newDescription: string) => {
+    setTodos(todos.map(todo => 
+      todo.id === todoId ? { ...todo, description: newDescription } : todo
+    ));
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En attente',
@@ -153,12 +161,17 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         <Card key={todo.id} className="hover:shadow-sm transition-shadow">
           <CardContent className="p-4">
             <div className="space-y-3">
-              {/* Task description */}
+              {/* Editable task description */}
               <div className="text-sm font-medium">
-                {todo.description}
+                <EditableContent
+                  content={todo.description}
+                  onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                  type="todo"
+                  id={todo.id}
+                />
               </div>
               
-              {/* Status, participants and actions in one row */}
+              {/* Status, participants and actions */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {getStatusBadge(todo.status)}
@@ -203,6 +216,9 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                   </Button>
                 </div>
               </div>
+
+              {/* AI Chat for this todo */}
+              <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
 
               {/* Comments section */}
               <TodoComments 

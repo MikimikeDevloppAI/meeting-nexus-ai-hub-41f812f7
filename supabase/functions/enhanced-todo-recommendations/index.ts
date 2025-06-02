@@ -42,7 +42,7 @@ serve(async (req) => {
       });
     }
 
-    // Step 1: Generate embedding for the task description
+    // Generate embedding for the task description
     console.log('[ENHANCED-TODO] Generating embedding for task...');
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
@@ -61,32 +61,33 @@ serve(async (req) => {
       const embeddingData = await embeddingResponse.json();
       const queryEmbedding = embeddingData.data[0].embedding;
 
-      // Step 2: Search for similar tasks/contexts in past meetings
+      // Search for similar tasks/contexts in past meetings
       console.log('[ENHANCED-TODO] Searching for similar contexts...');
       const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
         query_embedding: `[${queryEmbedding.join(',')}]`,
         filter_document_type: 'meeting_transcript',
         match_threshold: 0.7,
-        match_count: 5
+        match_count: 3
       });
 
       if (!searchError && searchResults && searchResults.length > 0) {
         console.log(`[ENHANCED-TODO] Found ${searchResults.length} similar contexts`);
         relevantContext = searchResults
           .map((result: any, index: number) => 
-            `[Contexte similaire ${index + 1}]\n${result.chunk_text}`
+            `[Contexte ${index + 1}]\n${result.chunk_text.substring(0, 300)}...`
           )
-          .join('\n\n---\n\n');
+          .join('\n\n');
       }
     }
 
-    // Step 3: Get external information if it's beneficial for the task
+    // Get external information only for specific types of tasks
     let externalInfo = '';
     const shouldUseInternet = description.toLowerCase().includes('recherche') || 
                               description.toLowerCase().includes('solution') ||
                               description.toLowerCase().includes('prestataire') ||
                               description.toLowerCase().includes('équipement') ||
-                              description.toLowerCase().includes('formation');
+                              description.toLowerCase().includes('formation') ||
+                              description.toLowerCase().includes('fournisseur');
 
     if (shouldUseInternet && perplexityApiKey) {
       console.log('[ENHANCED-TODO] Fetching external information...');
@@ -102,16 +103,16 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé dans les recommandations pour cabinet médical. Fournis des informations pratiques et actuelles en français.'
+                content: 'Tu es un assistant spécialisé en ophtalmologie. Fournis des informations concises et pratiques en français.'
               },
               {
                 role: 'user',
-                content: `Pour un cabinet médical, donne des informations pratiques et récentes sur: ${description}`
+                content: `Pour un cabinet d'ophtalmologie, trouve des informations pratiques et récentes sur: ${description}`
               }
             ],
             temperature: 0.2,
             top_p: 0.9,
-            max_tokens: 600,
+            max_tokens: 400,
             return_images: false,
             return_related_questions: false,
             search_recency_filter: 'month',
@@ -128,35 +129,30 @@ serve(async (req) => {
       }
     }
 
-    // Step 4: Generate comprehensive AI recommendation
-    const prompt = `Tu es un assistant IA expert pour cabinet médical. Analyse cette tâche et fournis une recommandation UNIQUEMENT si elle peut apporter une valeur ajoutée significative.
+    // Generate AI recommendation with strict filtering
+    const prompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie. Analyse cette tâche et fournis une recommandation UNIQUEMENT si elle apporte une valeur ajoutée SIGNIFICATIVE.
 
-TÂCHE À ANALYSER: ${description}
+TÂCHE: ${description}
 
-CONTEXTE DE LA RÉUNION:
+CONTEXTE:
 Participants: ${participantList}
-Contexte: ${meetingContext ? meetingContext.substring(0, 1000) + '...' : 'Non disponible'}
+${meetingContext ? `Réunion: ${meetingContext.substring(0, 500)}...` : ''}
 
-${relevantContext ? `EXPÉRIENCES PASSÉES SIMILAIRES:\n${relevantContext}\n` : ''}
-
+${relevantContext ? `EXPÉRIENCES PASSÉES:\n${relevantContext}\n` : ''}
 ${externalInfo ? `INFORMATIONS ACTUELLES:\n${externalInfo}\n` : ''}
 
-INSTRUCTIONS IMPORTANTES:
-- Réponds OBLIGATOIREMENT en français
-- Si la tâche est simple et ne nécessite pas de conseil, réponds exactement: "Aucune recommandation supplémentaire nécessaire."
-- Sinon, fournis des recommandations CONCRÈTES et ACTIONNABLES en français incluant:
-  * Stratégies d'implémentation spécifiques au contexte médical
-  * Points d'attention et défis potentiels
-  * Ressources, outils ou contacts recommandés
-  * Meilleures pratiques du secteur médical
-  * Échéances et étapes suggérées
-  * Coûts approximatifs si pertinent
+INSTRUCTIONS CRITIQUES:
+- Réponds UNIQUEMENT en français
+- Si la tâche est évidente, simple ou ne nécessite aucun conseil spécialisé, réponds exactement: "AUCUNE_RECOMMANDATION"
+- Fournis une recommandation SEULEMENT si tu peux apporter:
+  * Des conseils techniques spécialisés en ophtalmologie
+  * Des informations sur des équipements, fournisseurs ou prestataires spécifiques
+  * Des bonnes pratiques métier non évidentes
+  * Des points d'attention critiques
 
-- Utilise l'historique du cabinet pour adapter tes conseils
-- Sois précis et professionnel
-- Limite-toi à 200 mots maximum
-- Concentre-toi sur la VALEUR AJOUTÉE réelle
-- Réponds UNIQUEMENT en français`;
+- Si tu donnes une recommandation, sois TRÈS CONCIS (maximum 80 mots)
+- Concentre-toi sur l'ESSENTIEL et l'ACTIONNABLE
+- Évite les généralités et les conseils évidents`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -167,11 +163,11 @@ INSTRUCTIONS IMPORTANTES:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Tu es un assistant expert pour cabinet médical qui fournit des recommandations concrètes et utiles UNIQUEMENT en français.' },
+          { role: 'system', content: 'Tu es un assistant expert en ophtalmologie qui ne donne des conseils que quand ils apportent une vraie valeur ajoutée. Sois très sélectif.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 300,
-        temperature: 0.3,
+        max_tokens: 150,
+        temperature: 0.2,
       }),
     });
 
@@ -179,21 +175,25 @@ INSTRUCTIONS IMPORTANTES:
     const recommendation = aiData.choices[0].message.content.trim();
 
     // Only add comment if AI provides meaningful recommendations
-    if (recommendation && !recommendation.toLowerCase().includes('aucune recommandation supplémentaire nécessaire')) {
-      console.log('[ENHANCED-TODO] Adding enhanced AI recommendation...');
+    if (recommendation && 
+        !recommendation.includes('AUCUNE_RECOMMANDATION') && 
+        !recommendation.toLowerCase().includes('aucune recommandation') &&
+        recommendation.length > 10) {
       
-      // Add AI recommendation as a comment with enhanced formatting
+      console.log('[ENHANCED-TODO] Adding concise AI recommendation...');
+      
+      // Add AI recommendation as a comment
       await supabase
         .from('todo_comments')
         .insert({
           todo_id: todoId,
           user_id: '00000000-0000-0000-0000-000000000000', // System user for AI
-          comment: `🤖 **Recommandation IA Avancée:**\n\n${recommendation}${externalInfo ? '\n\n📊 *Informations basées sur des données actuelles et l\'historique du cabinet*' : '\n\n📋 *Recommandation basée sur l\'historique du cabinet*'}`
+          comment: `💡 **Conseil IA:** ${recommendation}`
         });
       
-      console.log('[ENHANCED-TODO] Enhanced recommendation added successfully');
+      console.log('[ENHANCED-TODO] Recommendation added successfully');
     } else {
-      console.log('[ENHANCED-TODO] No additional recommendations needed for this task');
+      console.log('[ENHANCED-TODO] No valuable recommendation to add');
     }
 
     // Mark that AI recommendation was generated
@@ -204,7 +204,7 @@ INSTRUCTIONS IMPORTANTES:
 
     return new Response(JSON.stringify({ 
       success: true, 
-      recommendation,
+      recommendation: recommendation !== 'AUCUNE_RECOMMANDATION' ? recommendation : null,
       hasRelevantContext: !!relevantContext,
       hasExternalInfo: !!externalInfo
     }), {

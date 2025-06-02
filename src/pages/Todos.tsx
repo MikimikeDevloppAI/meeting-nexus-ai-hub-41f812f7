@@ -8,6 +8,8 @@ import { CheckCircle, Circle, Clock, Calendar, MessageCircle } from "lucide-reac
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
+import { TodoAIChat } from "@/components/TodoAIChat";
+import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
 
 export default function Todos() {
@@ -80,6 +82,12 @@ export default function Todos() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleTodoSave = (todoId: string, newDescription: string) => {
+    setTodos(todos.map(todo => 
+      todo.id === todoId ? { ...todo, description: newDescription } : todo
+    ));
   };
 
   const getStatusIcon = (status: Todo['status']) => {
@@ -181,7 +189,12 @@ export default function Todos() {
                     {getStatusIcon(todo.status)}
                     <div className="flex-1">
                       <CardTitle className="text-lg font-medium">
-                        {todo.description}
+                        <EditableContent
+                          content={todo.description}
+                          onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                          type="todo"
+                          id={todo.id}
+                        />
                       </CardTitle>
                       <div className="flex items-center gap-2 mt-2">
                         {getStatusBadge(todo.status)}
@@ -234,6 +247,9 @@ export default function Todos() {
                     onParticipantsUpdate={fetchTodos}
                   />
                 </div>
+
+                {/* AI Chat for this todo */}
+                <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
 
                 <div className="flex items-center gap-2">
                   <Button

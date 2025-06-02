@@ -14,11 +14,12 @@ serve(async (req) => {
   }
 
   try {
-    const { message, useInternet = false, meetingId = null } = await req.json();
+    const { message, useInternet = false, meetingId = null, todoId = null } = await req.json();
     
     console.log('[AI-AGENT] Processing message:', message.substring(0, 100) + '...');
     console.log('[AI-AGENT] Use internet:', useInternet);
     console.log('[AI-AGENT] Meeting ID:', meetingId);
+    console.log('[AI-AGENT] Todo ID:', todoId);
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -31,54 +32,58 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Step 1: Generate embedding for the user's message
-    console.log('[AI-AGENT] Generating embedding for user message...');
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: message,
-      }),
-    });
-
-    if (!embeddingResponse.ok) {
-      throw new Error('Failed to generate embedding');
-    }
-
-    const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData.data[0].embedding;
-
-    // Step 2: Search for relevant documents using embeddings
-    console.log('[AI-AGENT] Searching for relevant documents...');
-    const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
-      query_embedding: `[${queryEmbedding.join(',')}]`,
-      filter_document_type: 'meeting_transcript',
-      match_threshold: 0.6,
-      match_count: 8,
-      filter_document_id: meetingId
-    });
-
-    if (searchError) {
-      console.error('[AI-AGENT] Search error:', searchError);
-    }
-
     let relevantContext = '';
-    if (searchResults && searchResults.length > 0) {
-      console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
-      relevantContext = searchResults
-        .map((result: any, index: number) => 
-          `[Réunion ${index + 1} - Similarité: ${(result.similarity * 100).toFixed(1)}%]\n${result.chunk_text}`
-        )
-        .join('\n\n---\n\n');
-    } else {
-      console.log('[AI-AGENT] No relevant documents found');
+    let contextSources = [];
+
+    // Only search embeddings if there's a potential match (not for general questions)
+    const shouldSearchEmbeddings = message.toLowerCase().includes('réunion') || 
+                                   message.toLowerCase().includes('meeting') ||
+                                   message.toLowerCase().includes('transcript') ||
+                                   message.toLowerCase().includes('discussion') ||
+                                   message.toLowerCase().includes('décision') ||
+                                   todoId; // Always search for todo-specific questions
+
+    if (shouldSearchEmbeddings) {
+      console.log('[AI-AGENT] Generating embedding for context search...');
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small',
+          input: message,
+        }),
+      });
+
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        const queryEmbedding = embeddingData.data[0].embedding;
+
+        // Search for relevant documents using embeddings
+        console.log('[AI-AGENT] Searching for relevant documents...');
+        const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
+          query_embedding: `[${queryEmbedding.join(',')}]`,
+          filter_document_type: 'meeting_transcript',
+          match_threshold: 0.6,
+          match_count: 8,
+          filter_document_id: meetingId
+        });
+
+        if (!searchError && searchResults && searchResults.length > 0) {
+          console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
+          relevantContext = searchResults
+            .map((result: any, index: number) => 
+              `[Contexte ${index + 1} - Similarité: ${(result.similarity * 100).toFixed(1)}%]\n${result.chunk_text}`
+            )
+            .join('\n\n---\n\n');
+          contextSources = searchResults;
+        }
+      }
     }
 
-    // Step 3: Get internet information if requested and API key available
+    // Get internet information if requested and API key available
     let internetContext = '';
     if (useInternet && perplexityApiKey) {
       console.log('[AI-AGENT] Fetching internet information via Perplexity...');
@@ -120,22 +125,26 @@ serve(async (req) => {
       }
     }
 
-    // Step 4: Generate contextual response with OpenAI
-    console.log('[AI-AGENT] Generating contextual response...');
+    // Generate contextual response with OpenAI
+    console.log('[AI-AGENT] Generating response...');
     
-    const systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à l'historique complet des réunions et transcripts du cabinet via une base de données vectorielle.
+    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie. Tu peux répondre à toutes sortes de questions, pas seulement celles liées aux réunions.
+
+CAPACITÉS:
+- Répondre aux questions générales comme n'importe quel assistant IA
+- Utiliser le contexte des réunions passées quand pertinent
+- Rechercher des informations actuelles sur internet quand activé
+- Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
 
 INSTRUCTIONS:
-- Réponds de manière claire, précise et professionnelle en français
-- Utilise le contexte des réunions passées pour enrichir tes réponses
-- Si tu as des informations contradictoires, privilégie les plus récentes
-- Cite tes sources quand tu utilises des informations spécifiques des réunions
-- Si tu n'as pas assez d'informations, dis-le clairement
-- Pour les recommandations, sois spécifique et actionnable
+- Réponds toujours en français de manière claire et professionnelle
+- Si tu as accès à des informations des réunions passées, utilise-les pour enrichir ta réponse
+- Si tu as des informations d'internet, intègre-les naturellement
+- Pour les questions générales, réponds normalement sans chercher obligatoirement dans les transcripts
 - Adapte ton niveau de détail selon la complexité de la question
+- Sois spécifique et actionnable dans tes recommandations
 
-CONTEXTE DISPONIBLE:
-${relevantContext ? `\n=== HISTORIQUE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
+${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS ===\n${relevantContext}\n` : ''}
 ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -166,7 +175,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
 
     return new Response(JSON.stringify({ 
       response: aiResponse,
-      sources: searchResults || [],
+      sources: contextSources || [],
       hasInternetContext: !!internetContext,
       contextFound: !!relevantContext
     }), {
