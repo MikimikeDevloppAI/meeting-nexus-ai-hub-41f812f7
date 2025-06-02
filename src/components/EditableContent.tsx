@@ -77,7 +77,8 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
           <Textarea
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
-            className="min-h-32"
+            className="min-h-32 font-mono text-sm"
+            placeholder="Contenu HTML du résumé..."
             disabled={isSaving}
           />
         ) : (
@@ -114,7 +115,10 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
     <div className={`group ${className}`}>
       <div className="relative">
         {type === 'summary' ? (
-          <div className="whitespace-pre-wrap">{content}</div>
+          <div 
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: content }}
+          />
         ) : (
           <span>{content}</span>
         )}
