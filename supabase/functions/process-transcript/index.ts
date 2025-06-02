@@ -306,33 +306,45 @@ ${cleanedTranscript}`;
       console.error('Summary generation failed');
     }
 
-    // Step 3: Extract tasks using cleaned transcript
+    // Step 3: Extract tasks using improved prompt with deduplication
     const tasksPrompt = `Tu es un assistant IA spécialisé dans l'extraction de tâches pour cabinet médical.
 
 Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
-Extrais TOUTES les tâches et actions mentionnées et retourne un tableau JSON avec cette structure exacte:
-[{"task": "description de la tâche", "assignedTo": "nom du participant ou null"}]
+RÈGLES STRICTES POUR L'EXTRACTION:
+1. Extrais MAXIMUM 8-10 tâches les plus importantes et CONCRÈTES
+2. REGROUPE les tâches similaires ou liées en une seule tâche plus complète
+3. ÉVITE les tâches trop génériques comme "faire le point sur X" 
+4. PRIVILÉGIE les tâches avec des actions concrètes et des échéances
+5. NE PAS créer de tâches redondantes ou en doublon
+6. Si plusieurs personnes doivent faire des choses similaires, groupe en une tâche
 
-INSTRUCTIONS SPÉCIFIQUES POUR CABINET MÉDICAL:
-- Inclus les tâches administratives (commandes, plannings, dossiers)
-- Inclus les suivis patients spécifiques
-- Inclus les tâches de formation et développement
-- Inclus les tâches d'équipement et maintenance
-- Inclus les rendez-vous et contacts à prendre
-- Si un nom est mentionné dans la tâche, l'inclure dans "assignedTo", sinon mettre null
-- NE PAS inclure ", responsable:" dans la description de la tâche
-- Formule chaque tâche de manière claire et actionnable
+FORMAT DE SORTIE:
+Retourne un tableau JSON avec cette structure exacte:
+[{"task": "description précise et actionnable", "assignedTo": "nom du participant ou null"}]
+
+EXEMPLES DE BONNES TÂCHES:
+- "Contacter 3 prestataires de climatisation et demander des devis détaillés avant fin mars"
+- "Organiser une formation sécurité incendie pour tout le personnel d'ici 2 mois"
+- "Mettre à jour le site web avec les nouvelles spécialités et horaires"
+
+EXEMPLES DE MAUVAISES TÂCHES (À ÉVITER):
+- "Faire le point sur la climatisation"
+- "Voir pour la formation"
+- "S'occuper du site web"
+
+INSTRUCTIONS SPÉCIFIQUES:
 - Inclus les échéances quand elles sont mentionnées
-
-N'OMETS AUCUNE TÂCHE, même les plus petites. Maximum 20 tâches les plus importantes.
+- Si un nom est mentionné pour une tâche, l'inclure dans "assignedTo", sinon mettre null
+- Formule chaque tâche de manière claire et actionnable
+- Concentre-toi sur les DÉCISIONS et ACTIONS concrètes prises en réunion
 
 Retourne UNIQUEMENT le tableau JSON, sans autre texte.
 
 Transcript:
 ${cleanedTranscript}`;
 
-    console.log('Extracting tasks with OpenAI...');
+    console.log('Extracting tasks with improved OpenAI prompt...');
 
     const tasksResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -345,14 +357,14 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches avec leur assignation.'
+            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches concrètes pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches les plus importantes, regroupées et déduplicées.'
           },
           {
             role: 'user',
             content: tasksPrompt
           }
         ],
-        max_tokens: 1500,
+        max_tokens: 1000,
         temperature: 0.1,
       }),
     });
@@ -428,7 +440,7 @@ ${cleanedTranscript}`;
           .from('todos')
           .insert({
             description: taskDescription.trim(),
-            status: 'confirmed', // Changed from 'pending' to 'confirmed' (En cours)
+            status: 'confirmed',
             meeting_id: meetingId,
             assigned_to: assignedParticipantId,
           })
@@ -454,10 +466,10 @@ ${cleanedTranscript}`;
           }
         }
 
-        // Generate AI recommendation for this task
+        // Generate enhanced AI recommendation for this task with access to embeddings
         if (todoData) {
           try {
-            const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/todo-recommendations', {
+            const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/enhanced-todo-recommendations', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -466,17 +478,19 @@ ${cleanedTranscript}`;
               body: JSON.stringify({
                 todoId: todoData.id,
                 description: taskDescription.trim(),
-                meetingContext: `Réunion de cabinet médical avec participants: ${participantList}`
+                meetingContext: cleanedTranscript,
+                meetingId: meetingId,
+                participantList: participantList
               }),
             });
             
             if (!response.ok) {
-              console.error('AI recommendation request failed:', await response.text());
+              console.error('Enhanced AI recommendation request failed:', await response.text());
             } else {
-              console.log('AI recommendation generated for task:', taskDescription.substring(0, 50));
+              console.log('Enhanced AI recommendation generated for task:', taskDescription.substring(0, 50));
             }
           } catch (error) {
-            console.error('Error generating AI recommendation:', error);
+            console.error('Error generating enhanced AI recommendation:', error);
           }
         }
       }
