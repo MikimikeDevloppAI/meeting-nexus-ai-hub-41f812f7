@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Circle, Clock, MessageCircle } from "lucide-react";
+import { CheckCircle, Trash2, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -58,61 +58,73 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     }
   };
 
-  const updateTodoStatus = async (todoId: string, newStatus: Todo['status']) => {
+  const completeTodo = async (todoId: string) => {
     try {
       const { error } = await supabase
         .from("todos")
-        .update({ status: newStatus })
+        .update({ status: 'completed' })
         .eq("id", todoId);
 
       if (error) throw error;
 
       setTodos(todos.map(todo => 
-        todo.id === todoId ? { ...todo, status: newStatus } : todo
+        todo.id === todoId ? { ...todo, status: 'completed' } : todo
       ));
 
       toast({
-        title: "Statut mis à jour",
-        description: `La tâche a été marquée comme ${newStatus === 'completed' ? 'terminée' : newStatus === 'confirmed' ? 'confirmée' : 'en attente'}`,
+        title: "Tâche terminée",
+        description: "La tâche a été marquée comme terminée",
       });
     } catch (error: any) {
-      console.error("Error updating todo status:", error);
+      console.error("Error completing todo:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de mettre à jour le statut",
+        description: "Impossible de terminer la tâche",
         variant: "destructive",
       });
     }
   };
 
-  const getStatusIcon = (status: Todo['status']) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'confirmed':
-        return <Clock className="h-5 w-5 text-blue-500" />;
-      default:
-        return <Circle className="h-5 w-5 text-gray-400" />;
+  const deleteTodo = async (todoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .delete()
+        .eq("id", todoId);
+
+      if (error) throw error;
+
+      setTodos(todos.filter(todo => todo.id !== todoId));
+
+      toast({
+        title: "Tâche supprimée",
+        description: "La tâche a été supprimée",
+      });
+    } catch (error: any) {
+      console.error("Error deleting todo:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la tâche",
+        variant: "destructive",
+      });
     }
   };
 
   const getStatusBadge = (status: Todo['status']) => {
-    const variants = {
-      'pending': 'secondary',
-      'confirmed': 'default',
-      'completed': 'default'
-    } as const;
-
     const labels = {
       'pending': 'En attente',
-      'confirmed': 'Confirmée',
+      'confirmed': 'En cours',
       'completed': 'Terminée'
     };
 
-    const className = status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' : '';
+    const className = status === 'completed' 
+      ? 'bg-green-100 text-green-800 border-green-200' 
+      : status === 'confirmed'
+      ? 'bg-blue-100 text-blue-800 border-blue-200'
+      : 'bg-gray-100 text-gray-800 border-gray-200';
 
     return (
-      <Badge variant={variants[status] || 'secondary'} className={className}>
+      <Badge variant="outline" className={className}>
         {labels[status] || status}
       </Badge>
     );
@@ -128,90 +140,77 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
 
   if (todos.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <p className="text-gray-500">Aucune tâche trouvée pour cette réunion</p>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <p className="text-gray-500">Aucune tâche trouvée pour cette réunion</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h3 className="text-lg font-semibold">Tâches extraites ({todos.length})</h3>
       {todos.map((todo) => (
-        <Card key={todo.id} className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3 flex-1">
-                {getStatusIcon(todo.status)}
-                <div className="flex-1">
-                  <CardTitle className="text-lg font-medium">
-                    {todo.description}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 mt-2">
-                    {getStatusBadge(todo.status)}
+        <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {/* Task description */}
+              <div className="text-sm font-medium">
+                {todo.description}
+              </div>
+              
+              {/* Status, participants and actions in one row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {getStatusBadge(todo.status)}
+                  <div className="text-xs text-gray-600">
+                    <TodoParticipantManager
+                      todoId={todo.id}
+                      currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
+                      onParticipantsUpdate={fetchTodos}
+                      compact={true}
+                    />
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {todo.status === 'pending' && (
+                
+                <div className="flex items-center gap-2">
                   <Button
-                    size="sm"
                     variant="outline"
-                    onClick={() => updateTodoStatus(todo.id, 'confirmed')}
-                  >
-                    Confirmer
-                  </Button>
-                )}
-                {todo.status === 'confirmed' && (
-                  <Button
                     size="sm"
-                    onClick={() => updateTodoStatus(todo.id, 'completed')}
+                    onClick={() => setOpenComments(todo.id)}
+                    className="h-7 px-2"
                   >
-                    Terminer
+                    <MessageCircle className="h-3 w-3" />
                   </Button>
-                )}
-                {todo.status === 'completed' && (
+                  
+                  {todo.status !== 'completed' && (
+                    <Button
+                      size="sm"
+                      onClick={() => completeTodo(todo.id)}
+                      className="h-7 px-3 bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Terminer
+                    </Button>
+                  )}
+                  
                   <Button
-                    size="sm"
                     variant="outline"
-                    onClick={() => updateTodoStatus(todo.id, 'pending')}
+                    size="sm"
+                    onClick={() => deleteTodo(todo.id)}
+                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
-                    Réouvrir
+                    <Trash2 className="h-3 w-3" />
                   </Button>
-                )}
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-medium mb-2">Participants assignés:</h4>
-              <TodoParticipantManager
-                todoId={todo.id}
-                currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                onParticipantsUpdate={fetchTodos}
+
+              {/* Comments section */}
+              <TodoComments 
+                todoId={todo.id} 
+                isOpen={openComments === todo.id}
+                onClose={() => setOpenComments(null)}
               />
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setOpenComments(todo.id)}
-                className="flex items-center gap-2"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Commentaires
-              </Button>
-            </div>
-
-            <TodoComments 
-              todoId={todo.id} 
-              isOpen={openComments === todo.id}
-              onClose={() => setOpenComments(null)}
-            />
           </CardContent>
         </Card>
       ))}

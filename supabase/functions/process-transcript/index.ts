@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -174,63 +173,92 @@ Voici le transcript nettoyé d'une réunion de cabinet médical avec les partici
 
 Crée un résumé détaillé et complet en HTML qui N'OMET AUCUN POINT IMPORTANT et organise les informations par catégories suivantes:
 
+RÈGLES STRICTES:
+- Utilise uniquement du HTML valide avec les balises <h3>, <strong>, <ul>, <li>
+- Si une catégorie n'a AUCUN point discuté, ne l'affiche PAS du tout
+- Assure-toi de couvrir TOUS les points mentionnés dans la réunion
+- Utilise les vrais noms des participants dans le contenu
+- Utilise des bullet points pour chaque élément
+- Sois précis et détaillé pour chaque point important
+
+CATÉGORIES À UTILISER (seulement si des points ont été discutés):
+
 <h3><strong>🏥 GESTION DES PATIENTS</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
 <ul>
 <li>Nouveaux patients et leurs besoins</li>
 <li>Cas complexes et suivis particuliers</li>
 <li>Problématiques médicales discutées</li>
 <li>Rendez-vous et consultations spéciales</li>
 </ul>
+<h4><strong>Décisions prises:</strong></h4>
+<ul>
+<li>Décisions concernant les patients</li>
+</ul>
 
 <h3><strong>🩺 MATÉRIEL MÉDICAL ET ÉQUIPEMENTS</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
 <ul>
-<li>Nouveaux équipements à acquérir</li>
-<li>Maintenance et réparations</li>
-<li>Problèmes techniques</li>
-<li>Commandes de matériel</li>
+<li>Nouveaux équipements médicaux à acquérir</li>
+<li>Maintenance et réparations d'équipements médicaux</li>
+<li>Problèmes techniques médicaux</li>
+</ul>
+<h4><strong>Décisions prises:</strong></h4>
+<ul>
+<li>Décisions sur les équipements médicaux</li>
 </ul>
 
 <h3><strong>📋 ORGANISATION DU CABINET</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
 <ul>
 <li>Planning et gestion des rendez-vous</li>
 <li>Procédures administratives</li>
 <li>Gestion du personnel</li>
 <li>Organisation des espaces</li>
 </ul>
-
-<h3><strong>✅ DÉCISIONS PRISES</strong></h3>
+<h4><strong>Décisions prises:</strong></h4>
 <ul>
-<li>Décisions médicales importantes</li>
-<li>Décisions administratives</li>
-<li>Nouveaux protocoles adoptés</li>
-<li>Changements organisationnels</li>
+<li>Décisions administratives et organisationnelles</li>
+</ul>
+
+<h3><strong>🔧 MATÉRIEL ET ÉQUIPEMENTS (NON MÉDICAL) ET SITE WEB</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
+<ul>
+<li>Équipements bureautiques et informatiques</li>
+<li>Site web et outils numériques</li>
+<li>Logiciels et applications</li>
+</ul>
+<h4><strong>Décisions prises:</strong></h4>
+<ul>
+<li>Décisions sur les équipements non médicaux</li>
+</ul>
+
+<h3><strong>🤝 PRESTATAIRES</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
+<ul>
+<li>Nouveaux prestataires à contacter</li>
+<li>Problèmes avec prestataires actuels</li>
+<li>Négociations et contrats</li>
+</ul>
+<h4><strong>Décisions prises:</strong></h4>
+<ul>
+<li>Décisions concernant les prestataires</li>
 </ul>
 
 <h3><strong>📚 FORMATION ET DÉVELOPPEMENT</strong></h3>
+<h4><strong>Points discutés:</strong></h4>
 <ul>
 <li>Formations prévues ou planifiées</li>
 <li>Nouvelles compétences à développer</li>
 <li>Mise à jour des connaissances médicales</li>
 <li>Conférences et séminaires</li>
 </ul>
-
-<h3><strong>🎯 ACTIONS À SUIVRE</strong></h3>
+<h4><strong>Décisions prises:</strong></h4>
 <ul>
-<li>Prochaines étapes importantes</li>
-<li>Échéances à respecter</li>
-<li>Contacts à prendre</li>
-<li>Dossiers à finaliser</li>
+<li>Décisions sur les formations</li>
 </ul>
 
-INSTRUCTIONS STRICTES:
-- Utilise uniquement du HTML valide avec les balises <h3>, <strong>, <ul>, <li>
-- Assure-toi de couvrir TOUS les points mentionnés dans la réunion
-- Utilise les vrais noms des participants dans le contenu
-- Chaque catégorie doit contenir des informations spécifiques si elles ont été mentionnées
-- Si une catégorie n'a pas d'informations, écris simplement <li>Aucun point discuté dans cette catégorie</li>
-- Sois précis et détaillé pour chaque point important
-
-Retourne UNIQUEMENT le résumé HTML structuré, sans autre texte.
+Retourne UNIQUEMENT le résumé HTML structuré, sans autre texte, sans préfixe "html".
 
 Transcript:
 ${cleanedTranscript}`;
@@ -248,7 +276,7 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT du HTML valide et structuré par catégories.'
+            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT du HTML valide et structuré par catégories, sans préfixe "html".'
           },
           {
             role: 'user',
@@ -264,6 +292,15 @@ ${cleanedTranscript}`;
     if (summaryResponse.ok) {
       const summaryData = await summaryResponse.json();
       summary = summaryData.choices[0].message.content.trim();
+      
+      // Remove "html" prefix if present
+      if (summary.startsWith('html')) {
+        summary = summary.substring(4).trim();
+      }
+      if (summary.startsWith('```html')) {
+        summary = summary.replace(/^```html\s*/, '').replace(/\s*```$/, '');
+      }
+      
       console.log('Summary generated successfully, length:', summary.length);
     } else {
       console.error('Summary generation failed');
@@ -391,7 +428,7 @@ ${cleanedTranscript}`;
           .from('todos')
           .insert({
             description: taskDescription.trim(),
-            status: 'pending',
+            status: 'confirmed', // Changed from 'pending' to 'confirmed' (En cours)
             meeting_id: meetingId,
             assigned_to: assignedParticipantId,
           })
