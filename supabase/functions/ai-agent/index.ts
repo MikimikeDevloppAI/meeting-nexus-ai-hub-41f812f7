@@ -36,15 +36,10 @@ serve(async (req) => {
     let relevantContext = '';
     let contextSources = [];
 
-    // Amélioration de la détection automatique pour les recherches d'embeddings
-    const shouldSearchEmbeddings = message.toLowerCase().includes('réunion') || 
-                                   message.toLowerCase().includes('meeting') ||
-                                   message.toLowerCase().includes('transcript') ||
-                                   message.toLowerCase().includes('discussion') ||
-                                   message.toLowerCase().includes('décision') ||
-                                   message.toLowerCase().includes('tâche') ||
-                                   message.toLowerCase().includes('task') ||
-                                   todoId; // Always search for todo-specific questions
+    // Recherche dans les embeddings pour la plupart des questions
+    const shouldSearchEmbeddings = !message.toLowerCase().includes('internet') && 
+                                   !message.toLowerCase().includes('web') &&
+                                   !message.toLowerCase().includes('en ligne');
 
     if (shouldSearchEmbeddings) {
       console.log('[AI-AGENT] Generating embedding for context search...');
@@ -69,8 +64,8 @@ serve(async (req) => {
         const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
           query_embedding: `[${queryEmbedding.join(',')}]`,
           filter_document_type: 'meeting_transcript',
-          match_threshold: 0.6,
-          match_count: 8,
+          match_threshold: 0.5,
+          match_count: 10,
           filter_document_id: meetingId
         });
 
@@ -82,16 +77,20 @@ serve(async (req) => {
             )
             .join('\n\n---\n\n');
           contextSources = searchResults;
+        } else {
+          console.log('[AI-AGENT] No relevant context found in embeddings');
         }
       }
     }
 
-    // Détection automatique améliorée pour les recherches internet
+    // Détection automatique pour les recherches internet
     const shouldUseInternet = message.toLowerCase().includes('recherche') ||
                              message.toLowerCase().includes('actualité') ||
                              message.toLowerCase().includes('récent') ||
                              message.toLowerCase().includes('nouveau') ||
                              message.toLowerCase().includes('prix') ||
+                             message.toLowerCase().includes('coût') ||
+                             message.toLowerCase().includes('tarif') ||
                              message.toLowerCase().includes('fournisseur') ||
                              message.toLowerCase().includes('prestataire') ||
                              message.toLowerCase().includes('équipement') ||
@@ -103,7 +102,13 @@ serve(async (req) => {
                              message.toLowerCase().includes('produit') ||
                              message.toLowerCase().includes('service') ||
                              message.toLowerCase().includes('logiciel') ||
-                             message.toLowerCase().includes('matériel');
+                             message.toLowerCase().includes('matériel') ||
+                             message.toLowerCase().includes('clinique') ||
+                             message.toLowerCase().includes('hôpital') ||
+                             message.toLowerCase().includes('médecin') ||
+                             message.toLowerCase().includes('concurrence') ||
+                             message.toLowerCase().includes('marché') ||
+                             message.toLowerCase().includes('recommandation');
 
     // Get internet information if needed and API key available
     let internetContext = '';
