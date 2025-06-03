@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Calendar, User, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 
 interface TaskAction {
   type: 'create' | 'update' | 'delete' | 'complete';
@@ -37,27 +36,55 @@ interface TaskValidationDialogProps {
 const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onReject }: TaskValidationDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [assignedUserName, setAssignedUserName] = useState<string>("");
+  const [participants, setParticipants] = useState<{id: string, name: string, email: string}[]>([]);
 
   useEffect(() => {
-    if (taskAction?.data.assigned_to) {
-      fetchUserName(taskAction.data.assigned_to);
+    if (isOpen) {
+      fetchParticipants();
     }
-  }, [taskAction]);
+  }, [isOpen]);
 
-  const fetchUserName = async (userId: string) => {
+  useEffect(() => {
+    if (taskAction?.data.assigned_to && participants.length > 0) {
+      findUserName(taskAction.data.assigned_to);
+    }
+  }, [taskAction, participants]);
+
+  const fetchParticipants = async () => {
     try {
       const { data, error } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", userId)
-        .single();
+        .from("participants")
+        .select("id, name, email")
+        .order("name");
 
       if (error) throw error;
-      setAssignedUserName(data?.name || "Utilisateur inconnu");
+      setParticipants(data || []);
     } catch (error) {
-      console.error("Error fetching user name:", error);
-      setAssignedUserName("Utilisateur inconnu");
+      console.error("Error fetching participants:", error);
     }
+  };
+
+  const findUserName = (assignedTo: string) => {
+    // First try to find by ID
+    let user = participants.find(p => p.id === assignedTo);
+    
+    // If not found by ID, try to find by name (case-insensitive)
+    if (!user) {
+      const lowerAssignedTo = assignedTo.toLowerCase();
+      user = participants.find(p => 
+        p.name.toLowerCase().includes(lowerAssignedTo) ||
+        lowerAssignedTo.includes(p.name.toLowerCase()) ||
+        p.email.toLowerCase().includes(lowerAssignedTo)
+      );
+    }
+    
+    setAssignedUserName(user ? user.name : assignedTo);
+  };
+
+  // Clean description by removing CONTEXT_UTILISATEURS
+  const getCleanDescription = (description?: string) => {
+    if (!description) return "";
+    return description.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
   };
 
   if (!taskAction) return null;
@@ -65,7 +92,15 @@ const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onRejec
   const handleValidate = async () => {
     setIsLoading(true);
     try {
-      await onValidate(taskAction);
+      // Clean the description before validating
+      const cleanedAction = {
+        ...taskAction,
+        data: {
+          ...taskAction.data,
+          description: getCleanDescription(taskAction.data.description)
+        }
+      };
+      await onValidate(cleanedAction);
       onClose();
     } catch (error) {
       console.error('Error validating task action:', error);
@@ -133,6 +168,8 @@ const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onRejec
     });
   };
 
+  const cleanDescription = getCleanDescription(taskAction.data.description);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -148,10 +185,10 @@ const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onRejec
 
         <div className="space-y-4">
           <div className="rounded-lg border p-4 space-y-3">
-            {taskAction.data.description && (
+            {cleanDescription && (
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">Description</h4>
-                <p className="text-sm">{taskAction.data.description}</p>
+                <p className="text-sm">{cleanDescription}</p>
               </div>
             )}
             

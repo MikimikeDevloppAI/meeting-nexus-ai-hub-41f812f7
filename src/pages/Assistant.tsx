@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,9 +118,14 @@ const Assistant = () => {
       
       while ((match = paramRegex.exec(paramsStr)) !== null) {
         const key = match[1].toLowerCase();
-        const value = match[2] || match[3] || '';
+        let value = match[2] || match[3] || '';
         
         console.log(`Found param: ${key} = ${value}`);
+        
+        // Clean up description by removing CONTEXT_UTILISATEURS
+        if (key === 'description') {
+          value = value.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
+        }
         
         // Handle assigned_to specially - try to find user by name first
         if (key === 'assigned_to') {
