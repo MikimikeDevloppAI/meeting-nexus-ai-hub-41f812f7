@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -78,7 +77,7 @@ const EditableTaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate,
   };
 
   const getAssignedUserName = (assignedToValue: string) => {
-    if (!assignedToValue) return "Non assigné";
+    if (!assignedToValue || assignedToValue === "unassigned") return "Non assigné";
     
     // Try to find by ID first
     let user = participants.find(p => p.id === assignedToValue);
@@ -107,7 +106,7 @@ const EditableTaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate,
         data: {
           ...taskAction.data,
           description: description.trim(),
-          assigned_to: assignedTo,
+          assigned_to: assignedTo === "unassigned" ? undefined : assignedTo,
           due_date: dueDate || undefined,
           status: status || taskAction.data.status
         }
@@ -211,12 +210,12 @@ const EditableTaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate,
               
               <div>
                 <Label htmlFor="assigned_to">Assigné à</Label>
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <Select value={assignedTo || "unassigned"} onValueChange={setAssignedTo}>
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Sélectionner une personne" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Non assigné</SelectItem>
+                    <SelectItem value="unassigned">Non assigné</SelectItem>
                     {participants.map((participant) => (
                       <SelectItem key={participant.id} value={participant.id}>
                         {participant.name}
