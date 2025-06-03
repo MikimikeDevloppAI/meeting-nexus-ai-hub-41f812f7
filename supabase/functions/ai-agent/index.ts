@@ -14,8 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { message } = await req.json();
+    const { message, conversationHistory } = await req.json();
     console.log(`[AI-AGENT] Processing message: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT] Conversation history provided: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -170,6 +171,17 @@ serve(async (req) => {
       ).join('\n')}\n\n`;
     }
 
+    // Build conversation history context
+    let conversationContext = '';
+    if (conversationHistory && conversationHistory.length > 0) {
+      console.log(`[AI-AGENT] 💬 Using conversation history: ${conversationHistory.length} messages`);
+      conversationContext = `\n\n**💬 HISTORIQUE DE LA CONVERSATION (10 derniers messages):**\n${
+        conversationHistory.map((msg, index) => 
+          `${index + 1}. [${msg.isUser ? 'UTILISATEUR' : 'ASSISTANT'}] ${msg.content.substring(0, 300)}${msg.content.length > 300 ? '...' : ''}`
+        ).join('\n')
+      }\n\n`;
+    }
+
     // Use internet search only if no embedding context found
     let internetContext = '';
     let internetSources = [];
@@ -220,17 +232,20 @@ serve(async (req) => {
 
     // Generate response using OpenAI with proper context prioritization
     console.log('[AI-AGENT] Generating response...');
-    console.log(`[AI-AGENT] Context summary: Embeddings=${hasEmbeddingContext ? 'YES' : 'NO'}, Meetings=${meetings?.length || 0}, Docs=${documents?.length || 0}, Internet=${hasInternetContext ? 'YES' : 'NO'}`);
+    console.log(`[AI-AGENT] Context summary: Embeddings=${hasEmbeddingContext ? 'YES' : 'NO'}, Meetings=${meetings?.length || 0}, Docs=${documents?.length || 0}, Internet=${hasInternetContext ? 'YES' : 'NO'}, History=${conversationHistory?.length || 0}`);
     
     let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information dans cet ordre de priorité STRICT:
 
-1. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${hasEmbeddingContext ? `✅ ${documentSources.length} chunks trouvés` : '❌ Aucune information trouvée'}
-2. **TRANSCRIPTS DE RÉUNIONS** : ${meetings?.length || 0} réunions disponibles
-3. **TEXTE EXTRAIT DES DOCUMENTS** : ${documents?.length || 0} documents disponibles
-4. **TÂCHES ET DONNÉES INTERNES** : ${todos?.length || 0} tâches
-5. **RECHERCHE INTERNET** : ${hasInternetContext ? '✅ Utilisée en dernier recours' : '❌ Non utilisée'}
+1. **HISTORIQUE DE LA CONVERSATION** : Tu as une mémoire des derniers échanges pour maintenir la continuité
+2. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${hasEmbeddingContext ? `✅ ${documentSources.length} chunks trouvés` : '❌ Aucune information trouvée'}
+3. **TRANSCRIPTS DE RÉUNIONS** : ${meetings?.length || 0} réunions disponibles
+4. **TEXTE EXTRAIT DES DOCUMENTS** : ${documents?.length || 0} documents disponibles
+5. **TÂCHES ET DONNÉES INTERNES** : ${todos?.length || 0} tâches
+6. **RECHERCHE INTERNET** : ${hasInternetContext ? '✅ Utilisée en dernier recours' : '❌ Non utilisée'}
 
 RÈGLES STRICTES:
+- Utilise l'historique de la conversation pour maintenir la continuité et répondre aux questions de suivi
+- Fais référence aux messages précédents quand c'est pertinent
 - Utilise EN PRIORITÉ ABSOLUE les informations des embeddings de documents si disponibles
 - Complète avec les transcripts et texte extrait des documents si pertinent
 - Utilise les données internes pour le contexte du cabinet
@@ -240,6 +255,11 @@ RÈGLES STRICTES:
 - Si tu veux créer, modifier ou supprimer une tâche, utilise la syntaxe: [ACTION_TACHE: TYPE=create/update/delete/complete, DESCRIPTION="description", ASSIGNED_TO="nom_utilisateur", DUE_DATE="YYYY-MM-DD", ID="id_tache"]
 
 CONTEXTE DISPONIBLE:`;
+
+    // Add conversation history first for continuity
+    if (conversationContext) {
+      systemPrompt += conversationContext;
+    }
 
     if (hasEmbeddingContext && documentContext) {
       systemPrompt += `\n\n**🎯 DOCUMENTS PERTINENTS (EMBEDDINGS - PRIORITÉ 1):**\n${documentContext}`;
@@ -296,7 +316,8 @@ CONTEXTE DISPONIBLE:`;
       additionalDataUsed: {
         meetings: meetings?.length || 0,
         documents: documents?.length || 0,
-        todos: todos?.length || 0
+        todos: todos?.length || 0,
+        conversationHistory: conversationHistory?.length || 0
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

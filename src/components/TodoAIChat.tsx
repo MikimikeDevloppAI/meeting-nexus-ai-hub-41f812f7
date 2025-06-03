@@ -44,15 +44,26 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputMessage("");
     setIsLoading(true);
 
     try {
+      // Get the last 10 messages for conversation history (excluding the current user message we just added)
+      const conversationHistory = updatedMessages
+        .slice(-11, -1) // Get last 10 messages (excluding the current one)
+        .map(msg => ({
+          isUser: msg.isUser,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString()
+        }));
+
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: `Concernant la tâche "${todoDescription}": ${inputMessage}`,
-          todoId: todoId
+          todoId: todoId,
+          conversationHistory: conversationHistory
         }
       });
 

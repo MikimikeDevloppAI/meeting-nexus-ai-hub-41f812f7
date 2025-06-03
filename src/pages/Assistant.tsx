@@ -192,17 +192,28 @@ const Assistant = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputMessage("");
     setIsLoading(true);
 
     try {
+      // Get the last 10 messages for conversation history (excluding the current user message we just added)
+      const conversationHistory = updatedMessages
+        .slice(-11, -1) // Get last 10 messages (excluding the current one)
+        .map(msg => ({
+          isUser: msg.isUser,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString()
+        }));
+
       // Include users list in the context for the AI
       const contextMessage = `${inputMessage}\n\nCONTEXT_UTILISATEURS: ${users.map(u => `${u.name} (${u.email}, ID: ${u.id})`).join(', ')}`;
       
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          message: contextMessage
+          message: contextMessage,
+          conversationHistory: conversationHistory
         }
       });
 
