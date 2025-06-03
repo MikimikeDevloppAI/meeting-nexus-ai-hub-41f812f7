@@ -319,7 +319,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Assistant intelligent avec architecture d'agents spécialisés - Recherche sémantique avancée
+          Assistant intelligent spécialisé pour le cabinet OphtaCare
         </p>
       </div>
 
@@ -343,7 +343,7 @@ const Assistant = () => {
             </div>
           </div>
           <CardDescription>
-            Architecture améliorée : Coordinateur → Base de données intelligente → Embeddings itératifs → Internet stratégique → Synthèse critique
+            Assistant intelligent spécialisé pour le cabinet OphtaCare
           </CardDescription>
         </CardHeader>
 
