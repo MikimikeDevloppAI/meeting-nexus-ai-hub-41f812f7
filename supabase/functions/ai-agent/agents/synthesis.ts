@@ -84,32 +84,85 @@ export class SynthesisAgent {
     // Extract description - chercher des patterns plus précis
     let description = query;
     
-    // Extract assignee (à + name, pour + name, concernant + name)
+    // Extract assignee with improved detection
     let assignedTo = null;
+    
+    // Extract participant names from CONTEXT_PARTICIPANTS
+    const participantMatch = query.match(/CONTEXT_PARTICIPANTS:\s*([^]*?)(?:\n|$)/);
+    const participants: {name: string, id: string}[] = [];
+    
+    if (participantMatch) {
+      const participantText = participantMatch[1];
+      const participantRegex = /([^(,]+)\s*\([^,]*,\s*ID:\s*([^)]+)\)/g;
+      let match;
+      while ((match = participantRegex.exec(participantText)) !== null) {
+        participants.push({
+          name: match[1].trim(),
+          id: match[2].trim()
+        });
+      }
+    }
+    
+    // Enhanced assignee detection patterns
     const assigneePatterns = [
-      /(?:pour|à|concernant)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
-      /responsable\s*:\s*([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
-      /assigné[e]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi
+      /(?:pour|à|concernant)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /responsable\s*:\s*([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /assigné[e]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /demande[r]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /dis\s+(?:à|lui)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi
     ];
     
     for (const pattern of assigneePatterns) {
-      const match = query.match(pattern);
-      if (match) {
-        assignedTo = match[1] || match[0].split(/\s+/).pop();
-        break;
+      const matches = [...query.matchAll(pattern)];
+      for (const match of matches) {
+        const nameCandidate = match[1].trim();
+        
+        // Try to match with participants
+        const foundParticipant = participants.find(p => 
+          p.name.toLowerCase().includes(nameCandidate.toLowerCase()) ||
+          nameCandidate.toLowerCase().includes(p.name.toLowerCase())
+        );
+        
+        if (foundParticipant) {
+          assignedTo = foundParticipant.name;
+          break;
+        } else if (nameCandidate.length > 2) { // Basic name validation
+          assignedTo = nameCandidate;
+        }
       }
+      if (assignedTo) break;
     }
 
-    // Extract task description more precisely
+    // Enhanced task description extraction
     if (lowerQuery.includes('achat') || lowerQuery.includes('acheter')) {
-      const buyMatch = query.match(/(?:achat|acheter)\s+(?:de\s+|des?\s+)?([^.!?]+)/i);
+      const buyMatch = query.match(/(?:achat|acheter)\s+(?:de\s+|des?\s+)?([^.!?\n]+)/i);
       if (buyMatch) {
         description = `Acheter ${buyMatch[1].trim()}`;
       }
     } else if (lowerQuery.includes('contacter')) {
-      const contactMatch = query.match(/contacter\s+([^.!?]+)/i);
+      const contactMatch = query.match(/contacter\s+([^.!?\n]+)/i);
       if (contactMatch) {
         description = `Contacter ${contactMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('commander')) {
+      const orderMatch = query.match(/commander\s+([^.!?\n]+)/i);
+      if (orderMatch) {
+        description = `Commander ${orderMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('vérifier')) {
+      const checkMatch = query.match(/vérifier\s+([^.!?\n]+)/i);
+      if (checkMatch) {
+        description = `Vérifier ${checkMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('préparer')) {
+      const prepareMatch = query.match(/préparer\s+([^.!?\n]+)/i);
+      if (prepareMatch) {
+        description = `Préparer ${prepareMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('organiser')) {
+      const organizeMatch = query.match(/organiser\s+([^.!?\n]+)/i);
+      if (organizeMatch) {
+        description = `Organiser ${organizeMatch[1].trim()}`;
       }
     } else if (lowerQuery.includes('tâche')) {
       // Extract text around "tâche"
@@ -119,10 +172,12 @@ export class SynthesisAgent {
       }
     }
 
-    // Clean description
-    description = description.replace(/(?:pour|à|concernant)\s+[a-záàâäéèêëíìîïóòôöúùûüç]+/gi, '');
+    // Clean description by removing assignment patterns and context
+    description = description.replace(/(?:pour|à|concernant)\s+[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
     description = description.replace(/crée une tâche|créer une tâche|je vais créer/gi, '');
-    description = description.replace(/responsable\s*:\s*[a-záàâäéèêëíìîïóòôöúùûüç]+/gi, '');
+    description = description.replace(/responsable\s*:\s*[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
+    description = description.replace(/dis\s+(?:à|lui)\s+[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
+    description = description.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '');
     description = description.trim();
 
     // Extract due date if mentioned

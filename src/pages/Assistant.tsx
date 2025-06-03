@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const Assistant = () => {
   const [pendingTaskAction, setPendingTaskAction] = useState<TaskAction | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
+  const [participants, setParticipants] = useState<{id: string, name: string, email: string}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -60,6 +62,7 @@ const Assistant = () => {
 
   useEffect(() => {
     fetchUsers();
+    fetchParticipants();
   }, []);
 
   const fetchUsers = async () => {
@@ -77,6 +80,20 @@ const Assistant = () => {
     }
   };
 
+  const fetchParticipants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("participants")
+        .select("id, name, email")
+        .order("name");
+
+      if (error) throw error;
+      setParticipants(data || []);
+    } catch (error: any) {
+      console.error("Error fetching participants:", error);
+    }
+  };
+
   const clearChatHistory = () => {
     setMessages([
       {
@@ -91,6 +108,17 @@ const Assistant = () => {
       title: "Historique effacé",
       description: "La conversation a été remise à zéro avec l'assistant amélioré.",
     });
+  };
+
+  const findParticipantByName = (name: string) => {
+    if (!name) return null;
+    
+    const lowerName = name.toLowerCase();
+    return participants.find(p => 
+      p.name.toLowerCase().includes(lowerName) ||
+      lowerName.includes(p.name.toLowerCase()) ||
+      p.email.toLowerCase().includes(lowerName)
+    );
   };
 
   const parseTaskAction = (content: string): TaskAction | null => {
@@ -113,8 +141,7 @@ const Assistant = () => {
     
     if (paramsStr) {
       // Clean the params string by removing CONTEXT_UTILISATEURS
-      paramsStr = paramsStr.replace(/CONTEXT_UTILISATEURS:[^"]*"/g, '"');
-      paramsStr = paramsStr.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '');
+      paramsStr = paramsStr.replace(/\s*CONTEXT_UTILISATEURS:[^,}]*(?:,|$)/gi, '');
       
       // Handle both key="value" and key=value formats, including multi-line descriptions
       const paramRegex = /(\w+)=(?:"([^"]*)"|([^,\]]+))/g;
@@ -132,21 +159,29 @@ const Assistant = () => {
           value = value.replace(/\n+/g, ' ').trim();
         }
         
-        // Handle assigned_to specially - try to find user by name first
+        // Handle assigned_to specially - try to find participant by name first
         if (key === 'assigned_to') {
-          const lowerValue = value.toLowerCase();
-          const user = users.find(u => 
-            u.name.toLowerCase().includes(lowerValue) ||
-            u.email.toLowerCase().includes(lowerValue) ||
-            lowerValue.includes(u.name.toLowerCase())
-          );
-          
-          if (user) {
-            console.log(`Found user for assignment: ${user.name} (${user.id})`);
-            data[key as keyof TaskAction['data']] = user.id;
+          // First try to find by participant name
+          const participant = findParticipantByName(value);
+          if (participant) {
+            console.log(`Found participant for assignment: ${participant.name} (${participant.id})`);
+            data[key as keyof TaskAction['data']] = participant.id;
           } else {
-            console.log(`No user found for: ${value}, keeping as text`);
-            data[key as keyof TaskAction['data']] = value;
+            // Fallback to user search
+            const lowerValue = value.toLowerCase();
+            const user = users.find(u => 
+              u.name.toLowerCase().includes(lowerValue) ||
+              u.email.toLowerCase().includes(lowerValue) ||
+              lowerValue.includes(u.name.toLowerCase())
+            );
+            
+            if (user) {
+              console.log(`Found user for assignment: ${user.name} (${user.id})`);
+              data[key as keyof TaskAction['data']] = user.id;
+            } else {
+              console.log(`No participant or user found for: ${value}, keeping as text`);
+              data[key as keyof TaskAction['data']] = value;
+            }
           }
         } else {
           data[key as keyof TaskAction['data']] = value;
@@ -161,18 +196,28 @@ const Assistant = () => {
 
   const executeTaskAction = async (action: TaskAction) => {
     try {
+      console.log('Executing task action:', action);
+      
       switch (action.type) {
         case 'create':
-          const { error: createError } = await supabase
+          const { data: newTodo, error: createError } = await supabase
             .from('todos')
             .insert({
               description: action.data.description!,
               assigned_to: action.data.assigned_to,
               due_date: action.data.due_date,
               meeting_id: action.data.meeting_id,
-              status: 'pending'
-            });
-          if (createError) throw createError;
+              status: action.data.status || 'pending'
+            })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('Error creating todo:', createError);
+            throw createError;
+          }
+          
+          console.log('Todo created successfully:', newTodo);
           break;
           
         case 'update':
@@ -257,8 +302,8 @@ const Assistant = () => {
           timestamp: msg.timestamp.toISOString()
         }));
 
-      // Include users list in the context for the AI
-      const contextMessage = `${inputMessage}\n\nCONTEXT_UTILISATEURS: ${users.map(u => `${u.name} (${u.email}, ID: ${u.id})`).join(', ')}`;
+      // Include participants list in the context for the AI
+      const contextMessage = `${inputMessage}\n\nCONTEXT_PARTICIPANTS: ${participants.map(p => `${p.name} (${p.email}, ID: ${p.id})`).join(', ')}`;
       
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
@@ -277,12 +322,12 @@ const Assistant = () => {
       // Parse task action from response
       const taskAction = parseTaskAction(data.response);
       
-      // Clean the response content by removing the action syntax and CONTEXT_UTILISATEURS
+      // Clean the response content by removing the action syntax and CONTEXT_PARTICIPANTS
       let cleanContent = data.response;
       if (taskAction) {
         cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
       }
-      cleanContent = cleanContent.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
+      cleanContent = cleanContent.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -521,7 +566,7 @@ const Assistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder=""
+              placeholder="Tapez votre message..."
               disabled={isLoading}
               className="flex-1"
             />

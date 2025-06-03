@@ -25,7 +25,15 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: `Je peux vous aider avec cette tâche : "${todoDescription}". Posez-moi des questions pour obtenir des conseils, des informations complémentaires ou des suggestions d'amélioration.`,
+      content: `Je suis ici pour vous aider avec cette tâche spécifique : "${todoDescription}". 
+
+Je peux vous aider à :
+• Analyser les étapes nécessaires pour accomplir cette tâche
+• Vous suggérer des ressources ou des contacts utiles
+• Vous donner des conseils pratiques pour la réalisation
+• Répondre à vos questions sur cette tâche
+
+Que puis-je faire pour vous aider avec cette tâche ?`,
       isUser: false,
       timestamp: new Date(),
     }
@@ -59,19 +67,47 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
           timestamp: msg.timestamp.toISOString()
         }));
 
+      // Create a specialized context for this specific task
+      const taskContextMessage = `AIDE SPÉCIALISÉE POUR TÂCHE SPÉCIFIQUE
+
+CONTEXTE DE LA TÂCHE :
+- ID de la tâche : ${todoId}
+- Description de la tâche : "${todoDescription}"
+- Type de demande : Assistance pour accomplir cette tâche
+
+QUESTION DE L'UTILISATEUR :
+${inputMessage}
+
+INSTRUCTIONS SPÉCIALES :
+Tu es un assistant spécialisé pour aider l'utilisateur à accomplir cette tâche spécifique du cabinet OphtaCare. 
+Concentre-toi uniquement sur cette tâche et fournis des conseils pratiques, des étapes détaillées, et des suggestions utiles pour la mener à bien.
+Ne propose pas de créer de nouvelles tâches, mais aide à accomplir celle-ci.`;
+
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          message: `Concernant la tâche "${todoDescription}": ${inputMessage}`,
+          message: taskContextMessage,
           todoId: todoId,
-          conversationHistory: conversationHistory
+          conversationHistory: conversationHistory,
+          taskContext: {
+            todoId,
+            description: todoDescription,
+            type: 'task_assistance'
+          }
         }
       });
 
       if (error) throw error;
 
+      // Clean the response content
+      let cleanContent = data.response || "Désolé, je n'ai pas pu traiter votre demande.";
+      
+      // Remove any task action syntax since this is for assistance only
+      cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
+      cleanContent = cleanContent.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || "Désolé, je n'ai pas pu traiter votre demande.",
+        content: cleanContent,
         isUser: false,
         timestamp: new Date(),
       };
@@ -85,6 +121,15 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
         description: "Impossible d'envoyer le message",
         variant: "destructive",
       });
+
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?",
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +151,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
         className="flex items-center gap-2"
       >
         <Bot className="h-4 w-4" />
-        Chat IA
+        Assistant IA Tâche
       </Button>
     );
   }
@@ -117,8 +162,8 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Assistant IA</span>
-            <Badge variant="outline" className="text-xs">Tâche</Badge>
+            <span className="text-sm font-medium">Assistant IA Spécialisé</span>
+            <Badge variant="outline" className="text-xs">Aide Tâche</Badge>
           </div>
           <Button
             variant="ghost"
@@ -168,7 +213,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
               </div>
               <div className="bg-muted rounded-lg p-2 flex items-center gap-2">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="text-xs">Réflexion...</span>
+                <span className="text-xs">Analyse de la tâche...</span>
               </div>
             </div>
           )}
@@ -179,7 +224,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Posez une question sur cette tâche..."
+            placeholder="Comment puis-je vous aider avec cette tâche ?"
             disabled={isLoading}
             className="text-xs h-8"
           />
