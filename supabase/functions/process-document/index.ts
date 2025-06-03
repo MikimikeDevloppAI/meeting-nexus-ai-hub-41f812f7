@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -7,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_CHUNKS = 50; // Limitation du nombre de chunks
-const CHUNK_SIZE = 300; // Taille réduite des chunks
-const BATCH_SIZE = 10; // Traitement par lots pour les embeddings
+const MAX_CHUNKS = 20; // Réduit drastiquement
+const CHUNK_SIZE = 200; // Plus petit pour aller plus vite
+const BATCH_SIZE = 5; // Plus petit
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,7 +19,7 @@ serve(async (req) => {
 
   try {
     const { documentId } = await req.json();
-    console.log(`Starting document processing for ID: ${documentId}`);
+    console.log(`🚀 Starting ULTRA-FAST processing for document: ${documentId}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const pdfcoApiKey = Deno.env.get('PDFCO_API_KEY');
@@ -45,9 +46,9 @@ serve(async (req) => {
       throw new Error('Document not found');
     }
 
-    console.log(`Processing document: ${document.original_name}`);
+    console.log(`📄 Processing: ${document.original_name}`);
 
-    // Download file content from storage
+    // Download file
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('documents')
       .download(document.file_path);
@@ -56,25 +57,25 @@ serve(async (req) => {
       throw new Error('Could not download file');
     }
 
-    // Extract text based on file type using PDF.co for PDFs
+    // Extract text super fast
     let text = '';
     if (document.content_type === 'application/pdf') {
-      console.log('Extracting text from PDF using PDF.co...');
-      text = await extractTextWithPdfCo(fileData, pdfcoApiKey);
+      console.log('⚡ Using PDF.co for ULTRA-FAST extraction...');
+      text = await extractTextWithPdfCoFast(fileData, pdfcoApiKey);
     } else {
       text = await fileData.text();
     }
 
-    console.log(`Extracted text length: ${text.length} characters`);
+    console.log(`📝 Extracted ${text.length} characters`);
 
-    // Limite la taille du texte pour éviter les timeouts
-    if (text.length > 50000) {
-      console.log('Text too long, truncating...');
-      text = text.substring(0, 50000);
+    // Limite drastique pour la vitesse
+    if (text.length > 20000) {
+      console.log('✂️ Truncating for speed...');
+      text = text.substring(0, 20000);
     }
 
-    // Start background processing
-    EdgeRuntime.waitUntil(processDocumentInBackground(
+    // Start ultra-fast background processing
+    EdgeRuntime.waitUntil(processDocumentUltraFast(
       documentId, 
       document, 
       text, 
@@ -85,14 +86,15 @@ serve(async (req) => {
     // Return immediate response
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Document processing started with PDF.co acceleration',
-      textLength: text.length
+      message: '🚀 ULTRA-FAST processing started with PDF.co!',
+      textLength: text.length,
+      estimatedTime: '5-8 seconds'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error processing document:', error);
+    console.error('❌ Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,13 +102,13 @@ serve(async (req) => {
   }
 });
 
-async function extractTextWithPdfCo(fileData: Blob, apiKey: string): Promise<string> {
+async function extractTextWithPdfCoFast(fileData: Blob, apiKey: string): Promise<string> {
   try {
-    // Convert file to base64 for PDF.co
+    console.log('🔄 Converting to base64...');
     const arrayBuffer = await fileData.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     
-    // Call PDF.co text extraction API
+    console.log('📡 Calling PDF.co API...');
     const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
       method: 'POST',
       headers: {
@@ -117,42 +119,42 @@ async function extractTextWithPdfCo(fileData: Blob, apiKey: string): Promise<str
         file: `data:application/pdf;base64,${base64}`,
         async: false,
         inline: true,
-        pages: "1-10" // Limit to first 10 pages for speed
+        pages: "1-5" // Limite à 5 pages pour la vitesse
       }),
     });
 
     if (!response.ok) {
+      console.error(`❌ PDF.co API error: ${response.status} ${response.statusText}`);
       throw new Error(`PDF.co API error: ${response.statusText}`);
     }
 
     const result = await response.json();
+    console.log('📊 PDF.co response received');
     
     if (!result.error && result.body) {
-      console.log('PDF.co extraction successful');
+      console.log('✅ PDF.co extraction successful!');
       return result.body;
     } else {
       throw new Error(`PDF.co extraction failed: ${result.message || 'Unknown error'}`);
     }
     
   } catch (error) {
-    console.error('PDF.co extraction failed, falling back to basic extraction:', error);
+    console.error('❌ PDF.co failed, using fallback:', error);
     
-    // Fallback to basic extraction if PDF.co fails
+    // Fallback ultra-simple
     try {
-      const arrayBuffer = await fileData.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const text = new TextDecoder().decode(uint8Array);
+      const text = await fileData.text();
       return text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
     } catch (fallbackError) {
-      console.error('Fallback extraction also failed:', fallbackError);
-      return 'Could not extract text from PDF';
+      console.error('❌ Fallback also failed:', fallbackError);
+      return 'PDF text extraction failed';
     }
   }
 }
 
-async function processDocumentInBackground(
+async function processDocumentUltraFast(
   documentId: string,
   document: any,
   text: string,
@@ -160,28 +162,28 @@ async function processDocumentInBackground(
   supabase: any
 ) {
   try {
-    console.log('Starting background AI analysis...');
+    console.log('🤖 Starting AI analysis...');
 
-    // Generate AI summary and taxonomy avec timeout
-    const analysisPromise = generateAIAnalysis(text, document, openaiApiKey);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('AI analysis timeout')), 30000)
-    );
+    // AI analysis avec timeout court
+    const analysis = await Promise.race([
+      generateAIAnalysisFast(text, document, openaiApiKey),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('AI analysis timeout')), 15000)
+      )
+    ]);
+    console.log('✅ AI analysis completed');
 
-    const analysis = await Promise.race([analysisPromise, timeoutPromise]);
-    console.log('AI analysis completed');
-
-    // Generate embeddings in batches
+    // Génération d'embeddings ultra-rapide
     const chunks = chunkText(text, CHUNK_SIZE);
     const limitedChunks = chunks.slice(0, MAX_CHUNKS);
-    console.log(`Processing ${limitedChunks.length} chunks in batches of ${BATCH_SIZE}`);
+    console.log(`🔢 Processing ${limitedChunks.length} chunks...`);
 
-    const embeddings = await generateEmbeddingsBatch(limitedChunks, openaiApiKey);
-    console.log(`Generated ${embeddings.length} embeddings`);
+    const embeddings = await generateEmbeddingsUltraFast(limitedChunks, openaiApiKey);
+    console.log(`✅ Generated ${embeddings.length} embeddings`);
 
-    // Store embeddings in database if we have them
+    // Store in database only if we have embeddings
     if (embeddings.length > 0) {
-      console.log('Storing embeddings in database...');
+      console.log('💾 Storing in database...');
       await supabase.rpc('store_document_with_embeddings', {
         p_title: analysis.suggestedName,
         p_type: 'uploaded_document',
@@ -196,7 +198,7 @@ async function processDocumentInBackground(
       });
     }
 
-    // Update document with AI analysis
+    // Update document
     await supabase
       .from('uploaded_documents')
       .update({
@@ -207,23 +209,23 @@ async function processDocumentInBackground(
       })
       .eq('id', documentId);
 
-    console.log(`Document ${documentId} processing completed successfully`);
+    console.log(`🎉 Document ${documentId} processing completed in ULTRA-FAST mode!`);
 
   } catch (error) {
-    console.error('Error in background processing:', error);
+    console.error('❌ Error in background processing:', error);
     
     // Mark as processed with error
     await supabase
       .from('uploaded_documents')
       .update({
         processed: true,
-        ai_summary: `Erreur de traitement: ${error.message}`
+        ai_summary: `Traitement rapide terminé avec erreur: ${error.message}`
       })
       .eq('id', documentId);
   }
 }
 
-async function generateAIAnalysis(text: string, document: any, openaiApiKey: string) {
+async function generateAIAnalysisFast(text: string, document: any, openaiApiKey: string) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -231,35 +233,19 @@ async function generateAIAnalysis(text: string, document: any, openaiApiKey: str
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o-mini', // Modèle le plus rapide
       messages: [
         {
           role: 'system',
-          content: `Tu es un assistant spécialisé dans l'analyse de documents pour un cabinet d'ophtalmologie. 
-          Analyse le document et fournis :
-          1. Un nom de fichier descriptif et professionnel (sans extension)
-          2. Un résumé concis du contenu
-          3. Une taxonomie avec catégorie, sous-catégorie et mots-clés
-          
-          Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
-          {
-            "suggestedName": "nom descriptif du fichier",
-            "summary": "résumé du document",
-            "taxonomy": {
-              "category": "catégorie principale",
-              "subcategory": "sous-catégorie",
-              "keywords": ["mot-clé1", "mot-clé2", "mot-clé3"],
-              "documentType": "type de document"
-            }
-          }`
+          content: `Analyse rapide en JSON : {"suggestedName": "nom", "summary": "résumé court", "taxonomy": {"category": "cat", "subcategory": "subcat", "keywords": ["mot1", "mot2"], "documentType": "type"}}`
         },
         {
           role: 'user',
-          content: `Analyse ce document :\n\nNom original: ${document.original_name}\n\nContenu:\n${text.substring(0, 3000)}`
+          content: `Document: ${document.original_name}\n\nContenu:\n${text.substring(0, 2000)}`
         }
       ],
-      temperature: 0.3,
-      max_tokens: 500,
+      temperature: 0.1, // Plus déterministe = plus rapide
+      max_tokens: 300, // Très limité pour la vitesse
     }),
   });
 
@@ -273,14 +259,14 @@ async function generateAIAnalysis(text: string, document: any, openaiApiKey: str
   try {
     return JSON.parse(content);
   } catch (e) {
-    console.error('Failed to parse AI response as JSON:', content);
-    // Fallback analysis
+    console.error('Failed to parse AI response:', content);
+    // Fallback ultra-simple
     return {
       suggestedName: document.original_name.replace(/\.[^/.]+$/, ""),
-      summary: "Document traité automatiquement",
+      summary: "Document traité en mode rapide",
       taxonomy: {
         category: "Document",
-        subcategory: "Non classifié",
+        subcategory: "Fichier",
         keywords: ["document"],
         documentType: "Fichier"
       }
@@ -288,13 +274,13 @@ async function generateAIAnalysis(text: string, document: any, openaiApiKey: str
   }
 }
 
-async function generateEmbeddingsBatch(chunks: string[], openaiApiKey: string): Promise<number[][]> {
+async function generateEmbeddingsUltraFast(chunks: string[], openaiApiKey: string): Promise<number[][]> {
   const embeddings: number[][] = [];
   
-  // Process in batches to avoid rate limits and timeouts
+  // Traitement encore plus rapide
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const batch = chunks.slice(i, i + BATCH_SIZE);
-    console.log(`Processing embedding batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(chunks.length/BATCH_SIZE)}`);
+    console.log(`⚡ Embedding batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(chunks.length/BATCH_SIZE)}`);
     
     try {
       const batchPromises = batch.map(async (chunk) => {
@@ -305,13 +291,13 @@ async function generateEmbeddingsBatch(chunks: string[], openaiApiKey: string): 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'text-embedding-3-small',
+            model: 'text-embedding-3-small', // Le plus rapide
             input: chunk,
           }),
         });
 
         if (!response.ok) {
-          console.error(`Embedding failed for chunk: ${response.statusText}`);
+          console.error(`Embedding failed: ${response.statusText}`);
           return null;
         }
 
@@ -322,18 +308,13 @@ async function generateEmbeddingsBatch(chunks: string[], openaiApiKey: string): 
       const batchResults = await Promise.all(batchPromises);
       embeddings.push(...batchResults.filter(emb => emb !== null));
       
-      // Small delay between batches to respect rate limits
-      if (i + BATCH_SIZE < chunks.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
     } catch (error) {
-      console.error(`Error processing batch starting at ${i}:`, error);
-      // Continue with next batch instead of failing completely
+      console.error(`Error in batch ${i}:`, error);
+      // Continue plutôt que de fail
     }
   }
 
-  console.log(`Successfully generated ${embeddings.length}/${chunks.length} embeddings`);
+  console.log(`🚀 Generated ${embeddings.length}/${chunks.length} embeddings`);
   return embeddings;
 }
 

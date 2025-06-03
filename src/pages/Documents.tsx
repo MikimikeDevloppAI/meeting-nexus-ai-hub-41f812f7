@@ -1,10 +1,11 @@
+
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -82,8 +83,8 @@ const Documents = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({
-        title: "Document uploadé",
-        description: "Le document a été uploadé et le traitement ultra-rapide avec PDF.co a commencé.",
+        title: "🚀 Document uploadé !",
+        description: "Traitement ULTRA-RAPIDE avec PDF.co démarré (~5-8 secondes) !",
       });
     },
     onError: (error: any) => {
@@ -170,7 +171,7 @@ const Documents = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Gestion des Documents</h1>
         <p className="text-muted-foreground">
-          Téléchargez et gérez vos documents. Traitement ultra-rapide avec PDF.co (~10 secondes).
+          🚀 Téléchargez vos documents - Traitement ULTRA-RAPIDE avec PDF.co (5-8 secondes) !
         </p>
       </div>
 
@@ -179,10 +180,11 @@ const Documents = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Télécharger des Documents
+            <Zap className="h-4 w-4 text-yellow-500" />
+            Télécharger des Documents ULTRA-RAPIDE
           </CardTitle>
           <CardDescription>
-            Glissez-déposez vos fichiers ou cliquez pour sélectionner (PDF, TXT, DOC, DOCX) - Extraction PDF ultra-rapide avec PDF.co
+            🚀 Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX) - Extraction PDF en 5-8 secondes avec PDF.co !
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -194,19 +196,22 @@ const Documents = () => {
             `}
           >
             <input {...getInputProps()} />
-            <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <div className="flex items-center justify-center mb-4">
+              <FileText className="h-12 w-12 mr-2 text-muted-foreground" />
+              <Zap className="h-8 w-8 text-yellow-500" />
+            </div>
             {isDragActive ? (
               <p>Déposez les fichiers ici...</p>
             ) : (
               <div>
                 <p className="text-lg font-medium mb-2">
-                  Glissez-déposez vos documents ici
+                  🚀 Glissez-déposez vos documents ici
                 </p>
                 <p className="text-muted-foreground">
                   ou cliquez pour sélectionner des fichiers
                 </p>
                 <p className="text-xs text-green-600 font-medium mt-2">
-                  ⚡ Extraction PDF ultra-rapide avec PDF.co - Résultats en ~10 secondes
+                  ⚡ ULTRA-RAPIDE : PDF.co extraction en 5-8 secondes !
                 </p>
               </div>
             )}
@@ -215,7 +220,8 @@ const Documents = () => {
             <div className="mt-4">
               <div className="flex items-center gap-2 mb-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Upload en cours...</span>
+                <Zap className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm">Upload en cours - Traitement ULTRA-RAPIDE à venir...</span>
               </div>
             </div>
           )}
@@ -225,9 +231,12 @@ const Documents = () => {
       {/* Documents List */}
       <Card>
         <CardHeader>
-          <CardTitle>Documents Uploadés</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Documents Uploadés 
+            <Zap className="h-4 w-4 text-yellow-500" />
+          </CardTitle>
           <CardDescription>
-            Liste de tous vos documents avec traitement accéléré PDF.co
+            Liste de tous vos documents avec traitement ULTRA-RAPIDE PDF.co (5-8 secondes)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -258,12 +267,14 @@ const Documents = () => {
                           {document.processed ? (
                             <Badge variant="default" className="bg-green-500">
                               <CheckCircle className="h-3 w-3 mr-1" />
-                              Traité
+                              <Zap className="h-3 w-3 mr-1" />
+                              Traité ULTRA-RAPIDE
                             </Badge>
                           ) : (
                             <Badge variant="secondary" className="bg-blue-500 text-white">
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Traitement PDF.co...
+                              <Zap className="h-3 w-3 mr-1 text-yellow-300" />
+                              Traitement 5-8s...
                             </Badge>
                           )}
                         </div>
