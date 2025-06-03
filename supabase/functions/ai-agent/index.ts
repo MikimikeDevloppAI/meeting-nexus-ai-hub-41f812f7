@@ -50,7 +50,7 @@ serve(async (req) => {
       const embeddingData = await embeddingResponse.json();
       const queryEmbedding = embeddingData.data[0].embedding;
 
-      // Search in document embeddings first
+      // Search in document embeddings first - THIS IS THE PRIMARY SOURCE
       console.log('[AI-AGENT] Searching in document embeddings...');
       const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
         query_embedding: queryEmbedding,
@@ -72,17 +72,28 @@ serve(async (req) => {
           chunk_index: result.chunk_index
         }));
       } else {
-        console.log('[AI-AGENT] No relevant document chunks found');
+        console.log('[AI-AGENT] No relevant document chunks found in embeddings');
       }
     }
 
-    // Fetch additional context from database (meetings, tasks, etc.)
+    // Fetch additional context from database (meetings with transcripts, documents with extracted text)
     console.log('[AI-AGENT] Fetching additional context from database...');
+    
+    // Get meetings with their transcripts
     const { data: meetings } = await supabase
       .from('meetings')
       .select('id, title, transcript, summary, created_at')
+      .not('transcript', 'is', null)
       .order('created_at', { ascending: false })
       .limit(10);
+
+    // Get documents with extracted text
+    const { data: documents } = await supabase
+      .from('uploaded_documents')
+      .select('id, ai_generated_name, original_name, extracted_text, ai_summary, created_at')
+      .not('extracted_text', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
     const { data: todos } = await supabase
       .from('todos')
@@ -90,16 +101,23 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    // Build context from internal data
-    let internalContext = '';
+    // Build additional context from internal data
+    let additionalContext = '';
+    
     if (meetings && meetings.length > 0) {
-      internalContext += `RÉUNIONS RÉCENTES:\n${meetings.map(m => 
-        `- ${m.title} (${new Date(m.created_at).toLocaleDateString()})${m.summary ? ': ' + m.summary.substring(0, 200) + '...' : ''}`
-      ).join('\n')}\n\n`;
+      additionalContext += `TRANSCRIPTS DES RÉUNIONS:\n${meetings.map(m => 
+        `Réunion: ${m.title} (${new Date(m.created_at).toLocaleDateString()})\n${m.transcript ? `Transcript: ${m.transcript.substring(0, 1000)}...` : `Résumé: ${m.summary || 'Pas de résumé'}`}`
+      ).join('\n\n')}\n\n`;
+    }
+
+    if (documents && documents.length > 0) {
+      additionalContext += `DOCUMENTS AVEC TEXTE EXTRAIT:\n${documents.map(d => 
+        `Document: ${d.ai_generated_name || d.original_name}\nTexte: ${d.extracted_text ? d.extracted_text.substring(0, 1000) + '...' : 'Pas de texte extrait'}`
+      ).join('\n\n')}\n\n`;
     }
 
     if (todos && todos.length > 0) {
-      internalContext += `TÂCHES:\n${todos.map(t => 
+      additionalContext += `TÂCHES:\n${todos.map(t => 
         `- [${t.status}] ${t.description}${t.due_date ? ` (échéance: ${new Date(t.due_date).toLocaleDateString()})` : ''}`
       ).join('\n')}\n\n`;
     }
@@ -150,35 +168,38 @@ serve(async (req) => {
       }
     }
 
-    // Generate response using OpenAI
+    // Generate response using OpenAI with prioritized context
     console.log('[AI-AGENT] Generating response...');
     
-    let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information:
+    let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information dans cet ordre de priorité:
 
-1. DOCUMENTS INTERNES (priorité haute): ${documentContext ? 'Disponibles' : 'Non disponibles'}
-2. BASE DE DONNÉES INTERNE: Réunions, tâches, participants
-3. RECHERCHE INTERNET: ${hasInternetContext ? 'Disponible' : 'Non disponible'}
+1. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${contextFound ? 'Informations trouvées dans les documents' : 'Aucune information trouvée'}
+2. **TRANSCRIPTS DE RÉUNIONS** : Conversations complètes des réunions
+3. **TEXTE EXTRAIT DES DOCUMENTS** : Contenu complet des documents uploadés
+4. **BASE DE DONNÉES INTERNE** : Tâches et résumés
+5. **RECHERCHE INTERNET** : ${hasInternetContext ? 'Disponible en dernier recours' : 'Non utilisée'}
 
-RÈGLES:
-- Priorise TOUJOURS les informations des documents internes si disponibles
-- Utilise les données de la base de données pour le contexte du cabinet
-- N'utilise internet que pour des informations générales ou actuelles
+RÈGLES STRICTES:
+- Utilise EN PRIORITÉ les informations des embeddings de documents si disponibles
+- Complète avec les transcripts et texte extrait des documents
+- Utilise les données internes pour le contexte du cabinet
+- N'utilise internet QUE si aucune information pertinente n'est trouvée dans les documents
+- Cite TOUJOURS tes sources
 - Sois précis et professionnel
-- Cite tes sources quand possible
 - Si tu veux créer, modifier ou supprimer une tâche, utilise la syntaxe: [ACTION_TACHE: TYPE=create/update/delete/complete, DESCRIPTION="description", ASSIGNED_TO="nom_utilisateur", DUE_DATE="YYYY-MM-DD", ID="id_tache"]
 
 CONTEXTE DISPONIBLE:`;
 
     if (documentContext) {
-      systemPrompt += `\n\nDOCUMENTS PERTINENTS:\n${documentContext}`;
+      systemPrompt += `\n\n**DOCUMENTS PERTINENTS (EMBEDDINGS - PRIORITÉ 1):**\n${documentContext}`;
     }
 
-    if (internalContext) {
-      systemPrompt += `\n\nDONNÉES INTERNES:\n${internalContext}`;
+    if (additionalContext) {
+      systemPrompt += `\n\n**DONNÉES INTERNES COMPLÉMENTAIRES:**\n${additionalContext}`;
     }
 
     if (internetContext && !contextFound) {
-      systemPrompt += `\n\nINFORMATIONS INTERNET:\n${internetContext}`;
+      systemPrompt += `\n\n**INFORMATIONS INTERNET (DERNIER RECOURS):**\n${internetContext}`;
     }
 
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -212,7 +233,12 @@ CONTEXTE DISPONIBLE:`;
       sources: documentSources,
       internetSources,
       hasInternetContext,
-      contextFound
+      contextFound,
+      additionalDataUsed: {
+        meetings: meetings?.length || 0,
+        documents: documents?.length || 0,
+        todos: todos?.length || 0
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
