@@ -267,50 +267,73 @@ async function processDocumentInBackground(
       console.log('⚠️ Embeddings generation failed:', error.message);
     }
 
-    // Store embeddings if generated
+    // Store embeddings with complete metadata if generated
     if (embeddings.length > 0) {
-      console.log('💾 Storing document with embeddings...');
+      console.log('💾 Storing document with embeddings and complete metadata...');
       try {
+        const completeMetadata = {
+          documentId: documentId,
+          originalName: document.original_name,
+          aiGeneratedName: analysis.suggestedName,
+          aiSummary: analysis.summary,
+          contentType: document.content_type,
+          fileSize: document.file_size,
+          processedAt: new Date().toISOString(),
+          ...analysis.taxonomy
+        };
+
         await supabase.rpc('store_document_with_embeddings', {
           p_title: analysis.suggestedName,
           p_type: 'uploaded_document',
           p_content: text,
           p_chunks: limitedChunks,
           p_embeddings: embeddings,
-          p_metadata: {
-            documentId: documentId,
-            originalName: document.original_name,
-            ...analysis.taxonomy
-          }
+          p_metadata: completeMetadata
         });
-        console.log('✅ Document stored with embeddings successfully');
+        console.log('✅ Document stored with embeddings and complete metadata successfully');
       } catch (error) {
         console.log('⚠️ Database storage failed:', error.message);
       }
+    } else {
+      console.log('⚠️ No embeddings generated, storing document without embeddings');
     }
 
-    // Update document record
+    // Update document record with all AI-generated information
     await supabase
       .from('uploaded_documents')
       .update({
         ai_generated_name: analysis.suggestedName,
         ai_summary: analysis.summary,
         taxonomy: analysis.taxonomy,
-        processed: true
+        processed: true,
+        metadata: {
+          aiGeneratedName: analysis.suggestedName,
+          aiSummary: analysis.summary,
+          ...analysis.taxonomy,
+          processedAt: new Date().toISOString(),
+          textLength: text.length,
+          chunksGenerated: limitedChunks.length,
+          embeddingsGenerated: embeddings.length
+        }
       })
       .eq('id', documentId);
 
-    console.log(`🎉 Document ${documentId} processed successfully!`);
+    console.log(`🎉 Document ${documentId} processed successfully with complete metadata!`);
 
   } catch (error) {
     console.error('❌ Error in background processing:', error);
     
-    // Mark as processed even on error
+    // Mark as processed even on error with error details in metadata
     await supabase
       .from('uploaded_documents')
       .update({
         processed: true,
-        ai_summary: `Erreur de traitement: ${error.message}`
+        ai_summary: `Erreur de traitement: ${error.message}`,
+        metadata: {
+          error: error.message,
+          processedAt: new Date().toISOString(),
+          processingFailed: true
+        }
       })
       .eq('id', documentId);
   }
