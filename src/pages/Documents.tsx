@@ -1,16 +1,16 @@
 
-
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from "@/components/ui/progress";
 import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, FileSearch } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
+import { DocumentSearch } from "@/components/documents/DocumentSearch";
+import { ProcessingResults } from "@/components/documents/ProcessingResults";
 
 interface UploadedDocument {
   id: string;
@@ -27,9 +27,16 @@ interface UploadedDocument {
   extracted_text: string | null;
 }
 
+interface SearchFilters {
+  query: string;
+  category?: string;
+  documentType?: string;
+  dateRange?: string;
+}
+
 const Documents = () => {
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -46,6 +53,58 @@ const Documents = () => {
       return data as UploadedDocument[];
     }
   });
+
+  // Filtrer les documents selon les critères de recherche
+  const filteredDocuments = useMemo(() => {
+    if (!documents) return [];
+    
+    return documents.filter(doc => {
+      // Filtre par texte de recherche
+      if (searchFilters.query) {
+        const query = searchFilters.query.toLowerCase();
+        const searchableText = [
+          doc.original_name,
+          doc.ai_generated_name,
+          doc.ai_summary,
+          doc.extracted_text
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        if (!searchableText.includes(query)) return false;
+      }
+      
+      // Filtre par catégorie
+      if (searchFilters.category && doc.taxonomy?.category !== searchFilters.category) {
+        return false;
+      }
+      
+      // Filtre par type de document
+      if (searchFilters.documentType && doc.taxonomy?.documentType !== searchFilters.documentType) {
+        return false;
+      }
+      
+      // Filtre par date
+      if (searchFilters.dateRange) {
+        const docDate = new Date(doc.created_at);
+        const now = new Date();
+        
+        switch (searchFilters.dateRange) {
+          case 'today':
+            if (docDate.toDateString() !== now.toDateString()) return false;
+            break;
+          case 'week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            if (docDate < weekAgo) return false;
+            break;
+          case 'month':
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            if (docDate < monthAgo) return false;
+            break;
+        }
+      }
+      
+      return true;
+    });
+  }, [documents, searchFilters]);
 
   // Upload mutation
   const uploadMutation = useMutation({
@@ -230,12 +289,27 @@ const Documents = () => {
         </CardContent>
       </Card>
 
+      {/* Search Section */}
+      {documents && documents.length > 0 && (
+        <DocumentSearch 
+          onSearch={setSearchFilters}
+          documents={documents}
+        />
+      )}
+
       {/* Documents List */}
       <Card>
         <CardHeader>
-          <CardTitle>Documents Uploadés</CardTitle>
+          <CardTitle>
+            Documents Uploadés 
+            {filteredDocuments.length !== documents?.length && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({filteredDocuments.length} sur {documents?.length} documents)
+              </span>
+            )}
+          </CardTitle>
           <CardDescription>
-            Liste de tous vos documents avec traitement automatique par IA et texte extrait.
+            Liste de vos documents avec traitement automatique par IA et texte extrait.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -248,10 +322,14 @@ const Documents = () => {
             <div className="text-center py-8 text-muted-foreground">
               Aucun document uploadé pour le moment
             </div>
+          ) : filteredDocuments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Aucun document ne correspond à votre recherche
+            </div>
           ) : (
             <ScrollArea className="h-[600px]">
               <div className="space-y-4">
-                {documents.map((document) => (
+                {filteredDocuments.map((document) => (
                   <div
                     key={document.id}
                     className="border rounded-lg p-4 space-y-3"
@@ -288,38 +366,12 @@ const Documents = () => {
                           </p>
                         )}
                         
-                        {document.ai_summary && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {document.ai_summary}
-                          </p>
-                        )}
-                        
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>{formatFileSize(document.file_size)}</span>
                           <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
                           {document.content_type && <span>{document.content_type}</span>}
                           {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
                         </div>
-                        
-                        {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {document.taxonomy.category && (
-                              <Badge variant="outline" className="text-xs">
-                                {document.taxonomy.category}
-                              </Badge>
-                            )}
-                            {document.taxonomy.subcategory && (
-                              <Badge variant="outline" className="text-xs">
-                                {document.taxonomy.subcategory}
-                              </Badge>
-                            )}
-                            {document.taxonomy.keywords?.slice(0, 3).map((keyword: string, index: number) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {keyword}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -349,6 +401,9 @@ const Documents = () => {
                         </Button>
                       </div>
                     </div>
+                    
+                    {/* Afficher les résultats du traitement */}
+                    <ProcessingResults document={document} />
                   </div>
                 ))}
               </div>
@@ -388,4 +443,3 @@ const Documents = () => {
 };
 
 export default Documents;
-
