@@ -5,9 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import TaskValidationDialog from "@/components/TaskValidationDialog";
+
+interface TaskAction {
+  type: 'create' | 'update' | 'delete' | 'complete';
+  data: {
+    description?: string;
+    assigned_to?: string;
+    due_date?: string;
+    meeting_id?: string;
+    status?: string;
+    id?: string;
+  };
+}
 
 interface Message {
   id: string;
@@ -18,19 +31,22 @@ interface Message {
   internetSources?: any[];
   hasInternetContext?: boolean;
   contextFound?: boolean;
+  taskAction?: TaskAction;
 }
 
 const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis votre assistant IA spécialisé pour le cabinet médical. J'ai accès à l'historique complet de vos réunions et transcripts, et je peux rechercher des informations actuelles sur internet quand nécessaire. Posez-moi des questions sur vos activités, demandez des conseils, ou cherchez des informations !",
+      content: "Bonjour ! Je suis votre assistant IA spécialisé pour le cabinet médical. J'ai accès à l'historique complet de vos réunions et transcripts, et je peux rechercher des informations actuelles sur internet quand nécessaire. Je peux aussi vous aider à gérer vos tâches - avant de créer, modifier ou supprimer une tâche, je vous demanderai toujours votre validation. Posez-moi des questions !",
       isUser: false,
       timestamp: new Date(),
     }
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingTaskAction, setPendingTaskAction] = useState<TaskAction | null>(null);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -41,6 +57,101 @@ const Assistant = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const parseTaskAction = (content: string): TaskAction | null => {
+    const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,]+),\s*(.+?)\]/);
+    if (!actionMatch) return null;
+
+    const type = actionMatch[1] as TaskAction['type'];
+    const paramsStr = actionMatch[2];
+    
+    const data: TaskAction['data'] = {};
+    
+    // Parse parameters
+    const params = paramsStr.split(',').map(p => p.trim());
+    params.forEach(param => {
+      const [key, value] = param.split('=').map(s => s.trim());
+      if (key && value) {
+        const cleanValue = value.replace(/^["']|["']$/g, '');
+        data[key.toLowerCase() as keyof TaskAction['data']] = cleanValue;
+      }
+    });
+
+    return { type, data };
+  };
+
+  const executeTaskAction = async (action: TaskAction) => {
+    try {
+      switch (action.type) {
+        case 'create':
+          const { error: createError } = await supabase
+            .from('todos')
+            .insert({
+              description: action.data.description!,
+              assigned_to: action.data.assigned_to,
+              due_date: action.data.due_date,
+              meeting_id: action.data.meeting_id,
+              status: 'pending'
+            });
+          if (createError) throw createError;
+          break;
+          
+        case 'update':
+          const { error: updateError } = await supabase
+            .from('todos')
+            .update({
+              description: action.data.description,
+              assigned_to: action.data.assigned_to,
+              due_date: action.data.due_date,
+              status: action.data.status
+            })
+            .eq('id', action.data.id!);
+          if (updateError) throw updateError;
+          break;
+          
+        case 'delete':
+          const { error: deleteError } = await supabase
+            .from('todos')
+            .delete()
+            .eq('id', action.data.id!);
+          if (deleteError) throw deleteError;
+          break;
+          
+        case 'complete':
+          const { error: completeError } = await supabase
+            .from('todos')
+            .update({ status: 'completed' })
+            .eq('id', action.data.id!);
+          if (completeError) throw completeError;
+          break;
+      }
+      
+      toast({
+        title: "Tâche mise à jour",
+        description: `L'action "${action.type}" a été exécutée avec succès.`,
+      });
+      
+      // Add confirmation message
+      const confirmationMessage: Message = {
+        id: Date.now().toString(),
+        content: `✅ Action validée et exécutée : ${action.type === 'create' ? 'Tâche créée' : 
+                  action.type === 'update' ? 'Tâche modifiée' : 
+                  action.type === 'delete' ? 'Tâche supprimée' : 
+                  'Tâche marquée comme terminée'} avec succès.`,
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, confirmationMessage]);
+      
+    } catch (error: any) {
+      console.error('Error executing task action:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'exécuter l'action sur la tâche",
+        variant: "destructive",
+      });
+    }
+  };
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -57,8 +168,6 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
-      console.log('[ASSISTANT] Sending message to AI agent...');
-      
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: inputMessage
@@ -70,20 +179,34 @@ const Assistant = () => {
         throw error;
       }
 
-      console.log('[ASSISTANT] Response received:', data);
+      // Parse task action from response
+      const taskAction = parseTaskAction(data.response);
+      
+      // Clean the response content by removing the action syntax
+      let cleanContent = data.response;
+      if (taskAction) {
+        cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '').trim();
+      }
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || "Désolé, je n'ai pas pu traiter votre demande.",
+        content: cleanContent || "Désolé, je n'ai pas pu traiter votre demande.",
         isUser: false,
         timestamp: new Date(),
         sources: data.sources || [],
         internetSources: data.internetSources || [],
         hasInternetContext: data.hasInternetContext,
         contextFound: data.contextFound,
+        taskAction: taskAction,
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
+      // If there's a task action, show validation dialog
+      if (taskAction) {
+        setPendingTaskAction(taskAction);
+        setIsTaskDialogOpen(true);
+      }
 
     } catch (error: any) {
       console.error('[ASSISTANT] Error sending message:', error);
@@ -111,6 +234,25 @@ const Assistant = () => {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleTaskValidation = (action: TaskAction) => {
+    executeTaskAction(action);
+  };
+
+  const handleTaskRejection = () => {
+    const rejectionMessage: Message = {
+      id: Date.now().toString(),
+      content: "❌ Action annulée par l'utilisateur.",
+      isUser: false,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, rejectionMessage]);
+    
+    toast({
+      title: "Action annulée",
+      description: "L'action sur la tâche a été annulée.",
+    });
   };
 
   return (
@@ -168,6 +310,23 @@ const Assistant = () => {
                       <div className="text-sm whitespace-pre-wrap">
                         {message.content}
                       </div>
+                      
+                      {/* Task Action Buttons */}
+                      {!message.isUser && message.taskAction && (
+                        <div className="mt-3 pt-2 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              Action proposée:
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {message.taskAction.type === 'create' ? 'Créer tâche' :
+                               message.taskAction.type === 'update' ? 'Modifier tâche' :
+                               message.taskAction.type === 'delete' ? 'Supprimer tâche' :
+                               'Terminer tâche'}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
                       
                       {!message.isUser && (
                         <div className="mt-3 space-y-2">
@@ -244,7 +403,7 @@ const Assistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Posez une question sur vos réunions, demandez des conseils..."
+              placeholder="Posez une question, demandez des conseils ou gérez vos tâches..."
               disabled={isLoading}
               className="flex-1"
             />
@@ -262,10 +421,18 @@ const Assistant = () => {
           </div>
 
           <div className="mt-2 text-xs text-muted-foreground">
-            💡 Exemples: "Résume les dernières décisions sur la climatisation", "Quelles sont les meilleures solutions de formation pour le personnel ?", "Quels prestataires avons-nous contactés récemment ?"
+            💡 Exemples: "Résume les dernières décisions", "Crée une tâche pour la formation du personnel", "Trouve des fournisseurs d'équipement médical"
           </div>
         </CardContent>
       </Card>
+
+      <TaskValidationDialog
+        isOpen={isTaskDialogOpen}
+        onClose={() => setIsTaskDialogOpen(false)}
+        taskAction={pendingTaskAction}
+        onValidate={handleTaskValidation}
+        onReject={handleTaskRejection}
+      />
     </div>
   );
 };

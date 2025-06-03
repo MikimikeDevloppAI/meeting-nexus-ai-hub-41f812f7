@@ -17,8 +17,6 @@ serve(async (req) => {
     const { message, meetingId = null, todoId = null } = await req.json();
     
     console.log('[AI-AGENT] Processing message:', message.substring(0, 100) + '...');
-    console.log('[AI-AGENT] Meeting ID:', meetingId);
-    console.log('[AI-AGENT] Todo ID:', todoId);
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -26,8 +24,6 @@ serve(async (req) => {
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
     }
-
-    console.log('[AI-AGENT] Perplexity API key available:', !!perplexityApiKey);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -61,7 +57,6 @@ serve(async (req) => {
         const queryEmbedding = embeddingData.data[0].embedding;
 
         // Search for relevant documents using embeddings
-        console.log('[AI-AGENT] Searching for relevant documents...');
         const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
           query_embedding: `[${queryEmbedding.join(',')}]`,
           filter_document_type: 'meeting_transcript',
@@ -78,8 +73,6 @@ serve(async (req) => {
             )
             .join('\n\n---\n\n');
           contextSources = searchResults;
-        } else {
-          console.log('[AI-AGENT] No relevant context found in embeddings');
         }
       }
 
@@ -101,7 +94,7 @@ serve(async (req) => {
         .from('meetings')
         .select('id, title, created_at, summary, transcript')
         .order('created_at', { ascending: false })
-        .limit(10); // Augmenter la limite pour plus de contexte
+        .limit(10);
 
       // Récupérer les TODOs en cours
       const { data: activeTodos } = await supabase
@@ -246,15 +239,9 @@ serve(async (req) => {
           internetContext = perplexityData.choices[0].message.content;
           internetSearchPerformed = true;
           
-          // Extraire les citations/sources si disponibles
           if (perplexityData.citations && perplexityData.citations.length > 0) {
             internetSources = perplexityData.citations;
-            console.log('[AI-AGENT] Found', internetSources.length, 'internet sources');
           }
-          
-          console.log('[AI-AGENT] Internet context retrieved successfully');
-        } else {
-          console.error('[AI-AGENT] Perplexity API error:', perplexityResponse.status, await perplexityResponse.text());
         }
       } catch (error) {
         console.error('[AI-AGENT] Perplexity error:', error);
@@ -264,7 +251,7 @@ serve(async (req) => {
     // Generate contextual response with OpenAI
     console.log('[AI-AGENT] Generating response...');
     
-    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions et GÉRER LES TÂCHES.
+    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions et GÉRER LES TÂCHES avec validation utilisateur.
 
 CONTEXTE IMPORTANT :
 - Cabinet d'ophtalmologie à Genève, Suisse
@@ -279,24 +266,17 @@ STYLE DE COMMUNICATION - TRÈS IMPORTANT :
 - Maximum 3-4 phrases par paragraphe
 - Privilégie l'information actionnable
 
-CAPACITÉS PRINCIPALES:
-- Répondre aux questions générales comme n'importe quel assistant IA
-- Accéder aux transcripts COMPLETS des réunions quand demandé
-- Utiliser le contexte des réunions passées quand pertinent
-- Utiliser des informations actuelles d'internet quand pertinent
-- Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
-- Donner des informations spécifiques au marché suisse/genevois
-- CRÉER, MODIFIER et SUPPRIMER des tâches dans la base de données
+GESTION DES TÂCHES AVEC VALIDATION:
+Quand l'utilisateur demande de créer, modifier ou supprimer une tâche, tu dois :
+1. TOUJOURS proposer l'action sans l'exécuter directement
+2. Demander la validation de l'utilisateur
+3. Utiliser cette syntaxe dans ta réponse : [ACTION_TACHE: TYPE=create|update|delete|complete, ID=xxx, DESCRIPTION="...", STATUS="pending|confirmed|completed", ASSIGNED_TO="xxx", DUE_DATE="YYYY-MM-DD"]
 
-GESTION DES TÂCHES:
-Tu peux effectuer les actions suivantes sur les tâches:
-1. CRÉER: Si on te demande de créer une tâche, réponds que tu peux le faire avec les détails nécessaires
-2. MODIFIER: Si on te demande de modifier une tâche existante (tu as accès aux IDs)
-3. SUPPRIMER: Si on te demande de supprimer une tâche
-4. COMPLÉTER: Marquer une tâche comme terminée
-
-Pour les actions sur les tâches, utilise cette syntaxe dans ta réponse:
-[ACTION_TACHE: TYPE=create|update|delete|complete, ID=xxx, DESCRIPTION="...", STATUS="pending|confirmed|completed", ASSIGNED_TO="xxx"]
+Exemples d'actions :
+- Créer : [ACTION_TACHE: TYPE=create, DESCRIPTION="Former le personnel aux nouveaux équipements", ASSIGNED_TO="Dr. Martin", DUE_DATE="2024-02-15"]
+- Modifier : [ACTION_TACHE: TYPE=update, ID=123, DESCRIPTION="Nouvelle description", STATUS="confirmed"]  
+- Supprimer : [ACTION_TACHE: TYPE=delete, ID=123]
+- Terminer : [ACTION_TACHE: TYPE=complete, ID=123]
 
 INSTRUCTIONS:
 - Réponds toujours en français de manière claire et professionnelle
@@ -328,7 +308,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES (Internet) ===\n${internetCont
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        max_tokens: 2000, // Augmenter pour les transcripts complets
+        max_tokens: 2000,
         temperature: 0.2,
       }),
     });
