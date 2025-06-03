@@ -49,14 +49,14 @@ export class SynthesisAgent {
   private detectTaskAction(query: string, conversationHistory: any[]): any {
     const lowerQuery = query.toLowerCase();
     
-    // Detect task creation requests
+    // Enhanced detection for task creation requests
     if (lowerQuery.includes('crée') || lowerQuery.includes('créer') || 
         lowerQuery.includes('ajoute') || lowerQuery.includes('ajouter') ||
-        lowerQuery.includes('nouvelle tâche') || lowerQuery.includes('new task')) {
+        lowerQuery.includes('nouvelle tâche') || lowerQuery.includes('new task') ||
+        lowerQuery.includes('faire une tâche') || lowerQuery.includes('créé une tâche') ||
+        (lowerQuery.includes('tâche') && (lowerQuery.includes('pour') || lowerQuery.includes('à')))) {
       
-      if (lowerQuery.includes('tâche') || lowerQuery.includes('task')) {
-        return this.extractTaskCreationDetails(query);
-      }
+      return this.extractTaskCreationDetails(query);
     }
 
     // Detect task modification requests
@@ -77,22 +77,21 @@ export class SynthesisAgent {
   private extractTaskCreationDetails(query: string): any {
     const lowerQuery = query.toLowerCase();
     
-    // Extract description
+    // Extract description - try to find the main action
     let description = query;
-    if (lowerQuery.includes('pour ')) {
-      const parts = query.split(/pour /i);
-      if (parts.length > 1) {
-        description = parts.slice(1).join('pour ').trim();
-      }
-    }
+    
+    // Clean up the description by removing task creation keywords
+    description = description.replace(/crée une tâche|créer une tâche|ajoute une tâche|ajouter une tâche|nouvelle tâche|faire une tâche/gi, '');
+    description = description.replace(/peux tu|pourrais tu|il faut|on doit/gi, '');
+    description = description.trim();
 
-    // Extract assignee (à + name)
+    // Extract assignee (à + name or pour + name)
     let assignedTo = null;
-    const assigneeMatch = query.match(/à\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/i);
+    const assigneeMatch = query.match(/(?:à|pour)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/i);
     if (assigneeMatch) {
       assignedTo = assigneeMatch[1];
-      // Remove "à [name]" from description
-      description = description.replace(/à\s+[a-záàâäéèêëíìîïóòôöúùûüç]+/i, '').trim();
+      // Remove "à [name]" or "pour [name]" from description
+      description = description.replace(/(?:à|pour)\s+[a-záàâäéèêëíìîïóòôöúùûüç]+/i, '').trim();
     }
 
     // Extract due date if mentioned
@@ -102,10 +101,18 @@ export class SynthesisAgent {
       dueDate = dateMatch[2];
     }
 
+    // If description is still generic, extract the actual task
+    if (description.length < 10) {
+      const taskMatch = query.match(/(?:acheter|commander|vérifier|contacter|faire|préparer)\s+(.+?)(?:\s+(?:à|pour|avant|d'ici)|$)/i);
+      if (taskMatch) {
+        description = taskMatch[0];
+      }
+    }
+
     return {
       type: 'create',
       data: {
-        description: description,
+        description: description || 'Nouvelle tâche',
         assigned_to: assignedTo,
         due_date: dueDate
       }
@@ -113,7 +120,6 @@ export class SynthesisAgent {
   }
 
   private extractTaskModificationDetails(query: string): any {
-    // Implementation for task modification detection
     return {
       type: 'update',
       data: {
@@ -123,7 +129,6 @@ export class SynthesisAgent {
   }
 
   private extractTaskCompletionDetails(query: string): any {
-    // Implementation for task completion detection
     return {
       type: 'complete',
       data: {
@@ -223,7 +228,7 @@ Action détectée : ${taskAction.type}
 Détails : ${JSON.stringify(taskAction.data)}
 
 Tu DOIS inclure dans ta réponse cette syntaxe EXACTE :
-[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value}"`).join(', ')}]
+[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value || ''}"`).join(', ')}]
 
 Exemple : [ACTION_TACHE: TYPE=CREATE, description="Acheter matériel de bureau", assigned_to="Linda"]
 ` : 'Aucune action de tâche requise pour cette demande.'}
@@ -234,13 +239,13 @@ Réponds de manière professionnelle et dans le contexte OphtaCare Genève.`;
 
 ${hasContext ? `
 DONNÉES INTERNES DISPONIBLES :
-${contextData.meetings.map((m: any) => `• Réunion "${m.title}" - ${m.summary?.substring(0, 200)}...`).join('\n')}
-${contextData.chunks.map((c: any) => `• Extrait : ${c.content.substring(0, 150)}...`).join('\n')}
+${contextData.meetings.map((m: any) => `• Réunion "${m.title || 'Sans titre'}" - ${(m.summary || '').substring(0, 200)}...`).join('\n')}
+${contextData.chunks.map((c: any) => `• Extrait : ${(c.content || '').substring(0, 150)}...`).join('\n')}
 ` : ''}
 
 ${contextData.hasInternetContext ? `
 INFORMATIONS COMPLÉMENTAIRES :
-${contextData.internetContent.substring(0, 500)}...
+${(contextData.internetContent || '').substring(0, 500)}...
 ` : ''}
 
 Réponds en tant qu'assistant administratif OphtaCare et inclus l'action de tâche si nécessaire.`;
@@ -272,7 +277,7 @@ Réponds en tant qu'assistant administratif OphtaCare et inclus l'action de tâc
       
       // Fallback response with task action if applicable
       if (taskAction) {
-        const actionSyntax = `[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value}"`).join(', ')}]`;
+        const actionSyntax = `[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value || ''}"`).join(', ')}]`;
         
         if (taskAction.type === 'create') {
           return `Je vais créer cette tâche pour le cabinet OphtaCare :
