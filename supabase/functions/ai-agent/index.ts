@@ -1,5 +1,4 @@
 
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -87,12 +86,22 @@ serve(async (req) => {
       // Recherche dans les données générales de la base
       console.log('[AI-AGENT] Fetching additional context from database...');
       
-      // Récupérer les réunions récentes avec transcripts complets
+      // Vérifier si la demande concerne spécifiquement un transcript
+      const requestsTranscript = message.toLowerCase().includes('transcript') || 
+                                message.toLowerCase().includes('transcription') ||
+                                message.toLowerCase().includes('verbatim') ||
+                                message.toLowerCase().includes('conversation') ||
+                                message.toLowerCase().includes('discussion') ||
+                                message.toLowerCase().includes('dit exactement') ||
+                                message.toLowerCase().includes('mot pour mot') ||
+                                message.toLowerCase().includes('enregistrement');
+
+      // Récupérer les réunions récentes - TOUJOURS avec transcripts pour avoir accès
       const { data: recentMeetings } = await supabase
         .from('meetings')
         .select('id, title, created_at, summary, transcript')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10); // Augmenter la limite pour plus de contexte
 
       // Récupérer les TODOs en cours
       const { data: activeTodos } = await supabase
@@ -104,7 +113,7 @@ serve(async (req) => {
         `)
         .neq('status', 'completed')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       // Récupérer les participants
       const { data: participants } = await supabase
@@ -116,47 +125,58 @@ serve(async (req) => {
       let dbContext = [];
       
       if (recentMeetings && recentMeetings.length > 0) {
-        // Vérifier si la demande concerne spécifiquement un transcript
-        const requestsTranscript = message.toLowerCase().includes('transcript') || 
-                                  message.toLowerCase().includes('transcription') ||
-                                  message.toLowerCase().includes('verbatim') ||
-                                  message.toLowerCase().includes('conversation') ||
-                                  message.toLowerCase().includes('discussion');
-
         if (requestsTranscript) {
-          dbContext.push(`=== RÉUNIONS RÉCENTES AVEC TRANSCRIPTS ===\n${recentMeetings.map(m => {
-            let meetingInfo = `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})`;
+          // Fournir TOUS les transcripts complets disponibles
+          dbContext.push(`=== TRANSCRIPTS COMPLETS DES RÉUNIONS ===\n${recentMeetings.map(m => {
+            let meetingInfo = `\n[RÉUNION: ${m.title}]\nDate: ${new Date(m.created_at).toLocaleDateString('fr-FR')}\nID: ${m.id}`;
             if (m.summary) {
-              meetingInfo += `\n  Résumé: ${m.summary}`;
+              meetingInfo += `\nRésumé: ${m.summary}`;
             }
-            if (m.transcript) {
-              meetingInfo += `\n  Transcript complet: ${m.transcript}`;
+            if (m.transcript && m.transcript.trim()) {
+              meetingInfo += `\n\n--- TRANSCRIPT COMPLET ---\n${m.transcript}\n--- FIN TRANSCRIPT ---`;
             } else {
-              meetingInfo += `\n  Transcript: Non disponible`;
+              meetingInfo += `\nTranscript: Non disponible pour cette réunion`;
             }
             return meetingInfo;
-          }).join('\n\n')}`);
+          }).join('\n\n========================================\n')}`);
         } else {
-          dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => 
-            `- ${m.title} (${new Date(m.created_at).toLocaleDateString('fr-FR')})\n  Résumé: ${m.summary || 'Pas de résumé disponible'}`
-          ).join('\n')}`);
+          // Contexte normal avec résumés mais transcript disponible si mentionné
+          dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => {
+            let info = `- [${m.title}] (${new Date(m.created_at).toLocaleDateString('fr-FR')}) - ID: ${m.id}`;
+            if (m.summary) {
+              info += `\n  Résumé: ${m.summary}`;
+            }
+            // Toujours indiquer si un transcript est disponible
+            if (m.transcript && m.transcript.trim()) {
+              info += `\n  📝 Transcript complet disponible`;
+            }
+            return info;
+          }).join('\n\n')}`);
         }
       }
 
       if (activeTodos && activeTodos.length > 0) {
-        dbContext.push(`=== TÂCHES EN COURS ===\n${activeTodos.map(t => 
-          `- ${t.description} (${t.status})\n  Échéance: ${t.due_date ? new Date(t.due_date).toLocaleDateString('fr-FR') : 'Non définie'}\n  Assigné: ${t.participants?.name || 'Non assigné'}`
+        dbContext.push(`=== TÂCHES ACTIVES ===\n${activeTodos.map(t => 
+          `- [ID: ${t.id}] ${t.description} (${t.status})\n  Échéance: ${t.due_date ? new Date(t.due_date).toLocaleDateString('fr-FR') : 'Non définie'}\n  Assigné: ${t.participants?.name || 'Non assigné'}`
         ).join('\n')}`);
       }
 
       if (participants && participants.length > 0) {
         dbContext.push(`=== PARTICIPANTS ===\n${participants.map(p => 
-          `- ${p.name} (${p.email})`
+          `- [ID: ${p.id}] ${p.name} (${p.email})`
         ).join('\n')}`);
       }
 
       additionalContext = dbContext.join('\n\n');
     }
+
+    // Détection pour les actions sur les tâches
+    const taskActions = {
+      create: message.toLowerCase().includes('créer') || message.toLowerCase().includes('ajouter') || message.toLowerCase().includes('nouvelle tâche'),
+      update: message.toLowerCase().includes('modifier') || message.toLowerCase().includes('changer') || message.toLowerCase().includes('mettre à jour'),
+      delete: message.toLowerCase().includes('supprimer') || message.toLowerCase().includes('effacer'),
+      complete: message.toLowerCase().includes('terminer') || message.toLowerCase().includes('compléter') || message.toLowerCase().includes('finir')
+    };
 
     // Détection automatique pour les recherches internet
     const shouldUseInternet = message.toLowerCase().includes('recherche') ||
@@ -244,7 +264,7 @@ serve(async (req) => {
     // Generate contextual response with OpenAI
     console.log('[AI-AGENT] Generating response...');
     
-    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions, pas seulement celles liées aux réunions.
+    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions et GÉRER LES TÂCHES.
 
 CONTEXTE IMPORTANT :
 - Cabinet d'ophtalmologie à Genève, Suisse
@@ -259,13 +279,24 @@ STYLE DE COMMUNICATION - TRÈS IMPORTANT :
 - Maximum 3-4 phrases par paragraphe
 - Privilégie l'information actionnable
 
-CAPACITÉS:
+CAPACITÉS PRINCIPALES:
 - Répondre aux questions générales comme n'importe quel assistant IA
+- Accéder aux transcripts COMPLETS des réunions quand demandé
 - Utiliser le contexte des réunions passées quand pertinent
 - Utiliser des informations actuelles d'internet quand pertinent
 - Fournir des conseils spécialisés en ophtalmologie et gestion de cabinet
 - Donner des informations spécifiques au marché suisse/genevois
-- Accéder aux transcripts complets des réunions quand demandé
+- CRÉER, MODIFIER et SUPPRIMER des tâches dans la base de données
+
+GESTION DES TÂCHES:
+Tu peux effectuer les actions suivantes sur les tâches:
+1. CRÉER: Si on te demande de créer une tâche, réponds que tu peux le faire avec les détails nécessaires
+2. MODIFIER: Si on te demande de modifier une tâche existante (tu as accès aux IDs)
+3. SUPPRIMER: Si on te demande de supprimer une tâche
+4. COMPLÉTER: Marquer une tâche comme terminée
+
+Pour les actions sur les tâches, utilise cette syntaxe dans ta réponse:
+[ACTION_TACHE: TYPE=create|update|delete|complete, ID=xxx, DESCRIPTION="...", STATUS="pending|confirmed|completed", ASSIGNED_TO="xxx"]
 
 INSTRUCTIONS:
 - Réponds toujours en français de manière claire et professionnelle
@@ -277,12 +308,13 @@ INSTRUCTIONS:
 - RESTE CONCIS : évite les longues explications, privilégie l'essentiel
 - Pour tous les prix mentionnés, utilise les CHF (francs suisses)
 - Si tu utilises des informations d'internet, mentionne-le naturellement dans ta réponse
-- Si tu utilises des sources internes (documents, réunions), mentionne clairement les documents consultés
-- Si on te demande un transcript, fournis-le intégralement si disponible
+- Si tu utilises des sources internes (documents, réunions), mentionne clairement les documents consultés avec leur ID
+- Si on te demande un transcript, fournis-le INTÉGRALEMENT si disponible
+- Pour les transcripts, cite toujours l'ID de la réunion et sa date
 
-${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS/DOCUMENTS ===\n${relevantContext}\n` : ''}
-${additionalContext ? `\n=== CONTEXTE GÉNÉRAL DE LA BASE ===\n${additionalContext}\n` : ''}
-${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : ''}`;
+${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS/DOCUMENTS (Embeddings) ===\n${relevantContext}\n` : ''}
+${additionalContext ? `\n=== DONNÉES COMPLÈTES DE LA BASE ===\n${additionalContext}\n` : ''}
+${internetContext ? `\n=== INFORMATIONS ACTUELLES (Internet) ===\n${internetContext}\n` : ''}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -296,7 +328,7 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES ===\n${internetContext}\n` : '
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        max_tokens: 1500,
+        max_tokens: 2000, // Augmenter pour les transcripts complets
         temperature: 0.2,
       }),
     });
