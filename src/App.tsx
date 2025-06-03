@@ -20,6 +20,7 @@ import AuthCallback from "./pages/AuthCallback";
 import NotApproved from "./pages/NotApproved";
 import NotFound from "./pages/NotFound";
 import Invoices from "./pages/Invoices";
+import UserManagement from "./pages/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="assistant" element={<Assistant />} />
               <Route path="documents" element={<Documents />} />
               <Route path="invoices" element={<Invoices />} />
+              <Route path="users" element={<UserManagement />} />
               <Route path="profile" element={<Profile />} />
             </Route>
             <Route path="*" element={<NotFound />} />

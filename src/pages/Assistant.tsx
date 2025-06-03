@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +46,7 @@ const Assistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingTaskAction, setPendingTaskAction] = useState<TaskAction | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -57,6 +57,25 @@ const Assistant = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name, email")
+        .eq("approved", true)
+        .order("name");
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
+    }
+  };
 
   const parseTaskAction = (content: string): TaskAction | null => {
     const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,]+),\s*(.+?)\]/);
@@ -73,7 +92,17 @@ const Assistant = () => {
       const [key, value] = param.split('=').map(s => s.trim());
       if (key && value) {
         const cleanValue = value.replace(/^["']|["']$/g, '');
-        data[key.toLowerCase() as keyof TaskAction['data']] = cleanValue;
+        
+        // If it's assigned_to, try to find the user ID by name
+        if (key.toLowerCase() === 'assigned_to') {
+          const user = users.find(u => 
+            u.name.toLowerCase().includes(cleanValue.toLowerCase()) ||
+            u.email.toLowerCase().includes(cleanValue.toLowerCase())
+          );
+          data[key.toLowerCase() as keyof TaskAction['data']] = user ? user.id : cleanValue;
+        } else {
+          data[key.toLowerCase() as keyof TaskAction['data']] = cleanValue;
+        }
       }
     });
 
@@ -168,9 +197,12 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
+      // Include users list in the context for the AI
+      const contextMessage = `${inputMessage}\n\nCONTEXT_UTILISATEURS: ${users.map(u => `${u.name} (${u.email}, ID: ${u.id})`).join(', ')}`;
+      
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          message: inputMessage
+          message: contextMessage
         }
       });
 

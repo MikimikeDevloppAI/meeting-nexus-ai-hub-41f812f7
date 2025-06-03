@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Calendar, User, FileText } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 interface TaskAction {
   type: 'create' | 'update' | 'delete' | 'complete';
@@ -34,6 +36,29 @@ interface TaskValidationDialogProps {
 
 const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onReject }: TaskValidationDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [assignedUserName, setAssignedUserName] = useState<string>("");
+
+  useEffect(() => {
+    if (taskAction?.data.assigned_to) {
+      fetchUserName(taskAction.data.assigned_to);
+    }
+  }, [taskAction]);
+
+  const fetchUserName = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("name")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+      setAssignedUserName(data?.name || "Utilisateur inconnu");
+    } catch (error) {
+      console.error("Error fetching user name:", error);
+      setAssignedUserName("Utilisateur inconnu");
+    }
+  };
 
   if (!taskAction) return null;
 
@@ -133,7 +158,7 @@ const TaskValidationDialog = ({ isOpen, onClose, taskAction, onValidate, onRejec
             {taskAction.data.assigned_to && (
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Assigné à: {taskAction.data.assigned_to}</span>
+                <span className="text-sm">Assigné à: {assignedUserName}</span>
               </div>
             )}
             
