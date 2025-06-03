@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -107,11 +106,13 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<
   try {
     console.log('🔄 Converting PDF to base64...');
     
-    // Convert blob to base64
+    // Convert blob to array buffer then to base64
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
+    const base64 = btoa(binaryString);
 
-    console.log('📤 Uploading PDF to PDF.co...');
+    console.log(`📤 Uploading PDF to PDF.co (${base64.length} chars)...`);
 
     // Upload file to PDF.co
     const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload/base64', {
@@ -126,15 +127,19 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<
       }),
     });
 
+    console.log(`📤 Upload response status: ${uploadResponse.status}`);
+    
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Upload error response:', errorText);
+      throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+    }
+
     const uploadData = await uploadResponse.json();
     console.log('PDF.co upload response:', uploadData);
 
-    if (!uploadResponse.ok || uploadData.error) {
-      throw new Error(`Upload failed: ${uploadData.message || uploadResponse.statusText}`);
-    }
-
-    if (!uploadData.url) {
-      throw new Error('Upload failed - no URL returned');
+    if (uploadData.error || !uploadData.url) {
+      throw new Error(`Upload failed: ${uploadData.message || 'No URL returned'}`);
     }
 
     console.log('📤 PDF uploaded successfully, extracting text...');
@@ -148,22 +153,28 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<
       },
       body: JSON.stringify({
         url: uploadData.url,
-        async: false
+        async: false,
+        pages: "",
+        password: ""
       }),
     });
 
+    console.log(`📄 Extract response status: ${extractResponse.status}`);
+
+    if (!extractResponse.ok) {
+      const errorText = await extractResponse.text();
+      console.error('Extract error response:', errorText);
+      throw new Error(`Text extraction failed: ${extractResponse.status} - ${errorText}`);
+    }
+
     const extractData = await extractResponse.json();
-    console.log('PDF.co extract response:', extractData);
+    console.log('PDF.co extract response success:', extractData.error === false);
 
-    if (!extractResponse.ok || extractData.error) {
-      throw new Error(`Text extraction failed: ${extractData.message || extractResponse.statusText}`);
+    if (extractData.error || !extractData.body) {
+      throw new Error(`Text extraction failed: ${extractData.message || 'No text extracted'}`);
     }
 
-    if (!extractData.body) {
-      throw new Error('No text extracted from PDF');
-    }
-
-    console.log('✅ PDF text extracted successfully');
+    console.log(`✅ PDF text extracted successfully (${extractData.body.length} chars)`);
     return extractData.body;
 
   } catch (error) {
