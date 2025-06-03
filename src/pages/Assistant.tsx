@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,35 +95,59 @@ const Assistant = () => {
   };
 
   const parseTaskAction = (content: string): TaskAction | null => {
-    const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,]+),\s*(.+?)\]/);
-    if (!actionMatch) return null;
+    console.log('Parsing task action from content:', content);
+    
+    // Improved regex to handle malformed syntax
+    const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,\]]+)(?:,\s*(.+?))?\]/s);
+    if (!actionMatch) {
+      console.log('No action match found');
+      return null;
+    }
 
-    const type = actionMatch[1] as TaskAction['type'];
-    const paramsStr = actionMatch[2];
+    const type = actionMatch[1].trim() as TaskAction['type'];
+    const paramsStr = actionMatch[2] || '';
+    
+    console.log('Found action type:', type);
+    console.log('Params string:', paramsStr);
     
     const data: TaskAction['data'] = {};
     
-    // Parse parameters
-    const params = paramsStr.split(',').map(p => p.trim());
-    params.forEach(param => {
-      const [key, value] = param.split('=').map(s => s.trim());
-      if (key && value) {
-        const cleanValue = value.replace(/^["']|["']$/g, '');
+    if (paramsStr) {
+      // Handle both key="value" and key=value formats
+      const paramRegex = /(\w+)=(?:"([^"]*)"|([^,\]]+))/g;
+      let match;
+      
+      while ((match = paramRegex.exec(paramsStr)) !== null) {
+        const key = match[1].toLowerCase();
+        const value = match[2] || match[3] || '';
         
-        // If it's assigned_to, try to find the user ID by name
-        if (key.toLowerCase() === 'assigned_to') {
+        console.log(`Found param: ${key} = ${value}`);
+        
+        // Handle assigned_to specially - try to find user by name first
+        if (key === 'assigned_to') {
+          const lowerValue = value.toLowerCase();
           const user = users.find(u => 
-            u.name.toLowerCase().includes(cleanValue.toLowerCase()) ||
-            u.email.toLowerCase().includes(cleanValue.toLowerCase())
+            u.name.toLowerCase().includes(lowerValue) ||
+            u.email.toLowerCase().includes(lowerValue) ||
+            lowerValue.includes(u.name.toLowerCase())
           );
-          data[key.toLowerCase() as keyof TaskAction['data']] = user ? user.id : cleanValue;
+          
+          if (user) {
+            console.log(`Found user for assignment: ${user.name} (${user.id})`);
+            data[key as keyof TaskAction['data']] = user.id;
+          } else {
+            console.log(`No user found for: ${value}, keeping as text`);
+            data[key as keyof TaskAction['data']] = value;
+          }
         } else {
-          data[key.toLowerCase() as keyof TaskAction['data']] = cleanValue;
+          data[key as keyof TaskAction['data']] = value;
         }
       }
-    });
+    }
 
-    return { type, data };
+    const taskAction = { type, data };
+    console.log('Final parsed task action:', taskAction);
+    return taskAction;
   };
 
   const executeTaskAction = async (action: TaskAction) => {
@@ -238,13 +263,15 @@ const Assistant = () => {
         throw error;
       }
 
+      console.log('[ASSISTANT] Response data:', data);
+
       // Parse task action from response
       const taskAction = parseTaskAction(data.response);
       
       // Clean the response content by removing the action syntax
       let cleanContent = data.response;
       if (taskAction) {
-        cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '').trim();
+        cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
       }
 
       const aiMessage: Message = {
@@ -263,6 +290,7 @@ const Assistant = () => {
 
       // If there's a task action, show validation dialog
       if (taskAction) {
+        console.log('[ASSISTANT] Found task action, opening dialog:', taskAction);
         setPendingTaskAction(taskAction);
         setIsTaskDialogOpen(true);
       }
@@ -297,6 +325,8 @@ const Assistant = () => {
 
   const handleTaskValidation = (action: TaskAction) => {
     executeTaskAction(action);
+    setIsTaskDialogOpen(false);
+    setPendingTaskAction(null);
   };
 
   const handleTaskRejection = () => {
@@ -312,6 +342,9 @@ const Assistant = () => {
       title: "Action annulée",
       description: "L'action sur la tâche a été annulée.",
     });
+    
+    setIsTaskDialogOpen(false);
+    setPendingTaskAction(null);
   };
 
   return (
@@ -328,7 +361,7 @@ const Assistant = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              <CardTitle>Assistant OphtaCare Enhanced</CardTitle>
+              <CardTitle>Assistant OphtaCare</CardTitle>
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -388,6 +421,17 @@ const Assistant = () => {
                                message.taskAction.type === 'delete' ? 'Supprimer tâche' :
                                'Terminer tâche'}
                             </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setPendingTaskAction(message.taskAction!);
+                                setIsTaskDialogOpen(true);
+                              }}
+                              className="ml-2"
+                            >
+                              Valider
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -488,7 +532,10 @@ const Assistant = () => {
 
       <TaskValidationDialog
         isOpen={isTaskDialogOpen}
-        onClose={() => setIsTaskDialogOpen(false)}
+        onClose={() => {
+          setIsTaskDialogOpen(false);
+          setPendingTaskAction(null);
+        }}
         taskAction={pendingTaskAction}
         onValidate={handleTaskValidation}
         onReject={handleTaskRejection}
