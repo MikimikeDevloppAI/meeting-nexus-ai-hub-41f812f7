@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,6 @@ interface SearchFilters {
 
 const Documents = () => {
   const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
-  const [chatDocument, setChatDocument] = useState<UploadedDocument | null>(null);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,6 +55,12 @@ const Documents = () => {
       return data as UploadedDocument[];
     }
   });
+
+  // Get the first processed document for default chat
+  const defaultChatDocument = useMemo(() => {
+    if (!documents) return null;
+    return documents.find(doc => doc.processed && doc.extracted_text) || null;
+  }, [documents]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -309,135 +315,128 @@ const Documents = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Documents List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Documents Uploadés 
-              {filteredDocuments.length !== documents?.length && (
-                <span className="text-sm font-normal text-muted-foreground ml-2">
-                  ({filteredDocuments.length} sur {documents?.length} documents)
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription>
-              Liste de vos documents avec traitement automatique par IA et texte extrait.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="ml-2">Chargement...</span>
-              </div>
-            ) : !documents || documents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Aucun document uploadé pour le moment
-              </div>
-            ) : filteredDocuments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Aucun document ne correspond à votre recherche
-              </div>
-            ) : (
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
-                  {filteredDocuments.map((document) => (
-                    <div
-                      key={document.id}
-                      className="border rounded-lg p-4 space-y-3"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FileText className="h-4 w-4" />
-                            <h3 className="font-medium">
-                              {document.ai_generated_name || document.original_name}
-                            </h3>
-                            {document.processed ? (
-                              <Badge variant="default" className="bg-green-500">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Traité
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-blue-500 text-white">
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                En traitement...
-                              </Badge>
+        {/* Documents List - Full width when no chat */}
+        <div className={defaultChatDocument ? "lg:col-span-1" : "lg:col-span-2"}>
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                Documents Uploadés 
+                {filteredDocuments.length !== documents?.length && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    ({filteredDocuments.length} sur {documents?.length} documents)
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Liste de vos documents avec traitement automatique par IA et texte extrait.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Chargement...</span>
+                </div>
+              ) : !documents || documents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun document uploadé pour le moment
+                </div>
+              ) : filteredDocuments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun document ne correspond à votre recherche
+                </div>
+              ) : (
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-4">
+                    {filteredDocuments.map((document) => (
+                      <div
+                        key={document.id}
+                        className="border rounded-lg p-4 space-y-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="h-4 w-4" />
+                              <h3 className="font-medium">
+                                {document.ai_generated_name || document.original_name}
+                              </h3>
+                              {document.processed ? (
+                                <Badge variant="default" className="bg-green-500">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Traité
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-blue-500 text-white">
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  En traitement...
+                                </Badge>
+                              )}
+                              {document.extracted_text && (
+                                <Badge variant="outline" className="bg-purple-50">
+                                  <FileSearch className="h-3 w-3 mr-1" />
+                                  Texte extrait
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
+                              <p className="text-sm text-muted-foreground mb-2">
+                                Nom original: {document.original_name}
+                              </p>
                             )}
-                            {document.extracted_text && (
-                              <Badge variant="outline" className="bg-purple-50">
-                                <FileSearch className="h-3 w-3 mr-1" />
-                                Texte extrait
-                              </Badge>
-                            )}
+                            
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>{formatFileSize(document.file_size)}</span>
+                              <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
+                              {document.content_type && <span>{document.content_type}</span>}
+                              {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
+                            </div>
                           </div>
                           
-                          {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
-                            <p className="text-sm text-muted-foreground mb-2">
-                              Nom original: {document.original_name}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{formatFileSize(document.file_size)}</span>
-                            <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
-                            {document.content_type && <span>{document.content_type}</span>}
-                            {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
+                          <div className="flex items-center gap-2">
+                            {document.extracted_text && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedDocument(document)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadDocument(document)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteMutation.mutate(document)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
-                          {document.processed && document.extracted_text && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setChatDocument(document)}
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {document.extracted_text && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedDocument(document)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadDocument(document)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteMutation.mutate(document)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <ProcessingResults document={document} />
                       </div>
-                      
-                      <ProcessingResults document={document} />
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Document Chat */}
-        {chatDocument && (
+        {/* Document Chat - Always visible if there's a processed document */}
+        {defaultChatDocument && (
           <div className="lg:col-span-1">
             <DocumentChat 
-              document={chatDocument}
-              onClose={() => setChatDocument(null)}
+              document={defaultChatDocument}
+              onClose={() => {}}
             />
           </div>
         )}
