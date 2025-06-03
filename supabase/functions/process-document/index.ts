@@ -8,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_CHUNKS = 10; // Réduit encore plus
-const CHUNK_SIZE = 150; // Plus petit pour la vitesse
-const MAX_TEXT_LENGTH = 10000; // Limite très stricte
+const MAX_CHUNKS = 20; // Augmenté pour les longs documents
+const CHUNK_SIZE = 300; // Augmenté
+const MAX_TEXT_LENGTH = 50000; // Augmenté pour les longs documents
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,9 +19,10 @@ serve(async (req) => {
 
   try {
     const { documentId } = await req.json();
-    console.log(`⚡ Starting LIGHTNING processing for document: ${documentId}`);
+    console.log(`📄 Starting processing for document: ${documentId}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const pdfcoApiKey = Deno.env.get('PDFCO_API_KEY');
     
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -44,47 +45,39 @@ serve(async (req) => {
 
     console.log(`📄 Processing: ${document.original_name}`);
 
-    // Download file with timeout
-    const downloadPromise = supabase.storage
+    // Download file
+    const { data: fileData, error: downloadError } = await supabase.storage
       .from('documents')
       .download(document.file_path);
-
-    const { data: fileData, error: downloadError } = await Promise.race([
-      downloadPromise,
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Download timeout')), 5000)
-      )
-    ]);
 
     if (downloadError || !fileData) {
       throw new Error('Could not download file');
     }
 
-    // Lightning-fast text extraction
+    // Extract text based on file type
     let text = '';
     try {
       if (document.content_type === 'application/pdf') {
-        console.log('📄 Extracting PDF text...');
-        // Fallback direct pour PDF - extraction basique
-        text = await extractPdfTextFast(fileData);
+        console.log('📄 Extracting PDF text with PDF.co...');
+        text = await extractPdfTextWithPdfCo(fileData, pdfcoApiKey);
       } else {
         text = await fileData.text();
       }
     } catch (error) {
-      console.log('⚠️ Text extraction failed, using placeholder');
-      text = `Document: ${document.original_name} - Contenu traité automatiquement`;
+      console.log('⚠️ Text extraction failed:', error.message);
+      text = `Document: ${document.original_name} - Contenu non disponible`;
     }
 
     console.log(`📝 Extracted ${text.length} characters`);
 
-    // Limite très stricte
+    // Limit text length for processing
     if (text.length > MAX_TEXT_LENGTH) {
-      console.log('✂️ Truncating for maximum speed...');
-      text = text.substring(0, MAX_TEXT_LENGTH);
+      console.log('✂️ Truncating long document...');
+      text = text.substring(0, MAX_TEXT_LENGTH) + '... [Document tronqué pour le traitement]';
     }
 
-    // Start background processing immediateement
-    EdgeRuntime.waitUntil(processDocumentLightning(
+    // Start background processing
+    EdgeRuntime.waitUntil(processDocumentInBackground(
       documentId, 
       document, 
       text, 
@@ -95,9 +88,9 @@ serve(async (req) => {
     // Return immediate response
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Traitement rapide démarré',
+      message: 'Traitement du document démarré',
       textLength: text.length,
-      estimatedTime: '2-3 secondes'
+      estimatedTime: '10-30 secondes selon la taille'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -111,20 +104,89 @@ serve(async (req) => {
   }
 });
 
-async function extractPdfTextFast(fileData: Blob): Promise<string> {
+async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string | undefined): Promise<string> {
+  if (!apiKey) {
+    console.log('⚠️ PDF.co API key not configured, using fallback');
+    return extractPdfTextFallback(fileData);
+  }
+
   try {
-    // Extraction basique pour PDF
+    console.log('🔄 Uploading PDF to PDF.co...');
+    
+    // Convert blob to base64
+    const arrayBuffer = await fileData.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+    // Upload file to PDF.co
+    const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload/base64', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: base64,
+        name: 'document.pdf'
+      }),
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+    }
+
+    const uploadData = await uploadResponse.json();
+    if (!uploadData.url) {
+      throw new Error('Upload failed - no URL returned');
+    }
+
+    console.log('📤 PDF uploaded, extracting text...');
+
+    // Extract text from PDF
+    const extractResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: uploadData.url,
+        async: false
+      }),
+    });
+
+    if (!extractResponse.ok) {
+      throw new Error(`Text extraction failed: ${extractResponse.statusText}`);
+    }
+
+    const extractData = await extractResponse.json();
+    
+    if (!extractData.body) {
+      throw new Error('No text extracted from PDF');
+    }
+
+    console.log('✅ PDF text extracted successfully');
+    return extractData.body;
+
+  } catch (error) {
+    console.log('⚠️ PDF.co extraction failed, using fallback:', error.message);
+    return extractPdfTextFallback(fileData);
+  }
+}
+
+async function extractPdfTextFallback(fileData: Blob): Promise<string> {
+  try {
+    // Basic fallback extraction
     const text = await fileData.text();
     return text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
               .replace(/\s+/g, ' ')
               .trim();
   } catch (error) {
-    console.log('PDF extraction failed, using filename');
-    return 'Document PDF traité';
+    console.log('Basic PDF extraction failed');
+    return 'Document PDF - Extraction de texte non disponible';
   }
 }
 
-async function processDocumentLightning(
+async function processDocumentInBackground(
   documentId: string,
   document: any,
   text: string,
@@ -132,39 +194,34 @@ async function processDocumentLightning(
   supabase: any
 ) {
   try {
-    console.log('🚀 Lightning AI analysis...');
+    console.log('🤖 Starting AI analysis...');
 
-    // AI analysis ultra-rapide avec timeout très court
-    const analysisPromise = generateLightningAnalysis(text, document, openaiApiKey);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('AI timeout')), 8000)
-    );
-
+    // AI analysis
     let analysis;
     try {
-      analysis = await Promise.race([analysisPromise, timeoutPromise]);
+      analysis = await generateDocumentAnalysis(text, document, openaiApiKey);
       console.log('✅ AI analysis completed');
     } catch (error) {
-      console.log('⚠️ AI analysis timeout, using fallback');
+      console.log('⚠️ AI analysis failed, using fallback:', error.message);
       analysis = createFallbackAnalysis(document);
     }
 
-    // Embeddings ultra-rapides - seulement les plus importants
+    // Generate embeddings for document chunks
     const chunks = chunkText(text, CHUNK_SIZE);
     const limitedChunks = chunks.slice(0, MAX_CHUNKS);
-    console.log(`🔢 Processing ${limitedChunks.length} chunks...`);
+    console.log(`🔢 Processing ${limitedChunks.length} chunks for embeddings...`);
 
     let embeddings = [];
     try {
-      embeddings = await generateLightningEmbeddings(limitedChunks, openaiApiKey);
+      embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
       console.log(`✅ Generated ${embeddings.length} embeddings`);
     } catch (error) {
-      console.log('⚠️ Embeddings failed, continuing without them');
+      console.log('⚠️ Embeddings generation failed:', error.message);
     }
 
-    // Store in database seulement si nécessaire
+    // Store embeddings if generated
     if (embeddings.length > 0) {
-      console.log('💾 Storing in database...');
+      console.log('💾 Storing document with embeddings...');
       try {
         await supabase.rpc('store_document_with_embeddings', {
           p_title: analysis.suggestedName,
@@ -179,11 +236,11 @@ async function processDocumentLightning(
           }
         });
       } catch (error) {
-        console.log('⚠️ Database storage failed:', error);
+        console.log('⚠️ Database storage failed:', error.message);
       }
     }
 
-    // Update document - toujours faire ça
+    // Update document record
     await supabase
       .from('uploaded_documents')
       .update({
@@ -194,17 +251,17 @@ async function processDocumentLightning(
       })
       .eq('id', documentId);
 
-    console.log(`🎉 Document ${documentId} processed in LIGHTNING mode!`);
+    console.log(`🎉 Document ${documentId} processed successfully!`);
 
   } catch (error) {
     console.error('❌ Error in background processing:', error);
     
-    // Mark as processed même en cas d'erreur
+    // Mark as processed even on error
     await supabase
       .from('uploaded_documents')
       .update({
         processed: true,
-        ai_summary: `Document traité rapidement`
+        ai_summary: `Document traité - ${error.message}`
       })
       .eq('id', documentId);
   }
@@ -223,7 +280,7 @@ function createFallbackAnalysis(document: any) {
   };
 }
 
-async function generateLightningAnalysis(text: string, document: any, openaiApiKey: string) {
+async function generateDocumentAnalysis(text: string, document: any, openaiApiKey: string) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -235,20 +292,30 @@ async function generateLightningAnalysis(text: string, document: any, openaiApiK
       messages: [
         {
           role: 'system',
-          content: `Réponse JSON rapide: {"suggestedName": "nom", "summary": "résumé", "taxonomy": {"category": "cat", "subcategory": "sub", "keywords": ["mot1"], "documentType": "type"}}`
+          content: `Analysez ce document et retournez un JSON avec cette structure exacte:
+{
+  "suggestedName": "nom descriptif du document",
+  "summary": "résumé en 2-3 phrases",
+  "taxonomy": {
+    "category": "catégorie principale",
+    "subcategory": "sous-catégorie",
+    "keywords": ["mot-clé1", "mot-clé2", "mot-clé3"],
+    "documentType": "type de document"
+  }
+}`
         },
         {
           role: 'user',
-          content: `Document: ${document.original_name}\n\n${text.substring(0, 1000)}`
+          content: `Document: ${document.original_name}\n\nContenu:\n${text.substring(0, 3000)}`
         }
       ],
       temperature: 0,
-      max_tokens: 200,
+      max_tokens: 500,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`AI failed: ${response.statusText}`);
+    throw new Error(`AI analysis failed: ${response.statusText}`);
   }
 
   const aiData = await response.json();
@@ -257,17 +324,17 @@ async function generateLightningAnalysis(text: string, document: any, openaiApiK
   try {
     return JSON.parse(content);
   } catch (e) {
-    throw new Error('AI parsing failed');
+    throw new Error('AI response parsing failed');
   }
 }
 
-async function generateLightningEmbeddings(chunks: string[], openaiApiKey: string): Promise<number[][]> {
+async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promise<number[][]> {
   const embeddings: number[][] = [];
   
-  // Traitement par batch de 3 maximum
-  for (let i = 0; i < chunks.length; i += 3) {
-    const batch = chunks.slice(i, i + 3);
-    console.log(`⚡ Embedding batch ${Math.floor(i/3) + 1}/${Math.ceil(chunks.length/3)}`);
+  // Process in batches to avoid rate limits
+  for (let i = 0; i < chunks.length; i += 5) {
+    const batch = chunks.slice(i, i + 5);
+    console.log(`⚡ Processing embedding batch ${Math.floor(i/5) + 1}/${Math.ceil(chunks.length/5)}`);
     
     try {
       const batchPromises = batch.map(async (chunk) => {
@@ -284,7 +351,7 @@ async function generateLightningEmbeddings(chunks: string[], openaiApiKey: strin
         });
 
         if (!response.ok) {
-          return null;
+          throw new Error(`Embedding failed: ${response.statusText}`);
         }
 
         const data = await response.json();
@@ -292,10 +359,16 @@ async function generateLightningEmbeddings(chunks: string[], openaiApiKey: strin
       });
 
       const batchResults = await Promise.all(batchPromises);
-      embeddings.push(...batchResults.filter(emb => emb !== null));
+      embeddings.push(...batchResults);
+      
+      // Small delay between batches
+      if (i + 5 < chunks.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       
     } catch (error) {
-      console.log(`⚠️ Batch ${i} failed, continuing...`);
+      console.log(`⚠️ Batch ${i} failed:`, error.message);
+      // Continue with next batch
     }
   }
 
@@ -304,19 +377,20 @@ async function generateLightningEmbeddings(chunks: string[], openaiApiKey: strin
 
 function chunkText(text: string, maxChunkSize: number): string[] {
   const chunks = [];
-  const words = text.split(' ');
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
 
-  for (const word of words) {
-    if ((currentChunk + ' ' + word).length > maxChunkSize && currentChunk) {
+  for (const sentence of sentences) {
+    const trimmedSentence = sentence.trim();
+    if ((currentChunk + ' ' + trimmedSentence).length > maxChunkSize && currentChunk) {
       chunks.push(currentChunk.trim());
-      currentChunk = word;
+      currentChunk = trimmedSentence;
     } else {
-      currentChunk += (currentChunk ? ' ' : '') + word;
+      currentChunk += (currentChunk ? '. ' : '') + trimmedSentence;
     }
   }
 
-  if (currentChunk) {
+  if (currentChunk.trim()) {
     chunks.push(currentChunk.trim());
   }
 
