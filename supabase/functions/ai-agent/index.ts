@@ -30,52 +30,93 @@ serve(async (req) => {
 
     // Generate embedding for the user's message
     console.log('[AI-AGENT] Generating embedding for context search...');
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: message,
-      }),
-    });
-
     let documentContext = '';
     let documentSources = [];
     let hasEmbeddingContext = false;
 
-    if (embeddingResponse.ok) {
+    try {
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small',
+          input: message,
+        }),
+      });
+
+      if (!embeddingResponse.ok) {
+        const errorText = await embeddingResponse.text();
+        console.error('[AI-AGENT] Embedding generation failed:', errorText);
+        throw new Error(`Embedding API error: ${embeddingResponse.status}`);
+      }
+
       const embeddingData = await embeddingResponse.json();
       const queryEmbedding = embeddingData.data[0].embedding;
+      console.log(`[AI-AGENT] ✅ Embedding generated (${queryEmbedding.length} dimensions)`);
 
-      // Search in document embeddings with cosine similarity
-      console.log('[AI-AGENT] Searching in document embeddings...');
+      // Search in document embeddings with lower threshold for better recall
+      console.log('[AI-AGENT] Searching in document embeddings with threshold 0.5...');
       const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
         query_embedding: queryEmbedding,
-        match_threshold: 0.7,
+        match_threshold: 0.5,
         match_count: 5
       });
 
-      if (!searchError && searchResults && searchResults.length > 0) {
-        console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
+      if (searchError) {
+        console.error('[AI-AGENT] ❌ Embedding search RPC error:', searchError);
+        
+        // Fallback: try with lower threshold
+        console.log('[AI-AGENT] Trying fallback search with threshold 0.3...');
+        const { data: fallbackResults, error: fallbackError } = await supabase.rpc('search_document_embeddings', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.3,
+          match_count: 3
+        });
+
+        if (!fallbackError && fallbackResults && fallbackResults.length > 0) {
+          console.log(`[AI-AGENT] ✅ Fallback search found ${fallbackResults.length} results`);
+          hasEmbeddingContext = true;
+          documentContext = fallbackResults
+            .map(result => {
+              console.log(`[AI-AGENT] 📄 Found chunk from ${result.document_type}: similarity=${result.similarity.toFixed(3)}`);
+              return `Document: ${result.metadata?.title || result.document_type}\nContenu: ${result.chunk_text}`;
+            })
+            .join('\n\n');
+          
+          documentSources = fallbackResults.map(result => ({
+            type: 'document_embedding',
+            title: result.metadata?.title || result.document_type,
+            similarity: result.similarity,
+            chunk_index: result.chunk_index
+          }));
+        } else {
+          console.log('[AI-AGENT] ❌ Fallback search also failed:', fallbackError);
+        }
+      } else if (searchResults && searchResults.length > 0) {
+        console.log(`[AI-AGENT] ✅ Primary search found ${searchResults.length} relevant document chunks`);
         hasEmbeddingContext = true;
         documentContext = searchResults
-          .map(result => `Document: ${result.metadata?.title || 'Document'}\nContenu: ${result.chunk_text}`)
+          .map(result => {
+            console.log(`[AI-AGENT] 📄 Found chunk from ${result.document_type}: similarity=${result.similarity.toFixed(3)}`);
+            return `Document: ${result.metadata?.title || result.document_type}\nContenu: ${result.chunk_text}`;
+          })
           .join('\n\n');
         
         documentSources = searchResults.map(result => ({
           type: 'document_embedding',
-          title: result.metadata?.title || 'Document',
+          title: result.metadata?.title || result.document_type,
           similarity: result.similarity,
           chunk_index: result.chunk_index
         }));
       } else {
-        console.log('[AI-AGENT] No relevant document chunks found in embeddings');
+        console.log('[AI-AGENT] ⚠️ No relevant document chunks found in embeddings (threshold too high?)');
       }
-    } else {
-      console.log('[AI-AGENT] Failed to generate embedding');
+
+    } catch (embeddingError) {
+      console.error('[AI-AGENT] ❌ Embedding process failed:', embeddingError.message);
     }
 
     // Fetch additional context from database
@@ -109,18 +150,21 @@ serve(async (req) => {
     let todoContext = '';
     
     if (meetings && meetings.length > 0) {
+      console.log(`[AI-AGENT] 📋 Found ${meetings.length} meetings with transcripts`);
       meetingContext = `TRANSCRIPTS DES RÉUNIONS:\n${meetings.map(m => 
         `Réunion: ${m.title} (${new Date(m.created_at).toLocaleDateString()})\n${m.transcript ? `Transcript: ${m.transcript.substring(0, 1000)}...` : `Résumé: ${m.summary || 'Pas de résumé'}`}`
       ).join('\n\n')}\n\n`;
     }
 
     if (documents && documents.length > 0) {
+      console.log(`[AI-AGENT] 📁 Found ${documents.length} documents with extracted text`);
       documentTextContext = `DOCUMENTS AVEC TEXTE EXTRAIT:\n${documents.map(d => 
         `Document: ${d.ai_generated_name || d.original_name}\nTexte: ${d.extracted_text ? d.extracted_text.substring(0, 1000) + '...' : 'Pas de texte extrait'}`
       ).join('\n\n')}\n\n`;
     }
 
     if (todos && todos.length > 0) {
+      console.log(`[AI-AGENT] ✅ Found ${todos.length} todos`);
       todoContext = `TÂCHES:\n${todos.map(t => 
         `- [${t.status}] ${t.description}${t.due_date ? ` (échéance: ${new Date(t.due_date).toLocaleDateString()})` : ''}`
       ).join('\n')}\n\n`;
@@ -165,23 +209,26 @@ serve(async (req) => {
           internetContext = perplexityData.choices[0]?.message?.content || '';
           hasInternetContext = true;
           internetSources = [{ type: 'internet', source: 'Perplexity AI', query: message }];
-          console.log('[AI-AGENT] Internet search completed');
+          console.log('[AI-AGENT] ✅ Internet search completed');
         }
       } catch (error) {
-        console.error('[AI-AGENT] Internet search error:', error);
+        console.error('[AI-AGENT] ❌ Internet search error:', error);
       }
+    } else if (hasEmbeddingContext) {
+      console.log('[AI-AGENT] 🎯 Using embedding context, skipping internet search');
     }
 
     // Generate response using OpenAI with proper context prioritization
     console.log('[AI-AGENT] Generating response...');
+    console.log(`[AI-AGENT] Context summary: Embeddings=${hasEmbeddingContext ? 'YES' : 'NO'}, Meetings=${meetings?.length || 0}, Docs=${documents?.length || 0}, Internet=${hasInternetContext ? 'YES' : 'NO'}`);
     
     let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information dans cet ordre de priorité STRICT:
 
-1. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${hasEmbeddingContext ? 'Informations trouvées dans les documents' : 'Aucune information trouvée'}
-2. **TRANSCRIPTS DE RÉUNIONS** : Conversations complètes des réunions
-3. **TEXTE EXTRAIT DES DOCUMENTS** : Contenu complet des documents uploadés
-4. **TÂCHES ET DONNÉES INTERNES** : État des tâches et activités
-5. **RECHERCHE INTERNET** : ${hasInternetContext ? 'Utilisée en dernier recours' : 'Non utilisée'}
+1. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${hasEmbeddingContext ? `✅ ${documentSources.length} chunks trouvés` : '❌ Aucune information trouvée'}
+2. **TRANSCRIPTS DE RÉUNIONS** : ${meetings?.length || 0} réunions disponibles
+3. **TEXTE EXTRAIT DES DOCUMENTS** : ${documents?.length || 0} documents disponibles
+4. **TÂCHES ET DONNÉES INTERNES** : ${todos?.length || 0} tâches
+5. **RECHERCHE INTERNET** : ${hasInternetContext ? '✅ Utilisée en dernier recours' : '❌ Non utilisée'}
 
 RÈGLES STRICTES:
 - Utilise EN PRIORITÉ ABSOLUE les informations des embeddings de documents si disponibles
@@ -195,23 +242,23 @@ RÈGLES STRICTES:
 CONTEXTE DISPONIBLE:`;
 
     if (hasEmbeddingContext && documentContext) {
-      systemPrompt += `\n\n**DOCUMENTS PERTINENTS (EMBEDDINGS - PRIORITÉ 1):**\n${documentContext}`;
+      systemPrompt += `\n\n**🎯 DOCUMENTS PERTINENTS (EMBEDDINGS - PRIORITÉ 1):**\n${documentContext}`;
     }
 
     if (meetingContext) {
-      systemPrompt += `\n\n**TRANSCRIPTS DE RÉUNIONS:**\n${meetingContext}`;
+      systemPrompt += `\n\n**📋 TRANSCRIPTS DE RÉUNIONS:**\n${meetingContext}`;
     }
 
     if (documentTextContext) {
-      systemPrompt += `\n\n**TEXTE EXTRAIT DES DOCUMENTS:**\n${documentTextContext}`;
+      systemPrompt += `\n\n**📁 TEXTE EXTRAIT DES DOCUMENTS:**\n${documentTextContext}`;
     }
 
     if (todoContext) {
-      systemPrompt += `\n\n**TÂCHES ET ACTIVITÉS:**\n${todoContext}`;
+      systemPrompt += `\n\n**✅ TÂCHES ET ACTIVITÉS:**\n${todoContext}`;
     }
 
     if (internetContext && !hasEmbeddingContext) {
-      systemPrompt += `\n\n**INFORMATIONS INTERNET (DERNIER RECOURS):**\n${internetContext}`;
+      systemPrompt += `\n\n**🌐 INFORMATIONS INTERNET (DERNIER RECOURS):**\n${internetContext}`;
     }
 
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -238,7 +285,7 @@ CONTEXTE DISPONIBLE:`;
     const chatData = await chatResponse.json();
     const response = chatData.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
 
-    console.log('[AI-AGENT] Response generated successfully');
+    console.log('[AI-AGENT] ✅ Response generated successfully');
 
     return new Response(JSON.stringify({ 
       response,
@@ -256,7 +303,7 @@ CONTEXTE DISPONIBLE:`;
     });
 
   } catch (error) {
-    console.error('[AI-AGENT] Error:', error);
+    console.error('[AI-AGENT] ❌ Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
