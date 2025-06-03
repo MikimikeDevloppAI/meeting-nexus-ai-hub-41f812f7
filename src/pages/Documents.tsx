@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -313,7 +314,7 @@ const Documents = () => {
         />
       )}
 
-      {/* Documents List - Full width */}
+      {/* Documents List */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>
@@ -381,13 +382,6 @@ const Documents = () => {
                             Nom original: {document.original_name}
                           </p>
                         )}
-                        
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{formatFileSize(document.file_size)}</span>
-                          <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
-                          {document.content_type && <span>{document.content_type}</span>}
-                          {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
-                        </div>
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -419,6 +413,23 @@ const Documents = () => {
                     </div>
                     
                     <ProcessingResults document={document} />
+                    
+                    {/* Document Chat integrated here */}
+                    {document.processed && document.extracted_text && (
+                      <div className="mt-4 border-t pt-4">
+                        <DocumentChat 
+                          document={document}
+                          onClose={() => {}}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>{formatFileSize(document.file_size)}</span>
+                      <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
+                      {document.content_type && <span>{document.content_type}</span>}
+                      {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -426,16 +437,6 @@ const Documents = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Document Chat - Full width below documents list */}
-      {defaultChatDocument && (
-        <div className="w-full">
-          <DocumentChat 
-            document={defaultChatDocument}
-            onClose={() => {}}
-          />
-        </div>
-      )}
 
       {/* Text Preview Dialog */}
       {selectedDocument && (
