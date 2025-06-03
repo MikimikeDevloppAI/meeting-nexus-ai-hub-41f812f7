@@ -1,5 +1,5 @@
 
-import React, { ReactNode } from "react";
+import React from "react";
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -14,18 +14,14 @@ import {
   SidebarHeader
 } from "@/components/ui/sidebar";
 import { Calendar, MessageSquare, FileAudio, CheckSquare, Upload, User, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Logo } from "@/components/Logo";
 
-interface AppLayoutProps {
-  children: ReactNode;
-}
-
-export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
 
@@ -44,6 +40,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       title: "Assistant IA",
       url: "/assistant",
       icon: MessageSquare,
+    },
+    {
+      title: "Documents",
+      url: "/documents",
+      icon: Upload,
     },
     {
       title: "Factures",
@@ -108,7 +109,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
           </header>
           <main className="flex-1 p-6 overflow-auto">
-            {children}
+            <Outlet />
           </main>
         </div>
         <Toaster />
