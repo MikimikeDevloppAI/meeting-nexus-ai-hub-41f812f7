@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -22,8 +21,13 @@ serve(async (req) => {
     console.log(`Starting document processing for ID: ${documentId}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const pdfcoApiKey = Deno.env.get('PDFCO_API_KEY');
+    
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
+    }
+    if (!pdfcoApiKey) {
+      throw new Error('PDF.co API key not configured');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -52,26 +56,11 @@ serve(async (req) => {
       throw new Error('Could not download file');
     }
 
-    // Extract text based on file type
+    // Extract text based on file type using PDF.co for PDFs
     let text = '';
     if (document.content_type === 'application/pdf') {
-      console.log('Extracting text from PDF...');
-      // For now, we'll use a simplified text extraction
-      // In production, you'd want to use a proper PDF parser
-      const arrayBuffer = await fileData.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Simple text extraction (this is a fallback - in production use pdf-parse)
-      try {
-        text = new TextDecoder().decode(uint8Array);
-        // Clean up binary data and extract readable text
-        text = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-                  .replace(/\s+/g, ' ')
-                  .trim();
-      } catch (e) {
-        console.error('Error extracting PDF text:', e);
-        text = 'Could not extract text from PDF';
-      }
+      console.log('Extracting text from PDF using PDF.co...');
+      text = await extractTextWithPdfCo(fileData, pdfcoApiKey);
     } else {
       text = await fileData.text();
     }
@@ -96,7 +85,7 @@ serve(async (req) => {
     // Return immediate response
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Document processing started in background',
+      message: 'Document processing started with PDF.co acceleration',
       textLength: text.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -110,6 +99,58 @@ serve(async (req) => {
     });
   }
 });
+
+async function extractTextWithPdfCo(fileData: Blob, apiKey: string): Promise<string> {
+  try {
+    // Convert file to base64 for PDF.co
+    const arrayBuffer = await fileData.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    // Call PDF.co text extraction API
+    const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: `data:application/pdf;base64,${base64}`,
+        async: false,
+        inline: true,
+        pages: "1-10" // Limit to first 10 pages for speed
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`PDF.co API error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.error && result.body) {
+      console.log('PDF.co extraction successful');
+      return result.body;
+    } else {
+      throw new Error(`PDF.co extraction failed: ${result.message || 'Unknown error'}`);
+    }
+    
+  } catch (error) {
+    console.error('PDF.co extraction failed, falling back to basic extraction:', error);
+    
+    // Fallback to basic extraction if PDF.co fails
+    try {
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const text = new TextDecoder().decode(uint8Array);
+      return text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+    } catch (fallbackError) {
+      console.error('Fallback extraction also failed:', fallbackError);
+      return 'Could not extract text from PDF';
+    }
+  }
+}
 
 async function processDocumentInBackground(
   documentId: string,

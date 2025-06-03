@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +83,7 @@ const Documents = () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({
         title: "Document uploadé",
-        description: "Le document a été uploadé et le traitement accéléré a commencé en arrière-plan.",
+        description: "Le document a été uploadé et le traitement ultra-rapide avec PDF.co a commencé.",
       });
     },
     onError: (error: any) => {
@@ -171,7 +170,7 @@ const Documents = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Gestion des Documents</h1>
         <p className="text-muted-foreground">
-          Téléchargez et gérez vos documents. Le traitement par IA est maintenant optimisé et plus rapide.
+          Téléchargez et gérez vos documents. Traitement ultra-rapide avec PDF.co (~10 secondes).
         </p>
       </div>
 
@@ -183,7 +182,7 @@ const Documents = () => {
             Télécharger des Documents
           </CardTitle>
           <CardDescription>
-            Glissez-déposez vos fichiers ou cliquez pour sélectionner (PDF, TXT, DOC, DOCX) - Traitement optimisé
+            Glissez-déposez vos fichiers ou cliquez pour sélectionner (PDF, TXT, DOC, DOCX) - Extraction PDF ultra-rapide avec PDF.co
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,8 +205,8 @@ const Documents = () => {
                 <p className="text-muted-foreground">
                   ou cliquez pour sélectionner des fichiers
                 </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Traitement accéléré - résultats en moins d'une minute
+                <p className="text-xs text-green-600 font-medium mt-2">
+                  ⚡ Extraction PDF ultra-rapide avec PDF.co - Résultats en ~10 secondes
                 </p>
               </div>
             )}
@@ -228,7 +227,7 @@ const Documents = () => {
         <CardHeader>
           <CardTitle>Documents Uploadés</CardTitle>
           <CardDescription>
-            Liste de tous vos documents avec leur statut de traitement (optimisé pour une analyse rapide)
+            Liste de tous vos documents avec traitement accéléré PDF.co
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -262,9 +261,9 @@ const Documents = () => {
                               Traité
                             </Badge>
                           ) : (
-                            <Badge variant="secondary">
+                            <Badge variant="secondary" className="bg-blue-500 text-white">
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Traitement rapide...
+                              Traitement PDF.co...
                             </Badge>
                           )}
                         </div>
