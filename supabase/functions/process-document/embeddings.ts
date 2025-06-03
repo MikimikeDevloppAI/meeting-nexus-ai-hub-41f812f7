@@ -7,13 +7,16 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
   console.log(`🔢 Generating embeddings for ${chunks.length} chunks...`);
   
   // Process in smaller batches to avoid rate limits and ensure reliability
-  for (let i = 0; i < chunks.length; i += 2) {
-    const batch = chunks.slice(i, i + 2);
-    console.log(`⚡ Processing embedding batch ${Math.floor(i/2) + 1}/${Math.ceil(chunks.length/2)}`);
+  const batchSize = 1; // Process one at a time for better reliability
+  
+  for (let i = 0; i < chunks.length; i += batchSize) {
+    const batch = chunks.slice(i, i + batchSize);
+    console.log(`⚡ Processing embedding batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(chunks.length/batchSize)}`);
     
     try {
       const batchPromises = batch.map(async (chunk, batchIndex) => {
-        console.log(`🔸 Generating embedding for chunk ${i + batchIndex + 1}: "${chunk.substring(0, 100)}..."`);
+        const globalIndex = i + batchIndex + 1;
+        console.log(`🔸 Generating embedding for chunk ${globalIndex}: "${chunk.substring(0, 100)}..."`);
         
         const response = await fetch('https://api.openai.com/v1/embeddings', {
           method: 'POST',
@@ -29,16 +32,17 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`❌ Embedding API error for chunk ${i + batchIndex + 1}:`, errorText);
+          console.error(`❌ Embedding API error for chunk ${globalIndex}:`, errorText);
           throw new Error(`Embedding failed: ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
         if (!data.data || !data.data[0] || !data.data[0].embedding) {
+          console.error(`❌ Invalid embedding response for chunk ${globalIndex}:`, data);
           throw new Error('Invalid embedding response structure');
         }
         
-        console.log(`✅ Generated embedding for chunk ${i + batchIndex + 1} (${data.data[0].embedding.length} dimensions)`);
+        console.log(`✅ Generated embedding for chunk ${globalIndex} (${data.data[0].embedding.length} dimensions)`);
         return data.data[0].embedding;
       });
 
@@ -46,16 +50,20 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
       embeddings.push(...batchResults);
       
       // Delay between batches to respect rate limits
-      if (i + 2 < chunks.length) {
+      if (i + batchSize < chunks.length) {
         console.log('⏱️ Waiting between batches...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
     } catch (error) {
-      console.error(`❌ Batch ${Math.floor(i/2) + 1} failed:`, error.message);
-      // Continue with next batch instead of failing completely
-      console.log('⚠️ Continuing with next batch...');
+      console.error(`❌ Batch ${Math.floor(i/batchSize) + 1} failed:`, error.message);
+      // Instead of continuing, we'll throw to ensure proper error handling
+      throw new Error(`Embedding generation failed at batch ${Math.floor(i/batchSize) + 1}: ${error.message}`);
     }
+  }
+
+  if (embeddings.length === 0) {
+    throw new Error('No embeddings were generated');
   }
 
   console.log(`✅ Successfully generated ${embeddings.length} embeddings out of ${chunks.length} chunks`);

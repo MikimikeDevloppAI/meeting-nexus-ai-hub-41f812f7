@@ -11,9 +11,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_CHUNKS = 25;
+const MAX_CHUNKS = 20;
 const CHUNK_SIZE = 350;
-const MAX_TEXT_LENGTH = 60000;
+const MAX_TEXT_LENGTH = 50000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -148,27 +148,6 @@ async function processDocumentInBackground(
     const limitedChunks = chunks.slice(0, MAX_CHUNKS);
     console.log(`🔢 Created ${limitedChunks.length} chunks for embeddings (limited from ${chunks.length})`);
 
-    // Generate embeddings
-    let embeddings = [];
-    let embeddingsSuccess = false;
-    try {
-      if (limitedChunks.length > 0) {
-        console.log('🔄 Starting embeddings generation...');
-        embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
-        
-        if (embeddings.length > 0) {
-          console.log(`✅ Generated ${embeddings.length} embeddings successfully`);
-          embeddingsSuccess = true;
-        } else {
-          console.log('⚠️ No embeddings were generated');
-        }
-      } else {
-        console.log('⚠️ No chunks available for embedding generation');
-      }
-    } catch (error) {
-      console.error('❌ Embeddings generation failed:', error);
-    }
-
     // Prepare comprehensive metadata
     const completeMetadata = {
       documentId: documentId,
@@ -180,42 +159,65 @@ async function processDocumentInBackground(
       processedAt: new Date().toISOString(),
       textLength: text.length,
       chunksGenerated: limitedChunks.length,
-      embeddingsGenerated: embeddings.length,
-      embeddingsSuccess: embeddingsSuccess,
-      processingVersion: '2.0',
+      processingVersion: '2.1',
       ...analysis.taxonomy
     };
 
-    // Store embeddings if successful
-    if (embeddingsSuccess && embeddings.length > 0 && embeddings.length === limitedChunks.length) {
-      console.log('💾 Storing document with embeddings in vector database...');
-      try {
-        const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
-          p_title: analysis.suggestedName,
-          p_type: 'uploaded_document',
-          p_content: text,
-          p_chunks: limitedChunks,
-          p_embeddings: embeddings,
-          p_metadata: completeMetadata
-        });
+    // Generate embeddings
+    let embeddings = [];
+    let embeddingsSuccess = false;
+    let vectorDocumentId = null;
 
-        if (storeError) {
-          console.error('❌ Vector storage failed:', storeError);
-          throw storeError;
+    try {
+      if (limitedChunks.length > 0) {
+        console.log('🔄 Starting embeddings generation...');
+        embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
+        
+        if (embeddings.length > 0 && embeddings.length === limitedChunks.length) {
+          console.log(`✅ Generated ${embeddings.length} embeddings successfully`);
+          
+          // Store embeddings if successful
+          console.log('💾 Storing document with embeddings in vector database...');
+          try {
+            const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
+              p_title: analysis.suggestedName,
+              p_type: 'uploaded_document',
+              p_content: text,
+              p_chunks: limitedChunks,
+              p_embeddings: embeddings,
+              p_metadata: completeMetadata
+            });
+
+            if (storeError) {
+              console.error('❌ Vector storage failed:', storeError);
+              throw storeError;
+            }
+            
+            console.log('✅ Document stored in vector database with ID:', storedDocId);
+            vectorDocumentId = storedDocId;
+            embeddingsSuccess = true;
+            
+          } catch (error) {
+            console.error('❌ Vector database storage failed:', error);
+            completeMetadata.vectorStorageError = error.message;
+          }
+        } else {
+          console.log('⚠️ Embeddings count mismatch or empty');
+          completeMetadata.embeddingsMismatch = true;
         }
-        
-        console.log('✅ Document stored in vector database with ID:', storedDocId);
-        completeMetadata.vectorDocumentId = storedDocId;
-        
-      } catch (error) {
-        console.error('❌ Vector database storage failed:', error);
-        embeddingsSuccess = false;
-        completeMetadata.vectorStorageError = error.message;
+      } else {
+        console.log('⚠️ No chunks available for embedding generation');
+        completeMetadata.noChunksAvailable = true;
       }
-    } else {
-      console.log('⚠️ Skipping vector storage due to embedding issues');
-      completeMetadata.vectorStorageSkipped = true;
+    } catch (error) {
+      console.error('❌ Embeddings generation failed:', error);
+      completeMetadata.embeddingsError = error.message;
     }
+
+    // Add final status to metadata
+    completeMetadata.embeddingsGenerated = embeddings.length;
+    completeMetadata.embeddingsSuccess = embeddingsSuccess;
+    completeMetadata.vectorDocumentId = vectorDocumentId;
 
     // CRITICAL: Always update the uploaded_documents table with ALL metadata
     console.log('📝 Updating uploaded_documents table with complete processing results...');
@@ -253,7 +255,7 @@ async function processDocumentInBackground(
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.0'
+            processingVersion: '2.1'
           }
         })
         .eq('id', documentId);
