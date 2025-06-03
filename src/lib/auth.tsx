@@ -28,41 +28,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    let mounted = true;
+
     const checkUser = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        console.log("Checking initial auth session...");
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          if (mounted) {
+            setUser(null);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user && mounted) {
+          console.log("Found existing session for user:", session.user.id);
           // Get user profile with approval status
-          const { data: userProfile, error } = await supabase
+          const { data: userProfile, error: profileError } = await supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
 
-          if (error) {
-            console.error("Error fetching user profile:", error);
-            setUser(null);
-            return; // Don't navigate yet, let the app handle routing
-          } else {
-            if (!userProfile?.approved) {
-              toast({
-                title: "Account pending approval",
-                description: "Your account is waiting for admin approval.",
-                variant: "destructive",
-              });
-              await supabase.auth.signOut();
+          if (profileError) {
+            console.error("Error fetching user profile:", profileError);
+            if (mounted) {
               setUser(null);
-              navigate("/login");
-            } else {
-              setUser(userProfile as User);
+              setIsLoading(false);
             }
+            return;
+          }
+
+          if (!userProfile?.approved) {
+            console.log("User not approved, signing out");
+            toast({
+              title: "Compte en attente",
+              description: "Votre compte attend l'approbation de l'administrateur.",
+              variant: "destructive",
+            });
+            await supabase.auth.signOut();
+            if (mounted) {
+              setUser(null);
+              setIsLoading(false);
+              navigate("/login");
+            }
+          } else {
+            console.log("User approved, setting user state");
+            if (mounted) {
+              setUser(userProfile as User);
+              setIsLoading(false);
+            }
+          }
+        } else {
+          console.log("No existing session found");
+          if (mounted) {
+            setUser(null);
+            setIsLoading(false);
           }
         }
       } catch (error) {
         console.error("Auth check error:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setUser(null);
+          setIsLoading(false);
+        }
       }
     };
 
@@ -73,41 +105,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         console.log("Auth state changed:", event, session?.user?.id);
         
+        if (!mounted) return;
+        
         if (event === "SIGNED_IN" && session) {
-          // Delay fetching user profile to avoid potential deadlocks
-          setTimeout(async () => {
-            try {
-              // Get user profile with approval status
-              const { data: userProfile, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+          try {
+            // Get user profile with approval status
+            const { data: userProfile, error } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-              if (error) {
-                console.error("Error fetching user profile:", error);
+            if (error) {
+              console.error("Error fetching user profile:", error);
+              setUser(null);
+              navigate("/login");
+            } else {
+              if (!userProfile?.approved) {
+                toast({
+                  title: "Compte en attente",
+                  description: "Votre compte attend l'approbation de l'administrateur.",
+                  variant: "destructive",
+                });
+                await supabase.auth.signOut();
                 setUser(null);
                 navigate("/login");
               } else {
-                if (!userProfile?.approved) {
-                  toast({
-                    title: "Account pending approval",
-                    description: "Your account is waiting for admin approval.",
-                    variant: "destructive",
-                  });
-                  await supabase.auth.signOut();
-                  setUser(null);
-                  navigate("/login");
-                } else {
-                  setUser(userProfile as User);
-                  // Explicitly navigate to meetings page on sign in
-                  navigate("/meetings");
-                }
+                setUser(userProfile as User);
+                navigate("/assistant");
               }
-            } catch (error) {
-              console.error("Error in auth state change handler:", error);
             }
-          }, 0);
+          } catch (error) {
+            console.error("Error in auth state change handler:", error);
+            setUser(null);
+            navigate("/login");
+          }
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           navigate("/login");
@@ -115,8 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Clean up subscription
+    // Clean up subscription and mounted flag
     return () => {
+      mounted = false;
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
       }
@@ -144,8 +177,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!userProfile.approved) {
         toast({
-          title: "Account pending approval",
-          description: "Your account is waiting for admin approval.",
+          title: "Compte en attente",
+          description: "Votre compte attend l'approbation de l'administrateur.",
           variant: "destructive",
         });
         await supabase.auth.signOut();
@@ -153,15 +186,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       toast({
-        title: "Welcome back!",
-        description: "You've successfully signed in.",
+        title: "Connexion réussie !",
+        description: "Vous êtes maintenant connecté.",
       });
-      navigate("/meetings");
+      navigate("/assistant");
     } catch (error: any) {
       console.error("Sign in error:", error);
       toast({
-        title: "Error signing in",
-        description: error.message || "Please try again",
+        title: "Erreur de connexion",
+        description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
     } finally {
@@ -194,15 +227,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileError) throw profileError;
 
       toast({
-        title: "Account created",
-        description: "Your account is pending admin approval.",
+        title: "Compte créé",
+        description: "Votre compte attend l'approbation de l'administrateur.",
       });
       navigate("/login");
     } catch (error: any) {
       console.error("Sign up error:", error);
       toast({
-        title: "Error signing up",
-        description: error.message || "Please try again",
+        title: "Erreur d'inscription",
+        description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
     } finally {
@@ -216,15 +249,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
       setUser(null);
       toast({
-        title: "Signed out",
-        description: "You've been successfully signed out.",
+        title: "Déconnexion",
+        description: "Vous avez été déconnecté avec succès.",
       });
       navigate("/login");
     } catch (error: any) {
       console.error("Sign out error:", error);
       toast({
-        title: "Error signing out",
-        description: error.message || "Please try again",
+        title: "Erreur de déconnexion",
+        description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
     } finally {
