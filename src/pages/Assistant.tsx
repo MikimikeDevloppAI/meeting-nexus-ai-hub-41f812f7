@@ -37,7 +37,7 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n• ⚡ **Synthèse** : Évaluation critique et réponses complètes\n\nJe peux maintenant :\n• Comprendre \"clim\" et chercher \"climatisation\", \"air conditionné\", etc.\n• Extraire des sections spécifiques (ex: passages sur \"Mr Fischer\")\n• Faire des recherches en plusieurs itérations pour être plus précis\n• Fournir des réponses plus complètes et contextuelles\n\nQue puis-je faire pour vous ?",
+      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n\nQue puis-je faire pour vous ?",
       isUser: false,
       timestamp: new Date(),
     }
@@ -81,7 +81,7 @@ const Assistant = () => {
     setMessages([
       {
         id: '1',
-        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n• ⚡ **Synthèse** : Évaluation critique et réponses complètes\n\nJe peux maintenant :\n• Comprendre \"clim\" et chercher \"climatisation\", \"air conditionné\", etc.\n• Extraire des sections spécifiques (ex: passages sur \"Mr Fischer\")\n• Faire des recherches en plusieurs itérations pour être plus précis\n• Fournir des réponses plus complètes et contextuelles\n\nQue puis-je faire pour vous ?",
+        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n\nQue puis-je faire pour vous ?",
         isUser: false,
         timestamp: new Date(),
       }
@@ -340,14 +340,6 @@ const Assistant = () => {
                 <Trash2 className="h-4 w-4" />
                 Effacer
               </Button>
-              <Badge variant="outline" className="text-xs">
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Agents intelligents v2
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                <Globe className="h-3 w-3 mr-1" />
-                Recherche itérative
-              </Badge>
             </div>
           </div>
           <CardDescription>
@@ -475,7 +467,7 @@ const Assistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="L'assistant comprend maintenant mieux le contexte : 'clim', 'Mr Fischer', 'dernière réunion'..."
+              placeholder=""
               disabled={isLoading}
               className="flex-1"
             />
@@ -490,10 +482,6 @@ const Assistant = () => {
                 <Send className="h-4 w-4" />
               )}
             </Button>
-          </div>
-
-          <div className="mt-2 text-xs text-muted-foreground">
-            💡 Nouvelles capacités: Recherche sémantique ("clim" → "climatisation"), extraction ciblée ("partie sur Mr Fischer"), recherche itérative intelligente
           </div>
         </CardContent>
       </Card>
