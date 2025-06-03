@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -110,23 +111,35 @@ serve(async (req) => {
 
     console.log('Participant list for OpenAI:', participantList);
 
-    // Step 1: Clean the transcript
-    const cleanPrompt = `Tu es un assistant IA spécialisé dans le nettoyage de transcripts de réunions. 
+    // Step 1: Clean the transcript with the new specialized prompt
+    const cleanPrompt = `Tu es un assistant IA spécialisé dans la réécriture de transcripts de réunions automatiques, cette une réunion d'un cabinet ophtalmologique à genève. 
 
 PARTICIPANTS DE LA RÉUNION:
 ${participantList}
 
-Tu dois nettoyer le transcript et retourner UNIQUEMENT le transcript nettoyé, sans autre texte.
+Tu dois réécrire le transcript pour qu'il soit cohérent et compréhensible. Retourne UNIQUEMENT le transcript réécrit, sans autre texte.
 
-INSTRUCTIONS:
-1. Corrige toutes les erreurs de français (grammaire, orthographe, conjugaison)
-2. Supprime les mots de remplissage inutiles (euh, hum, ben, etc.)
-3. Remplace les références génériques (Speaker A, Speaker B, Speaker 1, Speaker 2, etc.) par les vrais noms des participants listés ci-dessus
-4. Utilise le contexte de la conversation pour déterminer qui parle
-5. Améliore la fluidité du texte tout en gardant le sens original
-6. Formate avec des paragraphes clairs, un nom par ligne de dialogue
+INSTRUCTIONS PRIORITAIRES:
+1. **Correction intelligente des mots** : Si un mot n'a pas de sens dans le contexte, devine le mot réel qui a probablement été dit (erreur de reconnaissance vocale)
+2. **Synthèse intelligente** : Résume les passages répétitifs ou sans valeur ajoutée tout en gardant l'essentiel
+3. **Cohérence** : Assure-toi que chaque phrase a du sens et est compréhensible
+4. **Contextualisation** : Utilise le contexte de la conversation pour corriger les incompréhensions
+5. **Identification des interlocuteurs** : Remplace les références génériques (Speaker A, Speaker B, etc.) par les  noms fournis dans la liste des  participants
+6. **Élimination du superflu** : Supprime les mots de remplissage, répétitions inutiles, et passages sans contenu informatif
 
-Transcript à nettoyer:
+RÈGLES SPÉCIFIQUES:
+- Si un mot semble être une erreur de reconnaissance vocale, replace-le par ce qui a logiquement été dit
+- Condense les longues explications répétitives en phrases claires et concises  
+- Garde tous les points importants, décisions, et informations factuelles
+- Améliore la grammaire et la syntaxe française
+- Structure avec des paragraphes clairs et des noms d'interlocuteurs
+- Privilégie la clarté et l'efficacité sans perdre le sens original
+
+EXEMPLE DE TRANSFORMATION:
+❌ "Alors euh, ben comme je disais, le truc de la clim, ben c'est que... euh... on a parlé avec le, comment il s'appelle déjà, le gars de la maintenance"
+✅ "Concernant la climatisation, nous avons discuté avec le technicien de maintenance"
+
+Transcript à réécrire:
 ${transcriptToProcess}`;
 
     console.log('Sending transcript cleaning request to OpenAI...');
@@ -143,7 +156,7 @@ ${transcriptToProcess}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans le nettoyage de transcripts. Tu retournes UNIQUEMENT le transcript nettoyé.'
+            content: 'Tu es un assistant spécialisé dans la réécriture de transcripts de réunions pour cabinet ophtalmologique. Tu retournes UNIQUEMENT le transcript réécrit et cohérent.'
           },
           {
             role: 'user',
