@@ -8,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_CHUNKS = 20; // Augmenté pour les longs documents
-const CHUNK_SIZE = 300; // Augmenté
-const MAX_TEXT_LENGTH = 50000; // Augmenté pour les longs documents
+const MAX_CHUNKS = 30;
+const CHUNK_SIZE = 400;
+const MAX_TEXT_LENGTH = 80000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -26,6 +26,10 @@ serve(async (req) => {
     
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
+    }
+
+    if (!pdfcoApiKey) {
+      throw new Error('PDF.co API key not configured');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -56,16 +60,11 @@ serve(async (req) => {
 
     // Extract text based on file type
     let text = '';
-    try {
-      if (document.content_type === 'application/pdf') {
-        console.log('📄 Extracting PDF text with PDF.co...');
-        text = await extractPdfTextWithPdfCo(fileData, pdfcoApiKey);
-      } else {
-        text = await fileData.text();
-      }
-    } catch (error) {
-      console.log('⚠️ Text extraction failed:', error.message);
-      text = `Document: ${document.original_name} - Contenu non disponible`;
+    if (document.content_type === 'application/pdf') {
+      console.log('📄 Extracting PDF text with PDF.co...');
+      text = await extractPdfTextWithPdfCo(fileData, pdfcoApiKey);
+    } else {
+      text = await fileData.text();
     }
 
     console.log(`📝 Extracted ${text.length} characters`);
@@ -104,18 +103,15 @@ serve(async (req) => {
   }
 });
 
-async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string | undefined): Promise<string> {
-  if (!apiKey) {
-    console.log('⚠️ PDF.co API key not configured, using fallback');
-    return extractPdfTextFallback(fileData);
-  }
-
+async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<string> {
   try {
-    console.log('🔄 Uploading PDF to PDF.co...');
+    console.log('🔄 Converting PDF to base64...');
     
     // Convert blob to base64
     const arrayBuffer = await fileData.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+    console.log('📤 Uploading PDF to PDF.co...');
 
     // Upload file to PDF.co
     const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload/base64', {
@@ -130,16 +126,18 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string | undefine
       }),
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+    const uploadData = await uploadResponse.json();
+    console.log('PDF.co upload response:', uploadData);
+
+    if (!uploadResponse.ok || uploadData.error) {
+      throw new Error(`Upload failed: ${uploadData.message || uploadResponse.statusText}`);
     }
 
-    const uploadData = await uploadResponse.json();
     if (!uploadData.url) {
       throw new Error('Upload failed - no URL returned');
     }
 
-    console.log('📤 PDF uploaded, extracting text...');
+    console.log('📤 PDF uploaded successfully, extracting text...');
 
     // Extract text from PDF
     const extractResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
@@ -154,12 +152,13 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string | undefine
       }),
     });
 
-    if (!extractResponse.ok) {
-      throw new Error(`Text extraction failed: ${extractResponse.statusText}`);
+    const extractData = await extractResponse.json();
+    console.log('PDF.co extract response:', extractData);
+
+    if (!extractResponse.ok || extractData.error) {
+      throw new Error(`Text extraction failed: ${extractData.message || extractResponse.statusText}`);
     }
 
-    const extractData = await extractResponse.json();
-    
     if (!extractData.body) {
       throw new Error('No text extracted from PDF');
     }
@@ -168,21 +167,8 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string | undefine
     return extractData.body;
 
   } catch (error) {
-    console.log('⚠️ PDF.co extraction failed, using fallback:', error.message);
-    return extractPdfTextFallback(fileData);
-  }
-}
-
-async function extractPdfTextFallback(fileData: Blob): Promise<string> {
-  try {
-    // Basic fallback extraction
-    const text = await fileData.text();
-    return text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-  } catch (error) {
-    console.log('Basic PDF extraction failed');
-    return 'Document PDF - Extraction de texte non disponible';
+    console.error('❌ PDF.co extraction failed:', error);
+    throw new Error(`PDF extraction failed: ${error.message}`);
   }
 }
 
@@ -200,9 +186,9 @@ async function processDocumentInBackground(
     let analysis;
     try {
       analysis = await generateDocumentAnalysis(text, document, openaiApiKey);
-      console.log('✅ AI analysis completed');
+      console.log('✅ AI analysis completed:', analysis);
     } catch (error) {
-      console.log('⚠️ AI analysis failed, using fallback:', error.message);
+      console.error('❌ AI analysis failed:', error);
       analysis = createFallbackAnalysis(document);
     }
 
@@ -261,7 +247,7 @@ async function processDocumentInBackground(
       .from('uploaded_documents')
       .update({
         processed: true,
-        ai_summary: `Document traité - ${error.message}`
+        ai_summary: `Erreur de traitement: ${error.message}`
       })
       .eq('id', documentId);
   }
@@ -270,17 +256,19 @@ async function processDocumentInBackground(
 function createFallbackAnalysis(document: any) {
   return {
     suggestedName: document.original_name.replace(/\.[^/.]+$/, ""),
-    summary: "Document traité automatiquement",
+    summary: "Document traité automatiquement - analyse détaillée non disponible",
     taxonomy: {
       category: "Document",
       subcategory: "Fichier",
       keywords: ["document"],
-      documentType: "Fichier"
+      documentType: "Fichier uploadé"
     }
   };
 }
 
 async function generateDocumentAnalysis(text: string, document: any, openaiApiKey: string) {
+  console.log('🤖 Calling OpenAI for document analysis...');
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -292,38 +280,61 @@ async function generateDocumentAnalysis(text: string, document: any, openaiApiKe
       messages: [
         {
           role: 'system',
-          content: `Analysez ce document et retournez un JSON avec cette structure exacte:
+          content: `Tu es un expert en analyse de documents. Analysez ce document et retournez UNIQUEMENT un JSON valide avec cette structure exacte (pas de texte avant ou après le JSON):
 {
-  "suggestedName": "nom descriptif du document",
-  "summary": "résumé en 2-3 phrases",
+  "suggestedName": "nom descriptif et professionnel du document",
+  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal",
   "taxonomy": {
-    "category": "catégorie principale",
-    "subcategory": "sous-catégorie",
-    "keywords": ["mot-clé1", "mot-clé2", "mot-clé3"],
-    "documentType": "type de document"
+    "category": "catégorie principale du document",
+    "subcategory": "sous-catégorie spécifique",
+    "keywords": ["mot-clé1", "mot-clé2", "mot-clé3", "mot-clé4"],
+    "documentType": "type précis du document"
   }
 }`
         },
         {
           role: 'user',
-          content: `Document: ${document.original_name}\n\nContenu:\n${text.substring(0, 3000)}`
+          content: `Analysez ce document:
+
+Nom du fichier: ${document.original_name}
+
+Contenu du document:
+${text.substring(0, 4000)}${text.length > 4000 ? '...' : ''}
+
+Retournez UNIQUEMENT le JSON de l'analyse.`
         }
       ],
-      temperature: 0,
-      max_tokens: 500,
+      temperature: 0.3,
+      max_tokens: 800,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`AI analysis failed: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('OpenAI API error:', errorText);
+    throw new Error(`AI analysis failed: ${response.status} ${response.statusText}`);
   }
 
   const aiData = await response.json();
-  const content = aiData.choices[0].message.content;
+  const content = aiData.choices[0].message.content.trim();
+  
+  console.log('OpenAI response content:', content);
 
   try {
-    return JSON.parse(content);
+    // Try to extract JSON from the response if there's extra text
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? jsonMatch[0] : content;
+    
+    const parsed = JSON.parse(jsonString);
+    
+    // Validate the structure
+    if (!parsed.suggestedName || !parsed.summary || !parsed.taxonomy) {
+      throw new Error('Invalid AI response structure');
+    }
+    
+    return parsed;
   } catch (e) {
+    console.error('AI response parsing failed:', e, 'Content:', content);
     throw new Error('AI response parsing failed');
   }
 }
@@ -332,9 +343,9 @@ async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promi
   const embeddings: number[][] = [];
   
   // Process in batches to avoid rate limits
-  for (let i = 0; i < chunks.length; i += 5) {
-    const batch = chunks.slice(i, i + 5);
-    console.log(`⚡ Processing embedding batch ${Math.floor(i/5) + 1}/${Math.ceil(chunks.length/5)}`);
+  for (let i = 0; i < chunks.length; i += 3) {
+    const batch = chunks.slice(i, i + 3);
+    console.log(`⚡ Processing embedding batch ${Math.floor(i/3) + 1}/${Math.ceil(chunks.length/3)}`);
     
     try {
       const batchPromises = batch.map(async (chunk) => {
@@ -362,8 +373,8 @@ async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promi
       embeddings.push(...batchResults);
       
       // Small delay between batches
-      if (i + 5 < chunks.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      if (i + 3 < chunks.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
       
     } catch (error) {
