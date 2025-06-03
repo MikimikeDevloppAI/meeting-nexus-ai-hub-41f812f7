@@ -34,18 +34,27 @@ export class CoordinatorAgent {
   async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
     console.log('[COORDINATOR] Analyzing query with semantic expansion:', message.substring(0, 100));
 
-    const analysisPrompt = `Tu es un coordinateur intelligent pour OphtaCare (cabinet d'ophtalmologie du Dr Tabibian).
-Analyse cette question et détermine la stratégie optimale de recherche avec expansion sémantique :
+    const analysisPrompt = `Tu es un coordinateur intelligent pour OphtaCare, le cabinet d'ophtalmologie du Dr Tabibian à Genève.
+L'utilisateur qui te parle s'occupe de la partie ADMINISTRATIVE du cabinet.
+
+Analyse cette question administrative et détermine la stratégie optimale de recherche avec expansion sémantique :
 
 QUESTION: "${message}"
 
-HISTORIQUE RÉCENT: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'USER' : 'ASSISTANT'}: ${h.content.substring(0, 200)}`).join('\n')}
+HISTORIQUE RÉCENT: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'ADMIN' : 'ASSISTANT'}: ${h.content.substring(0, 200)}`).join('\n')}
+
+CONTEXTE OPHTACARE GENÈVE :
+- Cabinet d'ophtalmologie dirigé par Dr Tabibian
+- Utilisateur = responsable administratif du cabinet
+- Données disponibles : réunions, documents, tâches, transcripts, planning
+- Focus sur gestion administrative et organisation du cabinet
 
 Tu dois analyser finement la requête pour :
-1. Identifier les entités précises (noms, concepts)
-2. Générer des synonymes et termes apparentés
+1. Identifier les entités précises (noms, concepts, équipements)
+2. Générer des synonymes et termes apparentés pour l'ophtalmologie
 3. Déterminer si une extraction ciblée est nécessaire
 4. Planifier une recherche multi-étapes si besoin
+5. Rester dans le contexte administratif d'OphtaCare
 
 Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
 {
@@ -65,13 +74,16 @@ Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
   }
 }
 
-RÈGLES D'ANALYSE AMÉLIORÉES :
-- Pour "clim" → ajouter ["climatisation", "air conditionné", "température", "refroidissement"]
+RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE :
+- Pour "clim" → ajouter ["climatisation", "air conditionné", "température", "refroidissement", "HVAC"]
 - Pour "Mr Fischer" → recherche ciblée avec extraction de sections spécifiques
 - Pour "dernière réunion" → database d'abord avec ID spécifique, puis embeddings ciblés
-- Toujours générer des synonymes pertinents
+- Pour équipements médicaux → synonymes techniques ophtalmologiques
+- Pour patients → recherche administrative (pas médicale)
+- Toujours générer des synonymes pertinents pour l'ophtalmologie
 - Activer iterativeSearch si la requête est complexe ou spécifique
-- Utiliser targetedExtraction pour les entités nommées`;
+- Utiliser targetedExtraction pour les entités nommées
+- Prioriser les données internes OphtaCare avant internet`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -114,10 +126,10 @@ RÈGLES D'ANALYSE AMÉLIORÉES :
   private getEnhancedFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Detect entities and generate synonyms
+    // Detect entities and generate synonyms with OphtaCare context
     const entities = this.extractEntities(lowerMessage);
     const searchTerms = this.generateSearchTerms(lowerMessage);
-    const synonyms = this.generateSynonyms(searchTerms);
+    const synonyms = this.generateOphtalmologySynonyms(searchTerms);
     
     return {
       requiresDatabase: lowerMessage.includes('dernière') || lowerMessage.includes('récent') || lowerMessage.includes('tâche'),
@@ -147,9 +159,9 @@ RÈGLES D'ANALYSE AMÉLIORÉES :
       entities.push(...nameMatches);
     }
     
-    // Detect specific terms
-    const specificTerms = ['clim', 'climatisation', 'patient', 'traitement', 'examen'];
-    specificTerms.forEach(term => {
+    // Detect OphtaCare specific terms
+    const ophtalmoTerms = ['clim', 'climatisation', 'patient', 'traitement', 'examen', 'consultation', 'rendez-vous', 'planning', 'équipement'];
+    ophtalmoTerms.forEach(term => {
       if (message.includes(term)) {
         entities.push(term);
       }
@@ -163,19 +175,24 @@ RÈGLES D'ANALYSE AMÉLIORÉES :
     return [...new Set(words)]; // Remove duplicates
   }
 
-  private generateSynonyms(searchTerms: string[]): string[] {
-    const synonymMap: { [key: string]: string[] } = {
-      'clim': ['climatisation', 'air conditionné', 'température', 'refroidissement', 'ventilation'],
-      'réunion': ['meeting', 'rendez-vous', 'entretien', 'consultation'],
-      'patient': ['client', 'personne', 'individu'],
-      'traitement': ['thérapie', 'soin', 'médication', 'intervention'],
-      'examen': ['diagnostic', 'contrôle', 'vérification', 'test']
+  private generateOphtalmologySynonyms(searchTerms: string[]): string[] {
+    const ophtalmoSynonymMap: { [key: string]: string[] } = {
+      'clim': ['climatisation', 'air conditionné', 'température', 'refroidissement', 'ventilation', 'HVAC', 'chauffage'],
+      'réunion': ['meeting', 'rendez-vous', 'entretien', 'consultation', 'séance'],
+      'patient': ['client', 'personne', 'individu', 'consultation'],
+      'traitement': ['thérapie', 'soin', 'médication', 'intervention', 'procédure'],
+      'examen': ['diagnostic', 'contrôle', 'vérification', 'test', 'consultation'],
+      'planning': ['agenda', 'calendrier', 'horaire', 'programme', 'emploi du temps'],
+      'équipement': ['matériel', 'appareil', 'instrument', 'machine', 'dispositif'],
+      'cabinet': ['clinique', 'centre', 'ophtacare', 'bureau', 'établissement'],
+      'docteur': ['médecin', 'dr', 'praticien', 'tabibian', 'ophtalmologue'],
+      'administratif': ['gestion', 'organisation', 'administration', 'secrétariat', 'bureau']
     };
     
     const synonyms: string[] = [];
     searchTerms.forEach(term => {
-      if (synonymMap[term]) {
-        synonyms.push(...synonymMap[term]);
+      if (ophtalmoSynonymMap[term]) {
+        synonyms.push(...ophtalmoSynonymMap[term]);
       }
     });
     
@@ -183,7 +200,7 @@ RÈGLES D'ANALYSE AMÉLIORÉES :
   }
 
   async provideFeedback(searchResults: any, originalQuery: string): Promise<SearchFeedback> {
-    console.log('[COORDINATOR] Evaluating search results quality');
+    console.log('[COORDINATOR] Evaluating search results quality for OphtaCare context');
     
     const hasRelevantContent = searchResults && (
       (searchResults.meetings && searchResults.meetings.length > 0) ||
@@ -196,8 +213,8 @@ RÈGLES D'ANALYSE AMÉLIORÉES :
         success: false,
         foundRelevant: false,
         needsExpansion: true,
-        suggestedTerms: this.generateSynonyms([originalQuery]),
-        missingContext: 'Aucun résultat pertinent trouvé'
+        suggestedTerms: this.generateOphtalmologySynonyms([originalQuery]),
+        missingContext: 'Aucun résultat pertinent trouvé dans les données OphtaCare'
       };
     }
     
