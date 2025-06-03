@@ -7,6 +7,21 @@ export interface QueryAnalysis {
   specificEntities: string[];
   timeContext?: string;
   priority: 'database' | 'embeddings' | 'internet';
+  searchTerms: string[];
+  synonyms: string[];
+  iterativeSearch: boolean;
+  targetedExtraction?: {
+    entity: string;
+    context: string;
+  };
+}
+
+export interface SearchFeedback {
+  success: boolean;
+  foundRelevant: boolean;
+  needsExpansion: boolean;
+  suggestedTerms?: string[];
+  missingContext?: string;
 }
 
 export class CoordinatorAgent {
@@ -17,14 +32,20 @@ export class CoordinatorAgent {
   }
 
   async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
-    console.log('[COORDINATOR] Analyzing query:', message.substring(0, 100));
+    console.log('[COORDINATOR] Analyzing query with semantic expansion:', message.substring(0, 100));
 
     const analysisPrompt = `Tu es un coordinateur intelligent pour OphtaCare (cabinet d'ophtalmologie du Dr Tabibian).
-Analyse cette question et détermine la stratégie optimale de recherche :
+Analyse cette question et détermine la stratégie optimale de recherche avec expansion sémantique :
 
 QUESTION: "${message}"
 
 HISTORIQUE RÉCENT: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'USER' : 'ASSISTANT'}: ${h.content.substring(0, 200)}`).join('\n')}
+
+Tu dois analyser finement la requête pour :
+1. Identifier les entités précises (noms, concepts)
+2. Générer des synonymes et termes apparentés
+3. Déterminer si une extraction ciblée est nécessaire
+4. Planifier une recherche multi-étapes si besoin
 
 Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
 {
@@ -34,15 +55,23 @@ Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
   "queryType": "meeting|document|task|general|mixed",
   "specificEntities": ["entité1", "entité2"],
   "timeContext": "dernière|récent|specific_date|null",
-  "priority": "database|embeddings|internet"
+  "priority": "database|embeddings|internet",
+  "searchTerms": ["terme1", "terme2"],
+  "synonyms": ["synonyme1", "synonyme2"],
+  "iterativeSearch": boolean,
+  "targetedExtraction": {
+    "entity": "nom_personne_ou_concept",
+    "context": "contexte_recherche"
+  }
 }
 
-RÈGLES D'ANALYSE :
-- Si question sur "dernière réunion", "dernier meeting" : database d'abord, puis embeddings
-- Si question sur document spécifique : database puis embeddings
-- Si question générale médicale sans contexte OphtaCare : internet
-- Si question sur tâches/todos : database
-- Si question nécessite info récente non dans docs : internet`;
+RÈGLES D'ANALYSE AMÉLIORÉES :
+- Pour "clim" → ajouter ["climatisation", "air conditionné", "température", "refroidissement"]
+- Pour "Mr Fischer" → recherche ciblée avec extraction de sections spécifiques
+- Pour "dernière réunion" → database d'abord avec ID spécifique, puis embeddings ciblés
+- Toujours générer des synonymes pertinents
+- Activer iterativeSearch si la requête est complexe ou spécifique
+- Utiliser targetedExtraction pour les entités nommées`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -55,7 +84,7 @@ RÈGLES D'ANALYSE :
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: analysisPrompt }],
           temperature: 0.1,
-          max_tokens: 500,
+          max_tokens: 800,
         }),
       });
 
@@ -68,31 +97,114 @@ RÈGLES D'ANALYSE :
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const analysis = JSON.parse(jsonMatch[0]);
-        console.log('[COORDINATOR] ✅ Analysis result:', analysis);
+        console.log('[COORDINATOR] ✅ Enhanced analysis result:', analysis);
         return analysis;
       }
       
-      // Fallback analysis
-      console.log('[COORDINATOR] ⚠️ Using fallback analysis');
-      return this.getFallbackAnalysis(message);
+      // Fallback analysis with enhanced logic
+      console.log('[COORDINATOR] ⚠️ Using enhanced fallback analysis');
+      return this.getEnhancedFallbackAnalysis(message);
       
     } catch (error) {
       console.error('[COORDINATOR] ❌ Analysis error:', error);
-      return this.getFallbackAnalysis(message);
+      return this.getEnhancedFallbackAnalysis(message);
     }
   }
 
-  private getFallbackAnalysis(message: string): QueryAnalysis {
+  private getEnhancedFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
+    
+    // Detect entities and generate synonyms
+    const entities = this.extractEntities(lowerMessage);
+    const searchTerms = this.generateSearchTerms(lowerMessage);
+    const synonyms = this.generateSynonyms(searchTerms);
     
     return {
       requiresDatabase: lowerMessage.includes('dernière') || lowerMessage.includes('récent') || lowerMessage.includes('tâche'),
-      requiresEmbeddings: lowerMessage.includes('réunion') || lowerMessage.includes('meeting') || lowerMessage.includes('document'),
+      requiresEmbeddings: lowerMessage.includes('réunion') || lowerMessage.includes('meeting') || lowerMessage.includes('document') || entities.length > 0,
       requiresInternet: lowerMessage.includes('nouveau') || lowerMessage.includes('actualité') || lowerMessage.includes('2024') || lowerMessage.includes('2025'),
       queryType: lowerMessage.includes('réunion') ? 'meeting' : lowerMessage.includes('document') ? 'document' : 'general',
-      specificEntities: [],
+      specificEntities: entities,
       timeContext: lowerMessage.includes('dernière') || lowerMessage.includes('récent') ? 'récent' : null,
-      priority: lowerMessage.includes('dernière') ? 'database' : 'embeddings'
+      priority: lowerMessage.includes('dernière') ? 'database' : 'embeddings',
+      searchTerms,
+      synonyms,
+      iterativeSearch: entities.length > 0 || searchTerms.length > 2,
+      targetedExtraction: entities.length > 0 ? {
+        entity: entities[0],
+        context: lowerMessage
+      } : undefined
+    };
+  }
+
+  private extractEntities(message: string): string[] {
+    const entities: string[] = [];
+    
+    // Detect names (Mr/Mme/Dr + name)
+    const namePattern = /(mr|mme|dr|monsieur|madame|docteur)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi;
+    const nameMatches = message.match(namePattern);
+    if (nameMatches) {
+      entities.push(...nameMatches);
+    }
+    
+    // Detect specific terms
+    const specificTerms = ['clim', 'climatisation', 'patient', 'traitement', 'examen'];
+    specificTerms.forEach(term => {
+      if (message.includes(term)) {
+        entities.push(term);
+      }
+    });
+    
+    return entities;
+  }
+
+  private generateSearchTerms(message: string): string[] {
+    const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    return [...new Set(words)]; // Remove duplicates
+  }
+
+  private generateSynonyms(searchTerms: string[]): string[] {
+    const synonymMap: { [key: string]: string[] } = {
+      'clim': ['climatisation', 'air conditionné', 'température', 'refroidissement', 'ventilation'],
+      'réunion': ['meeting', 'rendez-vous', 'entretien', 'consultation'],
+      'patient': ['client', 'personne', 'individu'],
+      'traitement': ['thérapie', 'soin', 'médication', 'intervention'],
+      'examen': ['diagnostic', 'contrôle', 'vérification', 'test']
+    };
+    
+    const synonyms: string[] = [];
+    searchTerms.forEach(term => {
+      if (synonymMap[term]) {
+        synonyms.push(...synonymMap[term]);
+      }
+    });
+    
+    return [...new Set(synonyms)];
+  }
+
+  async provideFeedback(searchResults: any, originalQuery: string): Promise<SearchFeedback> {
+    console.log('[COORDINATOR] Evaluating search results quality');
+    
+    const hasRelevantContent = searchResults && (
+      (searchResults.meetings && searchResults.meetings.length > 0) ||
+      (searchResults.chunks && searchResults.chunks.length > 0) ||
+      (searchResults.content && searchResults.content.length > 0)
+    );
+    
+    if (!hasRelevantContent) {
+      return {
+        success: false,
+        foundRelevant: false,
+        needsExpansion: true,
+        suggestedTerms: this.generateSynonyms([originalQuery]),
+        missingContext: 'Aucun résultat pertinent trouvé'
+      };
+    }
+    
+    return {
+      success: true,
+      foundRelevant: true,
+      needsExpansion: false
     };
   }
 }

@@ -20,7 +20,7 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory } = await req.json();
-    console.log(`[AI-AGENT-OPHTACARE] 🏥 Processing query: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT-OPHTACARE] 🏥 Processing enhanced query: ${message.substring(0, 100)}...`);
     console.log(`[AI-AGENT-OPHTACARE] 💬 History: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -34,48 +34,79 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Initialiser les agents
+    // Initialize enhanced agents
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
     const internetAgent = new InternetAgent(perplexityApiKey);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 1. COORDINATION : Analyser la requête
-    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Query analysis');
+    // 1. ENHANCED COORDINATION: Analyze query with semantic expansion
+    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Enhanced query analysis');
     const analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
-    console.log('[AI-AGENT-OPHTACARE] 📊 Analysis result:', analysis);
+    console.log('[AI-AGENT-OPHTACARE] 📊 Enhanced analysis result:', analysis);
 
-    // 2. BASE DE DONNÉES : Récupérer le contexte structuré
-    console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Database context');
+    // 2. INTELLIGENT DATABASE SEARCH: Context-aware and targeted
+    console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Intelligent database search');
     const databaseContext = analysis.requiresDatabase 
       ? await databaseAgent.searchContext(analysis)
       : { meetings: [], documents: [], todos: [], relevantIds: { meetingIds: [], documentIds: [] } };
 
-    // 3. EMBEDDINGS : Recherche sémantique ciblée
-    console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: Semantic search');
+    // 3. ITERATIVE EMBEDDINGS SEARCH: Multi-term with fallback
+    console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: Iterative semantic search');
     const embeddingContext = analysis.requiresEmbeddings
-      ? await embeddingsAgent.searchEmbeddings(message, databaseContext.relevantIds)
-      : { chunks: [], sources: [], hasRelevantContext: false };
+      ? await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds)
+      : { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [] };
 
-    // 4. INTERNET : Enrichissement si nécessaire
-    console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Internet enrichment');
-    const shouldUseInternet = analysis.requiresInternet || (!embeddingContext.hasRelevantContext && analysis.queryType === 'general');
+    // 4. STRATEGIC INTERNET ENRICHMENT: Context-aware enhancement
+    console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Strategic internet enrichment');
+    const shouldUseInternet = analysis.requiresInternet || 
+                              (!embeddingContext.hasRelevantContext && analysis.queryType === 'general') ||
+                              (embeddingContext.hasRelevantContext && analysis.requiresInternet);
+    
     const internetContext = shouldUseInternet
-      ? await internetAgent.searchInternet(message, embeddingContext.hasRelevantContext)
-      : { content: '', sources: [], hasContent: false };
+      ? await internetAgent.searchInternet(message, analysis, embeddingContext.hasRelevantContext)
+      : { content: '', sources: [], hasContent: false, enrichmentType: 'supplement' };
 
-    // 5. SYNTHÈSE : Générer la réponse finale
-    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Response synthesis');
+    // 5. INTELLIGENT SYNTHESIS: Critical evaluation and comprehensive response
+    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Intelligent response synthesis');
+    
+    // Provide feedback to coordinator for potential re-search
+    const searchFeedback = await coordinator.provideFeedback({
+      meetings: databaseContext.meetings,
+      chunks: embeddingContext.chunks,
+      content: internetContext.content
+    }, message);
+
+    // If search was insufficient and we can retry, perform additional searches
+    if (!searchFeedback.success && searchFeedback.needsExpansion && searchFeedback.suggestedTerms) {
+      console.log('[AI-AGENT-OPHTACARE] 🔄 Performing fallback search with expanded terms');
+      
+      const fallbackContext = await embeddingsAgent.searchWithFallback(
+        message, 
+        searchFeedback.suggestedTerms,
+        databaseContext.relevantIds
+      );
+      
+      // Merge fallback results
+      if (fallbackContext.hasRelevantContext) {
+        embeddingContext.chunks.push(...fallbackContext.chunks);
+        embeddingContext.sources.push(...fallbackContext.sources);
+        embeddingContext.hasRelevantContext = true;
+        embeddingContext.searchIterations += fallbackContext.searchIterations;
+      }
+    }
+
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
       conversationHistory || [],
       databaseContext,
       embeddingContext,
-      internetContext
+      internetContext,
+      analysis
     );
 
-    // Construire la réponse complète
+    // Build enhanced response data
     const responseData = {
       response: finalResponse,
       sources: embeddingContext.sources,
@@ -83,16 +114,23 @@ serve(async (req) => {
       hasInternetContext: internetContext.hasContent,
       contextFound: embeddingContext.hasRelevantContext,
       analysis: analysis,
+      searchMetrics: {
+        embeddingIterations: embeddingContext.searchIterations,
+        finalSearchTerms: embeddingContext.finalSearchTerms,
+        targetedExtraction: databaseContext.targetedExtracts ? true : false,
+        internetEnrichmentType: internetContext.enrichmentType
+      },
       additionalDataUsed: {
         meetings: databaseContext.meetings?.length || 0,
         documents: databaseContext.documents?.length || 0,
         todos: databaseContext.todos?.length || 0,
-        conversationHistory: conversationHistory?.length || 0
+        conversationHistory: conversationHistory?.length || 0,
+        targetedSections: databaseContext.targetedExtracts?.sections?.length || 0
       }
     };
 
-    console.log('[AI-AGENT-OPHTACARE] ✅ Response generated successfully');
-    console.log(`[AI-AGENT-OPHTACARE] 📈 Context summary: DB=${analysis.requiresDatabase ? 'YES' : 'NO'}, Embeddings=${embeddingContext.hasRelevantContext ? 'YES' : 'NO'}, Internet=${internetContext.hasContent ? 'YES' : 'NO'}`);
+    console.log('[AI-AGENT-OPHTACARE] ✅ Enhanced response generated successfully');
+    console.log(`[AI-AGENT-OPHTACARE] 📈 Enhanced context summary: DB=${analysis.requiresDatabase ? 'YES' : 'NO'}, Embeddings=${embeddingContext.hasRelevantContext ? 'YES' : 'NO'}, Internet=${internetContext.hasContent ? 'YES' : 'NO'}, Iterations=${embeddingContext.searchIterations}`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

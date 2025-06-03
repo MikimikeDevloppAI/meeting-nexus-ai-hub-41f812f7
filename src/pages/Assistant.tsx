@@ -37,7 +37,7 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai accès à :\n• 📋 Tous les transcripts et résumés de vos réunions\n• 📁 L'ensemble des documents du cabinet avec recherche sémantique\n• ✅ Vos tâches et leur suivi\n• 🧠 Ma mémoire des conversations précédentes\n• 🌐 Des informations médicales actualisées via internet quand nécessaire\n\nJe peux vous aider avec des questions spécifiques au cabinet, la gestion des tâches, ou des informations générales en ophtalmologie. Que puis-je faire pour vous ?",
+      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n• ⚡ **Synthèse** : Évaluation critique et réponses complètes\n\nJe peux maintenant :\n• Comprendre \"clim\" et chercher \"climatisation\", \"air conditionné\", etc.\n• Extraire des sections spécifiques (ex: passages sur \"Mr Fischer\")\n• Faire des recherches en plusieurs itérations pour être plus précis\n• Fournir des réponses plus complètes et contextuelles\n\nQue puis-je faire pour vous ?",
       isUser: false,
       timestamp: new Date(),
     }
@@ -81,7 +81,7 @@ const Assistant = () => {
     setMessages([
       {
         id: '1',
-        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai accès à :\n• 📋 Tous les transcripts et résumés de vos réunions\n• 📁 L'ensemble des documents du cabinet avec recherche sémantique\n• ✅ Vos tâches et leur suivi\n• 🧠 Ma mémoire des conversations précédentes\n• 🌐 Des informations médicales actualisées via internet quand nécessaire\n\nJe peux vous aider avec des questions spécifiques au cabinet, la gestion des tâches, ou des informations générales en ophtalmologie. Que puis-je faire pour vous ?",
+        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n• ⚡ **Synthèse** : Évaluation critique et réponses complètes\n\nJe peux maintenant :\n• Comprendre \"clim\" et chercher \"climatisation\", \"air conditionné\", etc.\n• Extraire des sections spécifiques (ex: passages sur \"Mr Fischer\")\n• Faire des recherches en plusieurs itérations pour être plus précis\n• Fournir des réponses plus complètes et contextuelles\n\nQue puis-je faire pour vous ?",
         isUser: false,
         timestamp: new Date(),
       }
@@ -89,7 +89,7 @@ const Assistant = () => {
     
     toast({
       title: "Historique effacé",
-      description: "La conversation a été remise à zéro.",
+      description: "La conversation a été remise à zéro avec l'assistant amélioré.",
     });
   };
 
@@ -319,7 +319,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Assistant intelligent spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian
+          Assistant intelligent avec architecture d'agents spécialisés - Recherche sémantique avancée
         </p>
       </div>
 
@@ -328,7 +328,7 @@ const Assistant = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              <CardTitle>Assistant OphtaCare</CardTitle>
+              <CardTitle>Assistant OphtaCare Enhanced</CardTitle>
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -342,16 +342,16 @@ const Assistant = () => {
               </Button>
               <Badge variant="outline" className="text-xs">
                 <RefreshCw className="h-3 w-3 mr-1" />
-                Agents intelligents
+                Agents intelligents v2
               </Badge>
               <Badge variant="outline" className="text-xs">
                 <Globe className="h-3 w-3 mr-1" />
-                Enrichissement auto
+                Recherche itérative
               </Badge>
             </div>
           </div>
           <CardDescription>
-            Analyse intelligente avec coordination d'agents spécialisés : Base de données → Embeddings → Internet
+            Architecture améliorée : Coordinateur → Base de données intelligente → Embeddings itératifs → Internet stratégique → Synthèse critique
           </CardDescription>
         </CardHeader>
 
@@ -475,7 +475,7 @@ const Assistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Posez une question sur OphtaCare, demandez des conseils ou gérez vos tâches..."
+              placeholder="L'assistant comprend maintenant mieux le contexte : 'clim', 'Mr Fischer', 'dernière réunion'..."
               disabled={isLoading}
               className="flex-1"
             />
@@ -493,7 +493,7 @@ const Assistant = () => {
           </div>
 
           <div className="mt-2 text-xs text-muted-foreground">
-            💡 Exemples: "Résume la dernière réunion", "Crée une tâche pour le suivi patient", "Quels sont les nouveaux traitements DMLA ?"
+            💡 Nouvelles capacités: Recherche sémantique ("clim" → "climatisation"), extraction ciblée ("partie sur Mr Fischer"), recherche itérative intelligente
           </div>
         </CardContent>
       </Card>
