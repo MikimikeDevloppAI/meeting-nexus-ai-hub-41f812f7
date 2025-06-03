@@ -27,6 +27,11 @@ export const AppLayout: React.FC = () => {
 
   const menuItems = [
     {
+      title: "Assistant IA",
+      url: "/assistant",
+      icon: MessageSquare,
+    },
+    {
       title: "Réunions",
       url: "/meetings",
       icon: Calendar,
@@ -35,11 +40,6 @@ export const AppLayout: React.FC = () => {
       title: "À faire",
       url: "/todos",
       icon: CheckSquare,
-    },
-    {
-      title: "Assistant IA",
-      url: "/assistant",
-      icon: MessageSquare,
     },
     {
       title: "Documents",

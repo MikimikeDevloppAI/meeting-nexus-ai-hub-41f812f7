@@ -12,8 +12,8 @@ const Index = () => {
   useEffect(() => {
     // Check if Supabase is configured
     if (isSupabaseConfigured()) {
-      // Redirect to meetings page if Supabase is properly configured
-      navigate("/meetings");
+      // Redirect to assistant page if Supabase is properly configured
+      navigate("/assistant");
     }
   }, [navigate]);
 

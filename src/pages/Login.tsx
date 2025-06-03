@@ -16,7 +16,7 @@ const Login = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate("/meetings");
+        navigate("/assistant");
       }
     };
     
