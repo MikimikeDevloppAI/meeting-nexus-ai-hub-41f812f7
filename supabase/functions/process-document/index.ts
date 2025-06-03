@@ -66,12 +66,18 @@ serve(async (req) => {
     if (document.content_type === 'application/pdf') {
       console.log('📄 Processing PDF with PDF.co...');
       text = await extractPdfTextWithPdfCo(fileData, pdfcoApiKey);
+      console.log(`📝 PDF text extracted: ${text.length} characters`);
+      
+      // Vérifier que le texte n'est pas vide
+      if (!text || text.trim().length === 0) {
+        throw new Error('PDF text extraction resulted in empty content');
+      }
     } else {
       console.log('📄 Processing text file...');
       text = await fileData.text();
     }
 
-    console.log(`📝 Extracted ${text.length} characters`);
+    console.log(`📝 Total extracted text: ${text.length} characters`);
 
     // Limit text length for processing
     if (text.length > MAX_TEXT_LENGTH) {
@@ -165,7 +171,8 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<
             url: uploadData.url,
             async: false,
             pages: "",
-            password: ""
+            password: "",
+            inline: true
           }),
           signal: extractController.signal
         });
@@ -182,13 +189,27 @@ async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<
 
         const extractData = await extractResponse.json();
         console.log('PDF.co extract response success:', extractData.error === false);
+        console.log('PDF.co extracted body length:', extractData.body ? extractData.body.length : 0);
 
-        if (extractData.error || !extractData.body) {
-          throw new Error(`Text extraction failed: ${extractData.message || 'No text extracted'}`);
+        if (extractData.error) {
+          throw new Error(`Text extraction failed: ${extractData.message || 'PDF.co returned error'}`);
         }
 
-        console.log(`✅ PDF text extracted successfully (${extractData.body.length} chars)`);
-        return extractData.body;
+        if (!extractData.body) {
+          console.warn('⚠️ PDF.co returned empty body, checking if PDF is text-based...');
+          throw new Error('No text extracted - PDF may be image-based or corrupted');
+        }
+
+        const extractedText = extractData.body.trim();
+        
+        if (extractedText.length === 0) {
+          throw new Error('Extracted text is empty - PDF may contain only images');
+        }
+
+        console.log(`✅ PDF text extracted successfully (${extractedText.length} chars)`);
+        console.log('📄 First 200 chars:', extractedText.substring(0, 200));
+        
+        return extractedText;
 
       } catch (extractError) {
         clearTimeout(extractTimeout);
@@ -221,6 +242,7 @@ async function processDocumentInBackground(
 ) {
   try {
     console.log('🤖 Starting AI analysis...');
+    console.log(`📝 Processing text of ${text.length} characters`);
 
     // AI analysis
     let analysis;
@@ -261,6 +283,7 @@ async function processDocumentInBackground(
             ...analysis.taxonomy
           }
         });
+        console.log('✅ Document stored with embeddings successfully');
       } catch (error) {
         console.log('⚠️ Database storage failed:', error.message);
       }
