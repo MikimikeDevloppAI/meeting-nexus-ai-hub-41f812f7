@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, X, Filter, Calendar, FileType, Tag } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,6 +19,7 @@ interface SearchFilters {
   category?: string;
   documentType?: string;
   dateRange?: string;
+  keywords?: string[];
 }
 
 export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => {
@@ -38,6 +40,13 @@ export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => 
       .map(doc => doc.taxonomy.documentType)
   ));
 
+  // Extraire tous les mots-clés uniques des documents
+  const allKeywords = Array.from(new Set(
+    documents
+      .filter(doc => doc.taxonomy?.keywords)
+      .flatMap(doc => doc.taxonomy.keywords || [])
+  ));
+
   const handleSearch = (newFilters: Partial<SearchFilters> = {}) => {
     const filters = { ...activeFilters, query: searchQuery, ...newFilters };
     setActiveFilters(filters);
@@ -55,6 +64,15 @@ export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => 
     setSearchQuery("");
     setActiveFilters({ query: "" });
     onSearch({ query: "" });
+  };
+
+  const toggleKeyword = (keyword: string) => {
+    const currentKeywords = activeFilters.keywords || [];
+    const newKeywords = currentKeywords.includes(keyword)
+      ? currentKeywords.filter(k => k !== keyword)
+      : [...currentKeywords, keyword];
+    
+    handleSearch({ keywords: newKeywords.length > 0 ? newKeywords : undefined });
   };
 
   return (
@@ -140,6 +158,30 @@ export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => 
                       </Command>
                     </div>
                   )}
+
+                  {/* Filtre par mots-clés */}
+                  {allKeywords.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Mots-clés</label>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {allKeywords.map((keyword) => (
+                          <div key={keyword} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={keyword}
+                              checked={activeFilters.keywords?.includes(keyword) || false}
+                              onCheckedChange={() => toggleKeyword(keyword)}
+                            />
+                            <label 
+                              htmlFor={keyword} 
+                              className="text-sm cursor-pointer"
+                            >
+                              {keyword}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Filtre par date */}
                   <div>
@@ -189,7 +231,7 @@ export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => 
           </div>
 
           {/* Filtres actifs */}
-          {(activeFilters.query || activeFilters.category || activeFilters.documentType || activeFilters.dateRange) && (
+          {(activeFilters.query || activeFilters.category || activeFilters.documentType || activeFilters.dateRange || activeFilters.keywords?.length) && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-muted-foreground">Filtres actifs:</span>
               
@@ -219,6 +261,16 @@ export const DocumentSearch = ({ onSearch, documents }: DocumentSearchProps) => 
                   <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter('documentType')} />
                 </Badge>
               )}
+              
+              {activeFilters.keywords?.map((keyword) => (
+                <Badge key={keyword} variant="secondary" className="flex items-center gap-1">
+                  {keyword}
+                  <X 
+                    className="h-3 w-3 cursor-pointer" 
+                    onClick={() => toggleKeyword(keyword)} 
+                  />
+                </Badge>
+              ))}
               
               {activeFilters.dateRange && (
                 <Badge variant="secondary" className="flex items-center gap-1">

@@ -31,6 +31,7 @@ interface SearchFilters {
   category?: string;
   documentType?: string;
   dateRange?: string;
+  keywords?: string[];
 }
 
 const Documents = () => {
@@ -79,6 +80,15 @@ const Documents = () => {
       // Filtre par type de document
       if (searchFilters.documentType && doc.taxonomy?.documentType !== searchFilters.documentType) {
         return false;
+      }
+
+      // Filtre par mots-clés
+      if (searchFilters.keywords && searchFilters.keywords.length > 0) {
+        const docKeywords = doc.taxonomy?.keywords || [];
+        const hasMatchingKeyword = searchFilters.keywords.some(keyword => 
+          docKeywords.includes(keyword)
+        );
+        if (!hasMatchingKeyword) return false;
       }
       
       // Filtre par date
