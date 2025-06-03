@@ -3,7 +3,7 @@ export interface QueryAnalysis {
   requiresDatabase: boolean;
   requiresEmbeddings: boolean;
   requiresInternet: boolean;
-  queryType: 'meeting' | 'document' | 'task' | 'general' | 'mixed';
+  queryType: 'meeting' | 'document' | 'task' | 'general' | 'mixed' | 'assistance';
   specificEntities: string[];
   timeContext?: string;
   priority: 'database' | 'embeddings' | 'internet';
@@ -14,6 +14,13 @@ export interface QueryAnalysis {
     entity: string;
     context: string;
   };
+  fuzzyMatching: boolean;
+  actionDetected?: {
+    type: 'create' | 'update' | 'delete' | 'help';
+    target: string;
+  };
+  medicalContext: boolean;
+  requiresClarification: boolean;
 }
 
 export interface SearchFeedback {
@@ -32,80 +39,98 @@ export class CoordinatorAgent {
   }
 
   async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
-    console.log('[COORDINATOR] Analyzing query with enhanced semantic expansion:', message.substring(0, 100));
+    console.log('[COORDINATOR] ANALYSE APPROFONDIE avec gestion fuzzy et contexte médical:', message.substring(0, 100));
 
-    const analysisPrompt = `Tu es un coordinateur intelligent pour OphtaCare, le cabinet d'ophtalmologie du Dr Tabibian à Genève.
-L'utilisateur qui te parle s'occupe de la partie ADMINISTRATIVE du cabinet.
+    const analysisPrompt = `Tu es le coordinateur intelligent OphtaCare du Dr Tabibian à Genève - spécialiste en gestion administrative médicale.
 
-PRIORITÉ ABSOLUE : TOUJOURS PRIVILÉGIER LA RECHERCHE VECTORIELLE INTERNE
-- requiresEmbeddings = true pour TOUTES les questions (sauf actions de tâches pures)
-- priority = "embeddings" par défaut
-- Recherche vectorielle AVANT tout autre type de recherche
+MISSION CRITIQUE : ENRICHISSEMENT MAXIMUM DES RÉPONSES
+- TOUJOURS privilégier les données internes OphtaCare (embeddings + base de données)
+- requiresEmbeddings = true pour TOUTES les questions (sauf actions pures)
+- priority = "embeddings" OBLIGATOIRE
+- Recherche vectorielle SYSTÉMATIQUE avant tout autre type
+- Expansion sémantique MAXIMALE pour capturer toute information pertinente
 
-Analyse cette question administrative et détermine la stratégie optimale de recherche avec expansion sémantique maximale :
+QUESTION ADMINISTRATIVE: "${message}"
 
-QUESTION: "${message}"
+HISTORIQUE CONVERSATION: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'ADMIN' : 'ASSISTANT'}: ${h.content.substring(0, 150)}`).join('\n')}
 
-HISTORIQUE RÉCENT: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'ADMIN' : 'ASSISTANT'}: ${h.content.substring(0, 200)}`).join('\n')}
-
-CONTEXTE OPHTACARE GENÈVE :
+CONTEXTE OPHTACARE GENÈVE RENFORCÉ :
 - Cabinet d'ophtalmologie dirigé par Dr Tabibian
 - Utilisateur = responsable administratif du cabinet
-- Données disponibles : réunions, documents, tâches, transcripts, planning
+- Données disponibles : réunions, documents, tâches, transcripts, planning, participants
 - Focus sur gestion administrative et organisation du cabinet
-- Base de données avec embeddings très riche
+- Base de données avec embeddings TRÈS RICHE - ne jamais sous-estimer
 
-RÈGLES D'ANALYSE RENFORCÉES :
+RÈGLES D'ANALYSE ULTRA-RENFORCÉES :
 1. TOUJOURS requiresEmbeddings = true (sauf création pure de tâche)
-2. TOUJOURS priority = "embeddings" (recherche vectorielle d'abord)
-3. Générer BEAUCOUP de termes de recherche et synonymes
-4. iterativeSearch = true pour maximiser les résultats
-5. Expansion sémantique maximale
+2. TOUJOURS priority = "embeddings" - recherche vectorielle PRIORITAIRE
+3. TOUJOURS iterativeSearch = true pour maximiser les résultats
+4. TOUJOURS medicalContext = true (contexte cabinet médical)
+5. Générer ÉNORMÉMENT de termes de recherche et synonymes
+6. Gestion fuzzy matching pour noms/termes approximatifs
+7. Détection PRÉCISE des actions (créer, modifier, aider, etc.)
 
-DÉTECTION SPÉCIALE TÂCHES :
-Si la question contient des mots comme "crée", "créer", "ajoute", "tâche", "task" → queryType = "task"
-Si détection de tâche → requiresDatabase = true (pour accéder aux tâches existantes)
-Si création de tâche → requiresEmbeddings = false (pas besoin de recherche sémantique)
+GESTION FUZZY MATCHING INTELLIGENTE :
+- "m fisher" → "mr fischer", "monsieur fischer", "fischer"
+- "dupixent" → "dupilumab", "dupixent", variations orthographiques
+- "clim" → "climatisation", "air conditionné", "climate"
+- Variantes de noms, abréviations, fautes de frappe communes
 
-Tu dois analyser finement la requête pour :
-1. Identifier les entités précises (noms, concepts, équipements, médicaments)
-2. Générer des synonymes et termes apparentés pour l'ophtalmologie ET la médecine générale
-3. Déterminer si une extraction ciblée est nécessaire
-4. Planifier une recherche multi-étapes si besoin
-5. Rester dans le contexte administratif d'OphtaCare
-6. MAXIMISER la recherche vectorielle pour tout contenu médical/administratif
+DÉTECTION D'ACTIONS RENFORCÉE :
+- Mots-clés action : "crée", "créer", "ajoute", "modifie", "aide", "explique", "montre"
+- Actions sur tâches : "nouvelle tâche", "task", "todo", "faire", "action"
+- Demandes d'aide : "comment", "aide-moi", "explique", "montre-moi"
+- Si action détectée → actionDetected avec type et target
+
+CONTEXTE MÉDICAL PERMANENT :
+- Toujours garder le contexte cabinet ophtalmologie OphtaCare
+- Terminologie médicale et administrative spécialisée
+- Participants = équipe médicale et administrative
+- Tâches = activités de gestion du cabinet
+
+EXPANSION SÉMANTIQUE MAXIMALE :
+Pour chaque terme, générer :
+- Synonymes médicaux et administratifs
+- Variantes orthographiques
+- Abréviations courantes
+- Termes connexes dans le domaine médical
+- Contexte OphtaCare spécifique
+
+EXEMPLES SPÉCIALISÉS OPHTACARE :
+- "dupixent" → ["dupilumab", "dermatologie", "bonus", "règles", "traitement", "indemnisation", "remboursement", "assurance", "protocole", "prescription", "critères", "conditions"]
+- "mr fischer" → ["fischer", "monsieur fischer", "dr fischer", "docteur fischer", "m. fischer", variations fuzzy]
+- "clim" → ["climatisation", "air conditionné", "température", "refroidissement", "HVAC", "ventilation"]
+- "tâche" → ["task", "action", "travail", "mission", "activité", "todo", "faire"]
+
+VALIDATION CONTEXTUELLE :
+- Si réponse incomplète → requiresClarification = true
+- Toujours vérifier cohérence avec contexte médical
+- Demander précisions si ambiguïté
 
 Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
 {
   "requiresDatabase": boolean,
-  "requiresEmbeddings": boolean, 
+  "requiresEmbeddings": boolean,
   "requiresInternet": boolean,
-  "queryType": "meeting|document|task|general|mixed",
+  "queryType": "meeting|document|task|general|mixed|assistance",
   "specificEntities": ["entité1", "entité2"],
   "timeContext": "dernière|récent|specific_date|null",
-  "priority": "database|embeddings|internet",
-  "searchTerms": ["terme1", "terme2"],
-  "synonyms": ["synonyme1", "synonyme2"],
-  "iterativeSearch": boolean,
+  "priority": "embeddings",
+  "searchTerms": ["terme1", "terme2", "terme3"],
+  "synonyms": ["synonyme1", "synonyme2", "synonyme3"],
+  "iterativeSearch": true,
   "targetedExtraction": {
     "entity": "nom_personne_ou_concept",
     "context": "contexte_recherche"
-  }
-}
-
-RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE RENFORCÉES :
-- Pour "dupixent", "bonus", "règles" → ajouter ["dupilumab", "dermatologie", "traitement", "indemnisation", "remboursement", "assurance", "protocole", "prescription", "critères"]
-- Pour "clim" → ajouter ["climatisation", "air conditionné", "température", "refroidissement", "HVAC"]
-- Pour "Mr Fischer" → recherche ciblée avec extraction de sections spécifiques
-- Pour "dernière réunion" → database d'abord avec ID spécifique, puis embeddings ciblés
-- Pour équipements médicaux → synonymes techniques ophtalmologiques
-- Pour patients → recherche administrative (pas médicale)
-- Pour TÂCHES → queryType="task", requiresDatabase=true, requiresEmbeddings=false
-- Pour TOUT LE RESTE → requiresEmbeddings=true, priority="embeddings"
-- Toujours générer des synonymes pertinents pour l'ophtalmologie ET médecine générale
-- Activer iterativeSearch=true par défaut
-- Utiliser targetedExtraction pour les entités nommées
-- Prioriser les données internes OphtaCare avant internet`;
+  },
+  "fuzzyMatching": boolean,
+  "actionDetected": {
+    "type": "create|update|delete|help",
+    "target": "description_action"
+  },
+  "medicalContext": true,
+  "requiresClarification": boolean
+}`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -118,7 +143,7 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE RENFORCÉES :
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: analysisPrompt }],
           temperature: 0.1,
-          max_tokens: 1000,
+          max_tokens: 1200,
         }),
       });
 
@@ -127,15 +152,13 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE RENFORCÉES :
       
       console.log('[COORDINATOR] Raw analysis:', analysisText);
       
-      // Extract JSON from response
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const analysis = JSON.parse(jsonMatch[0]);
-        console.log('[COORDINATOR] ✅ Enhanced analysis result:', analysis);
+        console.log('[COORDINATOR] ✅ Analyse enrichie complète:', analysis);
         return analysis;
       }
       
-      // Fallback analysis with enhanced logic including task detection
       console.log('[COORDINATOR] ⚠️ Using enhanced fallback analysis');
       return this.getEnhancedFallbackAnalysis(message);
       
@@ -148,124 +171,164 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE RENFORCÉES :
   private getEnhancedFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Detect task-related queries
-    const isTaskQuery = lowerMessage.includes('tâche') || lowerMessage.includes('task') ||
-                       lowerMessage.includes('crée') || lowerMessage.includes('créer') ||
-                       lowerMessage.includes('ajoute') || lowerMessage.includes('ajouter');
+    // Détection d'actions renforcée
+    const actionPatterns = {
+      create: ['crée', 'créer', 'ajoute', 'ajouter', 'nouvelle', 'nouveau', 'faire'],
+      update: ['modifie', 'modifier', 'change', 'changer', 'update', 'mettre à jour'],
+      delete: ['supprime', 'supprimer', 'efface', 'effacer', 'delete'],
+      help: ['aide', 'explique', 'comment', 'montre', 'help', 'assistance']
+    };
     
-    // Detect entities and generate synonyms with OphtaCare context
-    const entities = this.extractEntities(lowerMessage);
-    const searchTerms = this.generateSearchTerms(lowerMessage);
-    const synonyms = this.generateOphtalmologySynonyms(searchTerms, lowerMessage);
+    let actionDetected = null;
+    for (const [type, patterns] of Object.entries(actionPatterns)) {
+      if (patterns.some(pattern => lowerMessage.includes(pattern))) {
+        actionDetected = {
+          type: type as 'create' | 'update' | 'delete' | 'help',
+          target: message
+        };
+        break;
+      }
+    }
+    
+    // Extraction d'entités avec fuzzy matching
+    const entities = this.extractEntitiesWithFuzzy(lowerMessage);
+    const searchTerms = this.generateEnhancedSearchTerms(lowerMessage);
+    const synonyms = this.generateMaximalSynonyms(searchTerms, lowerMessage);
+    
+    const isTaskQuery = actionDetected?.type === 'create' && 
+                       ['tâche', 'task', 'todo', 'faire', 'action'].some(t => lowerMessage.includes(t));
     
     return {
-      requiresDatabase: lowerMessage.includes('dernière') || lowerMessage.includes('récent') || isTaskQuery,
-      requiresEmbeddings: !isTaskQuery, // TOUJOURS true sauf pour les tâches
-      requiresInternet: false, // Prioriser interne d'abord
-      queryType: isTaskQuery ? 'task' : lowerMessage.includes('réunion') ? 'meeting' : lowerMessage.includes('document') ? 'document' : 'general',
+      requiresDatabase: true, // Toujours pour accès aux tâches et participants
+      requiresEmbeddings: !isTaskQuery, // TOUJOURS sauf création pure de tâche
+      requiresInternet: false, // Prioriser interne
+      queryType: isTaskQuery ? 'task' : actionDetected?.type === 'help' ? 'assistance' : 
+                lowerMessage.includes('réunion') ? 'meeting' : 
+                lowerMessage.includes('document') ? 'document' : 'general',
       specificEntities: entities,
       timeContext: lowerMessage.includes('dernière') || lowerMessage.includes('récent') ? 'récent' : null,
-      priority: isTaskQuery ? 'database' : 'embeddings', // TOUJOURS embeddings sauf tâches
+      priority: 'embeddings', // TOUJOURS embeddings d'abord
       searchTerms,
       synonyms,
-      iterativeSearch: true, // TOUJOURS true pour maximiser les résultats
+      iterativeSearch: true, // TOUJOURS pour maximiser
       targetedExtraction: entities.length > 0 ? {
         entity: entities[0],
         context: lowerMessage
-      } : undefined
+      } : undefined,
+      fuzzyMatching: true, // TOUJOURS actif
+      actionDetected,
+      medicalContext: true, // TOUJOURS dans contexte médical
+      requiresClarification: false
     };
   }
 
-  private extractEntities(message: string): string[] {
+  private extractEntitiesWithFuzzy(message: string): string[] {
     const entities: string[] = [];
     
-    // Detect names (Mr/Mme/Dr + name)
-    const namePattern = /(mr|mme|dr|monsieur|madame|docteur)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi;
-    const nameMatches = message.match(namePattern);
-    if (nameMatches) {
-      entities.push(...nameMatches);
-    }
+    // Détection noms avec fuzzy matching
+    const namePatterns = [
+      /(mr|mme|dr|monsieur|madame|docteur|m\.)\s*([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
+      /([a-záàâäéèêëíìîïóòôöúùûüç]{2,})\s+(fischer|fisher|tabibian|[a-záàâäéèêëíìîïóòôöúùûüç]+)/gi
+    ];
     
-    // Detect OphtaCare specific terms with medical focus
-    const ophtalmoTerms = ['dupixent', 'dupilumab', 'clim', 'climatisation', 'patient', 'traitement', 'examen', 'consultation', 'rendez-vous', 'planning', 'équipement', 'bonus', 'règles', 'remboursement', 'assurance'];
-    ophtalmoTerms.forEach(term => {
-      if (message.includes(term)) {
-        entities.push(term);
+    namePatterns.forEach(pattern => {
+      const matches = message.match(pattern);
+      if (matches) {
+        entities.push(...matches);
       }
     });
     
-    return entities;
+    // Termes OphtaCare avec variantes
+    const ophtalmoTermsWithVariants = {
+      'dupixent': ['dupixent', 'dupilumab'],
+      'fischer': ['fischer', 'fisher', 'mr fischer', 'monsieur fischer'],
+      'clim': ['clim', 'climatisation', 'air conditionné'],
+      'bonus': ['bonus', 'indemnisation', 'remboursement'],
+      'règles': ['règles', 'règlement', 'protocole', 'procédure']
+    };
+    
+    Object.entries(ophtalmoTermsWithVariants).forEach(([key, variants]) => {
+      if (variants.some(variant => message.includes(variant))) {
+        entities.push(key, ...variants);
+      }
+    });
+    
+    return [...new Set(entities)];
   }
 
-  private generateSearchTerms(message: string): string[] {
+  private generateEnhancedSearchTerms(message: string): string[] {
     const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const expandedTerms = [];
+    const expandedTerms = [...words];
     
-    // Add original words
-    expandedTerms.push(...words);
-    
-    // Add specific medical/administrative terms based on context
+    // Ajout contexte spécialisé selon contenu
     if (message.includes('dupixent') || message.includes('bonus')) {
-      expandedTerms.push('dupilumab', 'dermatologie', 'traitement', 'indemnisation', 'remboursement', 'assurance', 'protocole', 'prescription', 'critères');
+      expandedTerms.push('dupilumab', 'dermatologie', 'traitement', 'indemnisation', 'remboursement', 'assurance', 'protocole', 'prescription', 'critères', 'règles', 'conditions');
     }
     
-    return [...new Set(expandedTerms)]; // Remove duplicates
+    if (message.includes('fischer') || message.includes('fisher')) {
+      expandedTerms.push('fischer', 'fisher', 'monsieur fischer', 'mr fischer', 'docteur fischer');
+    }
+    
+    if (message.includes('clim')) {
+      expandedTerms.push('climatisation', 'air conditionné', 'température', 'refroidissement', 'HVAC', 'ventilation');
+    }
+    
+    return [...new Set(expandedTerms)];
   }
 
-  private generateOphtalmologySynonyms(searchTerms: string[], fullMessage: string): string[] {
-    const ophtalmoSynonymMap: { [key: string]: string[] } = {
-      'dupixent': ['dupilumab', 'dermatologie', 'atopique', 'dermatite', 'eczéma', 'immunosuppresseur', 'biologique', 'injection', 'traitement', 'thérapie'],
-      'bonus': ['indemnisation', 'remboursement', 'prime', 'compensation', 'rétribution', 'règles', 'critères', 'conditions'],
-      'règles': ['règlement', 'protocole', 'procédure', 'critères', 'conditions', 'modalités', 'directives', 'instructions'],
-      'remboursement': ['indemnisation', 'prise en charge', 'couverture', 'assurance', 'sécurité sociale', 'mutuelle'],
-      'clim': ['climatisation', 'air conditionné', 'température', 'refroidissement', 'ventilation', 'HVAC', 'chauffage'],
-      'réunion': ['meeting', 'rendez-vous', 'entretien', 'consultation', 'séance'],
-      'patient': ['client', 'personne', 'individu', 'consultation'],
-      'traitement': ['thérapie', 'soin', 'médication', 'intervention', 'procédure', 'prescription'],
-      'examen': ['diagnostic', 'contrôle', 'vérification', 'test', 'consultation'],
-      'planning': ['agenda', 'calendrier', 'horaire', 'programme', 'emploi du temps'],
-      'équipement': ['matériel', 'appareil', 'instrument', 'machine', 'dispositif'],
-      'cabinet': ['clinique', 'centre', 'ophtacare', 'bureau', 'établissement'],
-      'docteur': ['médecin', 'dr', 'praticien', 'tabibian', 'ophtalmologue'],
-      'administratif': ['gestion', 'organisation', 'administration', 'secrétariat', 'bureau'],
-      'tâche': ['task', 'action', 'travail', 'mission', 'activité'],
-      'matériel': ['équipement', 'fournitures', 'outils', 'articles', 'supplies']
+  private generateMaximalSynonyms(searchTerms: string[], fullMessage: string): string[] {
+    const synonymMap: { [key: string]: string[] } = {
+      'dupixent': ['dupilumab', 'dermatologie', 'atopique', 'dermatite', 'eczéma', 'immunosuppresseur', 'biologique', 'injection', 'traitement', 'thérapie', 'bonus', 'indemnisation', 'remboursement', 'assurance', 'critères', 'règles', 'conditions', 'protocole'],
+      'fischer': ['fisher', 'monsieur fischer', 'mr fischer', 'docteur fischer', 'm. fischer', 'dr fischer'],
+      'bonus': ['indemnisation', 'remboursement', 'prime', 'compensation', 'rétribution', 'règles', 'critères', 'conditions', 'assurance', 'prise en charge'],
+      'règles': ['règlement', 'protocole', 'procédure', 'critères', 'conditions', 'modalités', 'directives', 'instructions', 'guide'],
+      'clim': ['climatisation', 'air conditionné', 'température', 'refroidissement', 'ventilation', 'HVAC', 'chauffage', 'climate'],
+      'réunion': ['meeting', 'rendez-vous', 'entretien', 'consultation', 'séance', 'assemblée'],
+      'patient': ['client', 'personne', 'individu', 'consultation', 'cas'],
+      'traitement': ['thérapie', 'soin', 'médication', 'intervention', 'procédure', 'prescription', 'protocol'],
+      'cabinet': ['clinique', 'centre', 'ophtacare', 'bureau', 'établissement', 'practice'],
+      'docteur': ['médecin', 'dr', 'praticien', 'tabibian', 'ophtalmologue', 'doctor'],
+      'tâche': ['task', 'action', 'travail', 'mission', 'activité', 'todo', 'faire', 'job'],
+      'équipement': ['matériel', 'appareil', 'instrument', 'machine', 'dispositif', 'outil']
     };
     
     const synonyms: string[] = [];
     searchTerms.forEach(term => {
-      if (ophtalmoSynonymMap[term]) {
-        synonyms.push(...ophtalmoSynonymMap[term]);
-      }
+      const lowerTerm = term.toLowerCase();
+      Object.entries(synonymMap).forEach(([key, syns]) => {
+        if (lowerTerm.includes(key) || key.includes(lowerTerm)) {
+          synonyms.push(...syns);
+        }
+      });
     });
     
-    // Add context-specific synonyms based on full message
+    // Synonymes contextuels selon le message complet
     if (fullMessage.includes('dupixent') || fullMessage.includes('bonus')) {
-      synonyms.push('dermatologie', 'atopique', 'traitement', 'prescription', 'remboursement', 'assurance', 'critères', 'conditions', 'modalités');
+      synonyms.push('dermatologie', 'atopique', 'traitement', 'prescription', 'remboursement', 'assurance', 'critères', 'conditions', 'modalités', 'indemnisation', 'bonus', 'règles');
     }
     
     return [...new Set(synonyms)];
   }
 
   async provideFeedback(searchResults: any, originalQuery: string): Promise<SearchFeedback> {
-    console.log('[COORDINATOR] Evaluating search results quality for OphtaCare context');
+    console.log('[COORDINATOR] Évaluation qualité résultats pour OphtaCare avec contexte enrichi');
     
     const hasRelevantContent = searchResults && (
       (searchResults.meetings && searchResults.meetings.length > 0) ||
       (searchResults.chunks && searchResults.chunks.length > 0) ||
+      (searchResults.todos && searchResults.todos.length > 0) ||
       (searchResults.content && searchResults.content.length > 0)
     );
     
     if (!hasRelevantContent) {
-      // Generate more expansive search terms for retry
-      const expandedTerms = this.generateOphtalmologySynonyms([originalQuery], originalQuery);
+      const expandedTerms = this.generateMaximalSynonyms([originalQuery], originalQuery);
       
       return {
         success: false,
         foundRelevant: false,
         needsExpansion: true,
         suggestedTerms: expandedTerms,
-        missingContext: 'Aucun résultat pertinent trouvé dans les données OphtaCare - tentative de recherche élargie'
+        missingContext: 'Recherche plus approfondie nécessaire dans les données OphtaCare - expansion des termes en cours'
       };
     }
     

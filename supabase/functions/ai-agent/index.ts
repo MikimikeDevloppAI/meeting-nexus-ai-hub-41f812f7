@@ -20,9 +20,9 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory, todoId, taskContext } = await req.json();
-    console.log(`[AI-AGENT-OPHTACARE] 🏥 Processing ENHANCED query: ${message.substring(0, 100)}...`);
-    console.log(`[AI-AGENT-OPHTACARE] 💬 History: ${conversationHistory ? conversationHistory.length : 0} messages`);
-    console.log(`[AI-AGENT-OPHTACARE] 📋 Task context: ${taskContext ? 'YES' : 'NO'}`);
+    console.log(`[AI-AGENT-OPHTACARE] 🏥 TRAITEMENT ULTRA-ENRICHI: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT-OPHTACARE] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
+    console.log(`[AI-AGENT-OPHTACARE] 📋 Contexte tâche: ${taskContext ? 'OUI' : 'NON'}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -35,79 +35,127 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Initialize enhanced agents
+    // Initialisation des agents enrichis
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
     const internetAgent = new InternetAgent(perplexityApiKey);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 1. ENHANCED COORDINATION: Prioriser la recherche vectorielle
-    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Analyse de requête avec priorité vectorielle');
+    // 🧠 PHASE 1: ANALYSE ULTRA-ENRICHIE avec fuzzy matching et contexte médical
+    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Analyse ultra-enrichie avec gestion fuzzy');
     const analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
-    console.log('[AI-AGENT-OPHTACARE] 📊 Analysis result:', analysis);
+    console.log('[AI-AGENT-OPHTACARE] 📊 Analyse complète:', {
+      queryType: analysis.queryType,
+      priority: analysis.priority,
+      requiresEmbeddings: analysis.requiresEmbeddings,
+      fuzzyMatching: analysis.fuzzyMatching,
+      actionDetected: analysis.actionDetected,
+      medicalContext: analysis.medicalContext,
+      searchTermsCount: analysis.searchTerms.length,
+      synonymsCount: analysis.synonyms.length
+    });
 
-    // Force embeddings search for almost everything
+    // FORCER les embeddings pour TOUT sauf actions pures
     if (!analysis.requiresEmbeddings && analysis.queryType !== 'task') {
-      console.log('[AI-AGENT-OPHTACARE] 🔧 Forcing embeddings search for better results');
+      console.log('[AI-AGENT-OPHTACARE] 🔧 FORÇAGE recherche vectorielle pour enrichissement maximum');
       analysis.requiresEmbeddings = true;
       analysis.priority = 'embeddings';
+      analysis.iterativeSearch = true;
     }
 
-    // 2. DATABASE SEARCH: Plus ciblé mais toujours actif
-    console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Recherche base de données');
+    // 🗄️ PHASE 2: RECHERCHE DATABASE ENRICHIE avec tâches et participants
+    console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Recherche database ultra-enrichie');
     const databaseContext = analysis.requiresDatabase 
       ? await databaseAgent.searchContext(analysis)
-      : { meetings: [], documents: [], todos: [], relevantIds: { meetingIds: [], documentIds: [] } };
+      : { 
+          meetings: [], documents: [], todos: [], participants: [],
+          relevantIds: { meetingIds: [], documentIds: [], todoIds: [], participantIds: [] } 
+        };
+    
+    console.log('[AI-AGENT-OPHTACARE] ✅ Database enrichie:', {
+      meetings: databaseContext.meetings.length,
+      documents: databaseContext.documents.length,
+      todos: databaseContext.todos.length,
+      participants: databaseContext.participants.length,
+      fuzzyMatches: databaseContext.fuzzyMatches?.length || 0
+    });
 
-    // 3. RECHERCHE VECTORIELLE AGRESSIVE : Priorité absolue
-    console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: RECHERCHE VECTORIELLE AGRESSIVE');
-    let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [] };
+    // 🎯 PHASE 3: RECHERCHE VECTORIELLE ULTRA-AGRESSIVE
+    console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: RECHERCHE VECTORIELLE ULTRA-AGRESSIVE');
+    let embeddingContext = { 
+      chunks: [], sources: [], hasRelevantContext: false, 
+      searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 
+    };
     
     if (analysis.requiresEmbeddings) {
       embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds);
       
-      // Si pas de résultats satisfaisants, retry avec des termes plus larges
-      if (!embeddingContext.hasRelevantContext || embeddingContext.chunks.length < 3) {
-        console.log('[AI-AGENT-OPHTACARE] 🔄 Recherche vectorielle insuffisante, retry avec expansion maximale');
+      // RETRY ultra-agressif si résultats insuffisants
+      if (!embeddingContext.hasRelevantContext || embeddingContext.chunks.length < 5) {
+        console.log('[AI-AGENT-OPHTACARE] 🔄 RETRY ultra-agressif - expansion maximale');
         
-        const expandedTerms = [
+        const ultraExpandedTerms = [
           message,
           ...analysis.searchTerms,
           ...analysis.synonyms,
-          // Termes supplémentaires selon le contexte
-          ...(message.toLowerCase().includes('dupixent') ? ['dupilumab', 'dermatologie', 'bonus', 'règles', 'traitement'] : []),
-          ...(message.toLowerCase().includes('bonus') ? ['indemnisation', 'remboursement', 'critères', 'conditions'] : [])
+          // Expansion contextuelle OphtaCare
+          ...(message.toLowerCase().includes('dupixent') ? 
+            ['dupilumab', 'dermatologie', 'bonus', 'règles', 'traitement', 'indemnisation', 'remboursement', 'assurance', 'protocole', 'prescription', 'critères', 'conditions'] : []),
+          ...(message.toLowerCase().includes('fischer') || message.toLowerCase().includes('fisher') ? 
+            ['fischer', 'fisher', 'monsieur fischer', 'mr fischer', 'docteur fischer', 'patient fischer'] : []),
+          ...(message.toLowerCase().includes('clim') ? 
+            ['climatisation', 'air conditionné', 'température', 'refroidissement', 'HVAC', 'climate'] : []),
+          // Termes généraux OphtaCare
+          'ophtacare', 'cabinet', 'genève', 'tabibian', 'ophtalmologie', 'médical', 'administratif'
         ];
         
         const fallbackContext = await embeddingsAgent.searchWithFallback(
           message, 
-          expandedTerms,
+          ultraExpandedTerms,
           databaseContext.relevantIds
         );
         
-        // Merge all results
+        // Fusion de tous les résultats
         if (fallbackContext.hasRelevantContext) {
           embeddingContext.chunks.push(...fallbackContext.chunks);
           embeddingContext.sources.push(...fallbackContext.sources);
           embeddingContext.hasRelevantContext = true;
           embeddingContext.searchIterations += fallbackContext.searchIterations;
+          embeddingContext.expansionLevel = Math.max(embeddingContext.expansionLevel, fallbackContext.expansionLevel);
         }
       }
     }
 
-    // 4. INTERNET: Seulement si pas de résultats internes satisfaisants
-    console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Internet (conditionnel)');
+    console.log('[AI-AGENT-OPHTACARE] ✅ Recherche vectorielle terminée:', {
+      chunks: embeddingContext.chunks.length,
+      iterations: embeddingContext.searchIterations,
+      expansionLevel: embeddingContext.expansionLevel,
+      hasContext: embeddingContext.hasRelevantContext,
+      uniqueChunks: [...new Set(embeddingContext.chunks.map(c => c.id))].length
+    });
+
+    // 🌐 PHASE 4: INTERNET (seulement si vraiment nécessaire)
+    console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Internet (conditionnel et limité)');
     const shouldUseInternet = (analysis.requiresInternet || 
-                              (!embeddingContext.hasRelevantContext && analysis.queryType === 'general')) &&
-                              embeddingContext.chunks.length < 2; // Seulement si vraiment pas de résultats
+                              (!embeddingContext.hasRelevantContext && 
+                               analysis.queryType === 'general' && 
+                               databaseContext.meetings.length === 0 && 
+                               databaseContext.documents.length === 0)) &&
+                              embeddingContext.chunks.length < 2; // Seuil très strict
     
     const internetContext = shouldUseInternet
       ? await internetAgent.searchInternet(message, analysis, embeddingContext.hasRelevantContext)
       : { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
 
-    // 5. SYNTHESIS: Privilégier les données internes
-    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Synthèse avec priorité aux données internes');
+    console.log('[AI-AGENT-OPHTACARE] ✅ Internet:', {
+      used: shouldUseInternet,
+      hasContent: internetContext.hasContent,
+      enrichmentType: internetContext.enrichmentType
+    });
+
+    // ⚡ PHASE 5: SYNTHÈSE ULTRA-ENRICHIE avec validation contextuelle
+    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Synthèse ultra-enrichie avec contexte médical');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
@@ -118,41 +166,61 @@ serve(async (req) => {
       analysis
     );
 
-    // Build enhanced response data with focus on internal data
+    // Construction de la réponse enrichie avec métriques détaillées
     const responseData = {
       response: finalResponse,
       sources: embeddingContext.sources,
       internetSources: internetContext.sources,
       hasInternetContext: internetContext.hasContent,
       contextFound: embeddingContext.hasRelevantContext,
-      analysis: analysis,
+      analysis: {
+        queryType: analysis.queryType,
+        priority: analysis.priority,
+        fuzzyMatching: analysis.fuzzyMatching,
+        actionDetected: analysis.actionDetected,
+        medicalContext: analysis.medicalContext,
+        requiresClarification: analysis.requiresClarification
+      },
       searchMetrics: {
         embeddingIterations: embeddingContext.searchIterations,
+        expansionLevel: embeddingContext.expansionLevel,
         finalSearchTerms: embeddingContext.finalSearchTerms,
         chunksFound: embeddingContext.chunks.length,
+        uniqueChunks: [...new Set(embeddingContext.chunks.map((c: any) => c.id))].length,
+        fuzzyResults: embeddingContext.fuzzyResults?.length || 0,
         targetedExtraction: databaseContext.targetedExtracts ? true : false,
-        internetEnrichmentType: internetContext.enrichmentType
+        internetEnrichmentType: internetContext.enrichmentType,
+        totalDataPoints: (databaseContext.meetings?.length || 0) + 
+                        (databaseContext.documents?.length || 0) + 
+                        (databaseContext.todos?.length || 0) + 
+                        (embeddingContext.chunks?.length || 0)
       },
-      additionalDataUsed: {
+      enrichedDataUsed: {
         meetings: databaseContext.meetings?.length || 0,
         documents: databaseContext.documents?.length || 0,
         todos: databaseContext.todos?.length || 0,
+        participants: databaseContext.participants?.length || 0,
         conversationHistory: conversationHistory?.length || 0,
         targetedSections: databaseContext.targetedExtracts?.sections?.length || 0,
-        embeddingChunks: embeddingContext.chunks.length
+        embeddingChunks: embeddingContext.chunks.length,
+        fuzzyMatches: databaseContext.fuzzyMatches?.length || 0
       }
     };
 
-    console.log('[AI-AGENT-OPHTACARE] ✅ Réponse générée avec succès');
-    console.log(`[AI-AGENT-OPHTACARE] 📈 Résumé: Embeddings=${embeddingContext.chunks.length} chunks, Iterations=${embeddingContext.searchIterations}, Internet=${internetContext.hasContent ? 'YES' : 'NO'}`);
+    console.log('[AI-AGENT-OPHTACARE] ✅ RÉPONSE ULTRA-ENRICHIE GÉNÉRÉE');
+    console.log(`[AI-AGENT-OPHTACARE] 📈 MÉTRIQUES FINALES: Embeddings=${embeddingContext.chunks.length} chunks, Expansion=${embeddingContext.expansionLevel}, Iterations=${embeddingContext.searchIterations}, Total=${responseData.searchMetrics.totalDataPoints} points, Internet=${internetContext.hasContent ? 'OUI' : 'NON'}`);
+    console.log(`[AI-AGENT-OPHTACARE] 🎯 DONNÉES ENRICHIES: Réunions=${databaseContext.meetings?.length}, Docs=${databaseContext.documents?.length}, Tâches=${databaseContext.todos?.length}, Participants=${databaseContext.participants?.length}`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[AI-AGENT-OPHTACARE] ❌ Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[AI-AGENT-OPHTACARE] ❌ ERREUR CRITIQUE:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      context: 'AI Agent OphtaCare - Enrichissement maximal'
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -1,3 +1,4 @@
+
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -13,328 +14,533 @@ export class SynthesisAgent {
     internetContext: any,
     analysis: any
   ): Promise<string> {
-    console.log('[SYNTHESIS] Creating enhanced comprehensive response');
+    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec contexte médical OphtaCare');
 
-    // Detect if this is a task-related request
-    const taskAction = this.detectTaskAction(originalQuery, conversationHistory);
+    // Détection d'actions avec analyse approfondie
+    const actionAnalysis = this.detectActionWithContext(originalQuery, conversationHistory, databaseContext);
     
-    // Build comprehensive context
-    const contextData = this.buildComprehensiveContext(
+    // Construction du contexte ultra-enrichi
+    const enrichedContext = this.buildUltraEnrichedContext(
       databaseContext,
       embeddingContext,
-      internetContext
+      internetContext,
+      analysis
     );
 
-    // Determine if we have sufficient data
-    const hasSufficientData = this.evaluateDataQuality(contextData, analysis);
+    // Évaluation de la qualité des données avec validation contextuelle
+    const dataQuality = this.evaluateDataQualityEnhanced(enrichedContext, analysis, actionAnalysis);
     
-    if (!hasSufficientData && !taskAction) {
-      console.log('[SYNTHESIS] ⚠️ Insufficient data quality, requesting more specific search');
-      return this.generateInsufficientDataResponse(originalQuery, analysis);
+    // Validation contextuelle médicale
+    const contextValidation = this.validateMedicalContext(originalQuery, enrichedContext, analysis);
+    
+    if (!dataQuality.sufficient && !actionAnalysis.isAction && contextValidation.needsClarification) {
+      console.log('[SYNTHESIS] ⚠️ Données insuffisantes ET contexte ambigu, demande de clarification');
+      return this.generateClarificationRequest(originalQuery, analysis, dataQuality, contextValidation);
     }
 
-    // Generate comprehensive response with task action if needed
-    const response = await this.generateResponse(
+    // Génération de la réponse enrichie avec validation contextuelle
+    const response = await this.generateEnrichedResponse(
       originalQuery,
       conversationHistory,
-      contextData,
+      enrichedContext,
       analysis,
-      taskAction
+      actionAnalysis,
+      contextValidation
     );
 
     return response;
   }
 
-  private detectTaskAction(query: string, conversationHistory: any[]): any {
+  private detectActionWithContext(query: string, conversationHistory: any[], databaseContext: any): any {
     const lowerQuery = query.toLowerCase();
     
-    // Enhanced detection for task creation requests - plus de patterns
-    if (lowerQuery.includes('crée') || lowerQuery.includes('créer') || 
-        lowerQuery.includes('ajoute') || lowerQuery.includes('ajouter') ||
-        lowerQuery.includes('nouvelle tâche') || lowerQuery.includes('new task') ||
-        lowerQuery.includes('faire une tâche') || lowerQuery.includes('créé une tâche') ||
-        lowerQuery.includes('je vais créer') || lowerQuery.includes('créer une tâche') ||
-        lowerQuery.includes('tâche pour') || lowerQuery.includes('task for') ||
-        lowerQuery.includes('acheter') || lowerQuery.includes('commander') ||
-        lowerQuery.includes('contacter') || lowerQuery.includes('vérifier') ||
-        lowerQuery.includes('préparer') || lowerQuery.includes('organiser') ||
-        (lowerQuery.includes('tâche') && (lowerQuery.includes('pour') || lowerQuery.includes('à') || lowerQuery.includes('concernant')))) {
+    // Détection d'actions renforcée avec contexte
+    const actionPatterns = {
+      create: {
+        patterns: ['crée', 'créer', 'ajoute', 'ajouter', 'nouvelle', 'nouveau', 'faire', 'organiser', 'planifier'],
+        targets: ['tâche', 'task', 'todo', 'action', 'rendez-vous', 'réunion', 'rappel']
+      },
+      update: {
+        patterns: ['modifie', 'modifier', 'change', 'changer', 'update', 'mettre à jour', 'corriger'],
+        targets: ['tâche', 'information', 'statut', 'date', 'description']
+      },
+      help: {
+        patterns: ['aide', 'explique', 'comment', 'montre', 'guide', 'assistance', 'conseille'],
+        targets: ['procédure', 'étapes', 'méthode', 'utilisation', 'fonctionnement']
+      },
+      search: {
+        patterns: ['trouve', 'cherche', 'recherche', 'montre', 'affiche', 'où est'],
+        targets: ['information', 'document', 'personne', 'tâche', 'réunion']
+      }
+    };
+    
+    let detectedAction = null;
+    let confidence = 0;
+    
+    for (const [actionType, config] of Object.entries(actionPatterns)) {
+      const patternMatch = config.patterns.some(pattern => lowerQuery.includes(pattern));
+      const targetMatch = config.targets.some(target => lowerQuery.includes(target));
       
-      return this.extractTaskCreationDetails(query);
-    }
-
-    // Detect task modification requests
-    if (lowerQuery.includes('modifie') || lowerQuery.includes('modifier') ||
-        lowerQuery.includes('change') || lowerQuery.includes('update')) {
-      return this.extractTaskModificationDetails(query);
-    }
-
-    // Detect task completion requests
-    if (lowerQuery.includes('termine') || lowerQuery.includes('terminer') ||
-        lowerQuery.includes('complet') || lowerQuery.includes('fini')) {
-      return this.extractTaskCompletionDetails(query);
-    }
-
-    return null;
-  }
-
-  private extractTaskCreationDetails(query: string): any {
-    const lowerQuery = query.toLowerCase();
-    
-    // Extract description - chercher des patterns plus précis
-    let description = query;
-    
-    // Extract assignee with improved detection
-    let assignedTo = null;
-    
-    // Extract participant names from CONTEXT_PARTICIPANTS
-    const participantMatch = query.match(/CONTEXT_PARTICIPANTS:\s*([^]*?)(?:\n|$)/);
-    const participants: {name: string, id: string}[] = [];
-    
-    if (participantMatch) {
-      const participantText = participantMatch[1];
-      const participantRegex = /([^(,]+)\s*\([^,]*,\s*ID:\s*([^)]+)\)/g;
-      let match;
-      while ((match = participantRegex.exec(participantText)) !== null) {
-        participants.push({
-          name: match[1].trim(),
-          id: match[2].trim()
-        });
+      if (patternMatch && (targetMatch || actionType === 'help' || actionType === 'search')) {
+        const currentConfidence = patternMatch && targetMatch ? 1.0 : 0.7;
+        if (currentConfidence > confidence) {
+          confidence = currentConfidence;
+          detectedAction = {
+            type: actionType,
+            confidence,
+            details: this.extractActionDetails(query, actionType, databaseContext)
+          };
+        }
       }
     }
     
-    // Enhanced assignee detection patterns
-    const assigneePatterns = [
-      /(?:pour|à|concernant)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
-      /responsable\s*:\s*([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
-      /assigné[e]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
-      /demande[r]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
-      /dis\s+(?:à|lui)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi
+    // Détection spéciale pour tâches avec participants
+    if (detectedAction?.type === 'create' && lowerQuery.includes('tâche')) {
+      detectedAction.details = this.extractTaskCreationDetailsEnhanced(query, databaseContext);
+    }
+    
+    return {
+      isAction: detectedAction !== null,
+      action: detectedAction,
+      confidence
+    };
+  }
+
+  private extractActionDetails(query: string, actionType: string, databaseContext: any): any {
+    const details: any = { originalQuery: query };
+    
+    switch (actionType) {
+      case 'create':
+        if (query.toLowerCase().includes('tâche')) {
+          details.taskCreation = this.extractTaskCreationDetailsEnhanced(query, databaseContext);
+        }
+        break;
+        
+      case 'help':
+        details.helpType = 'procedural';
+        details.context = 'medical_administrative';
+        break;
+        
+      case 'search':
+        details.searchTarget = this.identifySearchTarget(query);
+        break;
+    }
+    
+    return details;
+  }
+
+  private extractTaskCreationDetailsEnhanced(query: string, databaseContext: any): any {
+    const lowerQuery = query.toLowerCase();
+    
+    // Extraction de la description avec patterns améliorés
+    let description = query;
+    const actionPrefixes = [
+      'crée une tâche', 'créer une tâche', 'ajoute une tâche', 'nouvelle tâche',
+      'je vais créer', 'peux-tu créer', 'fait une tâche', 'tâche pour'
     ];
     
-    for (const pattern of assigneePatterns) {
+    actionPrefixes.forEach(prefix => {
+      if (lowerQuery.includes(prefix)) {
+        const index = lowerQuery.indexOf(prefix);
+        description = query.substring(index + prefix.length).trim();
+      }
+    });
+    
+    // Nettoyage de la description
+    description = description.replace(/^[:;,\s]+/, '').trim();
+    
+    // Extraction d'assignation avec matching intelligent sur participants
+    let assignedTo = null;
+    const participants = databaseContext.participants || [];
+    
+    // Patterns d'assignation étendus
+    const assignmentPatterns = [
+      /(?:pour|à|assigné[e]?\s+à|responsable\s*:)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /(?:demande[r]?\s+à|dis\s+à|dit\s+à)\s+([a-záàâäéèêëíìîïóòôöúùûüç\s]+)/gi,
+      /([a-záàâäéèêëíìîïóòôöúùûüç]+)\s+(?:doit|va|peut|should)/gi
+    ];
+    
+    for (const pattern of assignmentPatterns) {
       const matches = [...query.matchAll(pattern)];
       for (const match of matches) {
         const nameCandidate = match[1].trim();
         
-        // Try to match with participants
-        const foundParticipant = participants.find(p => 
-          p.name.toLowerCase().includes(nameCandidate.toLowerCase()) ||
-          nameCandidate.toLowerCase().includes(p.name.toLowerCase())
-        );
+        // Matching avec participants existants (fuzzy)
+        const foundParticipant = participants.find(p => {
+          const pName = p.name.toLowerCase();
+          const candidate = nameCandidate.toLowerCase();
+          return pName.includes(candidate) || 
+                 candidate.includes(pName) ||
+                 this.fuzzyNameMatch(pName, candidate);
+        });
         
         if (foundParticipant) {
           assignedTo = foundParticipant.name;
+          description = description.replace(new RegExp(match[0], 'gi'), '').trim();
           break;
-        } else if (nameCandidate.length > 2) { // Basic name validation
+        } else if (nameCandidate.length > 2 && /^[a-záàâäéèêëíìîïóòôöúùûüç\s]+$/i.test(nameCandidate)) {
           assignedTo = nameCandidate;
+          description = description.replace(new RegExp(match[0], 'gi'), '').trim();
         }
       }
       if (assignedTo) break;
     }
-
-    // Enhanced task description extraction
-    if (lowerQuery.includes('achat') || lowerQuery.includes('acheter')) {
-      const buyMatch = query.match(/(?:achat|acheter)\s+(?:de\s+|des?\s+)?([^.!?\n]+)/i);
-      if (buyMatch) {
-        description = `Acheter ${buyMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('contacter')) {
-      const contactMatch = query.match(/contacter\s+([^.!?\n]+)/i);
-      if (contactMatch) {
-        description = `Contacter ${contactMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('commander')) {
-      const orderMatch = query.match(/commander\s+([^.!?\n]+)/i);
-      if (orderMatch) {
-        description = `Commander ${orderMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('vérifier')) {
-      const checkMatch = query.match(/vérifier\s+([^.!?\n]+)/i);
-      if (checkMatch) {
-        description = `Vérifier ${checkMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('préparer')) {
-      const prepareMatch = query.match(/préparer\s+([^.!?\n]+)/i);
-      if (prepareMatch) {
-        description = `Préparer ${prepareMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('organiser')) {
-      const organizeMatch = query.match(/organiser\s+([^.!?\n]+)/i);
-      if (organizeMatch) {
-        description = `Organiser ${organizeMatch[1].trim()}`;
-      }
-    } else if (lowerQuery.includes('tâche')) {
-      // Extract text around "tâche"
-      const taskMatch = query.match(/tâche\s*:?\s*([^.!?\n]+)/i);
-      if (taskMatch) {
-        description = taskMatch[1].trim();
-      }
-    }
-
-    // Clean description by removing assignment patterns and context
-    description = description.replace(/(?:pour|à|concernant)\s+[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
-    description = description.replace(/crée une tâche|créer une tâche|je vais créer/gi, '');
-    description = description.replace(/responsable\s*:\s*[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
-    description = description.replace(/dis\s+(?:à|lui)\s+[a-záàâäéèêëíìîïóòôöúùûüç\s]+/gi, '');
-    description = description.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '');
-    description = description.trim();
-
-    // Extract due date if mentioned
+    
+    // Extraction de date d'échéance
     let dueDate = null;
     const datePatterns = [
-      /(avant le|pour le|d'ici le|date limite)\s*:?\s*([0-9\/\-\.]+)/i,
-      /échéance\s*:?\s*([0-9\/\-\.]+)/i
+      /(avant le|pour le|d'ici le|échéance|deadline)\s*:?\s*([0-9\/\-\.]+)/i,
+      /(demain|aujourd'hui|cette semaine|semaine prochaine)/i
     ];
     
     for (const pattern of datePatterns) {
       const match = query.match(pattern);
       if (match) {
         dueDate = match[2] || match[1];
+        description = description.replace(match[0], '').trim();
         break;
       }
     }
-
+    
+    // Actions spécifiques détectées
+    const actionTypes = {
+      'acheter': /(?:achat|acheter|commander)\s+(?:de\s+|des?\s+)?([^.!?\n]+)/i,
+      'contacter': /contacter\s+([^.!?\n]+)/i,
+      'vérifier': /vérifier\s+([^.!?\n]+)/i,
+      'préparer': /préparer\s+([^.!?\n]+)/i,
+      'organiser': /organiser\s+([^.!?\n]+)/i,
+      'programmer': /programmer\s+([^.!?\n]+)/i
+    };
+    
+    let actionType = 'général';
+    for (const [type, pattern] of Object.entries(actionTypes)) {
+      const match = query.match(pattern);
+      if (match) {
+        actionType = type;
+        if (!description || description.length < 10) {
+          description = `${type.charAt(0).toUpperCase() + type.slice(1)} ${match[1].trim()}`;
+        }
+        break;
+      }
+    }
+    
+    // Nettoyage final
+    description = description
+      .replace(/CONTEXT_PARTICIPANTS:.*$/gi, '')
+      .replace(/^\W+|\W+$/g, '')
+      .trim();
+    
+    if (!description || description.length < 3) {
+      description = 'Nouvelle tâche à définir';
+    }
+    
     return {
       type: 'create',
       data: {
-        description: description || 'Nouvelle tâche',
+        description,
         assigned_to: assignedTo,
-        due_date: dueDate
+        due_date: dueDate,
+        action_type: actionType,
+        context: 'medical_administrative'
       }
     };
   }
 
-  private extractTaskModificationDetails(query: string): any {
-    return {
-      type: 'update',
-      data: {
-        description: query
-      }
-    };
+  private fuzzyNameMatch(name1: string, name2: string): boolean {
+    const words1 = name1.split(/\s+/);
+    const words2 = name2.split(/\s+/);
+    
+    return words1.some(w1 => 
+      words2.some(w2 => 
+        Math.abs(w1.length - w2.length) <= 2 && 
+        (w1.includes(w2) || w2.includes(w1) || this.levenshteinDistance(w1, w2) <= 2)
+      )
+    );
   }
 
-  private extractTaskCompletionDetails(query: string): any {
-    return {
-      type: 'complete',
-      data: {
-        status: 'completed'
+  private levenshteinDistance(str1: string, str2: string): number {
+    const matrix = [];
+    for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
       }
-    };
+    }
+    
+    return matrix[str2.length][str1.length];
   }
 
-  private buildComprehensiveContext(databaseContext: any, embeddingContext: any, internetContext: any): any {
-    return {
+  private identifySearchTarget(query: string): string {
+    const targets = {
+      'document': ['document', 'fichier', 'pdf', 'rapport'],
+      'person': ['personne', 'patient', 'docteur', 'collègue', 'participant'],
+      'task': ['tâche', 'todo', 'action', 'travail'],
+      'meeting': ['réunion', 'meeting', 'rendez-vous', 'consultation'],
+      'information': ['info', 'information', 'détail', 'donnée']
+    };
+    
+    const lowerQuery = query.toLowerCase();
+    for (const [target, keywords] of Object.entries(targets)) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        return target;
+      }
+    }
+    
+    return 'general';
+  }
+
+  private buildUltraEnrichedContext(databaseContext: any, embeddingContext: any, internetContext: any, analysis: any): any {
+    const enriched = {
+      // Données de base
       meetings: databaseContext.meetings || [],
       documents: databaseContext.documents || [],
       todos: databaseContext.todos || [],
+      participants: databaseContext.participants || [],
       chunks: embeddingContext.chunks || [],
       sources: embeddingContext.sources || [],
+      
+      // Enrichissements
+      fuzzyMatches: databaseContext.fuzzyMatches || [],
+      targetedExtracts: databaseContext.targetedExtracts || null,
       internetContent: internetContext.content || '',
       internetSources: internetContext.sources || [],
+      
+      // Métriques de qualité
       hasEmbeddingContext: embeddingContext.hasRelevantContext || false,
-      hasInternetContext: internetContext.hasContent || false
+      hasInternetContext: internetContext.hasContent || false,
+      searchQuality: {
+        embeddingIterations: embeddingContext.searchIterations || 0,
+        expansionLevel: embeddingContext.expansionLevel || 0,
+        chunksFound: embeddingContext.chunks?.length || 0,
+        totalDataPoints: (databaseContext.meetings?.length || 0) + 
+                        (databaseContext.documents?.length || 0) + 
+                        (databaseContext.todos?.length || 0) + 
+                        (embeddingContext.chunks?.length || 0)
+      },
+      
+      // Contexte médical
+      medicalContext: {
+        cabinetName: 'OphtaCare',
+        doctor: 'Dr Tabibian',
+        location: 'Genève',
+        specialty: 'Ophtalmologie',
+        userRole: 'Responsable Administratif'
+      }
     };
-  }
-
-  private evaluateDataQuality(contextData: any, analysis: any): boolean {
-    const hasRelevantMeetings = contextData.meetings.length > 0;
-    const hasRelevantDocuments = contextData.documents.length > 0;
-    const hasEmbeddingResults = contextData.chunks.length > 0;
-    const hasInternetResults = contextData.internetContent.length > 0;
     
-    // For task-related queries, we don't need extensive context
-    if (analysis.queryType === 'task') {
-      return true;
-    }
-
-    return hasRelevantMeetings || hasRelevantDocuments || hasEmbeddingResults || hasInternetResults;
+    return enriched;
   }
 
-  private generateInsufficientDataResponse(originalQuery: string, analysis: any): string {
-    const missingContext = [];
+  private evaluateDataQualityEnhanced(contextData: any, analysis: any, actionAnalysis: any): any {
+    const quality = {
+      sufficient: false,
+      score: 0,
+      details: {},
+      recommendations: []
+    };
     
-    if (analysis.specificEntities && analysis.specificEntities.length > 0) {
-      missingContext.push(`Information spécifique sur "${analysis.specificEntities.join(', ')}"`);
+    // Scoring basé sur la richesse des données
+    const dataPoints = {
+      meetings: contextData.meetings.length,
+      documents: contextData.documents.length,
+      todos: contextData.todos.length,
+      participants: contextData.participants.length,
+      chunks: contextData.chunks.length
+    };
+    
+    // Calcul du score de qualité
+    Object.entries(dataPoints).forEach(([type, count]) => {
+      if (count > 0) quality.score += 20;
+      if (count > 3) quality.score += 10;
+      if (count > 8) quality.score += 10;
+    });
+    
+    // Bonus pour correspondance avec analyse
+    if (contextData.hasEmbeddingContext) quality.score += 30;
+    if (contextData.targetedExtracts?.sections?.length > 0) quality.score += 20;
+    if (contextData.fuzzyMatches?.length > 0) quality.score += 15;
+    
+    // Évaluation spéciale pour actions
+    if (actionAnalysis.isAction) {
+      quality.sufficient = true; // Actions nécessitent moins de contexte
+      quality.score += 50;
+    } else {
+      quality.sufficient = quality.score >= 60; // Seuil pour questions générales
     }
-
-    const suggestions = [];
-    if (analysis.searchTerms && analysis.searchTerms.length > 0) {
-      suggestions.push(`Recherche plus ciblée sur "${analysis.searchTerms.join(', ')}"`);
+    
+    quality.details = dataPoints;
+    
+    if (!quality.sufficient) {
+      quality.recommendations = [
+        'Préciser le contexte temporel (récent, cette semaine, etc.)',
+        'Mentionner des noms de personnes ou entités spécifiques',
+        'Utiliser des termes liés au cabinet médical OphtaCare'
+      ];
     }
-
-    return `Je n'ai pas trouvé suffisamment d'informations spécifiques dans les données du cabinet OphtaCare pour répondre complètement à votre question : "${originalQuery}"
-
-**Éléments manquants dans nos données internes :**
-${missingContext.map(item => `• ${item}`).join('\n')}
-
-**Suggestions pour améliorer la recherche :**
-${suggestions.map(item => `• ${item}`).join('\n')}
-
-Pouvez-vous reformuler votre question dans le contexte administratif du cabinet ? Par exemple :
-• Préciser une période ou un contexte spécifique
-• Mentionner des noms de patients, médecins ou collaborateurs
-• Utiliser des termes liés à la gestion administrative du cabinet`;
+    
+    return quality;
   }
 
-  private async generateResponse(
+  private validateMedicalContext(query: string, contextData: any, analysis: any): any {
+    const validation = {
+      isRelevant: true,
+      needsClarification: false,
+      context: 'medical_administrative',
+      suggestions: []
+    };
+    
+    const lowerQuery = query.toLowerCase();
+    
+    // Vérification du contexte médical/administratif
+    const medicalTerms = ['patient', 'consultation', 'traitement', 'médical', 'cabinet', 'ophtalmologie', 'docteur'];
+    const adminTerms = ['tâche', 'planning', 'gestion', 'organisation', 'administratif', 'réunion'];
+    const ophtalmoTerms = ['ophtacare', 'tabibian', 'genève', 'fischer', 'dupixent'];
+    
+    const hasMedicalContext = medicalTerms.some(term => lowerQuery.includes(term));
+    const hasAdminContext = adminTerms.some(term => lowerQuery.includes(term));
+    const hasOphtalmoContext = ophtalmoTerms.some(term => lowerQuery.includes(term));
+    
+    // Demande de clarification si contexte trop général
+    if (!hasMedicalContext && !hasAdminContext && !hasOphtalmoContext && 
+        contextData.searchQuality.totalDataPoints < 3) {
+      validation.needsClarification = true;
+      validation.suggestions = [
+        'Préciser le contexte du cabinet OphtaCare',
+        'Mentionner s\'il s\'agit d\'une question administrative ou médicale',
+        'Indiquer des noms de patients, collaborateurs ou équipements spécifiques'
+      ];
+    }
+    
+    return validation;
+  }
+
+  private generateClarificationRequest(originalQuery: string, analysis: any, dataQuality: any, contextValidation: any): string {
+    return `Je voudrais vous aider au mieux avec votre demande : "${originalQuery}"
+
+**Pour vous fournir une réponse précise, j'aurais besoin de plus de contexte :**
+
+${contextValidation.suggestions.map((s: string) => `• ${s}`).join('\n')}
+
+**Données disponibles dans OphtaCare :**
+• ${dataQuality.details.meetings} réunions récentes
+• ${dataQuality.details.documents} documents
+• ${dataQuality.details.todos} tâches en cours
+• ${dataQuality.details.participants} participants/collaborateurs
+
+**Suggestions pour affiner votre demande :**
+${dataQuality.recommendations.map((r: string) => `• ${r}`).join('\n')}
+
+Pouvez-vous reformuler votre question en précisant le contexte administratif ou médical du cabinet OphtaCare ?`;
+  }
+
+  private async generateEnrichedResponse(
     originalQuery: string,
     conversationHistory: any[],
     contextData: any,
     analysis: any,
-    taskAction: any
+    actionAnalysis: any,
+    contextValidation: any
   ): Promise<string> {
-    const hasContext = contextData.meetings.length > 0 || 
-                     contextData.documents.length > 0 || 
-                     contextData.chunks.length > 0;
+    const hasRichContext = contextData.searchQuality.totalDataPoints > 5;
 
     let systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie OphtaCare du Dr Tabibian à Genève.
-L'utilisateur qui te parle est RESPONSABLE ADMINISTRATIF du cabinet.
 
-CONTEXTE OPHTACARE GENÈVE :
-- Cabinet d'ophtalmologie dirigé par Dr Tabibian
-- Utilisateur = gestionnaire administratif du cabinet  
-- Tu aides avec : organisation, planification, gestion des tâches, documents administratifs
-- Tu restes TOUJOURS dans le contexte administratif médical
-- Tu évites les conseils médicaux (pas ton rôle)
+CONTEXTE OPHTACARE RENFORCÉ :
+- Cabinet : OphtaCare, dirigé par Dr Tabibian, Genève
+- Utilisateur : Responsable administratif du cabinet
+- Spécialité : Ophtalmologie et gestion administrative médicale
+- Mission : Assistance administrative complète et gestion du cabinet
 
-DONNÉES DISPONIBLES :
-${hasContext ? `
-- Réunions récentes : ${contextData.meetings.length}
-- Documents internes : ${contextData.documents.length} 
-- Extraits pertinents : ${contextData.chunks.length}
-` : 'Données limitées disponibles pour cette requête'}
+DONNÉES ENRICHIES DISPONIBLES :
+- Réunions : ${contextData.meetings.length} (avec transcripts détaillés)
+- Documents : ${contextData.documents.length} (avec contenus analysés)
+- Tâches : ${contextData.todos.length} (avec participants et statuts)
+- Participants/Collaborateurs : ${contextData.participants.length}
+- Extraits sémantiques : ${contextData.chunks.length} chunks pertinents
+${contextData.targetedExtracts ? `- Extractions ciblées : ${contextData.targetedExtracts.sections.length} sections` : ''}
+${contextData.fuzzyMatches?.length > 0 ? `- Correspondances approximatives : ${contextData.fuzzyMatches.length}` : ''}
 
-${contextData.hasInternetContext ? 'Informations complémentaires d\'actualité disponibles.' : ''}
+QUALITÉ DE RECHERCHE ULTRA-ENRICHIE :
+- Itérations de recherche : ${contextData.searchQuality.embeddingIterations}
+- Niveau d'expansion : ${contextData.searchQuality.expansionLevel}
+- Points de données total : ${contextData.searchQuality.totalDataPoints}
+- Recherche vectorielle ${contextData.hasEmbeddingContext ? 'RÉUSSIE' : 'limitée'}
 
-TÂCHES ET ACTIONS :
-${taskAction ? `
-IMPORTANT : Cette demande nécessite une ACTION sur les tâches.
-Action détectée : ${taskAction.type}
-Détails : ${JSON.stringify(taskAction.data)}
+${actionAnalysis.isAction ? `
+ACTION DÉTECTÉE :
+Type : ${actionAnalysis.action.type}
+Confiance : ${(actionAnalysis.confidence * 100).toFixed(0)}%
+${actionAnalysis.action.type === 'create' && actionAnalysis.action.details?.taskCreation ? `
+CRÉATION DE TÂCHE REQUISE :
+Description : "${actionAnalysis.action.details.taskCreation.data.description}"
+${actionAnalysis.action.details.taskCreation.data.assigned_to ? `Assignée à : ${actionAnalysis.action.details.taskCreation.data.assigned_to}` : ''}
+${actionAnalysis.action.details.taskCreation.data.due_date ? `Échéance : ${actionAnalysis.action.details.taskCreation.data.due_date}` : ''}
 
-Tu DOIS inclure dans ta réponse cette syntaxe EXACTE :
-[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value || ''}"`).join(', ')}]
-
-Exemple : [ACTION_TACHE: TYPE=CREATE, description="Acheter matériel de bureau", assigned_to="Linda"]
-` : 'Aucune action de tâche requise pour cette demande.'}
-
-Réponds de manière professionnelle et dans le contexte OphtaCare Genève.`;
-
-    const userMessage = `QUESTION ADMINISTRATIVE : ${originalQuery}
-
-${hasContext ? `
-DONNÉES INTERNES DISPONIBLES :
-${contextData.meetings.map((m: any) => `• Réunion "${m.title || 'Sans titre'}" - ${(m.summary || '').substring(0, 200)}...`).join('\n')}
-${contextData.chunks.map((c: any) => `• Extrait : ${(c.content || '').substring(0, 150)}...`).join('\n')}
+SYNTAXE REQUISE POUR TÂCHE :
+[ACTION_TACHE: TYPE=CREATE, description="${actionAnalysis.action.details.taskCreation.data.description}", assigned_to="${actionAnalysis.action.details.taskCreation.data.assigned_to || ''}", due_date="${actionAnalysis.action.details.taskCreation.data.due_date || ''}"]
 ` : ''}
+` : ''}
+
+INSTRUCTIONS ULTRA-ENRICHIES :
+1. TOUJOURS maintenir le contexte cabinet OphtaCare dans tes réponses
+2. Utiliser TOUTES les données disponibles pour enrichir au maximum
+3. Prioriser les informations internes sur les données externes
+4. Faire des liens entre différentes sources de données quand pertinent
+5. Proposer des actions complémentaires basées sur le contexte
+6. Garder un ton professionnel médical/administratif
+7. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
+
+${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
+
+Réponds de manière professionnelle, précise et dans le contexte OphtaCare Genève.`;
+
+    const userMessage = `DEMANDE ADMINISTRATIVE ENRICHIE : ${originalQuery}
+
+${hasRichContext ? `
+CONTEXTE INTERNE OPHTACARE ULTRA-ENRICHI :
+
+📋 RÉUNIONS RÉCENTES (${contextData.meetings.length}) :
+${contextData.meetings.slice(0, 3).map((m: any) => `• "${m.title}" - ${(m.summary || m.transcript || '').substring(0, 200)}...`).join('\n')}
+
+📁 DOCUMENTS PERTINENTS (${contextData.documents.length}) :
+${contextData.documents.slice(0, 3).map((d: any) => `• "${d.ai_generated_name || d.original_name}" - ${(d.ai_summary || d.extracted_text || '').substring(0, 150)}...`).join('\n')}
+
+✅ TÂCHES EN COURS (${contextData.todos.length}) :
+${contextData.todos.slice(0, 5).map((t: any) => `• [${t.status}] ${t.description}${t.assigned_to ? ` (${t.assigned_to})` : ''}${t.due_date ? ` - Échéance: ${new Date(t.due_date).toLocaleDateString()}` : ''}`).join('\n')}
+
+👥 PARTICIPANTS/COLLABORATEURS (${contextData.participants.length}) :
+${contextData.participants.slice(0, 8).map((p: any) => `• ${p.name} (${p.email})`).join('\n')}
+
+🔍 EXTRAITS SÉMANTIQUES PERTINENTS (${contextData.chunks.length}) :
+${contextData.chunks.slice(0, 4).map((c: any, i: number) => `${i+1}. [Score: ${c.similarity?.toFixed(3)}] ${(c.chunk_text || '').substring(0, 200)}...`).join('\n')}
+
+${contextData.targetedExtracts ? `
+🎯 EXTRACTIONS CIBLÉES pour "${contextData.targetedExtracts.entity}" :
+${contextData.targetedExtracts.sections.slice(0, 2).map((s: string) => `• ${s.substring(0, 150)}...`).join('\n')}
+` : ''}
+
+${contextData.fuzzyMatches?.length > 0 ? `
+🔄 CORRESPONDANCES APPROXIMATIVES :
+${contextData.fuzzyMatches.slice(0, 2).map((fm: any) => `• "${fm.originalTerm}" → ${fm.matches.length} résultats`).join('\n')}
+` : ''}
+` : 'Contexte limité - utiliser les données disponibles.'}
 
 ${contextData.hasInternetContext ? `
-INFORMATIONS COMPLÉMENTAIRES :
-${(contextData.internetContent || '').substring(0, 500)}...
+🌐 INFORMATIONS COMPLÉMENTAIRES EXTERNES :
+${(contextData.internetContent || '').substring(0, 300)}...
 ` : ''}
 
-Réponds en tant qu'assistant administratif OphtaCare et inclus l'action de tâche si nécessaire.`;
+Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible dans le contexte OphtaCare.`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -350,36 +556,43 @@ Réponds en tant qu'assistant administratif OphtaCare et inclus l'action de tâc
             { role: 'user', content: userMessage }
           ],
           temperature: 0.7,
-          max_tokens: 1000,
+          max_tokens: 1500, // Plus de tokens pour réponses enrichies
         }),
       });
 
       const data = await response.json();
-      return data.choices[0]?.message?.content || 
-             'Désolé, je ne peux pas traiter votre demande pour le moment.';
+      let finalResponse = data.choices[0]?.message?.content || 
+                         'Désolé, je ne peux pas traiter votre demande pour le moment.';
+      
+      // Nettoyage final
+      finalResponse = finalResponse.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
+      
+      return finalResponse;
       
     } catch (error) {
-      console.error('[SYNTHESIS] Error generating response:', error);
+      console.error('[SYNTHESIS] Error generating enriched response:', error);
       
-      // Fallback response with task action if applicable
-      if (taskAction) {
-        const actionSyntax = `[ACTION_TACHE: TYPE=${taskAction.type.toUpperCase()}, ${Object.entries(taskAction.data).map(([key, value]) => `${key}="${value || ''}"`).join(', ')}]`;
+      // Fallback enrichi avec action si applicable
+      if (actionAnalysis.isAction && actionAnalysis.action.type === 'create') {
+        const taskData = actionAnalysis.action.details.taskCreation.data;
+        const actionSyntax = `[ACTION_TACHE: TYPE=CREATE, description="${taskData.description}", assigned_to="${taskData.assigned_to || ''}", due_date="${taskData.due_date || ''}"]`;
         
-        if (taskAction.type === 'create') {
-          return `Je vais créer cette tâche pour le cabinet OphtaCare :
+        return `Je vais créer cette tâche pour le cabinet OphtaCare selon votre demande :
 
-**Tâche à créer :**
-- Description : ${taskAction.data.description}
-${taskAction.data.assigned_to ? `- Assignée à : ${taskAction.data.assigned_to}` : ''}
-${taskAction.data.due_date ? `- Échéance : ${taskAction.data.due_date}` : ''}
+**Nouvelle tâche administrative :**
+- Description : ${taskData.description}
+${taskData.assigned_to ? `- Assignée à : ${taskData.assigned_to}` : ''}
+${taskData.due_date ? `- Échéance : ${taskData.due_date}` : ''}
+- Contexte : Gestion administrative cabinet OphtaCare
 
 ${actionSyntax}
 
-Cette tâche sera ajoutée au système de gestion des tâches du cabinet.`;
-        }
+Cette tâche sera intégrée dans le système de gestion du cabinet.`;
       }
       
-      return 'Je rencontre un problème technique. Pouvez-vous reformuler votre demande ?';
+      return `Je rencontre un problème technique temporaire. Les données OphtaCare sont disponibles (${contextData.searchQuality.totalDataPoints} éléments trouvés), mais je ne peux pas générer la réponse complète actuellement. 
+
+Pouvez-vous reformuler votre demande ou réessayer dans quelques instants ?`;
     }
   }
 }
