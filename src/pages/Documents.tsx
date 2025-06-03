@@ -57,7 +57,7 @@ const Documents = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create document record
+      // Create document record without created_by constraint
       const { data: document, error: dbError } = await supabase
         .from('uploaded_documents')
         .insert({
