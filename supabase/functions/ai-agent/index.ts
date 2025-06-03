@@ -14,10 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { message, meetingId = null, todoId = null } = await req.json();
+    const { message } = await req.json();
+    console.log(`[AI-AGENT] Processing message: ${message.substring(0, 100)}...`);
     
-    console.log('[AI-AGENT] Processing message:', message.substring(0, 100) + '...');
-
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
     
@@ -29,182 +28,89 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let relevantContext = '';
-    let contextSources = [];
-    let additionalContext = '';
+    // First, generate embedding for the user's message to search in document embeddings
+    console.log('[AI-AGENT] Generating embedding for context search...');
+    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: message,
+      }),
+    });
 
-    // Recherche dans les embeddings pour la plupart des questions
-    const shouldSearchEmbeddings = !message.toLowerCase().includes('internet') && 
-                                   !message.toLowerCase().includes('web') &&
-                                   !message.toLowerCase().includes('en ligne');
+    let documentContext = '';
+    let documentSources = [];
+    let contextFound = false;
 
-    if (shouldSearchEmbeddings) {
-      console.log('[AI-AGENT] Generating embedding for context search...');
-      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: message,
-        }),
+    if (embeddingResponse.ok) {
+      const embeddingData = await embeddingResponse.json();
+      const queryEmbedding = embeddingData.data[0].embedding;
+
+      // Search in document embeddings first
+      console.log('[AI-AGENT] Searching in document embeddings...');
+      const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.75,
+        match_count: 5
       });
 
-      if (embeddingResponse.ok) {
-        const embeddingData = await embeddingResponse.json();
-        const queryEmbedding = embeddingData.data[0].embedding;
-
-        // Search for relevant documents using embeddings
-        const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
-          query_embedding: `[${queryEmbedding.join(',')}]`,
-          filter_document_type: 'meeting_transcript',
-          match_threshold: 0.5,
-          match_count: 10,
-          filter_document_id: meetingId
-        });
-
-        if (!searchError && searchResults && searchResults.length > 0) {
-          console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
-          relevantContext = searchResults
-            .map((result: any, index: number) => 
-              `[Source ${index + 1} - Document ID: ${result.document_id} - Similarité: ${(result.similarity * 100).toFixed(1)}%]\n${result.chunk_text}`
-            )
-            .join('\n\n---\n\n');
-          contextSources = searchResults;
-        }
+      if (!searchError && searchResults && searchResults.length > 0) {
+        console.log(`[AI-AGENT] Found ${searchResults.length} relevant document chunks`);
+        contextFound = true;
+        documentContext = searchResults
+          .map(result => `Document: ${result.metadata?.title || 'Document'}\nContenu: ${result.chunk_text}`)
+          .join('\n\n');
+        
+        documentSources = searchResults.map(result => ({
+          type: 'document',
+          title: result.metadata?.title || 'Document',
+          similarity: result.similarity,
+          chunk_index: result.chunk_index
+        }));
+      } else {
+        console.log('[AI-AGENT] No relevant document chunks found');
       }
-
-      // Recherche dans les données générales de la base
-      console.log('[AI-AGENT] Fetching additional context from database...');
-      
-      // Vérifier si la demande concerne spécifiquement un transcript
-      const requestsTranscript = message.toLowerCase().includes('transcript') || 
-                                message.toLowerCase().includes('transcription') ||
-                                message.toLowerCase().includes('verbatim') ||
-                                message.toLowerCase().includes('conversation') ||
-                                message.toLowerCase().includes('discussion') ||
-                                message.toLowerCase().includes('dit exactement') ||
-                                message.toLowerCase().includes('mot pour mot') ||
-                                message.toLowerCase().includes('enregistrement');
-
-      // Récupérer les réunions récentes - TOUJOURS avec transcripts pour avoir accès
-      const { data: recentMeetings } = await supabase
-        .from('meetings')
-        .select('id, title, created_at, summary, transcript')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      // Récupérer les TODOs en cours
-      const { data: activeTodos } = await supabase
-        .from('todos')
-        .select(`
-          id, description, status, created_at, due_date,
-          assigned_to,
-          participants:participants(name)
-        `)
-        .neq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      // Récupérer les participants
-      const { data: participants } = await supabase
-        .from('participants')
-        .select('id, name, email')
-        .order('name');
-
-      // Construire le contexte additionnel
-      let dbContext = [];
-      
-      if (recentMeetings && recentMeetings.length > 0) {
-        if (requestsTranscript) {
-          // Fournir TOUS les transcripts complets disponibles
-          dbContext.push(`=== TRANSCRIPTS COMPLETS DES RÉUNIONS ===\n${recentMeetings.map(m => {
-            let meetingInfo = `\n[RÉUNION: ${m.title}]\nDate: ${new Date(m.created_at).toLocaleDateString('fr-FR')}\nID: ${m.id}`;
-            if (m.summary) {
-              meetingInfo += `\nRésumé: ${m.summary}`;
-            }
-            if (m.transcript && m.transcript.trim()) {
-              meetingInfo += `\n\n--- TRANSCRIPT COMPLET ---\n${m.transcript}\n--- FIN TRANSCRIPT ---`;
-            } else {
-              meetingInfo += `\nTranscript: Non disponible pour cette réunion`;
-            }
-            return meetingInfo;
-          }).join('\n\n========================================\n')}`);
-        } else {
-          // Contexte normal avec résumés mais transcript disponible si mentionné
-          dbContext.push(`=== RÉUNIONS RÉCENTES ===\n${recentMeetings.map(m => {
-            let info = `- [${m.title}] (${new Date(m.created_at).toLocaleDateString('fr-FR')}) - ID: ${m.id}`;
-            if (m.summary) {
-              info += `\n  Résumé: ${m.summary}`;
-            }
-            // Toujours indiquer si un transcript est disponible
-            if (m.transcript && m.transcript.trim()) {
-              info += `\n  📝 Transcript complet disponible`;
-            }
-            return info;
-          }).join('\n\n')}`);
-        }
-      }
-
-      if (activeTodos && activeTodos.length > 0) {
-        dbContext.push(`=== TÂCHES ACTIVES ===\n${activeTodos.map(t => 
-          `- [ID: ${t.id}] ${t.description} (${t.status})\n  Échéance: ${t.due_date ? new Date(t.due_date).toLocaleDateString('fr-FR') : 'Non définie'}\n  Assigné: ${t.participants?.name || 'Non assigné'}`
-        ).join('\n')}`);
-      }
-
-      if (participants && participants.length > 0) {
-        dbContext.push(`=== PARTICIPANTS ===\n${participants.map(p => 
-          `- [ID: ${p.id}] ${p.name} (${p.email})`
-        ).join('\n')}`);
-      }
-
-      additionalContext = dbContext.join('\n\n');
     }
 
-    // Détection pour les actions sur les tâches
-    const taskActions = {
-      create: message.toLowerCase().includes('créer') || message.toLowerCase().includes('ajouter') || message.toLowerCase().includes('nouvelle tâche'),
-      update: message.toLowerCase().includes('modifier') || message.toLowerCase().includes('changer') || message.toLowerCase().includes('mettre à jour'),
-      delete: message.toLowerCase().includes('supprimer') || message.toLowerCase().includes('effacer'),
-      complete: message.toLowerCase().includes('terminer') || message.toLowerCase().includes('compléter') || message.toLowerCase().includes('finir')
-    };
+    // Fetch additional context from database (meetings, tasks, etc.)
+    console.log('[AI-AGENT] Fetching additional context from database...');
+    const { data: meetings } = await supabase
+      .from('meetings')
+      .select('id, title, transcript, summary, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    // Détection automatique pour les recherches internet
-    const shouldUseInternet = message.toLowerCase().includes('recherche') ||
-                             message.toLowerCase().includes('actualité') ||
-                             message.toLowerCase().includes('récent') ||
-                             message.toLowerCase().includes('nouveau') ||
-                             message.toLowerCase().includes('prix') ||
-                             message.toLowerCase().includes('coût') ||
-                             message.toLowerCase().includes('tarif') ||
-                             message.toLowerCase().includes('fournisseur') ||
-                             message.toLowerCase().includes('prestataire') ||
-                             message.toLowerCase().includes('équipement') ||
-                             message.toLowerCase().includes('formation') ||
-                             message.toLowerCase().includes('comparaison') ||
-                             message.toLowerCase().includes('tendance') ||
-                             message.toLowerCase().includes('solution') ||
-                             message.toLowerCase().includes('technologie') ||
-                             message.toLowerCase().includes('produit') ||
-                             message.toLowerCase().includes('service') ||
-                             message.toLowerCase().includes('logiciel') ||
-                             message.toLowerCase().includes('matériel') ||
-                             message.toLowerCase().includes('clinique') ||
-                             message.toLowerCase().includes('hôpital') ||
-                             message.toLowerCase().includes('médecin') ||
-                             message.toLowerCase().includes('concurrence') ||
-                             message.toLowerCase().includes('marché') ||
-                             message.toLowerCase().includes('recommandation');
+    const { data: todos } = await supabase
+      .from('todos')
+      .select('id, description, status, due_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-    // Get internet information if needed and API key available
+    // Build context from internal data
+    let internalContext = '';
+    if (meetings && meetings.length > 0) {
+      internalContext += `RÉUNIONS RÉCENTES:\n${meetings.map(m => 
+        `- ${m.title} (${new Date(m.created_at).toLocaleDateString()})${m.summary ? ': ' + m.summary.substring(0, 200) + '...' : ''}`
+      ).join('\n')}\n\n`;
+    }
+
+    if (todos && todos.length > 0) {
+      internalContext += `TÂCHES:\n${todos.map(t => 
+        `- [${t.status}] ${t.description}${t.due_date ? ` (échéance: ${new Date(t.due_date).toLocaleDateString()})` : ''}`
+      ).join('\n')}\n\n`;
+    }
+
+    // Use internet search only if no relevant document context found
     let internetContext = '';
-    let internetSearchPerformed = false;
     let internetSources = [];
-    
-    if (shouldUseInternet && perplexityApiKey) {
-      console.log('[AI-AGENT] Fetching internet information via Perplexity...');
+    let hasInternetContext = false;
+
+    if (!contextFound && perplexityApiKey) {
+      console.log('[AI-AGENT] No document context found, searching internet...');
       try {
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
@@ -217,86 +123,65 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant spécialisé dans la recherche d\'informations précises et actuelles pour un cabinet d\'ophtalmologie situé à Genève, en Suisse. Fournis des informations factuelles, récentes et pertinentes en français. Sois CONCIS et DIRECT. Pour tous les prix, utilise les francs suisses (CHF). Cite toujours tes sources avec des liens.'
+                content: 'Recherche des informations actuelles et pertinentes pour répondre à la question de l\'utilisateur. Concentre-toi sur des sources fiables et récentes.'
               },
               {
                 role: 'user',
-                content: `Pour un cabinet d'ophtalmologie à Genève, Suisse, recherche des informations récentes et pertinentes sur: ${message}`
+                content: message
               }
             ],
             temperature: 0.2,
-            top_p: 0.9,
-            max_tokens: 800,
+            max_tokens: 1000,
             return_images: false,
             return_related_questions: false,
-            search_recency_filter: 'month',
-            return_citations: true,
+            search_recency_filter: 'month'
           }),
         });
 
         if (perplexityResponse.ok) {
           const perplexityData = await perplexityResponse.json();
-          internetContext = perplexityData.choices[0].message.content;
-          internetSearchPerformed = true;
-          
-          if (perplexityData.citations && perplexityData.citations.length > 0) {
-            internetSources = perplexityData.citations;
-          }
+          internetContext = perplexityData.choices[0]?.message?.content || '';
+          hasInternetContext = true;
+          internetSources = [{ type: 'internet', source: 'Perplexity AI', query: message }];
+          console.log('[AI-AGENT] Internet search completed');
         }
       } catch (error) {
-        console.error('[AI-AGENT] Perplexity error:', error);
+        console.error('[AI-AGENT] Internet search error:', error);
       }
     }
 
-    // Generate contextual response with OpenAI
+    // Generate response using OpenAI
     console.log('[AI-AGENT] Generating response...');
     
-    const systemPrompt = `Tu es un assistant IA intelligent pour OphtaCare Hub, un cabinet d'ophtalmologie situé à Genève, en Suisse. Tu peux répondre à toutes sortes de questions et GÉRER LES TÂCHES avec validation utilisateur.
+    let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information:
 
-CONTEXTE IMPORTANT :
-- Cabinet d'ophtalmologie à Genève, Suisse
-- Pour tous les prix, utilise TOUJOURS les francs suisses (CHF)
-- Adapte tes conseils au contexte suisse et genevois
+1. DOCUMENTS INTERNES (priorité haute): ${documentContext ? 'Disponibles' : 'Non disponibles'}
+2. BASE DE DONNÉES INTERNE: Réunions, tâches, participants
+3. RECHERCHE INTERNET: ${hasInternetContext ? 'Disponible' : 'Non disponible'}
 
-STYLE DE COMMUNICATION - TRÈS IMPORTANT :
-- Sois CONCIS et DIRECT dans tes réponses
-- Évite les phrases d'introduction longues 
-- Va droit au but sans politesses excessives
-- Utilise des listes à puces pour structurer tes réponses
-- Maximum 3-4 phrases par paragraphe
-- Privilégie l'information actionnable
+RÈGLES:
+- Priorise TOUJOURS les informations des documents internes si disponibles
+- Utilise les données de la base de données pour le contexte du cabinet
+- N'utilise internet que pour des informations générales ou actuelles
+- Sois précis et professionnel
+- Cite tes sources quand possible
+- Si tu veux créer, modifier ou supprimer une tâche, utilise la syntaxe: [ACTION_TACHE: TYPE=create/update/delete/complete, DESCRIPTION="description", ASSIGNED_TO="nom_utilisateur", DUE_DATE="YYYY-MM-DD", ID="id_tache"]
 
-GESTION DES TÂCHES AVEC VALIDATION:
-Quand l'utilisateur demande de créer, modifier ou supprimer une tâche, tu dois :
-1. TOUJOURS proposer l'action sans l'exécuter directement
-2. Demander la validation de l'utilisateur
-3. Utiliser cette syntaxe dans ta réponse : [ACTION_TACHE: TYPE=create|update|delete|complete, ID=xxx, DESCRIPTION="...", STATUS="pending|confirmed|completed", ASSIGNED_TO="xxx", DUE_DATE="YYYY-MM-DD"]
+CONTEXTE DISPONIBLE:`;
 
-Exemples d'actions :
-- Créer : [ACTION_TACHE: TYPE=create, DESCRIPTION="Former le personnel aux nouveaux équipements", ASSIGNED_TO="Dr. Martin", DUE_DATE="2024-02-15"]
-- Modifier : [ACTION_TACHE: TYPE=update, ID=123, DESCRIPTION="Nouvelle description", STATUS="confirmed"]  
-- Supprimer : [ACTION_TACHE: TYPE=delete, ID=123]
-- Terminer : [ACTION_TACHE: TYPE=complete, ID=123]
+    if (documentContext) {
+      systemPrompt += `\n\nDOCUMENTS PERTINENTS:\n${documentContext}`;
+    }
 
-INSTRUCTIONS:
-- Réponds toujours en français de manière claire et professionnelle
-- Si tu as accès à des informations des réunions passées, utilise-les pour enrichir ta réponse
-- Si tu as des informations d'internet, intègre-les naturellement
-- Pour les questions générales, réponds normalement sans chercher obligatoirement dans les transcripts
-- Adapte ton niveau de détail selon la complexité de la question
-- Sois spécifique et actionnable dans tes recommandations
-- RESTE CONCIS : évite les longues explications, privilégie l'essentiel
-- Pour tous les prix mentionnés, utilise les CHF (francs suisses)
-- Si tu utilises des informations d'internet, mentionne-le naturellement dans ta réponse
-- Si tu utilises des sources internes (documents, réunions), mentionne clairement les documents consultés avec leur ID
-- Si on te demande un transcript, fournis-le INTÉGRALEMENT si disponible
-- Pour les transcripts, cite toujours l'ID de la réunion et sa date
+    if (internalContext) {
+      systemPrompt += `\n\nDONNÉES INTERNES:\n${internalContext}`;
+    }
 
-${relevantContext ? `\n=== CONTEXTE DES RÉUNIONS/DOCUMENTS (Embeddings) ===\n${relevantContext}\n` : ''}
-${additionalContext ? `\n=== DONNÉES COMPLÈTES DE LA BASE ===\n${additionalContext}\n` : ''}
-${internetContext ? `\n=== INFORMATIONS ACTUELLES (Internet) ===\n${internetContext}\n` : ''}`;
+    if (internetContext && !contextFound) {
+      systemPrompt += `\n\nINFORMATIONS INTERNET:\n${internetContext}`;
+    }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
@@ -308,37 +193,33 @@ ${internetContext ? `\n=== INFORMATIONS ACTUELLES (Internet) ===\n${internetCont
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        max_tokens: 2000,
-        temperature: 0.2,
+        temperature: 0.7,
+        max_tokens: 1500,
       }),
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to generate response');
+    if (!chatResponse.ok) {
+      throw new Error('Failed to generate AI response');
     }
 
-    const responseData = await response.json();
-    const aiResponse = responseData.choices[0].message.content;
+    const chatData = await chatResponse.json();
+    const response = chatData.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
 
     console.log('[AI-AGENT] Response generated successfully');
 
     return new Response(JSON.stringify({ 
-      response: aiResponse,
-      sources: contextSources || [],
-      internetSources: internetSources || [],
-      hasInternetContext: internetSearchPerformed,
-      contextFound: !!relevantContext || !!additionalContext,
-      internetAvailable: !!perplexityApiKey
+      response,
+      sources: documentSources,
+      internetSources,
+      hasInternetContext,
+      contextFound
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('[AI-AGENT] Error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      response: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?"
-    }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
