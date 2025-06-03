@@ -1,11 +1,12 @@
 
+
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, FileSearch } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,10 +24,12 @@ interface UploadedDocument {
   processed: boolean;
   created_at: string;
   created_by: string;
+  extracted_text: string | null;
 }
 
 const Documents = () => {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -166,12 +169,17 @@ const Documents = () => {
     return `${mb.toFixed(2)} MB`;
   };
 
+  const formatTextLength = (text: string | null) => {
+    if (!text) return 'N/A';
+    return `${text.length.toLocaleString()} caractères`;
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Gestion des Documents</h1>
         <p className="text-muted-foreground">
-          Téléchargez et gérez vos documents avec traitement automatique par IA.
+          Téléchargez et gérez vos documents avec traitement automatique par IA et extraction de texte.
         </p>
       </div>
 
@@ -183,7 +191,7 @@ const Documents = () => {
             Télécharger des Documents
           </CardTitle>
           <CardDescription>
-            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX) pour un traitement automatique.
+            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX) pour un traitement automatique avec extraction de texte complète.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -227,7 +235,7 @@ const Documents = () => {
         <CardHeader>
           <CardTitle>Documents Uploadés</CardTitle>
           <CardDescription>
-            Liste de tous vos documents avec traitement automatique par IA.
+            Liste de tous vos documents avec traitement automatique par IA et texte extrait.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -266,6 +274,12 @@ const Documents = () => {
                               En traitement...
                             </Badge>
                           )}
+                          {document.extracted_text && (
+                            <Badge variant="outline" className="bg-purple-50">
+                              <FileSearch className="h-3 w-3 mr-1" />
+                              Texte extrait
+                            </Badge>
+                          )}
                         </div>
                         
                         {document.original_name !== document.ai_generated_name && (
@@ -284,6 +298,7 @@ const Documents = () => {
                           <span>{formatFileSize(document.file_size)}</span>
                           <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
                           {document.content_type && <span>{document.content_type}</span>}
+                          {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
                         </div>
                         
                         {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
@@ -308,6 +323,15 @@ const Documents = () => {
                       </div>
                       
                       <div className="flex items-center gap-2">
+                        {document.extracted_text && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedDocument(document)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -332,8 +356,36 @@ const Documents = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Text Preview Dialog */}
+      {selectedDocument && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl max-h-[80vh] overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Texte extrait - {selectedDocument.ai_generated_name || selectedDocument.original_name}</span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedDocument(null)}
+                >
+                  Fermer
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[60vh]">
+                <div className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded">
+                  {selectedDocument.extracted_text || 'Aucun texte extrait disponible'}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Documents;
+

@@ -1,10 +1,11 @@
 
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { DocumentProcessorFactory } from './document-processors.ts';
 import { generateDocumentAnalysis, createFallbackAnalysis } from './ai-analysis.ts';
-import { generateEmbeddings, chunkText } from './embeddings.ts';
+import { generateEmbeddings, chunkText, formatEmbeddingsForPostgres } from './embeddings.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -133,7 +134,23 @@ async function processDocumentInBackground(
     console.log('🤖 Starting background AI analysis and vectorization...');
     console.log(`📝 Processing text of ${text.length} characters`);
 
-    // AI analysis
+    // STEP 1: Save extracted text to uploaded_documents table
+    console.log('💾 Saving extracted text to uploaded_documents...');
+    const { error: textUpdateError } = await supabase
+      .from('uploaded_documents')
+      .update({
+        extracted_text: text
+      })
+      .eq('id', documentId);
+
+    if (textUpdateError) {
+      console.error('❌ Failed to save extracted text:', textUpdateError);
+      throw textUpdateError;
+    }
+
+    console.log('✅ Extracted text saved successfully');
+
+    // STEP 2: AI analysis
     let analysis;
     try {
       analysis = await generateDocumentAnalysis(text, document, openaiApiKey);
@@ -143,7 +160,7 @@ async function processDocumentInBackground(
       analysis = createFallbackAnalysis(document);
     }
 
-    // Generate text chunks for embeddings
+    // STEP 3: Generate text chunks for embeddings
     const chunks = chunkText(text, CHUNK_SIZE);
     const limitedChunks = chunks.slice(0, MAX_CHUNKS);
     console.log(`🔢 Created ${limitedChunks.length} chunks for embeddings (limited from ${chunks.length})`);
@@ -159,67 +176,68 @@ async function processDocumentInBackground(
       processedAt: new Date().toISOString(),
       textLength: text.length,
       chunksGenerated: limitedChunks.length,
-      processingVersion: '2.1',
+      processingVersion: '2.2',
       ...analysis.taxonomy
     };
 
-    // Generate embeddings
-    let embeddings = [];
+    // STEP 4: Generate and store embeddings
     let embeddingsSuccess = false;
     let vectorDocumentId = null;
 
-    try {
-      if (limitedChunks.length > 0) {
+    if (limitedChunks.length > 0) {
+      try {
         console.log('🔄 Starting embeddings generation...');
-        embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
+        const embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
         
-        if (embeddings.length > 0 && embeddings.length === limitedChunks.length) {
+        if (embeddings.length === limitedChunks.length) {
           console.log(`✅ Generated ${embeddings.length} embeddings successfully`);
           
-          // Store embeddings if successful
+          // Format embeddings for PostgreSQL
+          console.log('🔧 Formatting embeddings for PostgreSQL...');
+          const formattedEmbeddings = formatEmbeddingsForPostgres(embeddings);
+          
+          // Store embeddings with proper format
           console.log('💾 Storing document with embeddings in vector database...');
-          try {
-            const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
-              p_title: analysis.suggestedName,
-              p_type: 'uploaded_document',
-              p_content: text,
-              p_chunks: limitedChunks,
-              p_embeddings: embeddings,
-              p_metadata: completeMetadata
-            });
+          const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
+            p_title: analysis.suggestedName,
+            p_type: 'uploaded_document',
+            p_content: text,
+            p_chunks: limitedChunks,
+            p_embeddings: formattedEmbeddings,
+            p_metadata: completeMetadata
+          });
 
-            if (storeError) {
-              console.error('❌ Vector storage failed:', storeError);
-              throw storeError;
-            }
-            
-            console.log('✅ Document stored in vector database with ID:', storedDocId);
-            vectorDocumentId = storedDocId;
-            embeddingsSuccess = true;
-            
-          } catch (error) {
-            console.error('❌ Vector database storage failed:', error);
-            completeMetadata.vectorStorageError = error.message;
+          if (storeError) {
+            console.error('❌ Vector storage failed:', storeError);
+            console.error('Error details:', JSON.stringify(storeError, null, 2));
+            throw storeError;
           }
+          
+          console.log('✅ Document stored in vector database with ID:', storedDocId);
+          vectorDocumentId = storedDocId;
+          embeddingsSuccess = true;
+          
         } else {
-          console.log('⚠️ Embeddings count mismatch or empty');
+          console.error('⚠️ Embeddings count mismatch:', embeddings.length, 'vs', limitedChunks.length);
           completeMetadata.embeddingsMismatch = true;
         }
-      } else {
-        console.log('⚠️ No chunks available for embedding generation');
-        completeMetadata.noChunksAvailable = true;
+        
+      } catch (error) {
+        console.error('❌ Embeddings generation/storage failed:', error);
+        console.error('Error stack:', error.stack);
+        completeMetadata.embeddingsError = error.message;
       }
-    } catch (error) {
-      console.error('❌ Embeddings generation failed:', error);
-      completeMetadata.embeddingsError = error.message;
+    } else {
+      console.log('⚠️ No chunks available for embedding generation');
+      completeMetadata.noChunksAvailable = true;
     }
 
     // Add final status to metadata
-    completeMetadata.embeddingsGenerated = embeddings.length;
+    completeMetadata.embeddingsGenerated = embeddingsSuccess ? limitedChunks.length : 0;
     completeMetadata.embeddingsSuccess = embeddingsSuccess;
     completeMetadata.vectorDocumentId = vectorDocumentId;
 
-    // CRITICAL: Always update the uploaded_documents table with ALL metadata
+    // STEP 5: Update uploaded_documents table with ALL metadata
     console.log('📝 Updating uploaded_documents table with complete processing results...');
     const { error: updateError } = await supabase
       .from('uploaded_documents')
@@ -255,7 +273,7 @@ async function processDocumentInBackground(
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.1'
+            processingVersion: '2.2'
           }
         })
         .eq('id', documentId);
@@ -264,3 +282,4 @@ async function processDocumentInBackground(
     }
   }
 }
+

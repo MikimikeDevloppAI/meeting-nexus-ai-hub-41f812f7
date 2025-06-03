@@ -1,4 +1,5 @@
 
+
 // Embeddings generation utilities
 
 export async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promise<number[][]> {
@@ -42,8 +43,23 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
           throw new Error('Invalid embedding response structure');
         }
         
-        console.log(`✅ Generated embedding for chunk ${globalIndex} (${data.data[0].embedding.length} dimensions)`);
-        return data.data[0].embedding;
+        const embedding = data.data[0].embedding;
+        console.log(`✅ Generated embedding for chunk ${globalIndex} (${embedding.length} dimensions)`);
+        
+        // Validate embedding format
+        if (!Array.isArray(embedding) || embedding.length === 0) {
+          throw new Error(`Invalid embedding format for chunk ${globalIndex}`);
+        }
+        
+        // Ensure all values are numbers
+        const validEmbedding = embedding.map(val => {
+          if (typeof val !== 'number' || isNaN(val)) {
+            throw new Error(`Invalid embedding value: ${val}`);
+          }
+          return val;
+        });
+        
+        return validEmbedding;
       });
 
       const batchResults = await Promise.all(batchPromises);
@@ -57,7 +73,6 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
       
     } catch (error) {
       console.error(`❌ Batch ${Math.floor(i/batchSize) + 1} failed:`, error.message);
-      // Instead of continuing, we'll throw to ensure proper error handling
       throw new Error(`Embedding generation failed at batch ${Math.floor(i/batchSize) + 1}: ${error.message}`);
     }
   }
@@ -113,3 +128,14 @@ export function chunkText(text: string, maxChunkSize: number = 400): string[] {
   console.log(`📝 Created ${chunks.length} text chunks`);
   return chunks;
 }
+
+// Convert embeddings to PostgreSQL vector format
+export function formatEmbeddingsForPostgres(embeddings: number[][]): string[] {
+  return embeddings.map(embedding => {
+    // Convert to PostgreSQL vector format: [1,2,3,4,...]
+    const formatted = `[${embedding.join(',')}]`;
+    console.log(`🔄 Formatted embedding: ${formatted.substring(0, 50)}... (${embedding.length} dimensions)`);
+    return formatted;
+  });
+}
+

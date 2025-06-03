@@ -344,6 +344,7 @@ export type Database = {
           content_type: string | null
           created_at: string
           created_by: string | null
+          extracted_text: string | null
           file_path: string
           file_size: number | null
           id: string
@@ -358,6 +359,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_path: string
           file_size?: number | null
           id?: string
@@ -372,6 +374,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_path?: string
           file_size?: number | null
           id?: string
