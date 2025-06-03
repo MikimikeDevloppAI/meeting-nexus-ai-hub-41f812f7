@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink, Trash2, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import TaskValidationDialog from "@/components/TaskValidationDialog";
+import EditableTaskValidationDialog from "@/components/EditableTaskValidationDialog";
 
 interface TaskAction {
   type: 'create' | 'update' | 'delete' | 'complete';
@@ -96,7 +96,7 @@ const Assistant = () => {
   const parseTaskAction = (content: string): TaskAction | null => {
     console.log('Parsing task action from content:', content);
     
-    // Improved regex to handle malformed syntax
+    // Improved regex to handle malformed syntax and line breaks
     const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,\]]+)(?:,\s*(.+?))?\]/s);
     if (!actionMatch) {
       console.log('No action match found');
@@ -104,7 +104,7 @@ const Assistant = () => {
     }
 
     const type = actionMatch[1].trim() as TaskAction['type'];
-    const paramsStr = actionMatch[2] || '';
+    let paramsStr = actionMatch[2] || '';
     
     console.log('Found action type:', type);
     console.log('Params string:', paramsStr);
@@ -112,7 +112,11 @@ const Assistant = () => {
     const data: TaskAction['data'] = {};
     
     if (paramsStr) {
-      // Handle both key="value" and key=value formats
+      // Clean the params string by removing CONTEXT_UTILISATEURS
+      paramsStr = paramsStr.replace(/CONTEXT_UTILISATEURS:[^"]*"/g, '"');
+      paramsStr = paramsStr.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '');
+      
+      // Handle both key="value" and key=value formats, including multi-line descriptions
       const paramRegex = /(\w+)=(?:"([^"]*)"|([^,\]]+))/g;
       let match;
       
@@ -122,9 +126,10 @@ const Assistant = () => {
         
         console.log(`Found param: ${key} = ${value}`);
         
-        // Clean up description by removing CONTEXT_UTILISATEURS
+        // Clean up description by removing CONTEXT_UTILISATEURS and extra spaces
         if (key === 'description') {
           value = value.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
+          value = value.replace(/\n+/g, ' ').trim();
         }
         
         // Handle assigned_to specially - try to find user by name first
@@ -272,11 +277,12 @@ const Assistant = () => {
       // Parse task action from response
       const taskAction = parseTaskAction(data.response);
       
-      // Clean the response content by removing the action syntax
+      // Clean the response content by removing the action syntax and CONTEXT_UTILISATEURS
       let cleanContent = data.response;
       if (taskAction) {
         cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
       }
+      cleanContent = cleanContent.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -534,7 +540,7 @@ const Assistant = () => {
         </CardContent>
       </Card>
 
-      <TaskValidationDialog
+      <EditableTaskValidationDialog
         isOpen={isTaskDialogOpen}
         onClose={() => {
           setIsTaskDialogOpen(false);

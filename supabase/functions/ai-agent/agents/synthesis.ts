@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -49,12 +48,17 @@ export class SynthesisAgent {
   private detectTaskAction(query: string, conversationHistory: any[]): any {
     const lowerQuery = query.toLowerCase();
     
-    // Enhanced detection for task creation requests
+    // Enhanced detection for task creation requests - plus de patterns
     if (lowerQuery.includes('crée') || lowerQuery.includes('créer') || 
         lowerQuery.includes('ajoute') || lowerQuery.includes('ajouter') ||
         lowerQuery.includes('nouvelle tâche') || lowerQuery.includes('new task') ||
         lowerQuery.includes('faire une tâche') || lowerQuery.includes('créé une tâche') ||
-        (lowerQuery.includes('tâche') && (lowerQuery.includes('pour') || lowerQuery.includes('à')))) {
+        lowerQuery.includes('je vais créer') || lowerQuery.includes('créer une tâche') ||
+        lowerQuery.includes('tâche pour') || lowerQuery.includes('task for') ||
+        lowerQuery.includes('acheter') || lowerQuery.includes('commander') ||
+        lowerQuery.includes('contacter') || lowerQuery.includes('vérifier') ||
+        lowerQuery.includes('préparer') || lowerQuery.includes('organiser') ||
+        (lowerQuery.includes('tâche') && (lowerQuery.includes('pour') || lowerQuery.includes('à') || lowerQuery.includes('concernant')))) {
       
       return this.extractTaskCreationDetails(query);
     }
@@ -77,35 +81,62 @@ export class SynthesisAgent {
   private extractTaskCreationDetails(query: string): any {
     const lowerQuery = query.toLowerCase();
     
-    // Extract description - try to find the main action
+    // Extract description - chercher des patterns plus précis
     let description = query;
     
-    // Clean up the description by removing task creation keywords
-    description = description.replace(/crée une tâche|créer une tâche|ajoute une tâche|ajouter une tâche|nouvelle tâche|faire une tâche/gi, '');
-    description = description.replace(/peux tu|pourrais tu|il faut|on doit/gi, '');
-    description = description.trim();
-
-    // Extract assignee (à + name or pour + name)
+    // Extract assignee (à + name, pour + name, concernant + name)
     let assignedTo = null;
-    const assigneeMatch = query.match(/(?:à|pour)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/i);
-    if (assigneeMatch) {
-      assignedTo = assigneeMatch[1];
-      // Remove "à [name]" or "pour [name]" from description
-      description = description.replace(/(?:à|pour)\s+[a-záàâäéèêëíìîïóòôöúùûüç]+/i, '').trim();
+    const assigneePatterns = [
+      /(?:pour|à|concernant)\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
+      /responsable\s*:\s*([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
+      /assigné[e]?\s+à\s+([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi
+    ];
+    
+    for (const pattern of assigneePatterns) {
+      const match = query.match(pattern);
+      if (match) {
+        assignedTo = match[1] || match[0].split(/\s+/).pop();
+        break;
+      }
     }
+
+    // Extract task description more precisely
+    if (lowerQuery.includes('achat') || lowerQuery.includes('acheter')) {
+      const buyMatch = query.match(/(?:achat|acheter)\s+(?:de\s+|des?\s+)?([^.!?]+)/i);
+      if (buyMatch) {
+        description = `Acheter ${buyMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('contacter')) {
+      const contactMatch = query.match(/contacter\s+([^.!?]+)/i);
+      if (contactMatch) {
+        description = `Contacter ${contactMatch[1].trim()}`;
+      }
+    } else if (lowerQuery.includes('tâche')) {
+      // Extract text around "tâche"
+      const taskMatch = query.match(/tâche\s*:?\s*([^.!?\n]+)/i);
+      if (taskMatch) {
+        description = taskMatch[1].trim();
+      }
+    }
+
+    // Clean description
+    description = description.replace(/(?:pour|à|concernant)\s+[a-záàâäéèêëíìîïóòôöúùûüç]+/gi, '');
+    description = description.replace(/crée une tâche|créer une tâche|je vais créer/gi, '');
+    description = description.replace(/responsable\s*:\s*[a-záàâäéèêëíìîïóòôöúùûüç]+/gi, '');
+    description = description.trim();
 
     // Extract due date if mentioned
     let dueDate = null;
-    const dateMatch = query.match(/(avant le|pour le|d'ici le)\s+([0-9\/\-]+)/i);
-    if (dateMatch) {
-      dueDate = dateMatch[2];
-    }
-
-    // If description is still generic, extract the actual task
-    if (description.length < 10) {
-      const taskMatch = query.match(/(?:acheter|commander|vérifier|contacter|faire|préparer)\s+(.+?)(?:\s+(?:à|pour|avant|d'ici)|$)/i);
-      if (taskMatch) {
-        description = taskMatch[0];
+    const datePatterns = [
+      /(avant le|pour le|d'ici le|date limite)\s*:?\s*([0-9\/\-\.]+)/i,
+      /échéance\s*:?\s*([0-9\/\-\.]+)/i
+    ];
+    
+    for (const pattern of datePatterns) {
+      const match = query.match(pattern);
+      if (match) {
+        dueDate = match[2] || match[1];
+        break;
       }
     }
 
