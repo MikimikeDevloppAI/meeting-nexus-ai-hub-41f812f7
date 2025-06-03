@@ -146,7 +146,7 @@ const Documents = () => {
       if (error) throw error;
 
       const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = document.ai_generated_name || document.original_name;
       a.click();
