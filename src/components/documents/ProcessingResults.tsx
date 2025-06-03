@@ -43,13 +43,6 @@ export const ProcessingResults = ({ document }: ProcessingResultsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {document.ai_generated_name && (
-          <div>
-            <h4 className="font-medium text-green-800 mb-1">Nom suggéré par l'IA</h4>
-            <p className="text-sm text-green-700">{document.ai_generated_name}</p>
-          </div>
-        )}
-        
         {document.ai_summary && (
           <div>
             <h4 className="font-medium text-green-800 mb-1">Résumé</h4>
