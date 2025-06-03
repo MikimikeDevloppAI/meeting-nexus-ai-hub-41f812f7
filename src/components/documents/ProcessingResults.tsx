@@ -36,7 +36,7 @@ export const ProcessingResults = ({ document }: ProcessingResultsProps) => {
 
   return (
     <Card className="mt-4 border-green-200 bg-green-50">
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-green-800">
           <CheckCircle className="h-5 w-5" />
           Traitement terminé
