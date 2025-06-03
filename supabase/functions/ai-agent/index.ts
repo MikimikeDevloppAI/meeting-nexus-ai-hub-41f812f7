@@ -2,6 +2,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { CoordinatorAgent } from './agents/coordinator.ts';
+import { DatabaseAgent } from './agents/database.ts';
+import { EmbeddingsAgent } from './agents/embeddings.ts';
+import { InternetAgent } from './agents/internet.ts';
+import { SynthesisAgent } from './agents/synthesis.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,8 +20,8 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory } = await req.json();
-    console.log(`[AI-AGENT] Processing message: ${message.substring(0, 100)}...`);
-    console.log(`[AI-AGENT] Conversation history provided: ${conversationHistory ? conversationHistory.length : 0} messages`);
+    console.log(`[AI-AGENT-OPHTACARE] 🏥 Processing query: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT-OPHTACARE] 💬 History: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -29,302 +34,72 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Generate embedding for the user's message
-    console.log('[AI-AGENT] Generating embedding for context search...');
-    let documentContext = '';
-    let documentSources = [];
-    let hasEmbeddingContext = false;
+    // Initialiser les agents
+    const coordinator = new CoordinatorAgent(openaiApiKey);
+    const databaseAgent = new DatabaseAgent(supabase);
+    const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
+    const internetAgent = new InternetAgent(perplexityApiKey);
+    const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    try {
-      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: message,
-        }),
-      });
+    // 1. COORDINATION : Analyser la requête
+    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Query analysis');
+    const analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
+    console.log('[AI-AGENT-OPHTACARE] 📊 Analysis result:', analysis);
 
-      if (!embeddingResponse.ok) {
-        const errorText = await embeddingResponse.text();
-        console.error('[AI-AGENT] Embedding generation failed:', errorText);
-        throw new Error(`Embedding API error: ${embeddingResponse.status}`);
-      }
+    // 2. BASE DE DONNÉES : Récupérer le contexte structuré
+    console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Database context');
+    const databaseContext = analysis.requiresDatabase 
+      ? await databaseAgent.searchContext(analysis)
+      : { meetings: [], documents: [], todos: [], relevantIds: { meetingIds: [], documentIds: [] } };
 
-      const embeddingData = await embeddingResponse.json();
-      const queryEmbedding = embeddingData.data[0].embedding;
-      console.log(`[AI-AGENT] ✅ Embedding generated (${queryEmbedding.length} dimensions)`);
+    // 3. EMBEDDINGS : Recherche sémantique ciblée
+    console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: Semantic search');
+    const embeddingContext = analysis.requiresEmbeddings
+      ? await embeddingsAgent.searchEmbeddings(message, databaseContext.relevantIds)
+      : { chunks: [], sources: [], hasRelevantContext: false };
 
-      // Search in document embeddings with lower threshold for better recall
-      console.log('[AI-AGENT] Searching in document embeddings with threshold 0.5...');
-      const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.5,
-        match_count: 5
-      });
+    // 4. INTERNET : Enrichissement si nécessaire
+    console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Internet enrichment');
+    const shouldUseInternet = analysis.requiresInternet || (!embeddingContext.hasRelevantContext && analysis.queryType === 'general');
+    const internetContext = shouldUseInternet
+      ? await internetAgent.searchInternet(message, embeddingContext.hasRelevantContext)
+      : { content: '', sources: [], hasContent: false };
 
-      if (searchError) {
-        console.error('[AI-AGENT] ❌ Embedding search RPC error:', searchError);
-        
-        // Fallback: try with lower threshold
-        console.log('[AI-AGENT] Trying fallback search with threshold 0.3...');
-        const { data: fallbackResults, error: fallbackError } = await supabase.rpc('search_document_embeddings', {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.3,
-          match_count: 3
-        });
+    // 5. SYNTHÈSE : Générer la réponse finale
+    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Response synthesis');
+    const finalResponse = await synthesisAgent.synthesizeResponse(
+      message,
+      conversationHistory || [],
+      databaseContext,
+      embeddingContext,
+      internetContext
+    );
 
-        if (!fallbackError && fallbackResults && fallbackResults.length > 0) {
-          console.log(`[AI-AGENT] ✅ Fallback search found ${fallbackResults.length} results`);
-          hasEmbeddingContext = true;
-          documentContext = fallbackResults
-            .map(result => {
-              console.log(`[AI-AGENT] 📄 Found chunk from ${result.document_type}: similarity=${result.similarity.toFixed(3)}`);
-              return `Document: ${result.metadata?.title || result.document_type}\nContenu: ${result.chunk_text}`;
-            })
-            .join('\n\n');
-          
-          documentSources = fallbackResults.map(result => ({
-            type: 'document_embedding',
-            title: result.metadata?.title || result.document_type,
-            similarity: result.similarity,
-            chunk_index: result.chunk_index
-          }));
-        } else {
-          console.log('[AI-AGENT] ❌ Fallback search also failed:', fallbackError);
-        }
-      } else if (searchResults && searchResults.length > 0) {
-        console.log(`[AI-AGENT] ✅ Primary search found ${searchResults.length} relevant document chunks`);
-        hasEmbeddingContext = true;
-        documentContext = searchResults
-          .map(result => {
-            console.log(`[AI-AGENT] 📄 Found chunk from ${result.document_type}: similarity=${result.similarity.toFixed(3)}`);
-            return `Document: ${result.metadata?.title || result.document_type}\nContenu: ${result.chunk_text}`;
-          })
-          .join('\n\n');
-        
-        documentSources = searchResults.map(result => ({
-          type: 'document_embedding',
-          title: result.metadata?.title || result.document_type,
-          similarity: result.similarity,
-          chunk_index: result.chunk_index
-        }));
-      } else {
-        console.log('[AI-AGENT] ⚠️ No relevant document chunks found in embeddings (threshold too high?)');
-      }
-
-    } catch (embeddingError) {
-      console.error('[AI-AGENT] ❌ Embedding process failed:', embeddingError.message);
-    }
-
-    // Fetch additional context from database
-    console.log('[AI-AGENT] Fetching additional context from database...');
-    
-    // Get meetings with their transcripts
-    const { data: meetings } = await supabase
-      .from('meetings')
-      .select('id, title, transcript, summary, created_at')
-      .not('transcript', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    // Get documents with extracted text
-    const { data: documents } = await supabase
-      .from('uploaded_documents')
-      .select('id, ai_generated_name, original_name, extracted_text, ai_summary, created_at')
-      .not('extracted_text', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    const { data: todos } = await supabase
-      .from('todos')
-      .select('id, description, status, due_date, created_at')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Build additional context
-    let meetingContext = '';
-    let documentTextContext = '';
-    let todoContext = '';
-    
-    if (meetings && meetings.length > 0) {
-      console.log(`[AI-AGENT] 📋 Found ${meetings.length} meetings with transcripts`);
-      meetingContext = `TRANSCRIPTS DES RÉUNIONS:\n${meetings.map(m => 
-        `Réunion: ${m.title} (${new Date(m.created_at).toLocaleDateString()})\n${m.transcript ? `Transcript: ${m.transcript.substring(0, 1000)}...` : `Résumé: ${m.summary || 'Pas de résumé'}`}`
-      ).join('\n\n')}\n\n`;
-    }
-
-    if (documents && documents.length > 0) {
-      console.log(`[AI-AGENT] 📁 Found ${documents.length} documents with extracted text`);
-      documentTextContext = `DOCUMENTS AVEC TEXTE EXTRAIT:\n${documents.map(d => 
-        `Document: ${d.ai_generated_name || d.original_name}\nTexte: ${d.extracted_text ? d.extracted_text.substring(0, 1000) + '...' : 'Pas de texte extrait'}`
-      ).join('\n\n')}\n\n`;
-    }
-
-    if (todos && todos.length > 0) {
-      console.log(`[AI-AGENT] ✅ Found ${todos.length} todos`);
-      todoContext = `TÂCHES:\n${todos.map(t => 
-        `- [${t.status}] ${t.description}${t.due_date ? ` (échéance: ${new Date(t.due_date).toLocaleDateString()})` : ''}`
-      ).join('\n')}\n\n`;
-    }
-
-    // Build conversation history context
-    let conversationContext = '';
-    if (conversationHistory && conversationHistory.length > 0) {
-      console.log(`[AI-AGENT] 💬 Using conversation history: ${conversationHistory.length} messages`);
-      conversationContext = `\n\n**💬 HISTORIQUE DE LA CONVERSATION (10 derniers messages):**\n${
-        conversationHistory.map((msg, index) => 
-          `${index + 1}. [${msg.isUser ? 'UTILISATEUR' : 'ASSISTANT'}] ${msg.content.substring(0, 300)}${msg.content.length > 300 ? '...' : ''}`
-        ).join('\n')
-      }\n\n`;
-    }
-
-    // Use internet search only if no embedding context found
-    let internetContext = '';
-    let internetSources = [];
-    let hasInternetContext = false;
-
-    if (!hasEmbeddingContext && perplexityApiKey) {
-      console.log('[AI-AGENT] No embedding context found, searching internet...');
-      try {
-        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${perplexityApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-sonar-small-128k-online',
-            messages: [
-              {
-                role: 'system',
-                content: 'Recherche des informations actuelles et pertinentes pour répondre à la question de l\'utilisateur. Concentre-toi sur des sources fiables et récentes.'
-              },
-              {
-                role: 'user',
-                content: message
-              }
-            ],
-            temperature: 0.2,
-            max_tokens: 1000,
-            return_images: false,
-            return_related_questions: false,
-            search_recency_filter: 'month'
-          }),
-        });
-
-        if (perplexityResponse.ok) {
-          const perplexityData = await perplexityResponse.json();
-          internetContext = perplexityData.choices[0]?.message?.content || '';
-          hasInternetContext = true;
-          internetSources = [{ type: 'internet', source: 'Perplexity AI', query: message }];
-          console.log('[AI-AGENT] ✅ Internet search completed');
-        }
-      } catch (error) {
-        console.error('[AI-AGENT] ❌ Internet search error:', error);
-      }
-    } else if (hasEmbeddingContext) {
-      console.log('[AI-AGENT] 🎯 Using embedding context, skipping internet search');
-    }
-
-    // Generate response using OpenAI with proper context prioritization
-    console.log('[AI-AGENT] Generating response...');
-    console.log(`[AI-AGENT] Context summary: Embeddings=${hasEmbeddingContext ? 'YES' : 'NO'}, Meetings=${meetings?.length || 0}, Docs=${documents?.length || 0}, Internet=${hasInternetContext ? 'YES' : 'NO'}, History=${conversationHistory?.length || 0}`);
-    
-    let systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet médical. Tu as accès à plusieurs sources d'information dans cet ordre de priorité STRICT:
-
-1. **HISTORIQUE DE LA CONVERSATION** : Tu as une mémoire des derniers échanges pour maintenir la continuité
-2. **EMBEDDINGS DE DOCUMENTS** (priorité absolue) : ${hasEmbeddingContext ? `✅ ${documentSources.length} chunks trouvés` : '❌ Aucune information trouvée'}
-3. **TRANSCRIPTS DE RÉUNIONS** : ${meetings?.length || 0} réunions disponibles
-4. **TEXTE EXTRAIT DES DOCUMENTS** : ${documents?.length || 0} documents disponibles
-5. **TÂCHES ET DONNÉES INTERNES** : ${todos?.length || 0} tâches
-6. **RECHERCHE INTERNET** : ${hasInternetContext ? '✅ Utilisée en dernier recours' : '❌ Non utilisée'}
-
-RÈGLES STRICTES:
-- Utilise l'historique de la conversation pour maintenir la continuité et répondre aux questions de suivi
-- Fais référence aux messages précédents quand c'est pertinent
-- Utilise EN PRIORITÉ ABSOLUE les informations des embeddings de documents si disponibles
-- Complète avec les transcripts et texte extrait des documents si pertinent
-- Utilise les données internes pour le contexte du cabinet
-- N'utilise internet QUE si aucune information pertinente n'est trouvée dans les documents
-- Cite TOUJOURS tes sources en précisant d'où viennent les informations
-- Sois précis et professionnel
-- Si tu veux créer, modifier ou supprimer une tâche, utilise la syntaxe: [ACTION_TACHE: TYPE=create/update/delete/complete, DESCRIPTION="description", ASSIGNED_TO="nom_utilisateur", DUE_DATE="YYYY-MM-DD", ID="id_tache"]
-
-CONTEXTE DISPONIBLE:`;
-
-    // Add conversation history first for continuity
-    if (conversationContext) {
-      systemPrompt += conversationContext;
-    }
-
-    if (hasEmbeddingContext && documentContext) {
-      systemPrompt += `\n\n**🎯 DOCUMENTS PERTINENTS (EMBEDDINGS - PRIORITÉ 1):**\n${documentContext}`;
-    }
-
-    if (meetingContext) {
-      systemPrompt += `\n\n**📋 TRANSCRIPTS DE RÉUNIONS:**\n${meetingContext}`;
-    }
-
-    if (documentTextContext) {
-      systemPrompt += `\n\n**📁 TEXTE EXTRAIT DES DOCUMENTS:**\n${documentTextContext}`;
-    }
-
-    if (todoContext) {
-      systemPrompt += `\n\n**✅ TÂCHES ET ACTIVITÉS:**\n${todoContext}`;
-    }
-
-    if (internetContext && !hasEmbeddingContext) {
-      systemPrompt += `\n\n**🌐 INFORMATIONS INTERNET (DERNIER RECOURS):**\n${internetContext}`;
-    }
-
-    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-      }),
-    });
-
-    if (!chatResponse.ok) {
-      throw new Error('Failed to generate AI response');
-    }
-
-    const chatData = await chatResponse.json();
-    const response = chatData.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
-
-    console.log('[AI-AGENT] ✅ Response generated successfully');
-
-    return new Response(JSON.stringify({ 
-      response,
-      sources: documentSources,
-      internetSources,
-      hasInternetContext,
-      contextFound: hasEmbeddingContext,
+    // Construire la réponse complète
+    const responseData = {
+      response: finalResponse,
+      sources: embeddingContext.sources,
+      internetSources: internetContext.sources,
+      hasInternetContext: internetContext.hasContent,
+      contextFound: embeddingContext.hasRelevantContext,
+      analysis: analysis,
       additionalDataUsed: {
-        meetings: meetings?.length || 0,
-        documents: documents?.length || 0,
-        todos: todos?.length || 0,
+        meetings: databaseContext.meetings?.length || 0,
+        documents: databaseContext.documents?.length || 0,
+        todos: databaseContext.todos?.length || 0,
         conversationHistory: conversationHistory?.length || 0
       }
-    }), {
+    };
+
+    console.log('[AI-AGENT-OPHTACARE] ✅ Response generated successfully');
+    console.log(`[AI-AGENT-OPHTACARE] 📈 Context summary: DB=${analysis.requiresDatabase ? 'YES' : 'NO'}, Embeddings=${embeddingContext.hasRelevantContext ? 'YES' : 'NO'}, Internet=${internetContext.hasContent ? 'YES' : 'NO'}`);
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[AI-AGENT] ❌ Error:', error);
+    console.error('[AI-AGENT-OPHTACARE] ❌ Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

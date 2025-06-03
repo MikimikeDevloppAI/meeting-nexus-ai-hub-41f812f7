@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink, Trash2, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import TaskValidationDialog from "@/components/TaskValidationDialog";
@@ -37,7 +37,7 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis votre assistant IA spécialisé pour le cabinet médical. J'ai accès à l'historique complet de vos réunions et transcripts, et je peux rechercher des informations actuelles sur internet quand nécessaire. Je peux aussi vous aider à gérer vos tâches - avant de créer, modifier ou supprimer une tâche, je vous demanderai toujours votre validation. Posez-moi des questions !",
+      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai accès à :\n• 📋 Tous les transcripts et résumés de vos réunions\n• 📁 L'ensemble des documents du cabinet avec recherche sémantique\n• ✅ Vos tâches et leur suivi\n• 🧠 Ma mémoire des conversations précédentes\n• 🌐 Des informations médicales actualisées via internet quand nécessaire\n\nJe peux vous aider avec des questions spécifiques au cabinet, la gestion des tâches, ou des informations générales en ophtalmologie. Que puis-je faire pour vous ?",
       isUser: false,
       timestamp: new Date(),
     }
@@ -75,6 +75,22 @@ const Assistant = () => {
     } catch (error: any) {
       console.error("Error fetching users:", error);
     }
+  };
+
+  const clearChatHistory = () => {
+    setMessages([
+      {
+        id: '1',
+        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai accès à :\n• 📋 Tous les transcripts et résumés de vos réunions\n• 📁 L'ensemble des documents du cabinet avec recherche sémantique\n• ✅ Vos tâches et leur suivi\n• 🧠 Ma mémoire des conversations précédentes\n• 🌐 Des informations médicales actualisées via internet quand nécessaire\n\nJe peux vous aider avec des questions spécifiques au cabinet, la gestion des tâches, ou des informations générales en ophtalmologie. Que puis-je faire pour vous ?",
+        isUser: false,
+        timestamp: new Date(),
+      }
+    ]);
+    
+    toast({
+      title: "Historique effacé",
+      description: "La conversation a été remise à zéro.",
+    });
   };
 
   const parseTaskAction = (content: string): TaskAction | null => {
@@ -301,9 +317,9 @@ const Assistant = () => {
   return (
     <div className="animate-fade-in h-full flex flex-col">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Assistant IA</h1>
+        <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Chat avec un assistant IA qui a accès à toutes les données de votre cabinet et à internet
+          Assistant intelligent spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian
         </p>
       </div>
 
@@ -312,17 +328,30 @@ const Assistant = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              <CardTitle>Assistant Intelligent</CardTitle>
+              <CardTitle>Assistant OphtaCare</CardTitle>
             </div>
             <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearChatHistory}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Effacer
+              </Button>
+              <Badge variant="outline" className="text-xs">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Agents intelligents
+              </Badge>
               <Badge variant="outline" className="text-xs">
                 <Globe className="h-3 w-3 mr-1" />
-                Recherche automatique
+                Enrichissement auto
               </Badge>
             </div>
           </div>
           <CardDescription>
-            L'assistant utilise automatiquement internet et vos données internes selon vos besoins
+            Analyse intelligente avec coordination d'agents spécialisés : Base de données → Embeddings → Internet
           </CardDescription>
         </CardHeader>
 
@@ -377,13 +406,13 @@ const Assistant = () => {
                             {message.contextFound && (
                               <Badge variant="outline" className="text-xs">
                                 <Database className="h-3 w-3 mr-1" />
-                                Données internes
+                                OphtaCare
                               </Badge>
                             )}
                             {message.hasInternetContext && (
                               <Badge variant="outline" className="text-xs">
                                 <Globe className="h-3 w-3 mr-1" />
-                                Données internet
+                                Enrichi
                               </Badge>
                             )}
                             {message.sources && message.sources.length > 0 && (
@@ -433,7 +462,7 @@ const Assistant = () => {
                   </div>
                   <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">L'assistant réfléchit et recherche...</span>
+                    <span className="text-sm">L'assistant OphtaCare analyse...</span>
                   </div>
                 </div>
               )}
@@ -446,7 +475,7 @@ const Assistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Posez une question, demandez des conseils ou gérez vos tâches..."
+              placeholder="Posez une question sur OphtaCare, demandez des conseils ou gérez vos tâches..."
               disabled={isLoading}
               className="flex-1"
             />
@@ -464,7 +493,7 @@ const Assistant = () => {
           </div>
 
           <div className="mt-2 text-xs text-muted-foreground">
-            💡 Exemples: "Résume les dernières décisions", "Crée une tâche pour la formation du personnel", "Trouve des fournisseurs d'équipement médical"
+            💡 Exemples: "Résume la dernière réunion", "Crée une tâche pour le suivi patient", "Quels sont les nouveaux traitements DMLA ?"
           </div>
         </CardContent>
       </Card>
