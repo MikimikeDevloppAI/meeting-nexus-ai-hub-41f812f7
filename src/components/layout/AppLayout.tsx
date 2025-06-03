@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarHeader
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, Upload, User, LogOut } from "lucide-react";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -44,12 +44,12 @@ export const AppLayout: React.FC = () => {
     {
       title: "Documents",
       url: "/documents",
-      icon: Upload,
+      icon: FileText,
     },
     {
       title: "Factures",
       url: "/invoices",
-      icon: Upload,
+      icon: Receipt,
     },
     {
       title: "Profil",

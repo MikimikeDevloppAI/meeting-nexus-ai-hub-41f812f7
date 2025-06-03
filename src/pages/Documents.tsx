@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -360,7 +359,7 @@ const Documents = () => {
                           )}
                         </div>
                         
-                        {document.original_name !== document.ai_generated_name && (
+                        {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
                           <p className="text-sm text-muted-foreground mb-2">
                             Nom original: {document.original_name}
                           </p>

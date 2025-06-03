@@ -1,7 +1,9 @@
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, FileText, Tag, Clock } from "lucide-react";
+import { CheckCircle, FileText, Tag, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ProcessingResultsProps {
   document: {
@@ -16,6 +18,8 @@ interface ProcessingResultsProps {
 }
 
 export const ProcessingResults = ({ document }: ProcessingResultsProps) => {
+  const [showSummary, setShowSummary] = useState(false);
+
   if (!document.processed) {
     return null;
   }
@@ -45,8 +49,32 @@ export const ProcessingResults = ({ document }: ProcessingResultsProps) => {
       <CardContent className="space-y-4">
         {document.ai_summary && (
           <div>
-            <h4 className="font-medium text-green-800 mb-1">Résumé</h4>
-            <p className="text-sm text-green-700">{document.ai_summary}</p>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-green-800">Résumé</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSummary(!showSummary)}
+                className="text-green-700 hover:text-green-800 hover:bg-green-100"
+              >
+                {showSummary ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-1" />
+                    Réduire
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-1" />
+                    Voir le résumé
+                  </>
+                )}
+              </Button>
+            </div>
+            {showSummary && (
+              <p className="text-sm text-green-700 bg-green-100 p-3 rounded-md">
+                {document.ai_summary}
+              </p>
+            )}
           </div>
         )}
         
