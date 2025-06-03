@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -26,47 +25,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Generate embedding for the user's question
-    console.log('[DOCUMENT_CHAT] Generating embedding for user question...');
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: message,
-      }),
-    });
-
-    if (!embeddingResponse.ok) {
-      throw new Error('Failed to generate embedding');
-    }
-
-    const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData.data[0].embedding;
-
-    // Search for relevant document chunks using the document ID filter
-    console.log('[DOCUMENT_CHAT] Searching document embeddings...');
-    const { data: searchResults, error: searchError } = await supabase.rpc('search_document_embeddings', {
-      query_embedding: queryEmbedding,
-      filter_document_id: documentId,
-      match_threshold: 0.7,
-      match_count: 5
-    });
-
-    if (searchError) {
-      console.error('[DOCUMENT_CHAT] Search error:', searchError);
-      throw new Error('Failed to search document content');
-    }
-
-    console.log(`[DOCUMENT_CHAT] Found ${searchResults?.length || 0} relevant chunks`);
-
-    // Get document info
+    // Get document info including extracted text
+    console.log('[DOCUMENT_CHAT] Fetching document data...');
     const { data: document, error: docError } = await supabase
       .from('uploaded_documents')
-      .select('original_name, ai_generated_name, ai_summary')
+      .select('original_name, ai_generated_name, ai_summary, extracted_text')
       .eq('id', documentId)
       .single();
 
@@ -75,17 +38,22 @@ serve(async (req) => {
       throw new Error('Document not found');
     }
 
-    // Prepare context from search results
-    let context = '';
-    if (searchResults && searchResults.length > 0) {
-      context = searchResults
-        .map(result => `Extrait du document (similarité: ${(result.similarity * 100).toFixed(1)}%):\n${result.chunk_text}`)
-        .join('\n\n');
+    if (!document.extracted_text) {
+      console.log('[DOCUMENT_CHAT] No extracted text available');
+      throw new Error('No extracted text available for this document');
     }
 
-    // If no relevant chunks found, use document summary
-    if (!context && document.ai_summary) {
-      context = `Résumé du document:\n${document.ai_summary}`;
+    console.log(`[DOCUMENT_CHAT] Found document with ${document.extracted_text.length} characters of extracted text`);
+
+    // Prepare context from extracted text
+    // If the text is very long, we might want to truncate it or use only relevant parts
+    let context = document.extracted_text;
+    
+    // Truncate if text is too long (keep first 8000 characters to stay within token limits)
+    const maxContextLength = 8000;
+    if (context.length > maxContextLength) {
+      context = context.substring(0, maxContextLength) + "... (texte tronqué)";
+      console.log(`[DOCUMENT_CHAT] Truncated context to ${maxContextLength} characters`);
     }
 
     // Generate response using OpenAI
@@ -93,14 +61,15 @@ serve(async (req) => {
     const systemPrompt = `Tu es un assistant IA spécialisé dans l'analyse de documents. Tu réponds uniquement aux questions concernant le document "${document.ai_generated_name || document.original_name}".
 
 Règles importantes:
-- Utilise uniquement les informations fournies dans le contexte du document
+- Utilise uniquement les informations fournies dans le texte extrait du document
 - Si l'information n'est pas dans le document, dis-le clairement
 - Réponds en français de manière claire et précise
 - Cite les parties pertinentes du document quand c'est utile
 - Reste factuel et professionnel
+- Tu peux faire référence à des sections spécifiques du texte
 
-Contexte du document:
-${context || 'Aucun contenu spécifique trouvé pour cette question.'}`;
+Texte complet du document:
+${context}`;
 
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -130,8 +99,8 @@ ${context || 'Aucun contenu spécifique trouvé pour cette question.'}`;
 
     return new Response(JSON.stringify({ 
       response,
-      contextFound: searchResults && searchResults.length > 0,
-      chunksUsed: searchResults?.length || 0
+      hasExtractedText: true,
+      textLength: document.extracted_text.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
