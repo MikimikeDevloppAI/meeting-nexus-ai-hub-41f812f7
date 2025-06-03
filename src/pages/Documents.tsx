@@ -1,17 +1,16 @@
-
 import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, FileSearch, MessageSquare } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, FileSearch } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { ProcessingResults } from "@/components/documents/ProcessingResults";
-import { DocumentChat } from "@/components/documents/DocumentChat";
+import { CompactDocumentChat } from "@/components/documents/CompactDocumentChat";
 
 interface UploadedDocument {
   id: string;
@@ -414,14 +413,9 @@ const Documents = () => {
                     
                     <ProcessingResults document={document} />
                     
-                    {/* Document Chat integrated here */}
+                    {/* Compact Document Chat */}
                     {document.processed && document.extracted_text && (
-                      <div className="mt-4 border-t pt-4">
-                        <DocumentChat 
-                          document={document}
-                          onClose={() => {}}
-                        />
-                      </div>
+                      <CompactDocumentChat document={document} />
                     )}
                     
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
