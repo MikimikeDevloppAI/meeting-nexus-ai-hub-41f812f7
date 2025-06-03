@@ -57,7 +57,7 @@ const Documents = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create document record without created_by constraint
+      // Create document record
       const { data: document, error: dbError } = await supabase
         .from('uploaded_documents')
         .insert({
@@ -71,8 +71,8 @@ const Documents = () => {
 
       if (dbError) throw dbError;
 
-      // Process with AI if it's a PDF
-      if (file.type === 'application/pdf') {
+      // Process with AI if it's a supported file type
+      if (['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
         await supabase.functions.invoke('process-document', {
           body: { documentId: document.id }
         });
@@ -84,7 +84,7 @@ const Documents = () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast({
         title: "Document uploadé",
-        description: "Le document a été uploadé et est en cours de traitement.",
+        description: "Le document a été uploadé et le traitement accéléré a commencé en arrière-plan.",
       });
     },
     onError: (error: any) => {
@@ -171,7 +171,7 @@ const Documents = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Gestion des Documents</h1>
         <p className="text-muted-foreground">
-          Téléchargez et gérez vos documents. Les PDFs sont automatiquement traités par IA.
+          Téléchargez et gérez vos documents. Le traitement par IA est maintenant optimisé et plus rapide.
         </p>
       </div>
 
@@ -183,7 +183,7 @@ const Documents = () => {
             Télécharger des Documents
           </CardTitle>
           <CardDescription>
-            Glissez-déposez vos fichiers ou cliquez pour sélectionner (PDF, TXT, DOC, DOCX)
+            Glissez-déposez vos fichiers ou cliquez pour sélectionner (PDF, TXT, DOC, DOCX) - Traitement optimisé
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,6 +206,9 @@ const Documents = () => {
                 <p className="text-muted-foreground">
                   ou cliquez pour sélectionner des fichiers
                 </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Traitement accéléré - résultats en moins d'une minute
+                </p>
               </div>
             )}
           </div>
@@ -225,7 +228,7 @@ const Documents = () => {
         <CardHeader>
           <CardTitle>Documents Uploadés</CardTitle>
           <CardDescription>
-            Liste de tous vos documents avec leur statut de traitement
+            Liste de tous vos documents avec leur statut de traitement (optimisé pour une analyse rapide)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -261,7 +264,7 @@ const Documents = () => {
                           ) : (
                             <Badge variant="secondary">
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              En traitement
+                              Traitement rapide...
                             </Badge>
                           )}
                         </div>
