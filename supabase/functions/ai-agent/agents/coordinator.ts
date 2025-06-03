@@ -1,4 +1,3 @@
-
 export interface QueryAnalysis {
   requiresDatabase: boolean;
   requiresEmbeddings: boolean;
@@ -49,12 +48,18 @@ CONTEXTE OPHTACARE GENÈVE :
 - Données disponibles : réunions, documents, tâches, transcripts, planning
 - Focus sur gestion administrative et organisation du cabinet
 
+DÉTECTION SPÉCIALE TÂCHES :
+Si la question contient des mots comme "crée", "créer", "ajoute", "tâche", "task" → queryType = "task"
+Si détection de tâche → requiresDatabase = true (pour accéder aux tâches existantes)
+Si création de tâche → requiresEmbeddings = false (pas besoin de recherche sémantique)
+
 Tu dois analyser finement la requête pour :
 1. Identifier les entités précises (noms, concepts, équipements)
 2. Générer des synonymes et termes apparentés pour l'ophtalmologie
 3. Déterminer si une extraction ciblée est nécessaire
 4. Planifier une recherche multi-étapes si besoin
 5. Rester dans le contexte administratif d'OphtaCare
+6. DÉTECTER les demandes d'actions sur les tâches
 
 Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
 {
@@ -80,6 +85,7 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE :
 - Pour "dernière réunion" → database d'abord avec ID spécifique, puis embeddings ciblés
 - Pour équipements médicaux → synonymes techniques ophtalmologiques
 - Pour patients → recherche administrative (pas médicale)
+- Pour TÂCHES → queryType="task", requiresDatabase=true, requiresEmbeddings=false
 - Toujours générer des synonymes pertinents pour l'ophtalmologie
 - Activer iterativeSearch si la requête est complexe ou spécifique
 - Utiliser targetedExtraction pour les entités nommées
@@ -113,7 +119,7 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE :
         return analysis;
       }
       
-      // Fallback analysis with enhanced logic
+      // Fallback analysis with enhanced logic including task detection
       console.log('[COORDINATOR] ⚠️ Using enhanced fallback analysis');
       return this.getEnhancedFallbackAnalysis(message);
       
@@ -126,22 +132,27 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE :
   private getEnhancedFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
+    // Detect task-related queries
+    const isTaskQuery = lowerMessage.includes('tâche') || lowerMessage.includes('task') ||
+                       lowerMessage.includes('crée') || lowerMessage.includes('créer') ||
+                       lowerMessage.includes('ajoute') || lowerMessage.includes('ajouter');
+    
     // Detect entities and generate synonyms with OphtaCare context
     const entities = this.extractEntities(lowerMessage);
     const searchTerms = this.generateSearchTerms(lowerMessage);
     const synonyms = this.generateOphtalmologySynonyms(searchTerms);
     
     return {
-      requiresDatabase: lowerMessage.includes('dernière') || lowerMessage.includes('récent') || lowerMessage.includes('tâche'),
-      requiresEmbeddings: lowerMessage.includes('réunion') || lowerMessage.includes('meeting') || lowerMessage.includes('document') || entities.length > 0,
+      requiresDatabase: lowerMessage.includes('dernière') || lowerMessage.includes('récent') || isTaskQuery,
+      requiresEmbeddings: !isTaskQuery && (lowerMessage.includes('réunion') || lowerMessage.includes('meeting') || lowerMessage.includes('document') || entities.length > 0),
       requiresInternet: lowerMessage.includes('nouveau') || lowerMessage.includes('actualité') || lowerMessage.includes('2024') || lowerMessage.includes('2025'),
-      queryType: lowerMessage.includes('réunion') ? 'meeting' : lowerMessage.includes('document') ? 'document' : 'general',
+      queryType: isTaskQuery ? 'task' : lowerMessage.includes('réunion') ? 'meeting' : lowerMessage.includes('document') ? 'document' : 'general',
       specificEntities: entities,
       timeContext: lowerMessage.includes('dernière') || lowerMessage.includes('récent') ? 'récent' : null,
-      priority: lowerMessage.includes('dernière') ? 'database' : 'embeddings',
+      priority: isTaskQuery ? 'database' : lowerMessage.includes('dernière') ? 'database' : 'embeddings',
       searchTerms,
       synonyms,
-      iterativeSearch: entities.length > 0 || searchTerms.length > 2,
+      iterativeSearch: !isTaskQuery && (entities.length > 0 || searchTerms.length > 2),
       targetedExtraction: entities.length > 0 ? {
         entity: entities[0],
         context: lowerMessage
@@ -186,7 +197,9 @@ RÈGLES D'ANALYSE SPÉCIALISÉES OPHTACARE :
       'équipement': ['matériel', 'appareil', 'instrument', 'machine', 'dispositif'],
       'cabinet': ['clinique', 'centre', 'ophtacare', 'bureau', 'établissement'],
       'docteur': ['médecin', 'dr', 'praticien', 'tabibian', 'ophtalmologue'],
-      'administratif': ['gestion', 'organisation', 'administration', 'secrétariat', 'bureau']
+      'administratif': ['gestion', 'organisation', 'administration', 'secrétariat', 'bureau'],
+      'tâche': ['task', 'action', 'travail', 'mission', 'activité'],
+      'matériel': ['équipement', 'fournitures', 'outils', 'articles', 'supplies']
     };
     
     const synonyms: string[] = [];
