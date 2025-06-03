@@ -10,6 +10,8 @@ const corsHeaders = {
 const MAX_CHUNKS = 30;
 const CHUNK_SIZE = 400;
 const MAX_TEXT_LENGTH = 80000;
+const PDF_UPLOAD_TIMEOUT = 30000; // 30 seconds
+const PDF_EXTRACT_TIMEOUT = 60000; // 60 seconds
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -46,7 +48,7 @@ serve(async (req) => {
       throw new Error('Document not found');
     }
 
-    console.log(`📄 Processing: ${document.original_name}`);
+    console.log(`📄 Processing: ${document.original_name} (${document.content_type})`);
 
     // Download file
     const { data: fileData, error: downloadError } = await supabase.storage
@@ -57,12 +59,15 @@ serve(async (req) => {
       throw new Error('Could not download file');
     }
 
+    console.log(`📁 File downloaded: ${fileData.size} bytes`);
+
     // Extract text based on file type
     let text = '';
     if (document.content_type === 'application/pdf') {
-      console.log('📄 Extracting PDF text with PDF.co...');
+      console.log('📄 Processing PDF with PDF.co...');
       text = await extractPdfTextWithPdfCo(fileData, pdfcoApiKey);
     } else {
+      console.log('📄 Processing text file...');
       text = await fileData.text();
     }
 
@@ -104,78 +109,102 @@ serve(async (req) => {
 
 async function extractPdfTextWithPdfCo(fileData: Blob, apiKey: string): Promise<string> {
   try {
-    console.log('🔄 Converting PDF to base64...');
-    
-    // Convert blob to array buffer then to base64
-    const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
-    const base64 = btoa(binaryString);
+    console.log(`🔄 Preparing PDF for upload (${fileData.size} bytes)...`);
 
-    console.log(`📤 Uploading PDF to PDF.co (${base64.length} chars)...`);
+    // Create FormData to send the file directly
+    const formData = new FormData();
+    formData.append('file', fileData, 'document.pdf');
 
-    // Upload file to PDF.co
-    const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload/base64', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        file: base64,
-        name: 'document.pdf'
-      }),
-    });
+    console.log('📤 Uploading PDF to PDF.co...');
 
-    console.log(`📤 Upload response status: ${uploadResponse.status}`);
-    
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('Upload error response:', errorText);
-      throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+    // Upload file to PDF.co using multipart form data
+    const uploadController = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadController.abort(), PDF_UPLOAD_TIMEOUT);
+
+    try {
+      const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+        },
+        body: formData,
+        signal: uploadController.signal
+      });
+
+      clearTimeout(uploadTimeout);
+
+      console.log(`📤 Upload response status: ${uploadResponse.status}`);
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Upload error response:', errorText);
+        throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+      }
+
+      const uploadData = await uploadResponse.json();
+      console.log('PDF.co upload response:', uploadData);
+
+      if (uploadData.error || !uploadData.url) {
+        throw new Error(`Upload failed: ${uploadData.message || 'No URL returned'}`);
+      }
+
+      console.log('📤 PDF uploaded successfully, extracting text...');
+
+      // Extract text from PDF
+      const extractController = new AbortController();
+      const extractTimeout = setTimeout(() => extractController.abort(), PDF_EXTRACT_TIMEOUT);
+
+      try {
+        const extractResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: uploadData.url,
+            async: false,
+            pages: "",
+            password: ""
+          }),
+          signal: extractController.signal
+        });
+
+        clearTimeout(extractTimeout);
+
+        console.log(`📄 Extract response status: ${extractResponse.status}`);
+
+        if (!extractResponse.ok) {
+          const errorText = await extractResponse.text();
+          console.error('Extract error response:', errorText);
+          throw new Error(`Text extraction failed: ${extractResponse.status} - ${errorText}`);
+        }
+
+        const extractData = await extractResponse.json();
+        console.log('PDF.co extract response success:', extractData.error === false);
+
+        if (extractData.error || !extractData.body) {
+          throw new Error(`Text extraction failed: ${extractData.message || 'No text extracted'}`);
+        }
+
+        console.log(`✅ PDF text extracted successfully (${extractData.body.length} chars)`);
+        return extractData.body;
+
+      } catch (extractError) {
+        clearTimeout(extractTimeout);
+        if (extractError.name === 'AbortError') {
+          throw new Error('PDF text extraction timed out');
+        }
+        throw extractError;
+      }
+
+    } catch (uploadError) {
+      clearTimeout(uploadTimeout);
+      if (uploadError.name === 'AbortError') {
+        throw new Error('PDF upload timed out');
+      }
+      throw uploadError;
     }
-
-    const uploadData = await uploadResponse.json();
-    console.log('PDF.co upload response:', uploadData);
-
-    if (uploadData.error || !uploadData.url) {
-      throw new Error(`Upload failed: ${uploadData.message || 'No URL returned'}`);
-    }
-
-    console.log('📤 PDF uploaded successfully, extracting text...');
-
-    // Extract text from PDF
-    const extractResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: uploadData.url,
-        async: false,
-        pages: "",
-        password: ""
-      }),
-    });
-
-    console.log(`📄 Extract response status: ${extractResponse.status}`);
-
-    if (!extractResponse.ok) {
-      const errorText = await extractResponse.text();
-      console.error('Extract error response:', errorText);
-      throw new Error(`Text extraction failed: ${extractResponse.status} - ${errorText}`);
-    }
-
-    const extractData = await extractResponse.json();
-    console.log('PDF.co extract response success:', extractData.error === false);
-
-    if (extractData.error || !extractData.body) {
-      throw new Error(`Text extraction failed: ${extractData.message || 'No text extracted'}`);
-    }
-
-    console.log(`✅ PDF text extracted successfully (${extractData.body.length} chars)`);
-    return extractData.body;
 
   } catch (error) {
     console.error('❌ PDF.co extraction failed:', error);
