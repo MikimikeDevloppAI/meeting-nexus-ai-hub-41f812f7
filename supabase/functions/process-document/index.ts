@@ -11,9 +11,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_CHUNKS = 30;
-const CHUNK_SIZE = 400;
-const MAX_TEXT_LENGTH = 80000;
+const MAX_CHUNKS = 25;
+const CHUNK_SIZE = 350;
+const MAX_TEXT_LENGTH = 60000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -47,6 +47,7 @@ serve(async (req) => {
       .single();
 
     if (docError || !document) {
+      console.error('❌ Document not found:', docError);
       throw new Error('Document not found');
     }
 
@@ -58,6 +59,7 @@ serve(async (req) => {
       .download(document.file_path);
 
     if (downloadError || !fileData) {
+      console.error('❌ File download failed:', downloadError);
       throw new Error('Could not download file');
     }
 
@@ -106,7 +108,7 @@ serve(async (req) => {
       message: 'Traitement du document démarré',
       textLength: text.length,
       fileType: document.content_type,
-      estimatedTime: '10-30 secondes selon la taille'
+      estimatedTime: '20-45 secondes selon la taille'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -128,33 +130,46 @@ async function processDocumentInBackground(
   supabase: any
 ) {
   try {
-    console.log('🤖 Starting AI analysis...');
+    console.log('🤖 Starting background AI analysis and vectorization...');
     console.log(`📝 Processing text of ${text.length} characters`);
 
     // AI analysis
     let analysis;
     try {
       analysis = await generateDocumentAnalysis(text, document, openaiApiKey);
-      console.log('✅ AI analysis completed:', analysis);
+      console.log('✅ AI analysis completed successfully');
     } catch (error) {
       console.error('❌ AI analysis failed:', error);
       analysis = createFallbackAnalysis(document);
     }
 
-    // Generate embeddings for document chunks
+    // Generate text chunks for embeddings
     const chunks = chunkText(text, CHUNK_SIZE);
     const limitedChunks = chunks.slice(0, MAX_CHUNKS);
-    console.log(`🔢 Processing ${limitedChunks.length} chunks for embeddings...`);
+    console.log(`🔢 Created ${limitedChunks.length} chunks for embeddings (limited from ${chunks.length})`);
 
+    // Generate embeddings
     let embeddings = [];
+    let embeddingsSuccess = false;
     try {
-      embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
-      console.log(`✅ Generated ${embeddings.length} embeddings`);
+      if (limitedChunks.length > 0) {
+        console.log('🔄 Starting embeddings generation...');
+        embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
+        
+        if (embeddings.length > 0) {
+          console.log(`✅ Generated ${embeddings.length} embeddings successfully`);
+          embeddingsSuccess = true;
+        } else {
+          console.log('⚠️ No embeddings were generated');
+        }
+      } else {
+        console.log('⚠️ No chunks available for embedding generation');
+      }
     } catch (error) {
-      console.log('⚠️ Embeddings generation failed:', error.message);
+      console.error('❌ Embeddings generation failed:', error);
     }
 
-    // Prepare complete metadata
+    // Prepare comprehensive metadata
     const completeMetadata = {
       documentId: documentId,
       originalName: document.original_name,
@@ -166,14 +181,16 @@ async function processDocumentInBackground(
       textLength: text.length,
       chunksGenerated: limitedChunks.length,
       embeddingsGenerated: embeddings.length,
+      embeddingsSuccess: embeddingsSuccess,
+      processingVersion: '2.0',
       ...analysis.taxonomy
     };
 
-    // Store embeddings with complete metadata if generated
-    if (embeddings.length > 0) {
-      console.log('💾 Storing document with embeddings and complete metadata...');
+    // Store embeddings if successful
+    if (embeddingsSuccess && embeddings.length > 0 && embeddings.length === limitedChunks.length) {
+      console.log('💾 Storing document with embeddings in vector database...');
       try {
-        await supabase.rpc('store_document_with_embeddings', {
+        const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
           p_title: analysis.suggestedName,
           p_type: 'uploaded_document',
           p_content: text,
@@ -181,17 +198,27 @@ async function processDocumentInBackground(
           p_embeddings: embeddings,
           p_metadata: completeMetadata
         });
-        console.log('✅ Document stored with embeddings and complete metadata successfully');
+
+        if (storeError) {
+          console.error('❌ Vector storage failed:', storeError);
+          throw storeError;
+        }
+        
+        console.log('✅ Document stored in vector database with ID:', storedDocId);
+        completeMetadata.vectorDocumentId = storedDocId;
+        
       } catch (error) {
-        console.log('⚠️ Database storage failed:', error.message);
-        console.log('⚠️ Error details:', error);
+        console.error('❌ Vector database storage failed:', error);
+        embeddingsSuccess = false;
+        completeMetadata.vectorStorageError = error.message;
       }
     } else {
-      console.log('⚠️ No embeddings generated, storing document without embeddings');
+      console.log('⚠️ Skipping vector storage due to embedding issues');
+      completeMetadata.vectorStorageSkipped = true;
     }
 
-    // IMPORTANT: Update uploaded_documents table with ALL metadata
-    console.log('📝 Updating uploaded_documents table with complete metadata...');
+    // CRITICAL: Always update the uploaded_documents table with ALL metadata
+    console.log('📝 Updating uploaded_documents table with complete processing results...');
     const { error: updateError } = await supabase
       .from('uploaded_documents')
       .update({
@@ -204,28 +231,34 @@ async function processDocumentInBackground(
       .eq('id', documentId);
 
     if (updateError) {
-      console.error('❌ Failed to update uploaded_documents:', updateError);
+      console.error('❌ Failed to update uploaded_documents table:', updateError);
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processed successfully with complete metadata!`);
+    console.log(`🎉 Document ${documentId} processing completed successfully!`);
+    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${chunks.length} chunks, ${text.length} chars`);
 
   } catch (error) {
-    console.error('❌ Error in background processing:', error);
+    console.error('❌ Background processing failed:', error);
     
-    // Mark as processed even on error with error details in metadata
-    await supabase
-      .from('uploaded_documents')
-      .update({
-        processed: true,
-        ai_summary: `Erreur de traitement: ${error.message}`,
-        metadata: {
-          error: error.message,
-          errorDetails: error.toString(),
-          processedAt: new Date().toISOString(),
-          processingFailed: true
-        }
-      })
-      .eq('id', documentId);
+    // Always mark as processed with error details
+    try {
+      await supabase
+        .from('uploaded_documents')
+        .update({
+          processed: true,
+          ai_summary: `Erreur de traitement: ${error.message}`,
+          metadata: {
+            error: error.message,
+            errorDetails: error.toString(),
+            processedAt: new Date().toISOString(),
+            processingFailed: true,
+            processingVersion: '2.0'
+          }
+        })
+        .eq('id', documentId);
+    } catch (updateError) {
+      console.error('❌ Failed to update document with error:', updateError);
+    }
   }
 }
