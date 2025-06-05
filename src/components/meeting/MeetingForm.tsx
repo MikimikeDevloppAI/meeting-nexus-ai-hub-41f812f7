@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     summary?: string;
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
+  const [hasStartedSubmission, setHasStartedSubmission] = useState(false);
   
   const { toast } = useToast();
 
@@ -132,13 +134,14 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
 
   const handleSubmit = () => {
     setMeetingResults({}); // Reset results
+    setHasStartedSubmission(true); // Mark that submission has started
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Always show the form first, then processing/results when submitting */}
-      {!isSubmitting && (
+      {/* Show form only if we haven't started submission yet */}
+      {!hasStartedSubmission && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -195,8 +198,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing and results when submitting */}
-      {isSubmitting && (
+      {/* Show processing and results only after submission has started */}
+      {hasStartedSubmission && (
         <>
           <ProcessingSteps 
             isSubmitting={isSubmitting}
