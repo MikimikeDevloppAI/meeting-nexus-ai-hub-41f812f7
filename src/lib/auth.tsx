@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               navigate("/login");
             }
           } else {
-            console.log("User approved, setting user state");
+            console.log("User approved, setting user state:", userProfile);
             if (mounted) {
               setUser(userProfile as User);
               setIsLoading(false);
@@ -131,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(null);
                 navigate("/login");
               } else {
+                console.log("Setting authenticated user:", userProfile);
                 setUser(userProfile as User);
                 navigate("/assistant");
               }
@@ -141,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             navigate("/login");
           }
         } else if (event === "SIGNED_OUT") {
+          console.log("User signed out");
           setUser(null);
           navigate("/login");
         }

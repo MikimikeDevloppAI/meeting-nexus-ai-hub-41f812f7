@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +17,8 @@ export const useMeetingCreation = () => {
   const { toast } = useToast();
   const { processingSteps, updateStepStatus, resetSteps } = useProcessingSteps();
 
+  console.log('[useMeetingCreation] Current user:', user);
+
   // Reset function to reinitialize all states
   const resetMeetingCreation = () => {
     setIsSubmitting(false);
@@ -30,6 +33,8 @@ export const useMeetingCreation = () => {
     participants: MeetingCreationData['participants'],
     selectedParticipantIds: string[]
   ) => {
+    console.log('[useMeetingCreation] Starting createMeeting with user:', user);
+    
     if (!title) {
       toast({
         title: "Information manquante",
@@ -41,15 +46,19 @@ export const useMeetingCreation = () => {
     }
 
     if (!user) {
+      console.error('[useMeetingCreation] No user found, authentication required');
       toast({
         title: "Erreur d'authentification",
-        description: "Vous devez être connecté pour créer une réunion",
+        description: "Vous devez être connecté pour créer une réunion. Veuillez vous reconnecter.",
         variant: "destructive",
         duration: 5000,
       });
+      // Redirect to login if no user
+      navigate("/login");
       return;
     }
 
+    console.log('[useMeetingCreation] User authenticated, proceeding with meeting creation');
     setIsSubmitting(true);
     setProgress(0);
     resetSteps();
@@ -61,6 +70,7 @@ export const useMeetingCreation = () => {
       updateStepStatus('create', 'processing');
       setProgress(10);
       
+      console.log('[CREATE] Creating meeting with title:', title, 'for user:', user.id);
       meetingId = await MeetingService.createMeeting(title, user.id);
       console.log('[CREATE] Meeting created with ID:', meetingId);
       
@@ -204,6 +214,19 @@ export const useMeetingCreation = () => {
 
     } catch (error: any) {
       console.error("[ERROR] Erreur lors de la création de la réunion:", error);
+      
+      // Better error handling for authentication issues
+      if (error.message?.includes('auth') || error.message?.includes('unauthorized') || error.message?.includes('JWT')) {
+        console.error('[ERROR] Authentication error detected');
+        toast({
+          title: "Erreur d'authentification",
+          description: "Votre session a expiré. Veuillez vous reconnecter.",
+          variant: "destructive",
+          duration: 10000,
+        });
+        navigate("/login");
+        return;
+      }
       
       // If we created a meeting but failed later, still try to navigate to it
       if (meetingId) {
