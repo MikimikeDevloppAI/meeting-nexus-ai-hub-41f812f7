@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -59,9 +58,9 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   
   const { toast } = useToast();
 
-  // Logique d'affichage simplifiée et robuste
-  const showForm = !hasStartedSubmission;
-  const showProcessing = hasStartedSubmission;
+  // Logique d'affichage corrigée - on montre le processing dès que l'un des deux états est actif
+  const showForm = !hasStartedSubmission && !isSubmitting;
+  const showProcessing = hasStartedSubmission || isSubmitting;
   
   console.log('[MeetingForm] State:', { 
     showForm, 
@@ -145,8 +144,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
 
   const handleSubmit = () => {
     console.log('[MeetingForm] handleSubmit called - setting hasStartedSubmission to true');
-    setHasStartedSubmission(true); // Une fois défini à true, ne revient jamais à false
-    setMeetingResults({}); // Reset results
+    setHasStartedSubmission(true);
+    setMeetingResults({});
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
@@ -188,7 +187,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
           <div className="mt-6">
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || hasStartedSubmission}
               className="w-full"
             >
               Soumettre la réunion
@@ -207,7 +206,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
       {showProcessing && (
         <>
           <ProcessingSteps 
-            isSubmitting={isSubmitting}
+            isSubmitting={showProcessing}
             processingSteps={processingSteps}
             progress={progress}
           />

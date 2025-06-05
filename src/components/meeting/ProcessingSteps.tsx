@@ -24,7 +24,8 @@ const stepDescriptions: Record<string, string> = {
 };
 
 export const ProcessingSteps = ({ isSubmitting, processingSteps, progress }: ProcessingStepsProps) => {
-  if (!isSubmitting) return null;
+  // Supprimé la condition qui empêchait l'affichage - maintenant on affiche toujours si le composant est rendu
+  console.log('[ProcessingSteps] Rendering with:', { isSubmitting, progress, stepsCount: processingSteps.length });
 
   // Check if all steps are completed
   const allCompleted = processingSteps.every(step => step.status === 'completed' || step.status === 'error');
