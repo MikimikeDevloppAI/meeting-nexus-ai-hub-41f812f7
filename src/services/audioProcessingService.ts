@@ -153,7 +153,17 @@ export class AudioProcessingService {
     }
     
     try {
-      await MeetingService.updateMeetingField(meetingId, 'audio_url', audioUrl);
+      // CORRECTION: Utiliser directement la méthode Supabase au lieu de MeetingService
+      const { error } = await supabase
+        .from('meetings')
+        .update({ audio_url: audioUrl })
+        .eq('id', meetingId);
+
+      if (error) {
+        console.error('[SAVE_AUDIO] Error updating meeting with audio URL:', error);
+        throw new Error(`Échec de l'enregistrement de l'URL audio: ${error.message}`);
+      }
+
       console.log('[SAVE_AUDIO] Audio URL saved successfully');
     } catch (error: any) {
       console.error('[SAVE_AUDIO] Failed to save audio URL for meeting:', meetingId, error);
@@ -188,9 +198,18 @@ export class AudioProcessingService {
 
       console.log('[TRANSCRIBE] Raw transcript received, length:', result.text.length);
       
-      // Save original transcript as a backup
+      // Save original transcript as a backup - CORRECTION: utiliser directement Supabase
       console.log('[TRANSCRIBE] Saving raw transcript as backup...');
-      await MeetingService.updateMeetingField(meetingId, 'transcript', result.text);
+      const { error } = await supabase
+        .from('meetings')
+        .update({ transcript: result.text })
+        .eq('id', meetingId);
+
+      if (error) {
+        console.error('[TRANSCRIBE] Error saving raw transcript:', error);
+        throw new Error(`Erreur de sauvegarde du transcript: ${error.message}`);
+      }
+
       console.log('[TRANSCRIBE] Raw transcript saved successfully');
       
       return result.text;
