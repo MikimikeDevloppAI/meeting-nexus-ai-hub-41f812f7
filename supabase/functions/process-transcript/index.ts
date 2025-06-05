@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -437,32 +438,97 @@ ${cleanedTranscript}`;
           }
         }
 
-        // Generate enhanced AI recommendation for this task with access to embeddings
+        // Generate AI recommendation using the advanced AI agent with concise prompt
         if (todoData) {
           try {
-            const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/enhanced-todo-recommendations', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              },
-              body: JSON.stringify({
+            const aiAgentQuery = `RECOMMANDATION TÂCHE OPHTACARE
+
+Tu es un assistant IA expert pour cabinet d'ophtalmologie situé à Genève, en Suisse. Analyse cette tâche et fournis une recommandation UNIQUEMENT si elle apporte une valeur ajoutée SIGNIFICATIVE.
+
+CONTEXTE IMPORTANT :
+- Cabinet d'ophtalmologie à Genève, Suisse  
+- Pour tous les prix, utilise TOUJOURS les francs suisses (CHF)
+- Adapte tes conseils au contexte suisse et genevois
+
+TÂCHE: ${taskDescription}
+
+CONTEXTE:
+Participants: ${participantList}
+Réunion: ${meetingName} du ${meetingDate}
+Transcript: ${cleanedTranscript.substring(0, 500)}...
+
+INSTRUCTIONS CRITIQUES:
+- Réponds UNIQUEMENT en français
+- Si la tâche est évidente, simple ou ne nécessite aucun conseil spécialisé, réponds exactement: "AUCUNE_RECOMMANDATION"
+- Fournis une recommandation SEULEMENT si tu peux apporter:
+  * Des conseils techniques spécialisés en ophtalmologie
+  * Des informations sur des équipements, fournisseurs ou prestataires spécifiques
+  * Des bonnes pratiques métier non évidentes
+  * Des points d'attention critiques
+
+- Si tu donnes une recommandation, sois TRÈS CONCIS (maximum 80 mots)
+- Concentre-toi sur l'ESSENTIEL et l'ACTIONNABLE
+- Évite les généralités et les conseils évidents
+- Pour tous les prix mentionnés, utilise les CHF (francs suisses)`;
+
+            const response = await supabase.functions.invoke('ai-agent', {
+              body: { 
+                message: aiAgentQuery,
                 todoId: todoData.id,
-                description: taskDescription.trim(),
-                meetingContext: cleanedTranscript,
-                meetingId: meetingId,
-                participantList: participantList
-              }),
+                taskContext: {
+                  todoId: todoData.id,
+                  description: taskDescription.trim(),
+                  meetingId: meetingId,
+                  participantList: participantList,
+                  type: 'task_recommendation',
+                  cabinet: 'OphtaCare'
+                }
+              }
             });
             
-            if (!response.ok) {
-              console.error('Enhanced AI recommendation request failed:', await response.text());
+            if (response.error) {
+              console.error('AI agent recommendation request failed:', response.error);
             } else {
-              console.log('Enhanced AI recommendation generated for task:', taskDescription.substring(0, 50));
+              console.log('AI agent recommendation generated for task:', taskDescription.substring(0, 50));
+              
+              // Extract recommendation from response and add as comment if valuable
+              const aiResponse = response.data?.response || '';
+              
+              if (aiResponse && 
+                  !aiResponse.includes('AUCUNE_RECOMMANDATION') && 
+                  !aiResponse.toLowerCase().includes('aucune recommandation') &&
+                  aiResponse.length > 10) {
+                
+                // Clean the response
+                const cleanedRecommendation = aiResponse
+                  .replace(/\[ACTION_TACHE:[^\]]*\]/gs, '')
+                  .replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '')
+                  .trim();
+
+                if (cleanedRecommendation) {
+                  await supabase
+                    .from('todo_comments')
+                    .insert({
+                      todo_id: todoData.id,
+                      user_id: '00000000-0000-0000-0000-000000000000', // System user for AI
+                      comment: `💡 **Conseil IA OphtaCare:** ${cleanedRecommendation}`
+                    });
+                  
+                  console.log('AI recommendation added as comment for task:', taskDescription.substring(0, 50));
+                }
+              }
             }
           } catch (error) {
-            console.error('Error generating enhanced AI recommendation:', error);
+            console.error('Error generating AI agent recommendation:', error);
           }
+        }
+
+        // Mark that AI recommendation was generated
+        if (todoData) {
+          await supabase
+            .from('todos')
+            .update({ ai_recommendation_generated: true })
+            .eq('id', todoData.id);
         }
       }
     }
