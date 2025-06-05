@@ -52,21 +52,11 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     summary?: string;
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
-  const [hasStartedSubmission, setHasStartedSubmission] = useState(false);
   
   const { toast } = useToast();
 
-  // Reset form state when component mounts (ensures form shows on new meeting page)
-  useEffect(() => {
-    setHasStartedSubmission(false);
-    setMeetingResults({});
-    setTitle("");
-    setAudioBlob(null);
-    setAudioFile(null);
-    setAudioUrl(null);
-    setSelectedParticipantIds([]);
-    setIsRecording(false);
-  }, []);
+  // Only show processing and results when actually submitting
+  const showProcessingView = isSubmitting;
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -146,14 +136,13 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
 
   const handleSubmit = () => {
     setMeetingResults({}); // Reset results
-    setHasStartedSubmission(true); // Mark that submission has started
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form only if we haven't started submission yet */}
-      {!hasStartedSubmission && (
+      {/* Show form when not processing */}
+      {!showProcessingView && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -191,14 +180,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
               disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Traitement en cours...
-                </>
-              ) : (
-                "Soumettre la réunion"
-              )}
+              Soumettre la réunion
             </Button>
           </div>
 
@@ -210,8 +192,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing and results only after submission has started */}
-      {hasStartedSubmission && (
+      {/* Show processing and results only when submitting */}
+      {showProcessingView && (
         <>
           <ProcessingSteps 
             isSubmitting={isSubmitting}

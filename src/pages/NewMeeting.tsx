@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -7,7 +8,12 @@ import { MeetingForm } from "@/components/meeting/MeetingForm";
 
 const NewMeeting = () => {
   const navigate = useNavigate();
-  const { isSubmitting, processingSteps, progress, createMeeting } = useMeetingCreation();
+  const { isSubmitting, processingSteps, progress, createMeeting, resetMeetingCreation } = useMeetingCreation();
+
+  // Reset meeting creation state when component mounts
+  useEffect(() => {
+    resetMeetingCreation();
+  }, [resetMeetingCreation]);
 
   return (
     <div className="animate-fade-in">

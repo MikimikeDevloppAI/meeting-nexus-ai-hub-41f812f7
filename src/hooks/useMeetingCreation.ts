@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +15,13 @@ export const useMeetingCreation = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { processingSteps, updateStepStatus, resetSteps } = useProcessingSteps();
+
+  // Reset function to reinitialize all states
+  const resetMeetingCreation = () => {
+    setIsSubmitting(false);
+    setProgress(0);
+    resetSteps();
+  };
 
   const createMeeting = async (
     title: string,
@@ -228,6 +234,7 @@ export const useMeetingCreation = () => {
     isSubmitting,
     processingSteps,
     progress,
-    createMeeting
+    createMeeting,
+    resetMeetingCreation
   };
 };
