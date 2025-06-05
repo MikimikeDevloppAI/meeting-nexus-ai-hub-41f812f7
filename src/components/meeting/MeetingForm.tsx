@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +65,11 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     isSubmitting,
     title 
   });
+
+  // Add useEffect to log when isSubmitting changes
+  useEffect(() => {
+    console.log('[MeetingForm] isSubmitting changed to:', isSubmitting);
+  }, [isSubmitting]);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -140,18 +144,9 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
-    console.log('[MeetingForm] handleSubmit called - starting submission');
+    console.log('[MeetingForm] handleSubmit called - calling onSubmit directly (NO VALIDATION HERE)');
     
-    // Validation basique avant de commencer
-    if (!title?.trim()) {
-      toast({
-        title: "Information manquante",
-        description: "Veuillez saisir un titre de réunion",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // NO validation here - it's ALL handled in the hook
     // Reset results et appeler directement onSubmit
     setMeetingResults({});
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
