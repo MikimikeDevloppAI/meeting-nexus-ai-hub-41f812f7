@@ -101,20 +101,21 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
             
             {showPreview ? (
               <div className="border rounded-md p-4 bg-gray-50 min-h-[300px]">
-                <ReactMarkdown 
-                  className="prose prose-sm max-w-none"
-                  components={{
-                    h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
-                    strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                    ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
-                    li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
-                    p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
-                  }}
-                >
-                  {editedContent || '*Aperçu vide*'}
-                </ReactMarkdown>
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown 
+                    components={{
+                      h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
+                      strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
+                      li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+                      p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
+                    }}
+                  >
+                    {editedContent || '*Aperçu vide*'}
+                  </ReactMarkdown>
+                </div>
               </div>
             ) : (
               <Textarea
@@ -161,20 +162,21 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
     <div className={`group ${className}`}>
       <div className="relative">
         {type === 'summary' ? (
-          <ReactMarkdown 
-            className="prose prose-sm max-w-none"
-            components={{
-              h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
-              strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-              ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
-              li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
-              p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
-            }}
-          >
-            {content}
-          </ReactMarkdown>
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown 
+              components={{
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
+                strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
+                li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+                p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
         ) : (
           <span>{content}</span>
         )}
