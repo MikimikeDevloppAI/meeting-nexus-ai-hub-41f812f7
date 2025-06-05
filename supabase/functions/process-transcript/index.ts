@@ -29,6 +29,16 @@ function cleanJSONResponse(content: string): string {
   throw new Error('No valid JSON found in response');
 }
 
+// Helper function to format date
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -60,10 +70,23 @@ serve(async (req) => {
       throw new Error('OpenAI API key not found')
     }
 
-    // Créer la liste des noms de participants pour le prompt
+    // Récupérer les informations de la réunion
+    const { data: meetingData, error: meetingError } = await supabaseClient
+      .from('meetings')
+      .select('title, created_at')
+      .eq('id', meetingId)
+      .single()
+
+    if (meetingError) {
+      console.error('Error fetching meeting data:', meetingError)
+      throw new Error('Could not fetch meeting information')
+    }
+
+    const meetingName = meetingData.title
+    const meetingDate = formatDate(meetingData.created_at)
     const participantNames = participants.map((p: any) => p.name).join(', ')
     
-    console.log('Participant names for transcript processing:', participantNames)
+    console.log('Meeting details:', { meetingName, meetingDate, participantNames })
 
     // Premier appel OpenAI : Nettoyer et structurer le transcript
     const transcriptPrompt = `Tu es un assistant spécialisé dans la transcription de réunions. 
@@ -123,18 +146,53 @@ Retourne le transcript complet avec les noms des participants assignés intellig
       throw transcriptError
     }
 
-    // Deuxième appel OpenAI : Générer un résumé
-    const summaryPrompt = `Basé sur ce transcript de réunion, génère un résumé concis et structuré qui inclut :
+    // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt spécialisé
+    const summaryPrompt = `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour un cabinet ophtalmologique situé à Genève, dirigé par le Dr Tabibian.
 
-1. **Contexte et objectif** : Pourquoi cette réunion a eu lieu
-2. **Points clés discutés** : Les sujets principaux abordés
-3. **Décisions prises** : Les conclusions et choix effectués
-4. **Points d'action** : Ce qui doit être fait suite à cette réunion
+Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
+
+Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point important discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
+
+🧩 CATÉGORIES À UTILISER (uniquement si pertinentes) :
+- Suivi patient
+- Matériel médical
+- Matériel bureau
+- Organisation cabinet
+- Site internet
+- Formation
+- Service cabinet
+- Problèmes divers
+- Agenda du personnel
+
+STRUCTURE À RESPECTER :
+En-tête du résumé :
+
+**Date :** ${meetingDate}
+
+**Réunion :** ${meetingName}
+
+**Participants :** ${participantNames}
+
+Pour chaque catégorie abordée :
+
+### [Nom de la catégorie avec emoji]
+
+**Points discutés :**
+
+- Liste à puces des points abordés
+
+**Décisions prises :**
+
+- Liste à puces des décisions prises (ou - Aucune décision)
+
+RÈGLES :
+- Si une catégorie n'a pas été abordée, ne l'affiche pas
+- Utilise les noms des participants dans les décisions/actions
+- Sois précis et concis
+- Ne renvoie que le résumé en Markdown
 
 Transcript :
-${cleanedTranscript}
-
-Le résumé doit être informatif mais concis, mettant l'accent sur les éléments actionnables et les décisions importantes.`
+${cleanedTranscript}`
 
     const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -145,7 +203,7 @@ Le résumé doit être informatif mais concis, mettant l'accent sur les élémen
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: summaryPrompt }],
-        temperature: 0.5,
+        temperature: 0.3,
       }),
     })
 
