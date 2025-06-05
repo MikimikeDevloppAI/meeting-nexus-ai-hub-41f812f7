@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,15 +12,24 @@ const NewMeeting = () => {
   const { user, isLoading } = useAuth();
   const { isSubmitting, processingSteps, progress, createMeeting, resetMeetingCreation, cleanupOnUnmount } = useMeetingCreation();
 
-  // Reset meeting creation state when component mounts
+  // Only reset meeting creation state when component mounts AND not currently submitting
   useEffect(() => {
-    resetMeetingCreation();
+    console.log('[NewMeeting] Component mounted, isSubmitting:', isSubmitting);
+    
+    // Don't reset if we're already in the middle of a submission
+    if (!isSubmitting) {
+      console.log('[NewMeeting] Resetting meeting creation state');
+      resetMeetingCreation();
+    } else {
+      console.log('[NewMeeting] NOT resetting - submission in progress');
+    }
     
     // Cleanup on unmount
     return () => {
+      console.log('[NewMeeting] Component unmounting, cleaning up');
       cleanupOnUnmount();
     };
-  }, [resetMeetingCreation, cleanupOnUnmount]);
+  }, []); // Remove dependencies to prevent re-running during submission
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -48,7 +58,7 @@ const NewMeeting = () => {
     return null;
   }
 
-  console.log('[NewMeeting] Rendering for authenticated user:', user.id);
+  console.log('[NewMeeting] Rendering for authenticated user:', user.id, 'isSubmitting:', isSubmitting);
 
   return (
     <div className="animate-fade-in">

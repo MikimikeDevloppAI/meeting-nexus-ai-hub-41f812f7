@@ -22,6 +22,14 @@ export const useMeetingCreation = () => {
 
   // Reset function to reinitialize all states
   const resetMeetingCreation = () => {
+    console.log('[useMeetingCreation] resetMeetingCreation called - current isSubmitting:', isSubmitting);
+    
+    // Don't reset if we're currently submitting
+    if (isSubmitting) {
+      console.log('[useMeetingCreation] PREVENTING reset - submission in progress');
+      return;
+    }
+    
     console.log('[useMeetingCreation] Resetting meeting creation state');
     if (!isMountedRef.current) return;
     setIsSubmitting(false);
@@ -337,6 +345,7 @@ export const useMeetingCreation = () => {
 
   // Cleanup on unmount
   const cleanupOnUnmount = () => {
+    console.log('[useMeetingCreation] Cleanup on unmount');
     isMountedRef.current = false;
   };
 
