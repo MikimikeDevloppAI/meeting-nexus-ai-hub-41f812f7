@@ -415,7 +415,7 @@ ${transcript}`
       console.warn('No chunks created - this might indicate an issue with the chunking logic')
     }
 
-    // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt spécialisé et emojis
+    // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt modifié
     const summaryPrompt = `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour un cabinet ophtalmologique situé à Genève, dirigé par le Dr Tabibian.
 
 Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
@@ -446,17 +446,16 @@ Pour chaque catégorie abordée :
 
 ### [Emoji] [Nom de la catégorie]
 
-**Points discutés :**
-
-- Liste à puces des points abordés
-
-**Décisions prises :**
-
-- Liste à puces des décisions prises (ou - Aucune décision)
+- Point discuté 1
+  → Décision prise (si une décision a été prise pour ce point)
+- Point discuté 2
+  → Décision prise (si une décision a été prise pour ce point)
 
 RÈGLES :
 - TOUJOURS utiliser l'emoji correspondant devant chaque section
 - Si une catégorie n'a pas été abordée, ne l'affiche pas
+- Pour chaque point discuté, ajoute immédiatement en dessous la décision prise (avec → ) si il y en a eu une
+- Si aucune décision n'a été prise pour un point, ne mets pas de ligne avec →
 - Utilise les noms des participants dans les décisions/actions
 - Sois précis et concis
 - Ne renvoie que le résumé en Markdown avec les emojis
