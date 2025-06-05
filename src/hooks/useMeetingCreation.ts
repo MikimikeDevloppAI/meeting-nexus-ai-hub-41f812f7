@@ -27,19 +27,6 @@ export const useMeetingCreation = () => {
     resetSteps();
   };
 
-  // Helper function to safely reset submission state (only for critical errors)
-  const safeResetSubmission = (reason: string, delay: number = 0) => {
-    console.log(`[useMeetingCreation] Safe reset submission: ${reason} (delay: ${delay}ms)`);
-    if (delay > 0) {
-      setTimeout(() => {
-        console.log(`[useMeetingCreation] Executing delayed reset: ${reason}`);
-        setIsSubmitting(false);
-      }, delay);
-    } else {
-      setIsSubmitting(false);
-    }
-  };
-
   const createMeeting = async (
     title: string,
     audioBlob: Blob | null,
@@ -240,7 +227,6 @@ export const useMeetingCreation = () => {
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
         navigate(`/meetings/${meetingId}`);
         // Reset state AFTER navigation is triggered
-        console.log('[NAVIGATION] Resetting isSubmitting after successful navigation');
         setIsSubmitting(false);
       }, 3000); // 3 seconds delay to see completion
 
@@ -256,7 +242,7 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
-        safeResetSubmission('authentication error', 1000);
+        setIsSubmitting(false);
         navigate("/login");
         return;
       }
@@ -272,7 +258,6 @@ export const useMeetingCreation = () => {
         });
         setTimeout(() => {
           navigate(`/meetings/${meetingId}`);
-          console.log('[ERROR] Resetting isSubmitting after partial success navigation');
           setIsSubmitting(false);
         }, 2000);
       } else {
@@ -284,7 +269,9 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
-        safeResetSubmission('complete failure', 3000); // 3 second delay even on failure
+        setTimeout(() => {
+          setIsSubmitting(false);
+        }, 3000);
       }
     }
   };

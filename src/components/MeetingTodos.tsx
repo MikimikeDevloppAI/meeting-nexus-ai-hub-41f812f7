@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
 import { TodoAIChat } from "@/components/TodoAIChat";
+import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
 
@@ -216,6 +217,9 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                   </Button>
                 </div>
               </div>
+
+              {/* AI Recommendation - displayed prominently */}
+              <TodoAIRecommendation todoId={todo.id} />
 
               {/* AI Chat for this todo */}
               <TodoAIChat todoId={todo.id} todoDescription={todo.description} />

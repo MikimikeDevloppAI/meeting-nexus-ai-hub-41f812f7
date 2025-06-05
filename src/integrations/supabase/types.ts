@@ -218,6 +218,41 @@ export type Database = {
           },
         ]
       }
+      todo_ai_recommendations: {
+        Row: {
+          created_at: string | null
+          email_draft: string | null
+          id: string
+          recommendation_text: string
+          todo_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_draft?: string | null
+          id?: string
+          recommendation_text: string
+          todo_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_draft?: string | null
+          id?: string
+          recommendation_text?: string
+          todo_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_ai_recommendations_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todo_comments: {
         Row: {
           comment: string

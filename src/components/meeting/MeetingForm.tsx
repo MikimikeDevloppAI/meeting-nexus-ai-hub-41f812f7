@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,37 +54,18 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
-  // NEW: Add hasStartedSubmission state to prevent returning to form once submission starts
-  const [hasStartedSubmission, setHasStartedSubmission] = useState(false);
-  
   const { toast } = useToast();
 
-  // Show form only when we haven't started submission AND not currently submitting
-  const showForm = !hasStartedSubmission && !isSubmitting;
-  // Show processing when we have started submission OR currently submitting
-  const showProcessing = hasStartedSubmission || isSubmitting;
+  // Simplifier la logique d'affichage - montrer les étapes dès que la soumission commence
+  const showForm = !isSubmitting;
+  const showProcessing = isSubmitting;
   
   console.log('[MeetingForm] State:', { 
     showForm, 
     showProcessing, 
     isSubmitting, 
-    hasStartedSubmission, 
     title 
   });
-
-  // Reset hasStartedSubmission when component mounts (for new session)
-  useEffect(() => {
-    console.log('[MeetingForm] Component mounted, resetting hasStartedSubmission');
-    setHasStartedSubmission(false);
-  }, []);
-
-  // Track when submission starts
-  useEffect(() => {
-    if (isSubmitting && !hasStartedSubmission) {
-      console.log('[MeetingForm] Submission started, setting hasStartedSubmission to true');
-      setHasStartedSubmission(true);
-    }
-  }, [isSubmitting, hasStartedSubmission]);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -160,13 +142,12 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   const handleSubmit = () => {
     console.log('[MeetingForm] handleSubmit called');
     setMeetingResults({}); // Reset results
-    // DON'T set hasStartedSubmission here - let the useEffect handle it when isSubmitting becomes true
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form only when showForm is true */}
+      {/* Show form only when not submitting */}
       {showForm && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
@@ -202,7 +183,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
           <div className="mt-6">
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || hasStartedSubmission}
+              disabled={isSubmitting}
               className="w-full"
             >
               Soumettre la réunion
@@ -217,11 +198,11 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing and results when showProcessing is true */}
+      {/* Show processing when submitting */}
       {showProcessing && (
         <>
           <ProcessingSteps 
-            isSubmitting={true} // Always show as submitting when in processing mode
+            isSubmitting={isSubmitting}
             processingSteps={processingSteps}
             progress={progress}
           />
