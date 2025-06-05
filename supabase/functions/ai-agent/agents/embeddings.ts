@@ -31,38 +31,38 @@ export class EmbeddingsAgent {
     let fuzzyResults: any[] = [];
     let expansionLevel = 0;
     
-    // PHASE 1: RECHERCHE PRINCIPALE (seuil ultra-bas)
+    // PHASE 1: RECHERCHE PRINCIPALE (seuil ultra-bas pour capturer plus de contenu)
     console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale ultra-agressive');
-    let searchResults = await this.performSearchUltraAggressive(message, relevantIds, 0.15); // Seuil très très bas
+    let searchResults = await this.performSearchUltraAggressive(message, relevantIds, 0.12); // Seuil réduit de 0.15 à 0.12
     searchIterations++;
     
     if (searchResults.chunks.length > 0) {
       allChunks.push(...searchResults.chunks);
       allSources.push(...searchResults.sources);
-      console.log(`[EMBEDDINGS] ✅ Phase 1: ${searchResults.chunks.length} chunks trouvés (seuil 0.15)`);
+      console.log(`[EMBEDDINGS] ✅ Phase 1: ${searchResults.chunks.length} chunks trouvés (seuil 0.12)`);
     }
     
     // PHASE 2: RECHERCHE AVEC TOUS LES TERMES (expansion maximale)
     console.log('[EMBEDDINGS] 🔄 Phase 2: Expansion maximale avec tous les termes');
     for (const term of analysis.searchTerms) {
-      if (searchIterations >= 8) break; // Plus d'itérations
+      if (searchIterations >= 10) break; // Plus d'itérations
       
-      const termResults = await this.performSearchUltraAggressive(term, relevantIds, 0.1); // Seuil extrêmement bas
+      const termResults = await this.performSearchUltraAggressive(term, relevantIds, 0.08); // Seuil encore plus bas
       searchIterations++;
       
       if (termResults.chunks.length > 0) {
         allChunks.push(...termResults.chunks);
         allSources.push(...termResults.sources);
-        console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.chunks.length} chunks pour "${term}" (seuil 0.1)`);
+        console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.chunks.length} chunks pour "${term}" (seuil 0.08)`);
       }
     }
     
     // PHASE 3: RECHERCHE AVEC TOUS LES SYNONYMES (systématique)
     console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche systématique avec synonymes');
-    for (const synonym of analysis.synonyms.slice(0, 8)) { // Plus de synonymes
-      if (searchIterations >= 12) break;
+    for (const synonym of analysis.synonyms.slice(0, 10)) { // Plus de synonymes
+      if (searchIterations >= 15) break;
       
-      const synonymResults = await this.performSearchUltraAggressive(synonym, relevantIds, 0.12);
+      const synonymResults = await this.performSearchUltraAggressive(synonym, relevantIds, 0.10); // Seuil adapté
       searchIterations++;
       
       if (synonymResults.chunks.length > 0) {
@@ -73,7 +73,7 @@ export class EmbeddingsAgent {
     }
     
     // PHASE 4: RECHERCHE FUZZY SI ENABLED
-    if (analysis.fuzzyMatching && allChunks.length < 8) {
+    if (analysis.fuzzyMatching && allChunks.length < 10) { // Seuil augmenté
       console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fuzzy activée');
       fuzzyResults = await this.performFuzzyEmbeddingSearch(message, analysis, relevantIds);
       searchIterations += fuzzyResults.length;
@@ -86,28 +86,28 @@ export class EmbeddingsAgent {
     }
     
     // PHASE 5: RECHERCHE GÉNÉRALE SANS FILTRES (dernière chance)
-    if (allChunks.length < 3) {
+    if (allChunks.length < 5) { // Seuil augmenté
       console.log('[EMBEDDINGS] 🔄 Phase 5: Recherche générale sans filtres (dernière chance)');
-      const generalResults = await this.performSearchUltraAggressive(message, undefined, 0.05); // Seuil minimal
+      const generalResults = await this.performSearchUltraAggressive(message, undefined, 0.03); // Seuil minimal
       searchIterations++;
       expansionLevel = 5;
       
       if (generalResults.chunks.length > 0) {
         allChunks.push(...generalResults.chunks);
         allSources.push(...generalResults.sources);
-        console.log(`[EMBEDDINGS] ✅ Phase 5: ${generalResults.chunks.length} chunks en recherche générale (seuil 0.05)`);
+        console.log(`[EMBEDDINGS] ✅ Phase 5: ${generalResults.chunks.length} chunks en recherche générale (seuil 0.03)`);
       }
     }
     
     // PHASE 6: EXPANSION CONTEXTUELLE OPHTACARE
-    if (allChunks.length < 6) {
+    if (allChunks.length < 8) { // Seuil augmenté
       console.log('[EMBEDDINGS] 🔄 Phase 6: Expansion contextuelle OphtaCare spécialisée');
       const ophtalmoTerms = this.generateOphtalmoExpansion(message, analysis);
       
-      for (const ophtalmoTerm of ophtalmoTerms.slice(0, 5)) {
-        if (searchIterations >= 15) break;
+      for (const ophtalmoTerm of ophtalmoTerms.slice(0, 6)) { // Plus de termes
+        if (searchIterations >= 18) break;
         
-        const ophtalmoResults = await this.performSearchUltraAggressive(ophtalmoTerm, relevantIds, 0.08);
+        const ophtalmoResults = await this.performSearchUltraAggressive(ophtalmoTerm, relevantIds, 0.06); // Seuil très bas
         searchIterations++;
         
         if (ophtalmoResults.chunks.length > 0) {
@@ -122,7 +122,7 @@ export class EmbeddingsAgent {
     // NETTOYAGE ET TRI INTELLIGENT
     const uniqueChunks = this.removeDuplicateChunksEnhanced(allChunks);
     const sortedChunks = this.smartSortChunks(uniqueChunks, message, analysis);
-    const finalChunks = sortedChunks.slice(0, 15); // Plus de chunks finaux
+    const finalChunks = sortedChunks.slice(0, 20); // Plus de chunks finaux
     
     const finalSources = this.generateEnhancedSources(finalChunks);
     
@@ -152,7 +152,7 @@ export class EmbeddingsAgent {
   private async performSearchUltraAggressive(
     query: string, 
     relevantIds?: { meetingIds: string[], documentIds: string[], todoIds: string[], participantIds: string[] },
-    threshold: number = 0.1
+    threshold: number = 0.08 // Seuil par défaut réduit
   ): Promise<{ chunks: any[], sources: any[] }> {
     try {
       console.log(`[EMBEDDINGS] 🔍 Recherche ultra-agressive: "${query}" (seuil: ${threshold})`);
@@ -178,25 +178,27 @@ export class EmbeddingsAgent {
 
       let searchResults;
       
-      // Recherche avec count plus élevé
+      // Recherche avec count plus élevé et seuil plus permissif
       const { data: generalResults, error } = await this.supabase.rpc('search_document_embeddings', {
         query_embedding: queryEmbedding,
         match_threshold: threshold,
-        match_count: 20 // Plus de résultats par recherche
+        match_count: 30 // Plus de résultats par recherche
       });
 
       if (!error && generalResults) {
-        // Filtrage optionnel par IDs pertinents
+        // Filtrage optionnel par IDs pertinents mais plus permissif
         if (relevantIds && (relevantIds.meetingIds.length > 0 || relevantIds.documentIds.length > 0)) {
-          searchResults = generalResults.filter((result: any) => 
+          const filteredResults = generalResults.filter((result: any) => 
             relevantIds.meetingIds.includes(result.meeting_id) ||
             relevantIds.documentIds.includes(result.document_id)
           );
           
-          // Si filtrage donne peu de résultats, garder les résultats généraux
-          if (searchResults.length < 3) {
-            console.log('[EMBEDDINGS] 🔄 Filtrage strict donne peu de résultats, utilisation générale');
-            searchResults = generalResults;
+          // Si filtrage donne peu de résultats, garder plus de résultats généraux
+          if (filteredResults.length < 5) { // Seuil réduit de 3 à 5
+            console.log('[EMBEDDINGS] 🔄 Filtrage strict donne peu de résultats, utilisation générale étendue');
+            searchResults = generalResults.slice(0, 20); // Garder plus de résultats
+          } else {
+            searchResults = filteredResults;
           }
         } else {
           searchResults = generalResults;

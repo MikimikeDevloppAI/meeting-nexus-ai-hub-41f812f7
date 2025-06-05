@@ -1,29 +1,46 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
 
-// Helper function to chunk text for embeddings with better separation
+// Helper function to chunk text for embeddings with improved preservation
 const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 100): string[] => {
   if (!text || text.trim().length === 0) {
     return [];
   }
 
+  console.log(`[CHUNKING] Processing text of ${text.length} characters`);
+  
   // Split by paragraphs first, then sentences
   const paragraphs = text.split(/\n\s*\n/);
   const chunks: string[] = [];
+  let totalCharactersProcessed = 0;
   
   for (const paragraph of paragraphs) {
     if (paragraph.trim().length === 0) continue;
     
-    // If paragraph is small enough, add it as a chunk
+    totalCharactersProcessed += paragraph.length;
+    
+    // If paragraph is small enough, add it as a chunk (reduced threshold)
     if (paragraph.length <= maxChunkSize) {
-      chunks.push(paragraph.trim());
+      if (paragraph.trim().length >= 30) { // Reduced from 150 to 30
+        chunks.push(`[Segment ${chunks.length + 1}] ${paragraph.trim()}`);
+        console.log(`[CHUNKING] Added small paragraph chunk: ${paragraph.length} chars`);
+      } else {
+        // Preserve small paragraphs by combining with previous chunk if possible
+        if (chunks.length > 0 && chunks[chunks.length - 1].length + paragraph.length <= maxChunkSize) {
+          chunks[chunks.length - 1] += ` ${paragraph.trim()}`;
+          console.log(`[CHUNKING] Combined small paragraph with previous chunk`);
+        } else {
+          // Create a minimal chunk to not lose content
+          chunks.push(`[Mini-segment ${chunks.length + 1}] ${paragraph.trim()}`);
+          console.log(`[CHUNKING] Created mini-chunk to preserve content: ${paragraph.length} chars`);
+        }
+      }
       continue;
     }
     
-    // Split large paragraphs by sentences
+    // Split large paragraphs by sentences with improved logic
     const sentences = paragraph.split(/[.!?]+\s+/);
     let currentChunk = '';
     
@@ -31,43 +48,87 @@ const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 1
       const sentence = sentences[i].trim();
       if (!sentence) continue;
       
+      // Add proper punctuation if missing
+      const punctuatedSentence = sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?') 
+        ? sentence 
+        : sentence + '.';
+      
       // Check if adding this sentence would exceed the limit
-      const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + sentence;
+      const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + punctuatedSentence;
       
       if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
-        // Only save chunk if it's substantial enough
-        if (currentChunk.trim().length >= 150) {
-          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}.`);
+        // Save current chunk with reduced minimum threshold
+        if (currentChunk.trim().length >= 50) { // Reduced from 150 to 50
+          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+          console.log(`[CHUNKING] Added sentence-based chunk: ${currentChunk.length} chars`);
         }
         
-        // Start new chunk with overlap from previous
+        // Start new chunk with smart overlap
         const words = currentChunk.split(' ');
-        const overlapWords = words.slice(-Math.min(overlap / 5, words.length / 2));
-        currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? '. ' : '') + sentence;
+        const overlapWords = words.slice(-Math.min(15, Math.floor(words.length / 3))); // More intelligent overlap
+        currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? ' ' : '') + punctuatedSentence;
       } else {
         currentChunk = potentialChunk;
       }
     }
     
-    // Add the final chunk if it has content and is substantial
-    if (currentChunk.trim().length >= 150) {
-      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}${currentChunk.endsWith('.') ? '' : '.'}`);
+    // Add the final chunk with reduced threshold
+    if (currentChunk.trim().length >= 30) { // Reduced from 150 to 30
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Added final chunk: ${currentChunk.length} chars`);
+    } else if (currentChunk.trim().length > 0) {
+      // Don't lose any content - create mini-chunk
+      chunks.push(`[Final-mini ${chunks.length + 1}] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Created final mini-chunk: ${currentChunk.length} chars`);
     }
   }
   
-  // Filter out chunks that are too small (increased minimum size) and ensure uniqueness
-  return chunks
-    .filter(chunk => chunk.length >= 150) // Increased minimum chunk size from 50 to 150
-    .map((chunk, index) => {
-      // Ensure each chunk is unique by adding a timestamp or unique content
-      const uniqueContent = chunk.includes('[Segment') ? chunk : `[Part ${index + 1}] ${chunk}`;
-      return uniqueContent;
-    })
-    .filter(chunk => {
-      // Final filter to ensure no chunk is too small after processing
-      const cleanChunk = chunk.replace(/^\[(?:Segment|Part) \d+\]\s*/, '');
-      return cleanChunk.length >= 100; // Ensure at least 100 characters of actual content
-    });
+  // Recovery phase: if we lost too much content, create additional chunks from remaining text
+  const processedLength = chunks.reduce((total, chunk) => {
+    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini) \d+\]\s*/, '');
+    return total + cleanChunk.length;
+  }, 0);
+  
+  const retentionRate = processedLength / text.length;
+  console.log(`[CHUNKING] Content retention rate: ${(retentionRate * 100).toFixed(1)}% (${processedLength}/${text.length} chars)`);
+  
+  if (retentionRate < 0.85) { // If we're losing more than 15% of content
+    console.log(`[CHUNKING] Low retention detected, attempting content recovery...`);
+    
+    // Find text portions that might have been missed
+    const allChunkText = chunks.join(' ').toLowerCase();
+    const originalWords = text.toLowerCase().split(/\s+/);
+    const missingWords = originalWords.filter(word => 
+      word.length > 3 && !allChunkText.includes(word)
+    );
+    
+    if (missingWords.length > 0) {
+      // Create recovery chunks from missing content
+      const recoveryText = missingWords.join(' ');
+      if (recoveryText.length >= 20) {
+        chunks.push(`[Recovery ${chunks.length + 1}] Content analysis: ${recoveryText.substring(0, 400)}`);
+        console.log(`[CHUNKING] Added recovery chunk with ${missingWords.length} missing words`);
+      }
+    }
+  }
+  
+  // Final filtering with much more lenient criteria
+  const finalChunks = chunks.filter(chunk => {
+    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini|Recovery) \d+\]\s*/, '');
+    return cleanChunk.length >= 20; // Very permissive minimum - reduced from 100 to 20
+  });
+  
+  console.log(`[CHUNKING] Final result: ${finalChunks.length} chunks from ${text.length} chars (${chunks.length} initial chunks)`);
+  
+  // Log chunk distribution for debugging
+  const chunkSizes = finalChunks.map(chunk => {
+    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini|Recovery) \d+\]\s*/, '');
+    return cleanChunk.length;
+  });
+  
+  console.log(`[CHUNKING] Chunk size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length)}`);
+  
+  return finalChunks;
 };
 
 // Function to generate embeddings using OpenAI
