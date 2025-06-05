@@ -80,10 +80,10 @@ export const requestTranscription = async (uploadUrl: string, participantCount: 
       audio_url: uploadUrl,
       speaker_labels: true,
       speakers_expected: Math.max(participantCount, 2),
-      language_detection: true,
+      language_code: 'fr',
       punctuate: true,
       format_text: true,
-      speech_model: 'nano',
+      speech_model: 'best',
       dual_channel: false,
     };
 
