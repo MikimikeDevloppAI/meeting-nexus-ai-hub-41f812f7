@@ -38,7 +38,7 @@ interface MeetingFormProps {
 }
 
 export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit }: MeetingFormProps) => {
-  console.log('[MeetingForm] Component mounted/rendered');
+  console.log('[MeetingForm] Props received:', { isSubmitting, progress, stepsCount: processingSteps.length });
   
   const [title, setTitle] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -54,18 +54,12 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
-  // Simple boolean to control form visibility - always true initially
-  const [formVisible, setFormVisible] = useState(true);
-  
   const { toast } = useToast();
 
-  console.log('[MeetingForm] formVisible:', formVisible, 'isSubmitting:', isSubmitting);
-
-  // Always show form initially when component mounts
-  useEffect(() => {
-    console.log('[MeetingForm] useEffect - setting formVisible to true');
-    setFormVisible(true);
-  }, []);
+  // Show form when not submitting, hide when submitting
+  const showForm = !isSubmitting;
+  
+  console.log('[MeetingForm] State:', { showForm, isSubmitting, title });
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -95,12 +89,9 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     if (!isSubmitting) return;
 
     const checkForUpdates = async () => {
-      // This would be called periodically to check for updates
-      // For now, we'll simulate progressive updates
       const interval = setInterval(async () => {
         // Check if transcript is ready
         if (processingSteps.find(s => s.id === 'transcribe')?.status === 'completed' && !meetingResults.transcript) {
-          // Simulate transcript being ready
           setMeetingResults(prev => ({
             ...prev,
             transcript: "Transcript en cours de génération..."
@@ -144,16 +135,15 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
-    console.log('[MeetingForm] handleSubmit - hiding form');
+    console.log('[MeetingForm] handleSubmit called');
     setMeetingResults({}); // Reset results
-    setFormVisible(false); // Hide form immediately when submit is clicked
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form when formVisible is true */}
-      {formVisible && (
+      {/* Show form when showForm is true */}
+      {showForm && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -203,8 +193,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing and results only when form is hidden */}
-      {!formVisible && (
+      {/* Show processing and results when submitting */}
+      {isSubmitting && (
         <>
           <ProcessingSteps 
             isSubmitting={isSubmitting}

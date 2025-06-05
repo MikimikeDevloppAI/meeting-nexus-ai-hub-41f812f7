@@ -21,6 +21,7 @@ export const useMeetingCreation = () => {
 
   // Reset function to reinitialize all states
   const resetMeetingCreation = () => {
+    console.log('[useMeetingCreation] Resetting meeting creation state');
     setIsSubmitting(false);
     setProgress(0);
     resetSteps();
@@ -33,7 +34,7 @@ export const useMeetingCreation = () => {
     participants: MeetingCreationData['participants'],
     selectedParticipantIds: string[]
   ) => {
-    console.log('[useMeetingCreation] Starting createMeeting with user:', user);
+    console.log('[useMeetingCreation] Starting createMeeting with:', { title, hasAudio: !!(audioBlob || audioFile), participantCount: selectedParticipantIds.length });
     
     if (!title) {
       toast({
@@ -46,19 +47,18 @@ export const useMeetingCreation = () => {
     }
 
     if (!user) {
-      console.error('[useMeetingCreation] No user found, authentication required');
+      console.error('[useMeetingCreation] No user found, redirecting to login');
       toast({
         title: "Erreur d'authentification",
         description: "Vous devez être connecté pour créer une réunion. Veuillez vous reconnecter.",
         variant: "destructive",
         duration: 5000,
       });
-      // Redirect to login if no user
       navigate("/login");
       return;
     }
 
-    console.log('[useMeetingCreation] User authenticated, proceeding with meeting creation');
+    console.log('[useMeetingCreation] Starting submission process');
     setIsSubmitting(true);
     setProgress(0);
     resetSteps();
@@ -67,10 +67,10 @@ export const useMeetingCreation = () => {
 
     try {
       // Step 1: Create meeting and add participants immediately
+      console.log('[CREATE] Creating meeting...');
       updateStepStatus('create', 'processing');
       setProgress(10);
       
-      console.log('[CREATE] Creating meeting with title:', title, 'for user:', user.id);
       meetingId = await MeetingService.createMeeting(title, user.id);
       console.log('[CREATE] Meeting created with ID:', meetingId);
       
@@ -86,16 +86,19 @@ export const useMeetingCreation = () => {
 
       // Step 2: Upload and save audio if provided
       if (audioBlob || audioFile) {
+        console.log('[UPLOAD] Starting audio upload...');
         updateStepStatus('upload', 'processing');
         setProgress(25);
 
         let audioFileUrl;
         try {
           audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
+          console.log('[UPLOAD] Audio uploaded:', audioFileUrl);
           setProgress(30);
           
           // Save audio URL using dedicated method
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
+          console.log('[UPLOAD] Audio URL saved to meeting');
           
           updateStepStatus('upload', 'completed');
           setProgress(35);
@@ -112,6 +115,7 @@ export const useMeetingCreation = () => {
         }
 
         // Step 3: Transcribe audio
+        console.log('[TRANSCRIBE] Starting transcription...');
         updateStepStatus('transcribe', 'processing');
         setProgress(40);
         
@@ -123,10 +127,12 @@ export const useMeetingCreation = () => {
             meetingId
           );
           
+          console.log('[TRANSCRIBE] Transcription completed');
           updateStepStatus('transcribe', 'completed');
           setProgress(60);
           
           // Step 4: Process transcript with OpenAI (including tasks extraction)
+          console.log('[PROCESS] Starting OpenAI processing...');
           updateStepStatus('process', 'processing');
           setProgress(70);
           
@@ -193,6 +199,7 @@ export const useMeetingCreation = () => {
       }
 
       // Step 5: Finalize
+      console.log('[SAVE] Finalizing...');
       updateStepStatus('save', 'processing');
       setProgress(90);
 
