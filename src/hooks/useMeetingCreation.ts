@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { MeetingCreationData } from "@/types/meeting";
 export const useMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const isMountedRef = useRef(true);
   
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export const useMeetingCreation = () => {
   // Reset function to reinitialize all states
   const resetMeetingCreation = () => {
     console.log('[useMeetingCreation] Resetting meeting creation state');
+    if (!isMountedRef.current) return;
     setIsSubmitting(false);
     setProgress(0);
     resetSteps();
@@ -59,6 +61,7 @@ export const useMeetingCreation = () => {
     }
 
     console.log('[useMeetingCreation] Starting submission process - setting isSubmitting to true');
+    if (!isMountedRef.current) return;
     setIsSubmitting(true);
     setProgress(0);
     resetSteps();
@@ -224,10 +227,10 @@ export const useMeetingCreation = () => {
       
       // Navigate after sufficient delay to show completion
       setTimeout(() => {
+        if (!isMountedRef.current) return;
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
         navigate(`/meetings/${meetingId}`);
-        // Reset state AFTER navigation is triggered
-        setIsSubmitting(false);
+        // NE PAS réinitialiser isSubmitting ici - laissons la navigation se faire
       }, 3000); // 3 seconds delay to see completion
 
     } catch (error: any) {
@@ -242,7 +245,10 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
-        setIsSubmitting(false);
+        // Pour les erreurs d'auth, on peut réinitialiser immédiatement
+        if (isMountedRef.current) {
+          setIsSubmitting(false);
+        }
         navigate("/login");
         return;
       }
@@ -257,23 +263,32 @@ export const useMeetingCreation = () => {
           duration: 10000,
         });
         setTimeout(() => {
+          if (!isMountedRef.current) return;
           navigate(`/meetings/${meetingId}`);
-          setIsSubmitting(false);
+          // NE PAS réinitialiser isSubmitting ici non plus
         }, 2000);
       } else {
-        // Only reset isSubmitting on complete failure after delay
-        console.log('[ERROR] Complete failure, resetting after delay');
+        // Only reset isSubmitting on complete failure after longer delay
+        console.log('[ERROR] Complete failure, staying in processing mode to show error state');
         toast({
           title: "Erreur de création de la réunion",
           description: error.message || "Veuillez réessayer",
           variant: "destructive",
           duration: 10000,
         });
+        // Pour un échec complet, on peut laisser l'utilisateur voir l'état d'erreur plus longtemps
         setTimeout(() => {
-          setIsSubmitting(false);
-        }, 3000);
+          if (isMountedRef.current) {
+            setIsSubmitting(false);
+          }
+        }, 5000); // Délai plus long pour voir l'erreur
       }
     }
+  };
+
+  // Cleanup on unmount
+  const cleanupOnUnmount = () => {
+    isMountedRef.current = false;
   };
 
   return {
@@ -281,6 +296,7 @@ export const useMeetingCreation = () => {
     processingSteps,
     progress,
     createMeeting,
-    resetMeetingCreation
+    resetMeetingCreation,
+    cleanupOnUnmount
   };
 };

@@ -54,16 +54,20 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
+  // État persistant pour éviter le retour au formulaire
+  const [hasStartedSubmission, setHasStartedSubmission] = useState(false);
+  
   const { toast } = useToast();
 
-  // Simplifier la logique d'affichage - montrer les étapes dès que la soumission commence
-  const showForm = !isSubmitting;
-  const showProcessing = isSubmitting;
+  // Logique d'affichage simplifiée et robuste
+  const showForm = !hasStartedSubmission;
+  const showProcessing = hasStartedSubmission;
   
   console.log('[MeetingForm] State:', { 
     showForm, 
     showProcessing, 
     isSubmitting, 
+    hasStartedSubmission,
     title 
   });
 
@@ -140,14 +144,15 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
-    console.log('[MeetingForm] handleSubmit called');
+    console.log('[MeetingForm] handleSubmit called - setting hasStartedSubmission to true');
+    setHasStartedSubmission(true); // Une fois défini à true, ne revient jamais à false
     setMeetingResults({}); // Reset results
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form only when not submitting */}
+      {/* Show form only when submission hasn't started */}
       {showForm && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
@@ -198,7 +203,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing when submitting */}
+      {/* Show processing when submission has started */}
       {showProcessing && (
         <>
           <ProcessingSteps 

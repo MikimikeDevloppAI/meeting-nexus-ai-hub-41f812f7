@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,12 +9,17 @@ import { useAuth } from "@/lib/auth";
 const NewMeeting = () => {
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
-  const { isSubmitting, processingSteps, progress, createMeeting, resetMeetingCreation } = useMeetingCreation();
+  const { isSubmitting, processingSteps, progress, createMeeting, resetMeetingCreation, cleanupOnUnmount } = useMeetingCreation();
 
   // Reset meeting creation state when component mounts
   useEffect(() => {
     resetMeetingCreation();
-  }, [resetMeetingCreation]);
+    
+    // Cleanup on unmount
+    return () => {
+      cleanupOnUnmount();
+    };
+  }, [resetMeetingCreation, cleanupOnUnmount]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
