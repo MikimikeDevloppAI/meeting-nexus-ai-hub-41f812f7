@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -433,7 +434,6 @@ ${cleanedTranscript}`
     }
 
     // Troisième appel OpenAI : Extraire les tâches avec assignation améliorée
-    const participantNames = participants.map((p: any) => p.name).join(', ')
     const tasksPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les tâches, actions et suivis mentionnés ou impliqués.
 
 Participants de la réunion : ${participantNames}
