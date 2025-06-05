@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -89,7 +88,7 @@ class EmbeddingsAgent {
   }
 }
 
-// Simple internet agent
+// Enhanced internet agent with specific provider search
 class InternetAgent {
   private perplexityApiKey: string;
 
@@ -103,6 +102,9 @@ class InternetAgent {
     }
 
     try {
+      // Enhanced search with specific provider focus
+      const enhancedQuery = this.buildEnhancedQuery(query);
+      
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -114,15 +116,16 @@ class InternetAgent {
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant spécialisé en ophtalmologie.'
+              content: 'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève.'
             },
             {
               role: 'user',
-              content: `Recherche des informations sur : ${query}`
+              content: enhancedQuery
             }
           ],
           temperature: 0.2,
-          max_tokens: 1000,
+          max_tokens: 1200,
+          search_recency_filter: 'month'
         }),
       });
 
@@ -140,6 +143,37 @@ class InternetAgent {
     }
 
     return { content: '', hasContent: false, enrichmentType: 'supplement' };
+  }
+
+  private buildEnhancedQuery(query: string): string {
+    // Detect specific scenarios and enhance query accordingly
+    const lowerQuery = query.toLowerCase();
+    
+    if (lowerQuery.includes('email') || lowerQuery.includes('mail')) {
+      if (lowerQuery.includes('infomaniak') || lowerQuery.includes('sécurité')) {
+        return `Infomaniak règles sécurité email configuration SMTP cabinet médical Suisse: ${query}`;
+      }
+      return `Configuration email professionnel cabinet médical Suisse fournisseurs recommandés: ${query}`;
+    }
+    
+    if (lowerQuery.includes('matériel') || lowerQuery.includes('équipement')) {
+      return `Fournisseurs matériel médical ophtalmologie Genève Suisse prix: ${query}`;
+    }
+    
+    if (lowerQuery.includes('site') || lowerQuery.includes('web')) {
+      return `Développeurs sites web cabinet médical Genève Suisse prix: ${query}`;
+    }
+    
+    if (lowerQuery.includes('formation')) {
+      return `Formation médicale ophtalmologie Suisse organismes certifiés: ${query}`;
+    }
+    
+    if (lowerQuery.includes('service') || lowerQuery.includes('maintenance')) {
+      return `Services maintenance technique cabinet médical Genève prestataires: ${query}`;
+    }
+    
+    // General enhancement for Swiss medical practice context
+    return `Cabinet médical ophtalmologie Genève Suisse fournisseurs prestataires: ${query}`;
   }
 }
 
@@ -174,7 +208,6 @@ serve(async (req) => {
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
-    const internetAgent = new InternetAgent(perplexityApiKey);
 
     // 🧠 PHASE 1: ANALYSE SPÉCIALISÉE pour recommandations de tâches
     console.log('[TASK-RECOMMENDATION] 🧠 Phase 1: Analyse spécialisée de la tâche');
@@ -204,84 +237,81 @@ serve(async (req) => {
       todos: databaseContext.todos.length
     });
 
-    // 🎯 PHASE 3: RECHERCHE VECTORIELLE avec transcript complet
-    console.log('[TASK-RECOMMENDATION] 🎯 Phase 3: Recherche vectorielle avec transcript');
-    const embeddingContext = await embeddingsAgent.searchEmbeddings(
-      taskQuery + " " + transcript.substring(0, 1000), 
-      analysis, 
-      databaseContext.relevantIds
+    // Enhanced Phase 4: Internet search with specific provider focus
+    console.log('[TASK-RECOMMENDATION] 🌐 Phase 4: Recherche internet fournisseurs spécifiques');
+    const internetAgent = new InternetAgent(perplexityApiKey);
+    const internetContext = await internetAgent.searchInternet(
+      task.description, 
+      { requiresInternet: true, queryType: 'task', searchTerms: [], synonyms: [], requiresDatabase: false, requiresEmbeddings: false, priority: 'internet' }, 
+      false
     );
-
-    console.log('[TASK-RECOMMENDATION] ✅ Embeddings:', {
-      chunks: embeddingContext.chunks.length,
-      hasContext: embeddingContext.hasRelevantContext
-    });
-
-    // 🌐 PHASE 4: RECHERCHE INTERNET pour prestataires externes
-    console.log('[TASK-RECOMMENDATION] 🌐 Phase 4: Recherche internet prestataires');
-    const internetContext = await internetAgent.searchInternet(taskQuery, analysis, embeddingContext.hasRelevantContext);
 
     console.log('[TASK-RECOMMENDATION] ✅ Internet:', {
       hasContent: internetContext.hasContent,
-      enrichmentType: internetContext.enrichmentType
+      contentLength: internetContext.content.length
     });
 
-    // ⚡ PHASE 5: SYNTHÈSE SPÉCIALISÉE pour recommandations de tâches
-    console.log('[TASK-RECOMMENDATION] ⚡ Phase 5: Synthèse spécialisée');
+    // ⚡ PHASE 5: Enhanced synthesis with provider-specific recommendations
+    console.log('[TASK-RECOMMENDATION] ⚡ Phase 5: Synthèse avec fournisseurs spécifiques');
     
-    const taskRecommendationPrompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie à Genève, spécialisé dans les recommandations de tâches professionnelles.
+    const taskRecommendationPrompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans les recommandations précises avec fournisseurs spécifiques.
 
 **CONTEXTE CABINET:**
 - Cabinet d'ophtalmologie dirigé par Dr Tabibian à Genève, Suisse
-- Participants de l'équipe: ${participants.map((p: any) => p.name).join(', ')}
-- Utilise TOUJOURS les CHF (francs suisses) pour les prix
+- Participants: ${participants.map((p: any) => p.name).join(', ')}
+- Budget en CHF (francs suisses)
 
 **TÂCHE À ANALYSER:**
 ${task.description}
 
-**CONTEXTE DE LA RÉUNION:**
-${transcript.substring(0, 2000)}...
+**CONTEXTE RÉUNION:**
+${transcript.substring(0, 1500)}...
 
-**INFORMATIONS INTERNES DISPONIBLES:**
-${embeddingContext.chunks.slice(0, 3).map((chunk: any) => chunk.chunk_text?.substring(0, 200) || '').join('\n')}
-
-**INFORMATIONS EXTERNES:**
-${internetContext.content ? internetContext.content.substring(0, 1000) : 'Aucune information externe disponible'}
+**INFORMATIONS INTERNET ACTUELLES:**
+${internetContext.content ? internetContext.content.substring(0, 1500) : 'Informations limitées disponibles'}
 
 **INSTRUCTIONS CRITIQUES:**
 
-1. **SÉLECTIVITÉ MAXIMALE**: Ne fournis une recommandation QUE si elle apporte une valeur ajoutée SIGNIFICATIVE et CONCRÈTE
+1. **RECHERCHE FOURNISSEURS SPÉCIFIQUES**: 
+   - Pour email/Infomaniak: Mentionner les règles de sécurité SMTP spécifiques
+   - Pour matériel médical: Nommer des fournisseurs suisses d'ophtalmologie
+   - Pour services web: Identifier des agences web médicales en Suisse
+   - Pour formation: Citer des organismes de formation médicale suisses
 
-2. **FOCUS EXTERNE**: Si tu recommandes un email, il doit être destiné à un PRESTATAIRE EXTERNE (régie, fournisseur, entreprise de service, etc.), PAS à l'équipe interne
+2. **INFORMATIONS CONCRÈTES**:
+   - Prix approximatifs en CHF
+   - Contacts/sites web si disponibles
+   - Procédures spécifiques (ex: configuration SMTP Infomaniak)
+   - Délais typiques
 
-3. **RECHERCHE DE PRESTATAIRES**: Si la tâche nécessite de contacter une entreprise externe:
-   - Identifie des prestataires spécifiques en Suisse/Genève
-   - Inclus des noms d'entreprises, contacts ou sites web si disponibles
-   - Mentionne les prix approximatifs en CHF
+3. **EMAIL EXTERNE UNIQUEMENT**: Si recommandé, l'email doit être pour un prestataire externe avec:
+   - Présentation professionnelle du cabinet Dr Tabibian
+   - Demande précise de devis/information
+   - Mention du contexte ophtalmologique
+   - Coordonnées Genève
 
-4. **EMAIL EXTERNE UNIQUEMENT**: L'email doit être professionnel, destiné à un prestataire externe, avec:
-   - Objet clair et professionnel
-   - Présentation du cabinet d'ophtalmologie Dr Tabibian
-   - Demande précise (devis, information, service)
-   - Coordonnées du cabinet à Genève
+4. **SÉLECTIVITÉ**: Ne recommande que si tu peux apporter:
+   - Des noms de fournisseurs spécifiques
+   - Des informations pratiques concrètes
+   - Une valeur ajoutée réelle
 
-5. **RÉPONSE STRUCTURÉE**: Réponds avec ce format JSON exact:
+5. **FORMAT JSON REQUIS**:
 {
-  "hasRecommendation": [true ou false],
-  "recommendation": "[Recommandation concise et actionnable ou null]",
-  "needsExternalEmail": [true ou false],
-  "emailDraft": "[Email professionnel pour prestataire externe ou null]",
-  "externalProviders": ["Liste des prestataires identifiés ou array vide"],
-  "estimatedCost": "[Coût estimé en CHF ou null]"
+  "hasRecommendation": [true/false],
+  "recommendation": "[Recommandation avec fournisseurs spécifiques et prix CHF]",
+  "needsExternalEmail": [true/false],
+  "emailDraft": "[Email professionnel pour prestataire externe]",
+  "externalProviders": ["Liste noms entreprises/fournisseurs spécifiques"],
+  "estimatedCost": "[Coût en CHF avec fourchette]",
+  "specificInfo": "[Infos techniques spécifiques ex: règles SMTP Infomaniak]"
 }
 
-**CRITÈRES DE REJET**: Réponds avec hasRecommendation: false si:
-- La tâche est évidente et ne nécessite aucun conseil
-- Aucun prestataire externe n'est nécessaire
-- Les informations disponibles sont insuffisantes
-- La tâche concerne uniquement l'organisation interne
+**EXEMPLES DE BONNES RECOMMANDATIONS:**
+- "Contacter Infomaniak pour configuration SMTP sécurisée, tarif environ 50-100 CHF/an"
+- "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure"
+- "Agence MedWeb Suisse pour refonte site cabinet, budget 5000-15000 CHF"
 
-Analyse maintenant cette tâche et fournis une réponse JSON uniquement.`;
+Analyse maintenant et fournis une recommandation JSON avec fournisseurs spécifiques.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -294,12 +324,12 @@ Analyse maintenant cette tâche et fournis une réponse JSON uniquement.`;
         messages: [
           { 
             role: 'system', 
-            content: 'Tu es un assistant expert en recommandations pour cabinet médical. Réponds UNIQUEMENT en JSON valide.' 
+            content: 'Tu es un expert en recommandations pour cabinet médical avec focus sur les fournisseurs suisses spécifiques. Réponds UNIQUEMENT en JSON valide.' 
           },
           { role: 'user', content: taskRecommendationPrompt }
         ],
-        max_tokens: 800,
-        temperature: 0.3,
+        max_tokens: 1000,
+        temperature: 0.2,
       }),
     });
 
@@ -316,19 +346,18 @@ Analyse maintenant cette tâche et fournis une réponse JSON uniquement.`;
       recommendationResult = { hasRecommendation: false };
     }
 
-    console.log('[TASK-RECOMMENDATION] ✅ RECOMMANDATION GÉNÉRÉE:', {
+    console.log('[TASK-RECOMMENDATION] ✅ RECOMMANDATION AVEC FOURNISSEURS:', {
       hasRecommendation: recommendationResult.hasRecommendation,
-      needsExternalEmail: recommendationResult.needsExternalEmail,
-      providers: recommendationResult.externalProviders?.length || 0
+      providers: recommendationResult.externalProviders?.length || 0,
+      hasSpecificInfo: !!recommendationResult.specificInfo
     });
 
     return new Response(JSON.stringify({
       success: true,
       recommendation: recommendationResult,
       contextUsed: {
-        embeddings: embeddingContext.chunks.length,
         internet: internetContext.hasContent,
-        database: databaseContext.meetings.length + databaseContext.documents.length
+        internetContentLength: internetContext.content.length
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -338,7 +367,7 @@ Analyse maintenant cette tâche et fournis une réponse JSON uniquement.`;
     console.error('[TASK-RECOMMENDATION] ❌ ERREUR:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      context: 'Task Recommendation Agent'
+      context: 'Enhanced Task Recommendation Agent'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
