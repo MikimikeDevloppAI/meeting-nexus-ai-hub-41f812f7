@@ -36,10 +36,17 @@ export const useMeetingCreation = () => {
     participants: MeetingCreationData['participants'],
     selectedParticipantIds: string[]
   ) => {
-    console.log('[useMeetingCreation] Starting createMeeting with:', { title, hasAudio: !!(audioBlob || audioFile), participantCount: selectedParticipantIds.length });
+    console.log('[useMeetingCreation] ========== STARTING MEETING CREATION ==========');
+    console.log('[useMeetingCreation] Input validation:', { 
+      title: title?.trim() || 'EMPTY', 
+      hasAudio: !!(audioBlob || audioFile), 
+      participantCount: selectedParticipantIds.length,
+      userId: user?.id || 'NO USER'
+    });
     
+    // Critical validation with explicit error handling
     if (!title?.trim()) {
-      console.error('[useMeetingCreation] No title provided');
+      console.error('[useMeetingCreation] CRITICAL ERROR: No title provided');
       toast({
         title: "Information manquante",
         description: "Veuillez saisir un titre de réunion",
@@ -49,8 +56,8 @@ export const useMeetingCreation = () => {
       return;
     }
 
-    if (!user) {
-      console.error('[useMeetingCreation] No user found, redirecting to login');
+    if (!user?.id) {
+      console.error('[useMeetingCreation] CRITICAL ERROR: No user ID found');
       toast({
         title: "Erreur d'authentification",
         description: "Vous devez être connecté pour créer une réunion. Veuillez vous reconnecter.",
@@ -61,86 +68,91 @@ export const useMeetingCreation = () => {
       return;
     }
 
-    console.log('[useMeetingCreation] Starting submission process - setting isSubmitting to true');
-    if (!isMountedRef.current) return;
+    console.log('[useMeetingCreation] ========== VALIDATION PASSED - STARTING PROCESS ==========');
     
-    // IMPORTANT: S'assurer que les états sont correctement initialisés
+    // Initialize states immediately
+    if (!isMountedRef.current) return;
     setIsSubmitting(true);
     setProgress(5);
     resetSteps();
 
-    // Petit délai pour s'assurer que l'UI se met à jour
+    // Small delay to ensure UI updates
     await new Promise(resolve => setTimeout(resolve, 100));
 
     let meetingId: string | null = null;
 
     try {
-      // Step 1: Create meeting and add participants immediately
-      console.log('[CREATE] Creating meeting...');
+      // Step 1: Create meeting in database FIRST - this is critical
+      console.log('[CREATE] ========== CREATING MEETING IN DATABASE ==========');
       if (!isMountedRef.current) return;
       updateStepStatus('create', 'processing');
       setProgress(15);
       
+      // CRITICAL: Create meeting and verify it was created
       meetingId = await MeetingService.createMeeting(title.trim(), user.id);
-      console.log('[CREATE] Meeting created with ID:', meetingId);
+      console.log('[CREATE] Meeting creation result:', meetingId);
       
       if (!meetingId) {
-        throw new Error('Failed to create meeting - no ID returned');
+        throw new Error('CRITICAL: Meeting creation failed - no ID returned from database');
       }
+      
+      // Verify meeting was actually created by trying to fetch it
+      console.log('[CREATE] Verifying meeting was created in database...');
+      const { data: verifyMeeting, error: verifyError } = await supabase
+        .from('meetings')
+        .select('id, title, created_by')
+        .eq('id', meetingId)
+        .single();
+      
+      if (verifyError || !verifyMeeting) {
+        throw new Error(`CRITICAL: Meeting verification failed - meeting not found in database: ${verifyError?.message}`);
+      }
+      
+      console.log('[CREATE] ✅ Meeting successfully created and verified:', verifyMeeting);
       
       // Add participants immediately after creating the meeting
       if (selectedParticipantIds.length > 0) {
         console.log('[CREATE] Adding participants to meeting:', selectedParticipantIds);
         await MeetingService.addParticipants(meetingId, selectedParticipantIds);
-        console.log('[CREATE] Participants added successfully');
+        console.log('[CREATE] ✅ Participants added successfully');
+      } else {
+        console.log('[CREATE] No participants to add');
       }
       
       if (!isMountedRef.current) return;
       updateStepStatus('create', 'completed');
-      setProgress(25);
+      setProgress(30);
 
-      // Step 2: Upload and save audio if provided
+      // Step 2: Process audio only if provided
       if (audioBlob || audioFile) {
+        console.log('[AUDIO] ========== PROCESSING AUDIO ==========');
+        
+        // Upload audio
         console.log('[UPLOAD] Starting audio upload...');
         if (!isMountedRef.current) return;
         updateStepStatus('upload', 'processing');
-        setProgress(30);
+        setProgress(35);
 
-        let audioFileUrl;
         try {
-          audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
-          console.log('[UPLOAD] Audio uploaded:', audioFileUrl);
+          const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
+          console.log('[UPLOAD] ✅ Audio uploaded:', audioFileUrl);
           
           if (!isMountedRef.current) return;
-          setProgress(35);
+          setProgress(40);
           
-          // Save audio URL using dedicated method
+          // Save audio URL to meeting
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
-          console.log('[UPLOAD] Audio URL saved to meeting');
+          console.log('[UPLOAD] ✅ Audio URL saved to meeting');
           
           if (!isMountedRef.current) return;
           updateStepStatus('upload', 'completed');
-          setProgress(40);
-        } catch (uploadError: any) {
-          console.error('[UPLOAD] Audio upload failed:', uploadError);
-          if (!isMountedRef.current) return;
-          updateStepStatus('upload', 'error');
-          toast({
-            title: "Erreur de téléchargement",
-            description: uploadError.message || "Le téléchargement audio a échoué",
-            variant: "destructive",
-            duration: 10000,
-          });
-          // Don't throw error, continue with meeting creation without audio
-          console.log('[UPLOAD] Continuing without audio after upload failure');
-        }
+          setProgress(45);
 
-        // Step 3: Transcribe audio (only if upload succeeded)
-        if (audioFileUrl) {
+          // Transcribe audio
           console.log('[TRANSCRIBE] Starting transcription...');
           if (!isMountedRef.current) return;
           updateStepStatus('transcribe', 'processing');
-          setProgress(45);
+          setProgress(50);
           
           try {
             const participantCount = Math.max(selectedParticipantIds.length, 2);
@@ -150,12 +162,12 @@ export const useMeetingCreation = () => {
               meetingId
             );
             
-            console.log('[TRANSCRIBE] Transcription completed');
+            console.log('[TRANSCRIBE] ✅ Transcription completed');
             if (!isMountedRef.current) return;
             updateStepStatus('transcribe', 'completed');
             setProgress(65);
             
-            // Step 4: Process transcript with OpenAI (including tasks extraction)
+            // Process transcript with OpenAI
             console.log('[PROCESS] Starting OpenAI processing...');
             if (!isMountedRef.current) return;
             updateStepStatus('process', 'processing');
@@ -176,22 +188,16 @@ export const useMeetingCreation = () => {
 
               if (result.processedTranscript) {
                 updateStepStatus('process', 'completed');
-                console.log('[PROCESS] Processed transcript saved successfully');
-              } else {
-                console.warn('[PROCESS] No processed transcript returned, keeping original');
-                updateStepStatus('process', 'error');
+                console.log('[PROCESS] ✅ Processed transcript saved successfully');
               }
 
               if (result.summary) {
                 updateStepStatus('summary', 'completed');
-                console.log('[SUMMARY] Summary generated and saved successfully');
-              } else {
-                console.warn('[SUMMARY] No summary returned from OpenAI');
-                updateStepStatus('summary', 'error');
+                console.log('[SUMMARY] ✅ Summary generated and saved successfully');
               }
 
               if (result.tasks && result.tasks.length > 0) {
-                console.log(`[TASKS] ${result.tasks.length} tasks extracted and saved successfully`);
+                console.log(`[TASKS] ✅ ${result.tasks.length} tasks extracted and saved successfully`);
                 toast({
                   title: "Tâches extraites",
                   description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
@@ -208,11 +214,10 @@ export const useMeetingCreation = () => {
               updateStepStatus('summary', 'error');
               toast({
                 title: "Erreur de traitement",
-                description: openaiError.message || "Le traitement OpenAI a échoué, transcript original conservé",
+                description: "Le traitement OpenAI a échoué, mais la réunion et la transcription ont été sauvegardées",
                 variant: "destructive",
-                duration: 10000,
+                duration: 8000,
               });
-              // Continue to finalization even if OpenAI fails
             }
           } catch (transcriptionError: any) {
             console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
@@ -222,16 +227,28 @@ export const useMeetingCreation = () => {
             updateStepStatus('summary', 'error');
             toast({
               title: "Erreur de transcription",
-              description: transcriptionError.message || "La transcription a échoué, mais la réunion a été créée avec l'audio.",
+              description: "La transcription a échoué, mais la réunion a été créée avec l'audio",
               variant: "destructive",
-              duration: 10000,
+              duration: 8000,
             });
-            // Continue to finalization even if transcription fails
           }
+        } catch (uploadError: any) {
+          console.error('[UPLOAD] Audio upload failed:', uploadError);
+          if (!isMountedRef.current) return;
+          updateStepStatus('upload', 'error');
+          updateStepStatus('transcribe', 'error');
+          updateStepStatus('process', 'error');
+          updateStepStatus('summary', 'error');
+          toast({
+            title: "Erreur de téléchargement",
+            description: "Le téléchargement audio a échoué, mais la réunion a été créée",
+            variant: "destructive",
+            duration: 8000,
+          });
         }
       } else {
-        // No audio provided - skip audio processing steps but mark them as completed
-        console.log('[NO_AUDIO] No audio provided, skipping audio processing steps');
+        // No audio provided - mark audio steps as completed
+        console.log('[NO_AUDIO] No audio provided, skipping audio processing');
         if (!isMountedRef.current) return;
         updateStepStatus('upload', 'completed');
         updateStepStatus('transcribe', 'completed');
@@ -240,8 +257,8 @@ export const useMeetingCreation = () => {
         setProgress(85);
       }
 
-      // Step 5: Finalize
-      console.log('[SAVE] Finalizing...');
+      // Step 3: Finalize
+      console.log('[FINALIZE] ========== FINALIZING MEETING CREATION ==========');
       if (!isMountedRef.current) return;
       updateStepStatus('save', 'processing');
       setProgress(90);
@@ -253,7 +270,7 @@ export const useMeetingCreation = () => {
       updateStepStatus('save', 'completed');
       setProgress(100);
 
-      console.log('[COMPLETE] Meeting creation completed successfully');
+      console.log('[SUCCESS] ========== MEETING CREATION COMPLETED SUCCESSFULLY ==========');
 
       toast({
         title: "Réunion créée",
@@ -261,51 +278,35 @@ export const useMeetingCreation = () => {
         duration: 5000,
       });
 
-      // Wait to show completion and add navigation message
+      // Navigate after showing completion
       console.log('[NAVIGATION] Preparing navigation to meeting page...');
-      
-      // Navigate after sufficient delay to show completion
       setTimeout(() => {
         if (!isMountedRef.current) return;
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
         navigate(`/meetings/${meetingId}`);
-      }, 2000); // 2 seconds delay to see completion
+      }, 2000);
 
     } catch (error: any) {
-      console.error("[ERROR] Erreur lors de la création de la réunion:", error);
+      console.error("[ERROR] ========== CRITICAL ERROR IN MEETING CREATION ==========");
+      console.error("[ERROR] Error details:", error);
+      console.error("[ERROR] Meeting ID at time of error:", meetingId);
       
-      // Better error handling for authentication issues
-      if (error.message?.includes('auth') || error.message?.includes('unauthorized') || error.message?.includes('JWT')) {
-        console.error('[ERROR] Authentication error detected');
-        toast({
-          title: "Erreur d'authentification",
-          description: "Votre session a expiré. Veuillez vous reconnecter.",
-          variant: "destructive",
-          duration: 10000,
-        });
-        if (isMountedRef.current) {
-          setIsSubmitting(false);
-        }
-        navigate("/login");
-        return;
-      }
-      
-      // If we created a meeting but failed later, still try to navigate to it
+      // If we created a meeting but failed later, still navigate to it
       if (meetingId) {
-        console.log('[ERROR] Meeting was created but processing failed, navigating to meeting:', meetingId);
+        console.log('[ERROR] Meeting was created successfully, navigating despite later errors');
         toast({
           title: "Réunion créée partiellement",
-          description: error.message || "La réunion a été créée mais certains traitements ont échoué",
+          description: "La réunion a été créée mais certains traitements ont échoué",
           variant: "destructive",
-          duration: 10000,
+          duration: 8000,
         });
         setTimeout(() => {
           if (!isMountedRef.current) return;
           navigate(`/meetings/${meetingId}`);
         }, 2000);
       } else {
-        // Complete failure - show error and reset after delay
-        console.log('[ERROR] Complete failure, resetting form after delay');
+        // Complete failure - meeting not created
+        console.log('[ERROR] Complete failure - meeting was not created');
         toast({
           title: "Erreur de création de la réunion",
           description: error.message || "Veuillez réessayer",
@@ -313,7 +314,7 @@ export const useMeetingCreation = () => {
           duration: 10000,
         });
         
-        // Mark all steps as error
+        // Mark all steps as error and reset after delay
         if (isMountedRef.current) {
           updateStepStatus('create', 'error');
           updateStepStatus('upload', 'error');
@@ -323,7 +324,6 @@ export const useMeetingCreation = () => {
           updateStepStatus('save', 'error');
           setProgress(0);
           
-          // Reset after showing error for a while
           setTimeout(() => {
             if (isMountedRef.current) {
               setIsSubmitting(false);

@@ -1,5 +1,3 @@
-
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -118,8 +116,9 @@ export class AudioProcessingService {
     console.log('[UPLOAD] Uploading audio file:', fileName, 'Size:', fileToUpload.size, 'bytes');
 
     try {
+      // Use the same bucket as MeetingService for consistency
       const { data, error } = await supabase.storage
-        .from("meeting-audio")
+        .from("meeting-recordings")
         .upload(fileName, fileToUpload);
 
       if (error) {
@@ -128,7 +127,7 @@ export class AudioProcessingService {
       }
       
       const { data: publicUrlData } = supabase.storage
-        .from("meeting-audio")
+        .from("meeting-recordings")
         .getPublicUrl(fileName);
       
       const audioFileUrl = publicUrlData.publicUrl;
