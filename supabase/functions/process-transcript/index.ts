@@ -347,36 +347,36 @@ ${transcript}`
       console.log(`Successfully saved all ${embeddings.length} embeddings`);
     }
 
-    // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt spécialisé
+    // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt spécialisé et emojis
     const summaryPrompt = `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour un cabinet ophtalmologique situé à Genève, dirigé par le Dr Tabibian.
 
 Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
 
 Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point important discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
 
-🧩 CATÉGORIES À UTILISER (uniquement si pertinentes) :
-- Suivi patient
-- Matériel médical
-- Matériel bureau
-- Organisation cabinet
-- Site internet
-- Formation
-- Service cabinet
-- Problèmes divers
-- Agenda du personnel
+🎯 CATÉGORIES À UTILISER (uniquement si pertinentes) avec emojis thématiques :
+- 👥 Suivi patient
+- 🔬 Matériel médical  
+- 🖥️ Matériel bureau
+- 🏢 Organisation cabinet
+- 🌐 Site internet
+- 📚 Formation
+- 🔧 Service cabinet
+- ⚠️ Problèmes divers
+- 📅 Agenda du personnel
 
 STRUCTURE À RESPECTER :
 En-tête du résumé :
 
-**Date :** ${meetingDate}
+**📅 Date :** ${meetingDate}
 
-**Réunion :** ${meetingName}
+**💼 Réunion :** ${meetingName}
 
-**Participants :** ${participantNames}
+**👥 Participants :** ${participantNames}
 
 Pour chaque catégorie abordée :
 
-### [Nom de la catégorie avec emoji]
+### [Emoji] [Nom de la catégorie]
 
 **Points discutés :**
 
@@ -387,10 +387,11 @@ Pour chaque catégorie abordée :
 - Liste à puces des décisions prises (ou - Aucune décision)
 
 RÈGLES :
+- TOUJOURS utiliser l'emoji correspondant devant chaque section
 - Si une catégorie n'a pas été abordée, ne l'affiche pas
 - Utilise les noms des participants dans les décisions/actions
 - Sois précis et concis
-- Ne renvoie que le résumé en Markdown
+- Ne renvoie que le résumé en Markdown avec les emojis
 
 Transcript :
 ${cleanedTranscript}`
