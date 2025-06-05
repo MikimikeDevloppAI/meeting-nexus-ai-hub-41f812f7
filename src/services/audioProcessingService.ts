@@ -235,7 +235,8 @@ export class AudioProcessingService {
   static async transcribeAudio(
     audioUrl: string, 
     participantCount: number,
-    meetingId: string
+    meetingId: string,
+    onTranscriptReceived?: () => void
   ): Promise<string> {
     console.log('[TRANSCRIBE] Starting transcription process with AssemblyAI...');
     
@@ -259,7 +260,7 @@ export class AudioProcessingService {
 
       console.log('[TRANSCRIBE] Raw transcript received, length:', result.text.length);
       
-      // Save original transcript as a backup - CORRECTION: utiliser directement Supabase
+      // Save original transcript as a backup
       console.log('[TRANSCRIBE] Saving raw transcript as backup...');
       const { error } = await supabase
         .from('meetings')
@@ -272,6 +273,12 @@ export class AudioProcessingService {
       }
 
       console.log('[TRANSCRIBE] Raw transcript saved successfully');
+      
+      // Déclencher la simulation de progression après réception du transcript
+      if (onTranscriptReceived) {
+        console.log('[TRANSCRIBE] Triggering processing flow simulation');
+        onTranscriptReceived();
+      }
       
       return result.text;
     } catch (error: any) {
