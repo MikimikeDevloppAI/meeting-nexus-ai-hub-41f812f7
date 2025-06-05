@@ -26,7 +26,6 @@ interface ProcessingStep {
 interface MeetingFormProps {
   isSubmitting: boolean;
   processingSteps: ProcessingStep[];
-  progress: number;
   onSubmit: (
     title: string,
     audioBlob: Blob | null,
@@ -36,8 +35,8 @@ interface MeetingFormProps {
   ) => void;
 }
 
-export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit }: MeetingFormProps) => {
-  console.log('[MeetingForm] Props received:', { isSubmitting, progress, stepsCount: processingSteps.length });
+export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: MeetingFormProps) => {
+  console.log('[MeetingForm] Props received:', { isSubmitting, stepsCount: processingSteps.length });
   
   const [title, setTitle] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -211,7 +210,6 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
           <ProcessingSteps 
             isSubmitting={showProcessing}
             processingSteps={processingSteps}
-            progress={progress}
           />
           
           <MeetingResults 

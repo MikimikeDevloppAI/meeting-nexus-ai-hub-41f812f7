@@ -39,6 +39,70 @@ function formatDate(dateString: string): string {
   });
 }
 
+// Helper function to chunk text for embeddings
+const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 100): string[] => {
+  if (!text || text.trim().length === 0) {
+    return [];
+  }
+
+  // Split by paragraphs first, then sentences
+  const paragraphs = text.split(/\n\s*\n/);
+  const chunks: string[] = [];
+  
+  for (const paragraph of paragraphs) {
+    if (paragraph.trim().length === 0) continue;
+    
+    // If paragraph is small enough, add it as a chunk
+    if (paragraph.length <= maxChunkSize) {
+      chunks.push(paragraph.trim());
+      continue;
+    }
+    
+    // Split large paragraphs by sentences
+    const sentences = paragraph.split(/[.!?]+\s+/);
+    let currentChunk = '';
+    
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i].trim();
+      if (!sentence) continue;
+      
+      // Check if adding this sentence would exceed the limit
+      const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + sentence;
+      
+      if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
+        // Only save chunk if it's substantial enough
+        if (currentChunk.trim().length >= 150) {
+          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}.`);
+        }
+        
+        // Start new chunk with overlap from previous
+        const words = currentChunk.split(' ');
+        const overlapWords = words.slice(-Math.min(overlap / 5, words.length / 2));
+        currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? '. ' : '') + sentence;
+      } else {
+        currentChunk = potentialChunk;
+      }
+    }
+    
+    // Add the final chunk if it has content and is substantial
+    if (currentChunk.trim().length >= 150) {
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}${currentChunk.endsWith('.') ? '' : '.'}`);
+    }
+  }
+  
+  // Filter out chunks that are too small and ensure uniqueness
+  return chunks
+    .filter(chunk => chunk.length >= 150)
+    .map((chunk, index) => {
+      const uniqueContent = chunk.includes('[Segment') ? chunk : `[Part ${index + 1}] ${chunk}`;
+      return uniqueContent;
+    })
+    .filter(chunk => {
+      const cleanChunk = chunk.replace(/^\[(?:Segment|Part) \d+\]\s*/, '');
+      return cleanChunk.length >= 100;
+    });
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -151,7 +215,7 @@ ${transcript}`
 
     console.log('Cleaned transcript generated successfully')
 
-    // Sauvegarder le transcript nettoyé
+    // Sauvegarder le transcript nettoyé dans la table meetings
     const { error: transcriptError } = await supabaseClient
       .from('meetings')
       .update({ transcript: cleanedTranscript })
@@ -160,6 +224,82 @@ ${transcript}`
     if (transcriptError) {
       console.error('Error saving cleaned transcript:', transcriptError)
       throw transcriptError
+    }
+
+    // Sauvegarder le transcript dans la table documents pour les embeddings
+    console.log('Saving transcript to documents table...')
+    const { data: documentData, error: documentError } = await supabaseClient
+      .from('documents')
+      .insert({
+        title: `Transcript - ${meetingName}`,
+        type: 'meeting_transcript',
+        content: cleanedTranscript,
+        metadata: { meeting_id: meetingId, meeting_date: meetingDate }
+      })
+      .select()
+      .single()
+
+    if (documentError) {
+      console.error('Error saving document:', documentError)
+      throw new Error('Failed to save document for embeddings')
+    }
+
+    console.log('Document saved successfully:', documentData.id)
+
+    // Créer les chunks pour les embeddings
+    console.log('Creating chunks for embeddings...')
+    const chunks = chunkText(cleanedTranscript)
+    console.log(`Created ${chunks.length} chunks for embeddings`)
+
+    if (chunks.length > 0) {
+      // Générer les embeddings via la fonction edge
+      console.log('Generating embeddings...')
+      const { data: embeddingsResult, error: embeddingsError } = await supabaseClient.functions.invoke('generate-embeddings', {
+        body: { texts: chunks }
+      });
+
+      if (embeddingsError) {
+        console.error('Error generating embeddings:', embeddingsError)
+        throw new Error('Failed to generate embeddings')
+      }
+
+      const embeddings = embeddingsResult.embeddings;
+      console.log(`Generated ${embeddings.length} embeddings`)
+
+      // Sauvegarder les embeddings dans la base de données
+      console.log('Saving embeddings to database...')
+      const batchSize = 10;
+      for (let i = 0; i < embeddings.length; i += batchSize) {
+        const batch = [];
+        const endIndex = Math.min(i + batchSize, embeddings.length);
+        
+        for (let j = i; j < endIndex; j++) {
+          const embeddingVector = `[${embeddings[j].join(',')}]`;
+          
+          batch.push({
+            document_id: documentData.id,
+            meeting_id: meetingId,
+            embedding: embeddingVector,
+            chunk_text: chunks[j],
+            chunk_index: j,
+            type: 'meeting_transcript',
+            metadata: { meeting_id: meetingId, chunk_index: j }
+          });
+        }
+
+        const { error: embeddingError } = await supabaseClient
+          .from('document_embeddings')
+          .insert(batch);
+
+        if (embeddingError) {
+          console.error(`Error saving batch ${i / batchSize + 1}:`, embeddingError);
+          throw embeddingError;
+        }
+
+        console.log(`Saved batch ${i / batchSize + 1}/${Math.ceil(embeddings.length / batchSize)}`);
+      }
+
+      console.log(`Successfully saved all ${embeddings.length} embeddings`);
     }
 
     // Deuxième appel OpenAI : Générer un résumé avec le nouveau prompt spécialisé
@@ -382,6 +522,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
 
     console.log(`Successfully processed transcript for meeting ${meetingId}`)
     console.log(`Saved ${savedTasks.length} tasks with recommendations`)
+    console.log(`Generated ${chunks.length} embedding chunks for the document`)
 
     return new Response(
       JSON.stringify({
@@ -389,7 +530,9 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
         processedTranscript: cleanedTranscript,
         summary: summary,
         tasks: savedTasks,
-        message: `Successfully processed transcript and extracted ${savedTasks.length} tasks`
+        embeddingsCount: chunks.length,
+        documentId: documentData.id,
+        message: `Successfully processed transcript, extracted ${savedTasks.length} tasks, and created ${chunks.length} embedding chunks`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

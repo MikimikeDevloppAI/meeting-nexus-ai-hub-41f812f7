@@ -6,10 +6,13 @@ export const useProcessingSteps = () => {
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
     { id: 'create', title: 'Création de la réunion', status: 'pending' },
     { id: 'upload', title: 'Téléchargement de l\'audio', status: 'pending' },
-    { id: 'transcribe', title: 'Transcription en cours', status: 'pending' },
-    { id: 'process', title: 'Nettoyage du transcript', status: 'pending' },
+    { id: 'transcribe', title: 'Transcription audio', status: 'pending' },
+    { id: 'clean', title: 'Nettoyage du transcript', status: 'pending' },
+    { id: 'document', title: 'Sauvegarde du document', status: 'pending' },
+    { id: 'embeddings', title: 'Génération des embeddings', status: 'pending' },
     { id: 'summary', title: 'Génération du résumé', status: 'pending' },
-    { id: 'save', title: 'Finalisation', status: 'pending' }
+    { id: 'tasks', title: 'Extraction des tâches', status: 'pending' },
+    { id: 'finalize', title: 'Finalisation', status: 'pending' }
   ]);
 
   const updateStepStatus = (stepId: string, status: ProcessingStep['status']) => {

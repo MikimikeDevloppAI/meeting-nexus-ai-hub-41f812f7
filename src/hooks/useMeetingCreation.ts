@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -10,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const useMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);
   const isMountedRef = useRef(true);
   
   const navigate = useNavigate();
@@ -33,7 +33,6 @@ export const useMeetingCreation = () => {
     console.log('[useMeetingCreation] Resetting meeting creation state');
     if (!isMountedRef.current) return;
     setIsSubmitting(false);
-    setProgress(0);
     resetSteps();
   };
 
@@ -81,7 +80,6 @@ export const useMeetingCreation = () => {
     // Initialize states immediately
     if (!isMountedRef.current) return;
     setIsSubmitting(true);
-    setProgress(5);
     resetSteps();
 
     // Small delay to ensure UI updates
@@ -94,7 +92,6 @@ export const useMeetingCreation = () => {
       console.log('[CREATE] ========== CREATING MEETING IN DATABASE ==========');
       if (!isMountedRef.current) return;
       updateStepStatus('create', 'processing');
-      setProgress(15);
       
       // CRITICAL: Create meeting and verify it was created
       meetingId = await MeetingService.createMeeting(title.trim(), user.id);
@@ -129,7 +126,6 @@ export const useMeetingCreation = () => {
       
       if (!isMountedRef.current) return;
       updateStepStatus('create', 'completed');
-      setProgress(30);
 
       // Step 2: Process audio only if provided
       if (audioBlob || audioFile) {
@@ -139,14 +135,12 @@ export const useMeetingCreation = () => {
         console.log('[UPLOAD] Starting audio upload...');
         if (!isMountedRef.current) return;
         updateStepStatus('upload', 'processing');
-        setProgress(35);
 
         try {
           const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
           console.log('[UPLOAD] ✅ Audio uploaded:', audioFileUrl);
           
           if (!isMountedRef.current) return;
-          setProgress(40);
           
           // Save audio URL to meeting
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
@@ -154,13 +148,11 @@ export const useMeetingCreation = () => {
           
           if (!isMountedRef.current) return;
           updateStepStatus('upload', 'completed');
-          setProgress(45);
 
           // Transcribe audio
           console.log('[TRANSCRIBE] Starting transcription...');
           if (!isMountedRef.current) return;
           updateStepStatus('transcribe', 'processing');
-          setProgress(50);
           
           try {
             const participantCount = Math.max(selectedParticipantIds.length, 2);
@@ -173,13 +165,11 @@ export const useMeetingCreation = () => {
             console.log('[TRANSCRIBE] ✅ Transcription completed');
             if (!isMountedRef.current) return;
             updateStepStatus('transcribe', 'completed');
-            setProgress(65);
             
             // Process transcript with OpenAI
             console.log('[PROCESS] Starting OpenAI processing...');
             if (!isMountedRef.current) return;
-            updateStepStatus('process', 'processing');
-            setProgress(70);
+            updateStepStatus('clean', 'processing');
             
             const selectedParticipants = participants.filter(p => 
               selectedParticipantIds.includes(p.id)
@@ -195,8 +185,24 @@ export const useMeetingCreation = () => {
               if (!isMountedRef.current) return;
 
               if (result.processedTranscript) {
-                updateStepStatus('process', 'completed');
+                updateStepStatus('clean', 'completed');
                 console.log('[PROCESS] ✅ Processed transcript saved successfully');
+                
+                // Document step
+                updateStepStatus('document', 'processing');
+                // Document is saved inside processTranscriptWithAI
+                updateStepStatus('document', 'completed');
+                console.log('[DOCUMENT] ✅ Document saved successfully');
+                
+                // Embeddings step
+                updateStepStatus('embeddings', 'processing');
+                if (result.embeddingsCount && result.embeddingsCount > 0) {
+                  updateStepStatus('embeddings', 'completed');
+                  console.log(`[EMBEDDINGS] ✅ ${result.embeddingsCount} embeddings created successfully`);
+                } else {
+                  updateStepStatus('embeddings', 'completed');
+                  console.log('[EMBEDDINGS] ✅ Embeddings step completed');
+                }
               }
 
               if (result.summary) {
@@ -204,6 +210,7 @@ export const useMeetingCreation = () => {
                 console.log('[SUMMARY] ✅ Summary generated and saved successfully');
               }
 
+              updateStepStatus('tasks', 'processing');
               if (result.tasks && result.tasks.length > 0) {
                 console.log(`[TASKS] ✅ ${result.tasks.length} tasks extracted and saved successfully`);
                 toast({
@@ -212,14 +219,16 @@ export const useMeetingCreation = () => {
                   duration: 5000,
                 });
               }
+              updateStepStatus('tasks', 'completed');
               
-              if (!isMountedRef.current) return;
-              setProgress(85);
             } catch (openaiError: any) {
               console.error('[PROCESS] OpenAI processing failed:', openaiError);
               if (!isMountedRef.current) return;
-              updateStepStatus('process', 'error');
+              updateStepStatus('clean', 'error');
+              updateStepStatus('document', 'error');
+              updateStepStatus('embeddings', 'error');
               updateStepStatus('summary', 'error');
+              updateStepStatus('tasks', 'error');
               toast({
                 title: "Erreur de traitement",
                 description: "Le traitement OpenAI a échoué, mais la réunion et la transcription ont été sauvegardées",
@@ -231,8 +240,11 @@ export const useMeetingCreation = () => {
             console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
             if (!isMountedRef.current) return;
             updateStepStatus('transcribe', 'error');
-            updateStepStatus('process', 'error');
+            updateStepStatus('clean', 'error');
+            updateStepStatus('document', 'error');
+            updateStepStatus('embeddings', 'error');
             updateStepStatus('summary', 'error');
+            updateStepStatus('tasks', 'error');
             toast({
               title: "Erreur de transcription",
               description: "La transcription a échoué, mais la réunion a été créée avec l'audio",
@@ -245,8 +257,11 @@ export const useMeetingCreation = () => {
           if (!isMountedRef.current) return;
           updateStepStatus('upload', 'error');
           updateStepStatus('transcribe', 'error');
-          updateStepStatus('process', 'error');
+          updateStepStatus('clean', 'error');
+          updateStepStatus('document', 'error');
+          updateStepStatus('embeddings', 'error');
           updateStepStatus('summary', 'error');
+          updateStepStatus('tasks', 'error');
           toast({
             title: "Erreur de téléchargement",
             description: "Le téléchargement audio a échoué, mais la réunion a été créée",
@@ -260,23 +275,23 @@ export const useMeetingCreation = () => {
         if (!isMountedRef.current) return;
         updateStepStatus('upload', 'completed');
         updateStepStatus('transcribe', 'completed');
-        updateStepStatus('process', 'completed');
+        updateStepStatus('clean', 'completed');
+        updateStepStatus('document', 'completed');
+        updateStepStatus('embeddings', 'completed');
         updateStepStatus('summary', 'completed');
-        setProgress(85);
+        updateStepStatus('tasks', 'completed');
       }
 
       // Step 3: Finalize
       console.log('[FINALIZE] ========== FINALIZING MEETING CREATION ==========');
       if (!isMountedRef.current) return;
-      updateStepStatus('save', 'processing');
-      setProgress(90);
+      updateStepStatus('finalize', 'processing');
 
       // Small delay to show the finalization step
       await new Promise(resolve => setTimeout(resolve, 500));
 
       if (!isMountedRef.current) return;
-      updateStepStatus('save', 'completed');
-      setProgress(100);
+      updateStepStatus('finalize', 'completed');
 
       console.log('[SUCCESS] ========== MEETING CREATION COMPLETED SUCCESSFULLY ==========');
 
@@ -327,10 +342,12 @@ export const useMeetingCreation = () => {
           updateStepStatus('create', 'error');
           updateStepStatus('upload', 'error');
           updateStepStatus('transcribe', 'error');
-          updateStepStatus('process', 'error');
+          updateStepStatus('clean', 'error');
+          updateStepStatus('document', 'error');
+          updateStepStatus('embeddings', 'error');
           updateStepStatus('summary', 'error');
-          updateStepStatus('save', 'error');
-          setProgress(0);
+          updateStepStatus('tasks', 'error');
+          updateStepStatus('finalize', 'error');
           
           setTimeout(() => {
             if (isMountedRef.current) {
@@ -352,7 +369,6 @@ export const useMeetingCreation = () => {
   return {
     isSubmitting,
     processingSteps,
-    progress,
     createMeeting,
     resetMeetingCreation,
     cleanupOnUnmount
