@@ -89,23 +89,39 @@ serve(async (req) => {
     console.log('Meeting details:', { meetingName, meetingDate, participantNames })
 
     // Premier appel OpenAI : Nettoyer et structurer le transcript
-    const transcriptPrompt = `Tu es un assistant spécialisé dans la transcription de réunions. 
+    const transcriptPrompt = `Tu es un assistant IA spécialisé dans la transcription intelligente de réunions administratives pour un cabinet médical d'ophtalmologie situé à Genève, dirigé par le Dr Tabibian.
 
-Voici un transcript brut d'une réunion avec les participants suivants : ${participantNames}
+Tu vas traiter un transcript brut issu d'une réunion administrative, avec les participants suivants : ${participantNames}.
 
-INSTRUCTIONS IMPORTANTES :
-1. Remplace UNIQUEMENT les mentions "Speaker 1", "Speaker 2", etc. par les noms des participants de la liste fournie
-2. Assigne intelligemment chaque speaker à un participant en fonction du contexte et du contenu
-3. Conserve INTÉGRALEMENT tout le contenu, tous les détails, toutes les nuances
-4. NE SUPPRIME AUCUNE INFORMATION, même les détails qui semblent mineurs
-5. Conserve tous les noms mentionnés dans la conversation, même s'ils ne sont pas dans la liste des participants
-6. Formate proprement mais garde l'intégralité du contenu
-7. Structure avec des paragraphes clairs mais sans résumer
+🎯 OBJECTIF :
+Nettoyer et améliorer le transcript pour qu'il soit intelligible, fluide et fidèle, sans perdre aucune information importante.
 
-Transcript à traiter :
-${transcript}
+INSTRUCTIONS DÉTAILLÉES :
+Remplace les mentions "Speaker 1", "Speaker 2", etc. par les noms des participants, en les assignant intelligemment en fonction du contexte et du contenu.
 
-Retourne le transcript complet avec les noms des participants assignés intelligemment aux speakers, en conservant absolument tout le contenu.`
+Corrige les erreurs de transcription évidentes : reformule ou remplace des mots qui ne font pas sens, pour rendre le propos compréhensible, tout en respectant l'intention d'origine.
+
+Supprime les échanges inutiles (bruits, hésitations, redites sans intérêt, interjections sans valeur ajoutée) pour garder uniquement les informations pertinentes.
+
+Structure le texte en paragraphes clairs, sans le résumer.
+
+Ne supprime aucune information utile ou décision importante, même si elle semble mineure.
+
+Garde tous les noms et références mentionnés dans le transcript, même s'ils ne sont pas dans la liste des participants.
+
+TON RÉSULTAT DOIT ÊTRE :
+Un transcript lisible, structuré, intelligent
+
+Avec les bons noms de participants attribués
+
+Corrigé pour éliminer les erreurs de compréhension
+
+Nettoyé pour enlever les échanges inutiles
+
+Entièrement fidèle au contenu de la réunion
+
+Transcript brut à traiter :
+${transcript}`
 
     const transcriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
