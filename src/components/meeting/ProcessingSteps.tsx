@@ -1,5 +1,5 @@
 
-import { CheckCircle2, Loader2, X } from "lucide-react";
+import { CheckCircle2, Loader2, X, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface ProcessingStep {
@@ -26,17 +26,35 @@ const stepDescriptions: Record<string, string> = {
 export const ProcessingSteps = ({ isSubmitting, processingSteps, progress }: ProcessingStepsProps) => {
   if (!isSubmitting) return null;
 
+  // Check if all steps are completed
+  const allCompleted = processingSteps.every(step => step.status === 'completed' || step.status === 'error');
+  const isCompleted = progress === 100;
+
   return (
     <div className="space-y-6 p-6 bg-blue-50 rounded-lg border">
       <div className="flex items-center space-x-2">
-        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-        <h3 className="font-medium text-blue-900">Traitement de votre réunion en cours...</h3>
+        {isCompleted ? (
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+        ) : (
+          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+        )}
+        <h3 className="font-medium text-blue-900">
+          {isCompleted ? "Traitement terminé !" : "Traitement de votre réunion en cours..."}
+        </h3>
       </div>
       
       <Progress value={progress} className="w-full h-2" />
       <div className="text-center text-sm text-blue-700 font-medium">
         {progress}% terminé
       </div>
+
+      {isCompleted && (
+        <div className="flex items-center justify-center space-x-2 p-4 bg-green-50 rounded-lg border border-green-200">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <span className="text-green-700 font-medium">Redirection vers la page de la réunion...</span>
+          <ArrowRight className="h-4 w-4 text-green-600" />
+        </div>
+      )}
       
       <div className="space-y-4">
         {processingSteps.map((step) => (

@@ -214,13 +214,21 @@ export const useMeetingCreation = () => {
         duration: 5000,
       });
 
-      // Navigate after a small delay
+      // Wait longer to show completion and add navigation message
+      console.log('[NAVIGATION] Preparing navigation to meeting page...');
+      
+      // Navigate after sufficient delay to show completion
       setTimeout(() => {
+        console.log('[NAVIGATION] Navigating to meeting:', meetingId);
+        setIsSubmitting(false); // Only set to false just before navigation
         navigate(`/meetings/${meetingId}`);
-      }, 500);
+      }, 2000); // Increased delay to 2 seconds
 
     } catch (error: any) {
       console.error("[ERROR] Erreur lors de la création de la réunion:", error);
+      
+      // Reset submitting state on error
+      setIsSubmitting(false);
       
       // Better error handling for authentication issues
       if (error.message?.includes('auth') || error.message?.includes('unauthorized') || error.message?.includes('JWT')) {
@@ -255,9 +263,8 @@ export const useMeetingCreation = () => {
           duration: 10000,
         });
       }
-    } finally {
-      setIsSubmitting(false);
     }
+    // Removed finally block that was setting isSubmitting to false
   };
 
   return {
