@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -136,79 +135,82 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
-  // Show only processing interface when submitting
-  if (isSubmitting) {
-    return (
-      <div className="space-y-6">
-        <ProcessingSteps 
-          isSubmitting={isSubmitting}
-          processingSteps={processingSteps}
-          progress={progress}
-        />
-        
-        <MeetingResults 
-          transcript={meetingResults.transcript}
-          summary={meetingResults.summary}
-          tasks={meetingResults.tasks}
-        />
-      </div>
-    );
-  }
-
   return (
-    <Card className="p-6 mb-6">
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <Label htmlFor="title">Titre de la réunion</Label>
-          <Input
-            id="title"
-            placeholder="Entrez le titre de la réunion"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+    <div className="space-y-6">
+      {/* Always show the form first, then processing/results when submitting */}
+      {!isSubmitting && (
+        <Card className="p-6 mb-6">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <Label htmlFor="title">Titre de la réunion</Label>
+              <Input
+                id="title"
+                placeholder="Entrez le titre de la réunion"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
+            <ParticipantsSection
+              participants={participants}
+              selectedParticipantIds={selectedParticipantIds}
+              onToggleParticipant={toggleParticipantSelection}
+              onOpenNewParticipantDialog={() => setIsNewParticipantDialogOpen(true)}
+            />
+
+            <AudioRecordingSection
+              audioBlob={audioBlob}
+              audioFile={audioFile}
+              audioUrl={audioUrl}
+              isRecording={isRecording}
+              onAudioBlobChange={setAudioBlob}
+              onAudioFileChange={setAudioFile}
+              onAudioUrlChange={setAudioUrl}
+              onRecordingChange={setIsRecording}
+            />
+          </div>
+          
+          <div className="mt-6">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Traitement en cours...
+                </>
+              ) : (
+                "Soumettre la réunion"
+              )}
+            </Button>
+          </div>
+
+          <NewParticipantDialog
+            isOpen={isNewParticipantDialogOpen}
+            onClose={() => setIsNewParticipantDialogOpen(false)}
+            onParticipantAdded={handleParticipantAdded}
           />
-        </div>
+        </Card>
+      )}
 
-        <ParticipantsSection
-          participants={participants}
-          selectedParticipantIds={selectedParticipantIds}
-          onToggleParticipant={toggleParticipantSelection}
-          onOpenNewParticipantDialog={() => setIsNewParticipantDialogOpen(true)}
-        />
-
-        <AudioRecordingSection
-          audioBlob={audioBlob}
-          audioFile={audioFile}
-          audioUrl={audioUrl}
-          isRecording={isRecording}
-          onAudioBlobChange={setAudioBlob}
-          onAudioFileChange={setAudioFile}
-          onAudioUrlChange={setAudioUrl}
-          onRecordingChange={setIsRecording}
-        />
-      </div>
-      
-      <div className="mt-6">
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="w-full"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Traitement en cours...
-            </>
-          ) : (
-            "Soumettre la réunion"
-          )}
-        </Button>
-      </div>
-
-      <NewParticipantDialog
-        isOpen={isNewParticipantDialogOpen}
-        onClose={() => setIsNewParticipantDialogOpen(false)}
-        onParticipantAdded={handleParticipantAdded}
-      />
-    </Card>
+      {/* Show processing and results when submitting */}
+      {isSubmitting && (
+        <>
+          <ProcessingSteps 
+            isSubmitting={isSubmitting}
+            processingSteps={processingSteps}
+            progress={progress}
+          />
+          
+          <MeetingResults 
+            transcript={meetingResults.transcript}
+            summary={meetingResults.summary}
+            tasks={meetingResults.tasks}
+          />
+        </>
+      )}
+    </div>
   );
 };
