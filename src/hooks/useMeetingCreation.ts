@@ -38,7 +38,8 @@ export const useMeetingCreation = () => {
   ) => {
     console.log('[useMeetingCreation] Starting createMeeting with:', { title, hasAudio: !!(audioBlob || audioFile), participantCount: selectedParticipantIds.length });
     
-    if (!title) {
+    if (!title?.trim()) {
+      console.error('[useMeetingCreation] No title provided');
       toast({
         title: "Information manquante",
         description: "Veuillez saisir un titre de réunion",
@@ -62,20 +63,30 @@ export const useMeetingCreation = () => {
 
     console.log('[useMeetingCreation] Starting submission process - setting isSubmitting to true');
     if (!isMountedRef.current) return;
+    
+    // IMPORTANT: S'assurer que les états sont correctement initialisés
     setIsSubmitting(true);
-    setProgress(0);
+    setProgress(5);
     resetSteps();
+
+    // Petit délai pour s'assurer que l'UI se met à jour
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     let meetingId: string | null = null;
 
     try {
       // Step 1: Create meeting and add participants immediately
       console.log('[CREATE] Creating meeting...');
+      if (!isMountedRef.current) return;
       updateStepStatus('create', 'processing');
-      setProgress(10);
+      setProgress(15);
       
-      meetingId = await MeetingService.createMeeting(title, user.id);
+      meetingId = await MeetingService.createMeeting(title.trim(), user.id);
       console.log('[CREATE] Meeting created with ID:', meetingId);
+      
+      if (!meetingId) {
+        throw new Error('Failed to create meeting - no ID returned');
+      }
       
       // Add participants immediately after creating the meeting
       if (selectedParticipantIds.length > 0) {
@@ -84,29 +95,35 @@ export const useMeetingCreation = () => {
         console.log('[CREATE] Participants added successfully');
       }
       
+      if (!isMountedRef.current) return;
       updateStepStatus('create', 'completed');
-      setProgress(20);
+      setProgress(25);
 
       // Step 2: Upload and save audio if provided
       if (audioBlob || audioFile) {
         console.log('[UPLOAD] Starting audio upload...');
+        if (!isMountedRef.current) return;
         updateStepStatus('upload', 'processing');
-        setProgress(25);
+        setProgress(30);
 
         let audioFileUrl;
         try {
           audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
           console.log('[UPLOAD] Audio uploaded:', audioFileUrl);
-          setProgress(30);
+          
+          if (!isMountedRef.current) return;
+          setProgress(35);
           
           // Save audio URL using dedicated method
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
           console.log('[UPLOAD] Audio URL saved to meeting');
           
+          if (!isMountedRef.current) return;
           updateStepStatus('upload', 'completed');
-          setProgress(35);
+          setProgress(40);
         } catch (uploadError: any) {
           console.error('[UPLOAD] Audio upload failed:', uploadError);
+          if (!isMountedRef.current) return;
           updateStepStatus('upload', 'error');
           toast({
             title: "Erreur de téléchargement",
@@ -121,8 +138,9 @@ export const useMeetingCreation = () => {
         // Step 3: Transcribe audio (only if upload succeeded)
         if (audioFileUrl) {
           console.log('[TRANSCRIBE] Starting transcription...');
+          if (!isMountedRef.current) return;
           updateStepStatus('transcribe', 'processing');
-          setProgress(40);
+          setProgress(45);
           
           try {
             const participantCount = Math.max(selectedParticipantIds.length, 2);
@@ -133,11 +151,13 @@ export const useMeetingCreation = () => {
             );
             
             console.log('[TRANSCRIBE] Transcription completed');
+            if (!isMountedRef.current) return;
             updateStepStatus('transcribe', 'completed');
-            setProgress(60);
+            setProgress(65);
             
             // Step 4: Process transcript with OpenAI (including tasks extraction)
             console.log('[PROCESS] Starting OpenAI processing...');
+            if (!isMountedRef.current) return;
             updateStepStatus('process', 'processing');
             setProgress(70);
             
@@ -151,6 +171,8 @@ export const useMeetingCreation = () => {
                 selectedParticipants,
                 meetingId
               );
+
+              if (!isMountedRef.current) return;
 
               if (result.processedTranscript) {
                 updateStepStatus('process', 'completed');
@@ -177,9 +199,11 @@ export const useMeetingCreation = () => {
                 });
               }
               
+              if (!isMountedRef.current) return;
               setProgress(85);
             } catch (openaiError: any) {
               console.error('[PROCESS] OpenAI processing failed:', openaiError);
+              if (!isMountedRef.current) return;
               updateStepStatus('process', 'error');
               updateStepStatus('summary', 'error');
               toast({
@@ -192,6 +216,7 @@ export const useMeetingCreation = () => {
             }
           } catch (transcriptionError: any) {
             console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
+            if (!isMountedRef.current) return;
             updateStepStatus('transcribe', 'error');
             updateStepStatus('process', 'error');
             updateStepStatus('summary', 'error');
@@ -204,13 +229,27 @@ export const useMeetingCreation = () => {
             // Continue to finalization even if transcription fails
           }
         }
+      } else {
+        // No audio provided - skip audio processing steps but mark them as completed
+        console.log('[NO_AUDIO] No audio provided, skipping audio processing steps');
+        if (!isMountedRef.current) return;
+        updateStepStatus('upload', 'completed');
+        updateStepStatus('transcribe', 'completed');
+        updateStepStatus('process', 'completed');
+        updateStepStatus('summary', 'completed');
+        setProgress(85);
       }
 
       // Step 5: Finalize
       console.log('[SAVE] Finalizing...');
+      if (!isMountedRef.current) return;
       updateStepStatus('save', 'processing');
       setProgress(90);
 
+      // Small delay to show the finalization step
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (!isMountedRef.current) return;
       updateStepStatus('save', 'completed');
       setProgress(100);
 
@@ -222,7 +261,7 @@ export const useMeetingCreation = () => {
         duration: 5000,
       });
 
-      // Wait longer to show completion and add navigation message
+      // Wait to show completion and add navigation message
       console.log('[NAVIGATION] Preparing navigation to meeting page...');
       
       // Navigate after sufficient delay to show completion
@@ -230,8 +269,7 @@ export const useMeetingCreation = () => {
         if (!isMountedRef.current) return;
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
         navigate(`/meetings/${meetingId}`);
-        // NE PAS réinitialiser isSubmitting ici - laissons la navigation se faire
-      }, 3000); // 3 seconds delay to see completion
+      }, 2000); // 2 seconds delay to see completion
 
     } catch (error: any) {
       console.error("[ERROR] Erreur lors de la création de la réunion:", error);
@@ -245,7 +283,6 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
-        // Pour les erreurs d'auth, on peut réinitialiser immédiatement
         if (isMountedRef.current) {
           setIsSubmitting(false);
         }
@@ -265,23 +302,35 @@ export const useMeetingCreation = () => {
         setTimeout(() => {
           if (!isMountedRef.current) return;
           navigate(`/meetings/${meetingId}`);
-          // NE PAS réinitialiser isSubmitting ici non plus
         }, 2000);
       } else {
-        // Only reset isSubmitting on complete failure after longer delay
-        console.log('[ERROR] Complete failure, staying in processing mode to show error state');
+        // Complete failure - show error and reset after delay
+        console.log('[ERROR] Complete failure, resetting form after delay');
         toast({
           title: "Erreur de création de la réunion",
           description: error.message || "Veuillez réessayer",
           variant: "destructive",
           duration: 10000,
         });
-        // Pour un échec complet, on peut laisser l'utilisateur voir l'état d'erreur plus longtemps
-        setTimeout(() => {
-          if (isMountedRef.current) {
-            setIsSubmitting(false);
-          }
-        }, 5000); // Délai plus long pour voir l'erreur
+        
+        // Mark all steps as error
+        if (isMountedRef.current) {
+          updateStepStatus('create', 'error');
+          updateStepStatus('upload', 'error');
+          updateStepStatus('transcribe', 'error');
+          updateStepStatus('process', 'error');
+          updateStepStatus('summary', 'error');
+          updateStepStatus('save', 'error');
+          setProgress(0);
+          
+          // Reset after showing error for a while
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setIsSubmitting(false);
+              resetSteps();
+            }
+          }, 5000);
+        }
       }
     }
   };

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export const uploadAudio = async (audioBlob: Blob, meetingId: string) => {
@@ -146,36 +145,100 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
 // Create the MeetingService object
 export const MeetingService = {
   createMeeting: async (title: string, userId: string): Promise<string> => {
-    const { data, error } = await supabase
-      .from('meetings')
-      .insert({ title, created_by: userId })
-      .select()
-      .single();
+    console.log('[MeetingService] Creating meeting with:', { title, userId });
+    
+    if (!title?.trim()) {
+      throw new Error('Title is required');
+    }
+    
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
 
-    if (error) throw error;
-    return data.id;
+    try {
+      const { data, error } = await supabase
+        .from('meetings')
+        .insert({ 
+          title: title.trim(), 
+          created_by: userId 
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[MeetingService] Error creating meeting:', error);
+        throw error;
+      }
+
+      if (!data || !data.id) {
+        throw new Error('Meeting created but no ID returned');
+      }
+
+      console.log('[MeetingService] Meeting created successfully:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('[MeetingService] Failed to create meeting:', error);
+      throw error;
+    }
   },
 
   updateMeetingField: async (meetingId: string, field: string, value: any) => {
-    const { error } = await supabase
-      .from('meetings')
-      .update({ [field]: value })
-      .eq('id', meetingId);
+    console.log('[MeetingService] Updating meeting field:', { meetingId, field, valueType: typeof value });
+    
+    if (!meetingId) {
+      throw new Error('Meeting ID is required');
+    }
 
-    if (error) throw error;
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .update({ [field]: value })
+        .eq('id', meetingId);
+
+      if (error) {
+        console.error('[MeetingService] Error updating meeting field:', error);
+        throw error;
+      }
+
+      console.log('[MeetingService] Meeting field updated successfully');
+    } catch (error) {
+      console.error('[MeetingService] Failed to update meeting field:', error);
+      throw error;
+    }
   },
 
   addParticipants: async (meetingId: string, participantIds: string[]) => {
-    const meetingParticipants = participantIds.map(participantId => ({
-      meeting_id: meetingId,
-      participant_id: participantId
-    }));
+    console.log('[MeetingService] Adding participants to meeting:', { meetingId, participantIds });
+    
+    if (!meetingId) {
+      throw new Error('Meeting ID is required');
+    }
+    
+    if (!participantIds || participantIds.length === 0) {
+      console.log('[MeetingService] No participants to add');
+      return;
+    }
 
-    const { error } = await supabase
-      .from('meeting_participants')
-      .insert(meetingParticipants);
+    try {
+      const meetingParticipants = participantIds.map(participantId => ({
+        meeting_id: meetingId,
+        participant_id: participantId
+      }));
 
-    if (error) throw error;
+      const { error } = await supabase
+        .from('meeting_participants')
+        .insert(meetingParticipants);
+
+      if (error) {
+        console.error('[MeetingService] Error adding participants:', error);
+        throw error;
+      }
+
+      console.log('[MeetingService] Participants added successfully');
+    } catch (error) {
+      console.error('[MeetingService] Failed to add participants:', error);
+      throw error;
+    }
   }
 };
 
