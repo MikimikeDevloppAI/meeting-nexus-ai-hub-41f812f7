@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -7,6 +6,7 @@ import { useProcessingSteps } from "./useProcessingSteps";
 import { MeetingService } from "@/services/meetingService";
 import { AudioProcessingService } from "@/services/audioProcessingService";
 import { MeetingCreationData } from "@/types/meeting";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
