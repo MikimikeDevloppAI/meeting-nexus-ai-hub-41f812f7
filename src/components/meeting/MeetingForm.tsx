@@ -11,6 +11,7 @@ import { ProcessingSteps } from "./ProcessingSteps";
 import { ParticipantsSection } from "./ParticipantsSection";
 import { AudioRecordingSection } from "./AudioRecordingSection";
 import { NewParticipantDialog } from "./NewParticipantDialog";
+import { MeetingResults } from "./MeetingResults";
 
 interface Participant {
   id: string;
@@ -46,6 +47,11 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [isNewParticipantDialogOpen, setIsNewParticipantDialogOpen] = useState(false);
+  const [meetingResults, setMeetingResults] = useState<{
+    transcript?: string;
+    summary?: string;
+    tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
+  }>({});
   
   const { toast } = useToast();
 
@@ -72,6 +78,46 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     fetchParticipants();
   }, [toast]);
 
+  // Listen for real-time updates during processing
+  useEffect(() => {
+    if (!isSubmitting) return;
+
+    const checkForUpdates = async () => {
+      // This would be called periodically to check for updates
+      // For now, we'll simulate progressive updates
+      const interval = setInterval(async () => {
+        // Check if transcript is ready
+        if (processingSteps.find(s => s.id === 'transcribe')?.status === 'completed' && !meetingResults.transcript) {
+          // Simulate transcript being ready
+          setMeetingResults(prev => ({
+            ...prev,
+            transcript: "Transcript en cours de génération..."
+          }));
+        }
+
+        // Check if summary is ready
+        if (processingSteps.find(s => s.id === 'summary')?.status === 'completed' && !meetingResults.summary) {
+          setMeetingResults(prev => ({
+            ...prev,
+            summary: "Résumé en cours de génération..."
+          }));
+        }
+
+        // Check if tasks are ready
+        if (processingSteps.find(s => s.id === 'save')?.status === 'completed' && !meetingResults.tasks) {
+          setMeetingResults(prev => ({
+            ...prev,
+            tasks: []
+          }));
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    };
+
+    checkForUpdates();
+  }, [isSubmitting, processingSteps, meetingResults]);
+
   const toggleParticipantSelection = (id: string) => {
     setSelectedParticipantIds(prev =>
       prev.includes(id)
@@ -86,18 +132,32 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
+    setMeetingResults({}); // Reset results
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
-  return (
-    <Card className="p-6 mb-6">
+  // Show only processing interface when submitting
+  if (isSubmitting) {
+    return (
       <div className="space-y-6">
         <ProcessingSteps 
           isSubmitting={isSubmitting}
           processingSteps={processingSteps}
           progress={progress}
         />
+        
+        <MeetingResults 
+          transcript={meetingResults.transcript}
+          summary={meetingResults.summary}
+          tasks={meetingResults.tasks}
+        />
+      </div>
+    );
+  }
 
+  return (
+    <Card className="p-6 mb-6">
+      <div className="space-y-6">
         <div className="space-y-4">
           <Label htmlFor="title">Titre de la réunion</Label>
           <Input
