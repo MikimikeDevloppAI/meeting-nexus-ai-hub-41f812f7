@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -254,7 +255,7 @@ serve(async (req) => {
     // ⚡ PHASE 5: Enhanced synthesis with provider-specific recommendations
     console.log('[TASK-RECOMMENDATION] ⚡ Phase 5: Synthèse avec fournisseurs spécifiques');
     
-    const taskRecommendationPrompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans les recommandations précises avec fournisseurs spécifiques.
+    const taskRecommendationPrompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans les recommandations précises avec fournisseurs spécifiques ou informations techniques utiles.
 
 **CONTEXTE CABINET:**
 - Cabinet d'ophtalmologie dirigé par Dr Tabibian à Genève, Suisse
@@ -272,16 +273,15 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
 
 **INSTRUCTIONS CRITIQUES:**
 
-1. **RECHERCHE FOURNISSEURS SPÉCIFIQUES**: 
-   - Pour email/Infomaniak: Mentionner les règles de sécurité SMTP spécifiques
-   - Pour matériel médical: Nommer des fournisseurs suisses d'ophtalmologie
-   - Pour services web: Identifier des agences web médicales en Suisse
-   - Pour formation: Citer des organismes de formation médicale suisses
+1. **RECOMMANDATIONS CONCRÈTES ET UTILES**:
+   - Fournir des **fournisseurs spécifiques** suisses ou européens selon le besoin (services, matériel, support technique, etc.)
+   - Si aucun fournisseur pertinent, fournir des **informations techniques précises** (ex : protocoles de configuration, normes à respecter, détails techniques utiles)
+   - Si un service est mentionné (ex. messagerie, site web, stockage, logiciels, etc.), proposer **plusieurs prestataires** avec **avantages et inconvénients résumés de chacun**
 
 2. **INFORMATIONS CONCRÈTES**:
    - Prix approximatifs en CHF
    - Contacts/sites web si disponibles
-   - Procédures spécifiques (ex: configuration SMTP Infomaniak)
+   - Procédures spécifiques utiles
    - Délais typiques
 
 3. **EMAIL EXTERNE UNIQUEMENT**: Si recommandé, l'email doit être pour un prestataire externe avec:
@@ -291,27 +291,27 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
    - Coordonnées Genève
 
 4. **SÉLECTIVITÉ**: Ne recommande que si tu peux apporter:
-   - Des noms de fournisseurs spécifiques
-   - Des informations pratiques concrètes
-   - Une valeur ajoutée réelle
+   - Des fournisseurs précis avec comparaison claire
+   - Des informations techniques utiles à l'action
+   - Une vraie valeur ajoutée, concise et applicable
 
 5. **FORMAT JSON REQUIS**:
 {
   "hasRecommendation": [true/false],
-  "recommendation": "[Recommandation avec fournisseurs spécifiques et prix CHF]",
+  "recommendation": "[Recommandation avec fournisseurs ou infos techniques concrètes et prix CHF]",
   "needsExternalEmail": [true/false],
   "emailDraft": "[Email professionnel pour prestataire externe]",
   "externalProviders": ["Liste noms entreprises/fournisseurs spécifiques"],
   "estimatedCost": "[Coût en CHF avec fourchette]",
-  "specificInfo": "[Infos techniques spécifiques ex: règles SMTP Infomaniak]"
+  "specificInfo": "[Infos techniques spécifiques ex: protocole SMTP sécurisé, type de licence, contraintes réglementaires, etc.]"
 }
 
 **EXEMPLES DE BONNES RECOMMANDATIONS:**
-- "Contacter Infomaniak pour configuration SMTP sécurisée, tarif environ 50-100 CHF/an"
+- "Configurer un service mail sécurisé avec SPF/DKIM, tarif environ 50-100 CHF/an"
 - "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure"
-- "Agence MedWeb Suisse pour refonte site cabinet, budget 5000-15000 CHF"
+- "Comparaison : MedWeb (intégration médicale, + spécialisé / - plus cher), SwissDigitalCare (bon support, + flexible / - moins orienté santé), budget 5000-15000 CHF"
 
-Analyse maintenant et fournis une recommandation JSON avec fournisseurs spécifiques.`;
+Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou informations techniques utiles.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
