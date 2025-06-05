@@ -131,17 +131,15 @@ ${internetContext.content ? internetContext.content.substring(0, 1000) : 'Aucune
    - Demande précise (devis, information, service)
    - Coordonnées du cabinet à Genève
 
-5. **RÉPONSE STRUCTURÉE**:
-```json
+5. **RÉPONSE STRUCTURÉE**: Réponds avec ce format JSON exact:
 {
-  "hasRecommendation": true/false,
-  "recommendation": "Recommandation concise et actionnable ou null",
-  "needsExternalEmail": true/false,
-  "emailDraft": "Email professionnel pour prestataire externe ou null",
-  "externalProviders": ["Liste des prestataires identifiés ou vide"],
-  "estimatedCost": "Coût estimé en CHF ou null"
+  "hasRecommendation": [true ou false],
+  "recommendation": "[Recommandation concise et actionnable ou null]",
+  "needsExternalEmail": [true ou false],
+  "emailDraft": "[Email professionnel pour prestataire externe ou null]",
+  "externalProviders": ["Liste des prestataires identifiés ou array vide"],
+  "estimatedCost": "[Coût estimé en CHF ou null]"
 }
-```
 
 **CRITÈRES DE REJET**: Réponds avec hasRecommendation: false si:
 - La tâche est évidente et ne nécessite aucun conseil
