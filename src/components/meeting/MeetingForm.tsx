@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -53,20 +54,16 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
-  // État persistant pour éviter le retour au formulaire
-  const [hasStartedSubmission, setHasStartedSubmission] = useState(false);
-  
   const { toast } = useToast();
 
-  // Logique d'affichage corrigée - on montre le processing dès que l'un des deux états est actif
-  const showForm = !hasStartedSubmission && !isSubmitting;
-  const showProcessing = hasStartedSubmission || isSubmitting;
+  // Logique d'affichage simplifiée - on utilise uniquement isSubmitting du hook
+  const showForm = !isSubmitting;
+  const showProcessing = isSubmitting;
   
   console.log('[MeetingForm] State:', { 
     showForm, 
     showProcessing, 
-    isSubmitting, 
-    hasStartedSubmission,
+    isSubmitting,
     title 
   });
 
@@ -143,15 +140,26 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
-    console.log('[MeetingForm] handleSubmit called - setting hasStartedSubmission to true');
-    setHasStartedSubmission(true);
+    console.log('[MeetingForm] handleSubmit called - starting submission');
+    
+    // Validation basique avant de commencer
+    if (!title?.trim()) {
+      toast({
+        title: "Information manquante",
+        description: "Veuillez saisir un titre de réunion",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Reset results et appeler directement onSubmit
     setMeetingResults({});
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form only when submission hasn't started */}
+      {/* Show form only when not submitting */}
       {showForm && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
@@ -187,7 +195,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
           <div className="mt-6">
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || hasStartedSubmission}
+              disabled={isSubmitting}
               className="w-full"
             >
               Soumettre la réunion
@@ -202,7 +210,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing when submission has started */}
+      {/* Show processing when submitting */}
       {showProcessing && (
         <>
           <ProcessingSteps 
