@@ -27,6 +27,19 @@ export const useMeetingCreation = () => {
     resetSteps();
   };
 
+  // Helper function to safely reset submission state (only for critical errors)
+  const safeResetSubmission = (reason: string, delay: number = 0) => {
+    console.log(`[useMeetingCreation] Safe reset submission: ${reason} (delay: ${delay}ms)`);
+    if (delay > 0) {
+      setTimeout(() => {
+        console.log(`[useMeetingCreation] Executing delayed reset: ${reason}`);
+        setIsSubmitting(false);
+      }, delay);
+    } else {
+      setIsSubmitting(false);
+    }
+  };
+
   const createMeeting = async (
     title: string,
     audioBlob: Blob | null,
@@ -58,7 +71,7 @@ export const useMeetingCreation = () => {
       return;
     }
 
-    console.log('[useMeetingCreation] Starting submission process');
+    console.log('[useMeetingCreation] Starting submission process - setting isSubmitting to true');
     setIsSubmitting(true);
     setProgress(0);
     resetSteps();
@@ -111,90 +124,95 @@ export const useMeetingCreation = () => {
             variant: "destructive",
             duration: 10000,
           });
-          throw uploadError;
+          // Don't throw error, continue with meeting creation without audio
+          console.log('[UPLOAD] Continuing without audio after upload failure');
         }
 
-        // Step 3: Transcribe audio
-        console.log('[TRANSCRIBE] Starting transcription...');
-        updateStepStatus('transcribe', 'processing');
-        setProgress(40);
-        
-        try {
-          const participantCount = Math.max(selectedParticipantIds.length, 2);
-          const transcript = await AudioProcessingService.transcribeAudio(
-            audioFileUrl, 
-            participantCount, 
-            meetingId
-          );
+        // Step 3: Transcribe audio (only if upload succeeded)
+        if (audioFileUrl) {
+          console.log('[TRANSCRIBE] Starting transcription...');
+          updateStepStatus('transcribe', 'processing');
+          setProgress(40);
           
-          console.log('[TRANSCRIBE] Transcription completed');
-          updateStepStatus('transcribe', 'completed');
-          setProgress(60);
-          
-          // Step 4: Process transcript with OpenAI (including tasks extraction)
-          console.log('[PROCESS] Starting OpenAI processing...');
-          updateStepStatus('process', 'processing');
-          setProgress(70);
-          
-          const selectedParticipants = participants.filter(p => 
-            selectedParticipantIds.includes(p.id)
-          );
-
           try {
-            const result = await AudioProcessingService.processTranscriptWithAI(
-              transcript,
-              selectedParticipants,
+            const participantCount = Math.max(selectedParticipantIds.length, 2);
+            const transcript = await AudioProcessingService.transcribeAudio(
+              audioFileUrl, 
+              participantCount, 
               meetingId
             );
-
-            if (result.processedTranscript) {
-              updateStepStatus('process', 'completed');
-              console.log('[PROCESS] Processed transcript saved successfully');
-            } else {
-              console.warn('[PROCESS] No processed transcript returned, keeping original');
-              updateStepStatus('process', 'error');
-            }
-
-            if (result.summary) {
-              updateStepStatus('summary', 'completed');
-              console.log('[SUMMARY] Summary generated and saved successfully');
-            } else {
-              console.warn('[SUMMARY] No summary returned from OpenAI');
-              updateStepStatus('summary', 'error');
-            }
-
-            if (result.tasks && result.tasks.length > 0) {
-              console.log(`[TASKS] ${result.tasks.length} tasks extracted and saved successfully`);
-              toast({
-                title: "Tâches extraites",
-                description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
-                duration: 5000,
-              });
-            }
             
-            setProgress(85);
-          } catch (openaiError: any) {
-            console.error('[PROCESS] OpenAI processing failed:', openaiError);
+            console.log('[TRANSCRIBE] Transcription completed');
+            updateStepStatus('transcribe', 'completed');
+            setProgress(60);
+            
+            // Step 4: Process transcript with OpenAI (including tasks extraction)
+            console.log('[PROCESS] Starting OpenAI processing...');
+            updateStepStatus('process', 'processing');
+            setProgress(70);
+            
+            const selectedParticipants = participants.filter(p => 
+              selectedParticipantIds.includes(p.id)
+            );
+
+            try {
+              const result = await AudioProcessingService.processTranscriptWithAI(
+                transcript,
+                selectedParticipants,
+                meetingId
+              );
+
+              if (result.processedTranscript) {
+                updateStepStatus('process', 'completed');
+                console.log('[PROCESS] Processed transcript saved successfully');
+              } else {
+                console.warn('[PROCESS] No processed transcript returned, keeping original');
+                updateStepStatus('process', 'error');
+              }
+
+              if (result.summary) {
+                updateStepStatus('summary', 'completed');
+                console.log('[SUMMARY] Summary generated and saved successfully');
+              } else {
+                console.warn('[SUMMARY] No summary returned from OpenAI');
+                updateStepStatus('summary', 'error');
+              }
+
+              if (result.tasks && result.tasks.length > 0) {
+                console.log(`[TASKS] ${result.tasks.length} tasks extracted and saved successfully`);
+                toast({
+                  title: "Tâches extraites",
+                  description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
+                  duration: 5000,
+                });
+              }
+              
+              setProgress(85);
+            } catch (openaiError: any) {
+              console.error('[PROCESS] OpenAI processing failed:', openaiError);
+              updateStepStatus('process', 'error');
+              updateStepStatus('summary', 'error');
+              toast({
+                title: "Erreur de traitement",
+                description: openaiError.message || "Le traitement OpenAI a échoué, transcript original conservé",
+                variant: "destructive",
+                duration: 10000,
+              });
+              // Continue to finalization even if OpenAI fails
+            }
+          } catch (transcriptionError: any) {
+            console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
+            updateStepStatus('transcribe', 'error');
             updateStepStatus('process', 'error');
             updateStepStatus('summary', 'error');
             toast({
-              title: "Erreur de traitement",
-              description: openaiError.message || "Le traitement OpenAI a échoué, transcript original conservé",
+              title: "Erreur de transcription",
+              description: transcriptionError.message || "La transcription a échoué, mais la réunion a été créée avec l'audio.",
               variant: "destructive",
               duration: 10000,
             });
+            // Continue to finalization even if transcription fails
           }
-        } catch (transcriptionError: any) {
-          console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
-          updateStepStatus('transcribe', 'error');
-          updateStepStatus('process', 'error');
-          updateStepStatus('summary', 'error');
-          toast({
-            title: "Erreur de transcription",
-            description: transcriptionError.message || "La transcription a échoué, mais la réunion a été créée avec l'audio.",
-            variant: "destructive",
-            duration: 10000,
-          });
         }
       }
 
@@ -217,13 +235,14 @@ export const useMeetingCreation = () => {
       // Wait longer to show completion and add navigation message
       console.log('[NAVIGATION] Preparing navigation to meeting page...');
       
-      // Navigate after sufficient delay to show completion - DON'T set isSubmitting to false here
+      // Navigate after sufficient delay to show completion
       setTimeout(() => {
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
         navigate(`/meetings/${meetingId}`);
         // Reset state AFTER navigation is triggered
+        console.log('[NAVIGATION] Resetting isSubmitting after successful navigation');
         setIsSubmitting(false);
-      }, 3000); // Increased delay to 3 seconds to see completion
+      }, 3000); // 3 seconds delay to see completion
 
     } catch (error: any) {
       console.error("[ERROR] Erreur lors de la création de la réunion:", error);
@@ -237,7 +256,7 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
-        setIsSubmitting(false); // Reset on auth error
+        safeResetSubmission('authentication error', 1000);
         navigate("/login");
         return;
       }
@@ -253,17 +272,19 @@ export const useMeetingCreation = () => {
         });
         setTimeout(() => {
           navigate(`/meetings/${meetingId}`);
-          setIsSubmitting(false); // Reset after navigation
-        }, 1000);
+          console.log('[ERROR] Resetting isSubmitting after partial success navigation');
+          setIsSubmitting(false);
+        }, 2000);
       } else {
-        // Only reset isSubmitting on complete failure
-        setIsSubmitting(false);
+        // Only reset isSubmitting on complete failure after delay
+        console.log('[ERROR] Complete failure, resetting after delay');
         toast({
           title: "Erreur de création de la réunion",
           description: error.message || "Veuillez réessayer",
           variant: "destructive",
           duration: 10000,
         });
+        safeResetSubmission('complete failure', 3000); // 3 second delay even on failure
       }
     }
   };
