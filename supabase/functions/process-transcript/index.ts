@@ -277,22 +277,18 @@ ${cleanedTranscript}`;
       console.error('Summary generation failed');
     }
 
-    // Step 3: Extract tasks using improved prompt with deduplication
+    // Step 3: Extract tasks using the new improved prompt
     const tasksPrompt = `Tu es un assistant IA spécialisé dans l'extraction de tâches pour cabinet médical.
 
 Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
 
 RÈGLES STRICTES POUR L'EXTRACTION:
-1. Extrais MAXIMUM 8-10 tâches les plus importantes et CONCRÈTES
+1. Extrais toutes les tâches importantes et CONCRÈTES 
 2. REGROUPE les tâches similaires ou liées en une seule tâche plus complète
 3. ÉVITE les tâches trop génériques comme "faire le point sur X" 
 4. PRIVILÉGIE les tâches avec des actions concrètes et des échéances
 5. NE PAS créer de tâches redondantes ou en doublon
 6. Si plusieurs personnes doivent faire des choses similaires, groupe en une tâche
-
-FORMAT DE SORTIE:
-Retourne un tableau JSON avec cette structure exacte:
-[{"task": "description précise et actionnable", "assignedTo": "nom du participant ou null"}]
 
 EXEMPLES DE BONNES TÂCHES:
 - "Contacter 3 prestataires de climatisation et demander des devis détaillés avant fin mars"
@@ -312,6 +308,10 @@ INSTRUCTIONS SPÉCIFIQUES:
 
 Retourne UNIQUEMENT le tableau JSON, sans autre texte.
 
+FORMAT DE SORTIE:
+Retourne un tableau JSON avec cette structure exacte:
+[{"task": "description précise et actionnable", "assignedTo": "nom du participant ou null"}]
+
 Transcript:
 ${cleanedTranscript}`;
 
@@ -328,7 +328,7 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches concrètes pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches les plus importantes, regroupées et déduplicées.'
+            content: 'Tu es un assistant spécialisé dans l\'extraction de tâches concrètes pour cabinet médical. Tu retournes UNIQUEMENT un tableau JSON des tâches importantes, regroupées et déduplicées.'
           },
           {
             role: 'user',
