@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
@@ -111,6 +110,16 @@ serve(async (req) => {
 
     console.log('Participant list for OpenAI:', participantList);
 
+    // Get meeting info for the summary
+    const { data: meetingData } = await supabase
+      .from('meetings')
+      .select('title, created_at')
+      .eq('id', meetingId)
+      .single();
+
+    const meetingName = meetingData?.title || 'Réunion';
+    const meetingDate = meetingData?.created_at ? new Date(meetingData.created_at).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+
     // Step 1: Clean the transcript with the new specialized prompt
     const cleanPrompt = `Tu es un assistant IA spécialisé dans la réécriture de transcripts de réunions automatiques, cette une réunion d'un cabinet ophtalmologique à genève. 
 
@@ -179,99 +188,49 @@ ${transcriptToProcess}`;
 
     console.log('Transcript cleaning completed, length:', cleanedTranscript.length);
 
-    // Step 2: Generate summary using cleaned transcript
-    const summaryPrompt = `Tu es un assistant IA spécialisé dans la création de résumés de réunions pour cabinet médical.
+    // Step 2: Generate summary using the new Markdown prompt
+    const summaryPrompt = `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour un cabinet ophtalmologique situé à Genève, dirigé par le Dr Tabibian.
 
-Voici le transcript nettoyé d'une réunion de cabinet médical avec les participants: ${participantList}
+Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantList}.
 
-Crée un résumé détaillé et complet en HTML qui N'OMET AUCUN POINT IMPORTANT et organise les informations par catégories suivantes:
+Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point important discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
 
-RÈGLES STRICTES:
-- Utilise uniquement du HTML valide avec les balises <h3>, <strong>, <ul>, <li>
-- Si une catégorie n'a AUCUN point discuté, ne l'affiche PAS du tout
-- Assure-toi de couvrir TOUS les points mentionnés dans la réunion
-- Utilise les vrais noms des participants dans le contenu
-- Utilise des bullet points pour chaque élément
-- Sois précis et détaillé pour chaque point important
+🧩 CATÉGORIES À UTILISER (uniquement si pertinentes) :
+• Suivi patient
+• Matériel médical
+• Matériel bureau
+• Organisation cabinet
+• Site internet
+• Formation
+• Service cabinet
+• Problèmes divers
+• Agenda du personnel
 
-CATÉGORIES À UTILISER (seulement si des points ont été discutés):
+STRUCTURE À RESPECTER :
 
-<h3><strong>🏥 GESTION DES PATIENTS</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Nouveaux patients et leurs besoins</li>
-<li>Cas complexes et suivis particuliers</li>
-<li>Problématiques médicales discutées</li>
-<li>Rendez-vous et consultations spéciales</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions concernant les patients</li>
-</ul>
+En-tête du résumé :
+**Date :** ${meetingDate}
+**Réunion :** ${meetingName}
+**Participants :** ${participantList}
 
-<h3><strong>🩺 MATÉRIEL MÉDICAL ET ÉQUIPEMENTS</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Nouveaux équipements médicaux à acquérir</li>
-<li>Maintenance et réparations d'équipements médicaux</li>
-<li>Problèmes techniques médicaux</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions sur les équipements médicaux</li>
-</ul>
+Pour chaque catégorie abordée :
 
-<h3><strong>📋 ORGANISATION DU CABINET</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Planning et gestion des rendez-vous</li>
-<li>Procédures administratives</li>
-<li>Gestion du personnel</li>
-<li>Organisation des espaces</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions administratives et organisationnelles</li>
-</ul>
+### [Nom de la catégorie avec emoji]
 
-<h3><strong>🔧 MATÉRIEL ET ÉQUIPEMENTS (NON MÉDICAL) ET SITE WEB</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Équipements bureautiques et informatiques</li>
-<li>Site web et outils numériques</li>
-<li>Logiciels et applications</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions sur les équipements non médicaux</li>
-</ul>
+**Points discutés :**
+- Liste à puces des points abordés
 
-<h3><strong>🤝 PRESTATAIRES</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Nouveaux prestataires à contacter</li>
-<li>Problèmes avec prestataires actuels</li>
-<li>Négociations et contrats</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions concernant les prestataires</li>
-</ul>
+**Décisions prises :**
+- Liste à puces des décisions prises (ou "- Aucune décision")
 
-<h3><strong>📚 FORMATION ET DÉVELOPPEMENT</strong></h3>
-<h4><strong>Points discutés:</strong></h4>
-<ul>
-<li>Formations prévues ou planifiées</li>
-<li>Nouvelles compétences à développer</li>
-<li>Mise à jour des connaissances médicales</li>
-<li>Conférences et séminaires</li>
-</ul>
-<h4><strong>Décisions prises:</strong></h4>
-<ul>
-<li>Décisions sur les formations</li>
-</ul>
+RÈGLES :
+• Si une catégorie n'a pas été abordée, ne l'affiche pas
+• Utilise les noms des participants dans les décisions/actions
+• Sois précis et concis
+• Ne renvoie que le résumé en Markdown
+• Assure-toi de couvrir TOUS les points mentionnés dans la réunion
 
-Retourne UNIQUEMENT le résumé HTML structuré, sans autre texte, sans préfixe "html".
+Retourne UNIQUEMENT le résumé Markdown structuré, sans autre texte.
 
 Transcript:
 ${cleanedTranscript}`;
@@ -289,7 +248,7 @@ ${cleanedTranscript}`;
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT du HTML valide et structuré par catégories, sans préfixe "html".'
+            content: 'Tu es un assistant spécialisé dans la création de résumés de réunions pour cabinet médical. Tu retournes UNIQUEMENT du Markdown valide et structuré par catégories.'
           },
           {
             role: 'user',
@@ -301,17 +260,16 @@ ${cleanedTranscript}`;
       }),
     });
 
-    let summary = '<p>Résumé automatique généré.</p>';
+    let summary = '**Résumé automatique généré.**';
     if (summaryResponse.ok) {
       const summaryData = await summaryResponse.json();
       summary = summaryData.choices[0].message.content.trim();
       
-      // Remove "html" prefix if present
-      if (summary.startsWith('html')) {
-        summary = summary.substring(4).trim();
-      }
-      if (summary.startsWith('```html')) {
-        summary = summary.replace(/^```html\s*/, '').replace(/\s*```$/, '');
+      // Remove markdown code block if present
+      if (summary.startsWith('```markdown')) {
+        summary = summary.replace(/^```markdown\s*/, '').replace(/\s*```$/, '');
+      } else if (summary.startsWith('```')) {
+        summary = summary.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
       
       console.log('Summary generated successfully, length:', summary.length);

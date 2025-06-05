@@ -3,10 +3,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Edit2, Save, X } from "lucide-react";
+import { Edit2, Save, X, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Editor } from '@tinymce/tinymce-react';
+import ReactMarkdown from 'react-markdown';
 
 interface EditableContentProps {
   content: string;
@@ -20,6 +20,7 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
 
   const handleSave = async () => {
@@ -50,6 +51,7 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
 
       onSave(editedContent);
       setIsEditing(false);
+      setShowPreview(false);
       toast({
         title: "Sauvegardé",
         description: `${type === 'summary' ? 'Résumé' : 'Tâche'} mis à jour avec succès`,
@@ -69,31 +71,61 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
   const handleCancel = () => {
     setEditedContent(content);
     setIsEditing(false);
+    setShowPreview(false);
   };
 
   if (isEditing) {
     return (
       <div className={className}>
         {type === 'summary' ? (
-          <div className="border rounded-md">
-            <Editor
-              apiKey="no-api-key"
-              value={editedContent}
-              onEditorChange={(value) => setEditedContent(value || '')}
-              init={{
-                height: 300,
-                menubar: false,
-                plugins: [
-                  'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                  'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                  'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                ],
-                toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
-                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
-                branding: false,
-                disabled: isSaving
-              }}
-            />
+          <div className="space-y-3">
+            <div className="flex gap-2 mb-2">
+              <Button
+                size="sm"
+                variant={showPreview ? "outline" : "secondary"}
+                onClick={() => setShowPreview(false)}
+                disabled={isSaving}
+              >
+                Éditer
+              </Button>
+              <Button
+                size="sm"
+                variant={showPreview ? "secondary" : "outline"}
+                onClick={() => setShowPreview(true)}
+                disabled={isSaving}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Aperçu
+              </Button>
+            </div>
+            
+            {showPreview ? (
+              <div className="border rounded-md p-4 bg-gray-50 min-h-[300px]">
+                <ReactMarkdown 
+                  className="prose prose-sm max-w-none"
+                  components={{
+                    h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
+                    strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                    ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
+                    li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+                    p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
+                  }}
+                >
+                  {editedContent || '*Aperçu vide*'}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <Textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                disabled={isSaving}
+                rows={15}
+                className="font-mono text-sm"
+                placeholder="Écrivez votre résumé en Markdown..."
+              />
+            )}
           </div>
         ) : (
           <Input
@@ -102,7 +134,7 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
             disabled={isSaving}
           />
         )}
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-2 mt-3">
           <Button
             size="sm"
             onClick={handleSave}
@@ -129,10 +161,20 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
     <div className={`group ${className}`}>
       <div className="relative">
         {type === 'summary' ? (
-          <div 
+          <ReactMarkdown 
             className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: content }}
-          />
+            components={{
+              h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700">{children}</h3>,
+              strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+              ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1">{children}</ul>,
+              li: ({ children }) => <li className="text-sm text-gray-700">{children}</li>,
+              p: ({ children }) => <p className="mb-2 text-sm text-gray-700">{children}</p>,
+            }}
+          >
+            {content}
+          </ReactMarkdown>
         ) : (
           <span>{content}</span>
         )}
