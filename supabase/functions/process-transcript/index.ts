@@ -7,6 +7,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to clean JSON response from OpenAI
+function cleanJSONResponse(content: string): string {
+  // Remove markdown code blocks
+  let cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+  
+  // Remove any leading/trailing whitespace
+  cleaned = cleaned.trim();
+  
+  // If it starts with { or [, it's likely valid JSON
+  if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+    return cleaned;
+  }
+  
+  // Try to find JSON within the response
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return jsonMatch[0];
+  }
+  
+  throw new Error('No valid JSON found in response');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -43,7 +65,7 @@ serve(async (req) => {
     
     console.log('Participant names for transcript processing:', participantNames)
 
-    // Premier appel OpenAI : Nettoyer et structurer le transcript en utilisant uniquement les noms des participants
+    // Premier appel OpenAI : Nettoyer et structurer le transcript
     const transcriptPrompt = `Tu es un assistant spécialisé dans la transcription de réunions. 
 
 Voici un transcript brut d'une réunion avec les participants suivants : ${participantNames}
@@ -69,7 +91,7 @@ Retourne le transcript complet avec les noms des participants assignés intellig
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: transcriptPrompt }],
         temperature: 0.3,
       }),
@@ -121,7 +143,7 @@ Le résumé doit être informatif mais concis, mettant l'accent sur les élémen
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: summaryPrompt }],
         temperature: 0.5,
       }),
@@ -150,7 +172,7 @@ Le résumé doit être informatif mais concis, mettant l'accent sur les élémen
       console.log('Summary generated and saved successfully')
     }
 
-    // Troisième appel OpenAI : Extraire les tâches avec recommandations et emails
+    // Troisième appel OpenAI : Extraire les tâches avec format JSON strict
     const tasksPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les tâches, actions et suivis mentionnés ou impliqués.
 
 Participants de la réunion : ${participantNames}
@@ -168,7 +190,7 @@ IMPORTANT pour les communications :
 Transcript :
 ${cleanedTranscript}
 
-Retourne un JSON avec cette structure exacte :
+IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette structure exacte :
 {
   "tasks": [
     {
@@ -178,9 +200,7 @@ Retourne un JSON avec cette structure exacte :
       "emailDraft": "Draft d'email si needsCommunication est true, sinon null"
     }
   ]
-}
-
-Assure-toi que le JSON est valide et bien formaté.`
+}`
 
     const tasksResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -189,7 +209,7 @@ Assure-toi que le JSON est valide et bien formaté.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: tasksPrompt }],
         temperature: 0.3,
       }),
@@ -207,12 +227,20 @@ Assure-toi que le JSON est valide et bien formaté.`
     let extractedTasks = []
     if (tasksContent) {
       try {
-        const tasksJson = JSON.parse(tasksContent)
+        // Nettoyer la réponse avant le parsing
+        const cleanedTasksContent = cleanJSONResponse(tasksContent)
+        console.log('Cleaned tasks content:', cleanedTasksContent)
+        
+        const tasksJson = JSON.parse(cleanedTasksContent)
         extractedTasks = tasksJson.tasks || []
         console.log(`Extracted ${extractedTasks.length} tasks from transcript`)
       } catch (parseError) {
         console.error('Error parsing tasks JSON:', parseError)
         console.log('Raw tasks content:', tasksContent)
+        
+        // Fallback: essayer de récupérer les tâches manuellement
+        console.log('Attempting manual task extraction as fallback')
+        extractedTasks = []
       }
     }
 

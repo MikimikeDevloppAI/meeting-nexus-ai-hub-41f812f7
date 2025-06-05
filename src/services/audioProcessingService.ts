@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -211,43 +210,47 @@ export class AudioProcessingService {
       const response = await supabase.functions.invoke('process-transcript', {
         body: {
           meetingId,
-          audioUrl: null, // We already have the transcript
           participants,
           transcript // Pass the transcript directly
         }
       });
 
       if (response.error) {
+        console.error('[OPENAI] Edge function error:', response.error);
         throw new Error(`OpenAI processing failed: ${response.error.message}`);
       }
 
       const result = response.data;
-      console.log('[OPENAI] Processing completed successfully');
+      console.log('[OPENAI] Processing completed successfully:', result);
 
-      // Save embeddings using the CLEANED transcript from OpenAI
-      if (result.processedTranscript) {
-        console.log('[EMBEDDINGS] Creating embeddings for cleaned transcript...');
-        const textToEmbed = result.processedTranscript; // Use the cleaned version
-        const chunks = chunkText(textToEmbed);
-        
-        if (chunks.length > 0) {
-          console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks from cleaned transcript`);
-          const embeddings = await generateEmbeddings(chunks);
-          await this.saveEmbeddings(meetingId, chunks, embeddings, textToEmbed);
-        }
-      } else {
-        console.warn('[EMBEDDINGS] No processed transcript available, using original');
-        const chunks = chunkText(transcript);
-        if (chunks.length > 0) {
-          const embeddings = await generateEmbeddings(chunks);
-          await this.saveEmbeddings(meetingId, chunks, embeddings, transcript);
-        }
+      // Process embeddings in background to improve performance
+      if (result.processedTranscript || transcript) {
+        console.log('[EMBEDDINGS] Starting background embeddings processing...');
+        this.processEmbeddingsInBackground(meetingId, result.processedTranscript || transcript);
       }
 
       return result;
     } catch (error: any) {
       console.error('[OPENAI] Processing failed:', error);
       throw error;
+    }
+  }
+
+  // Process embeddings in background to improve performance
+  private static async processEmbeddingsInBackground(meetingId: string, transcriptContent: string) {
+    try {
+      console.log('[EMBEDDINGS] Creating embeddings for transcript in background...');
+      const chunks = chunkText(transcriptContent);
+      
+      if (chunks.length > 0) {
+        console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks from transcript`);
+        const embeddings = await generateEmbeddings(chunks);
+        await this.saveEmbeddings(meetingId, chunks, embeddings, transcriptContent);
+        console.log('[EMBEDDINGS] Background embeddings processing completed successfully');
+      }
+    } catch (error) {
+      console.error('[EMBEDDINGS] Background embeddings processing failed:', error);
+      // Don't throw error as this is background processing
     }
   }
 
