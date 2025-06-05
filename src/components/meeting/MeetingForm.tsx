@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -6,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
 import { ProcessingSteps } from "./ProcessingSteps";
 import { ParticipantsSection } from "./ParticipantsSection";
 import { AudioRecordingSection } from "./AudioRecordingSection";
@@ -53,7 +51,15 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
+  // Local state to control form visibility - independent from isSubmitting
+  const [showForm, setShowForm] = useState(true);
+  
   const { toast } = useToast();
+
+  // Reset form visibility when component mounts
+  useEffect(() => {
+    setShowForm(true);
+  }, []);
 
   // Only show processing and results when actually submitting
   const showProcessingView = isSubmitting;
@@ -136,13 +142,14 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
 
   const handleSubmit = () => {
     setMeetingResults({}); // Reset results
+    setShowForm(false); // Hide form immediately when submit is clicked
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form when not processing */}
-      {!showProcessingView && (
+      {/* Show form only when showForm is true */}
+      {showForm && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -192,8 +199,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
         </Card>
       )}
 
-      {/* Show processing and results only when submitting */}
-      {showProcessingView && (
+      {/* Show processing and results only when form is hidden */}
+      {!showForm && (
         <>
           <ProcessingSteps 
             isSubmitting={isSubmitting}
