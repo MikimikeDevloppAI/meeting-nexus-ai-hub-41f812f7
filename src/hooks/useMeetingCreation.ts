@@ -217,18 +217,16 @@ export const useMeetingCreation = () => {
       // Wait longer to show completion and add navigation message
       console.log('[NAVIGATION] Preparing navigation to meeting page...');
       
-      // Navigate after sufficient delay to show completion
+      // Navigate after sufficient delay to show completion - DON'T set isSubmitting to false here
       setTimeout(() => {
         console.log('[NAVIGATION] Navigating to meeting:', meetingId);
-        setIsSubmitting(false); // Only set to false just before navigation
         navigate(`/meetings/${meetingId}`);
-      }, 2000); // Increased delay to 2 seconds
+        // Reset state AFTER navigation is triggered
+        setIsSubmitting(false);
+      }, 3000); // Increased delay to 3 seconds to see completion
 
     } catch (error: any) {
       console.error("[ERROR] Erreur lors de la création de la réunion:", error);
-      
-      // Reset submitting state on error
-      setIsSubmitting(false);
       
       // Better error handling for authentication issues
       if (error.message?.includes('auth') || error.message?.includes('unauthorized') || error.message?.includes('JWT')) {
@@ -239,6 +237,7 @@ export const useMeetingCreation = () => {
           variant: "destructive",
           duration: 10000,
         });
+        setIsSubmitting(false); // Reset on auth error
         navigate("/login");
         return;
       }
@@ -254,8 +253,11 @@ export const useMeetingCreation = () => {
         });
         setTimeout(() => {
           navigate(`/meetings/${meetingId}`);
+          setIsSubmitting(false); // Reset after navigation
         }, 1000);
       } else {
+        // Only reset isSubmitting on complete failure
+        setIsSubmitting(false);
         toast({
           title: "Erreur de création de la réunion",
           description: error.message || "Veuillez réessayer",
@@ -264,7 +266,6 @@ export const useMeetingCreation = () => {
         });
       }
     }
-    // Removed finally block that was setting isSubmitting to false
   };
 
   return {
