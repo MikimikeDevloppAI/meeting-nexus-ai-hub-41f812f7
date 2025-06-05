@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +38,8 @@ interface MeetingFormProps {
 }
 
 export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit }: MeetingFormProps) => {
+  console.log('[MeetingForm] Component mounted/rendered');
+  
   const [title, setTitle] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -51,18 +54,18 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
     tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
   }>({});
   
-  // Local state to control form visibility - independent from isSubmitting
-  const [showForm, setShowForm] = useState(true);
+  // Simple boolean to control form visibility - always true initially
+  const [formVisible, setFormVisible] = useState(true);
   
   const { toast } = useToast();
 
-  // Reset form visibility when component mounts
-  useEffect(() => {
-    setShowForm(true);
-  }, []);
+  console.log('[MeetingForm] formVisible:', formVisible, 'isSubmitting:', isSubmitting);
 
-  // Only show processing and results when actually submitting
-  const showProcessingView = isSubmitting;
+  // Always show form initially when component mounts
+  useEffect(() => {
+    console.log('[MeetingForm] useEffect - setting formVisible to true');
+    setFormVisible(true);
+  }, []);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -141,15 +144,16 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   };
 
   const handleSubmit = () => {
+    console.log('[MeetingForm] handleSubmit - hiding form');
     setMeetingResults({}); // Reset results
-    setShowForm(false); // Hide form immediately when submit is clicked
+    setFormVisible(false); // Hide form immediately when submit is clicked
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
   };
 
   return (
     <div className="space-y-6">
-      {/* Show form only when showForm is true */}
-      {showForm && (
+      {/* Show form when formVisible is true */}
+      {formVisible && (
         <Card className="p-6 mb-6">
           <div className="space-y-6">
             <div className="space-y-4">
@@ -200,7 +204,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
       )}
 
       {/* Show processing and results only when form is hidden */}
-      {!showForm && (
+      {!formVisible && (
         <>
           <ProcessingSteps 
             isSubmitting={isSubmitting}

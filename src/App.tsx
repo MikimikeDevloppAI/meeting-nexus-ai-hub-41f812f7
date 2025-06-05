@@ -39,6 +39,7 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="new-meeting" element={<NewMeeting />} />
+              <Route path="meetings/new" element={<NewMeeting />} />
               <Route path="meetings" element={<Meetings />} />
               <Route path="meetings/:id" element={<MeetingDetail />} />
               <Route path="todos" element={<Todos />} />
