@@ -225,25 +225,60 @@ ${transcript}`
       throw transcriptError
     }
 
-    // Sauvegarder le transcript dans la table documents pour les embeddings
-    console.log('Saving transcript to documents table...')
-    const { data: documentData, error: documentError } = await supabaseClient
+    // CORRECTION: Vérifier d'abord si un document existe déjà pour ce meeting
+    console.log('Checking if document already exists for this meeting...')
+    const { data: existingDocument, error: checkError } = await supabaseClient
       .from('documents')
-      .insert({
-        title: `Transcript - ${meetingName}`,
-        type: 'meeting_transcript',
-        content: cleanedTranscript,
-        metadata: { meeting_id: meetingId, meeting_date: meetingDate }
-      })
-      .select()
-      .single()
+      .select('id')
+      .eq('metadata->meeting_id', meetingId)
+      .eq('type', 'meeting_transcript')
+      .maybeSingle()
 
-    if (documentError) {
-      console.error('Error saving document:', documentError)
-      throw new Error('Failed to save document for embeddings')
+    if (checkError) {
+      console.error('Error checking existing document:', checkError)
     }
 
-    console.log('Document saved successfully:', documentData.id)
+    let documentData;
+    if (existingDocument) {
+      console.log('Document already exists, updating content...')
+      // Mettre à jour le document existant
+      const { data: updatedDoc, error: updateError } = await supabaseClient
+        .from('documents')
+        .update({
+          content: cleanedTranscript,
+          title: `Transcript - ${meetingName}`,
+        })
+        .eq('id', existingDocument.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Error updating existing document:', updateError)
+        throw new Error('Failed to update existing document')
+      }
+      documentData = updatedDoc;
+    } else {
+      console.log('Creating new document for transcript...')
+      // Créer un nouveau document seulement s'il n'existe pas
+      const { data: newDoc, error: documentError } = await supabaseClient
+        .from('documents')
+        .insert({
+          title: `Transcript - ${meetingName}`,
+          type: 'meeting_transcript',
+          content: cleanedTranscript,
+          metadata: { meeting_id: meetingId, meeting_date: meetingDate }
+        })
+        .select()
+        .single()
+
+      if (documentError) {
+        console.error('Error saving document:', documentError)
+        throw new Error('Failed to save document for embeddings')
+      }
+      documentData = newDoc;
+    }
+
+    console.log('Document processed successfully:', documentData.id)
 
     // Créer les chunks pour les embeddings
     console.log('Creating chunks for embeddings...')
@@ -251,6 +286,17 @@ ${transcript}`
     console.log(`Created ${chunks.length} chunks for embeddings`)
 
     if (chunks.length > 0) {
+      // CORRECTION: Supprimer les anciens embeddings pour ce document s'ils existent
+      console.log('Removing existing embeddings for this document...')
+      const { error: deleteError } = await supabaseClient
+        .from('document_embeddings')
+        .delete()
+        .eq('document_id', documentData.id)
+
+      if (deleteError) {
+        console.warn('Warning: Could not delete existing embeddings:', deleteError)
+      }
+
       // Générer les embeddings via la fonction edge
       console.log('Generating embeddings...')
       const { data: embeddingsResult, error: embeddingsError } = await supabaseClient.functions.invoke('generate-embeddings', {

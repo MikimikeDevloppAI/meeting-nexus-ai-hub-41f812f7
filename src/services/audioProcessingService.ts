@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
@@ -223,11 +224,8 @@ export class AudioProcessingService {
       const result = response.data;
       console.log('[OPENAI] Processing completed successfully:', result);
 
-      // Process embeddings in background to improve performance
-      if (result.processedTranscript || transcript) {
-        console.log('[EMBEDDINGS] Starting background embeddings processing...');
-        this.processEmbeddingsInBackground(meetingId, result.processedTranscript || transcript);
-      }
+      // CORRECTION: Ne plus traiter les embeddings ici car c'est déjà fait dans process-transcript
+      console.log('[EMBEDDINGS] Embeddings processing handled by process-transcript function');
 
       return result;
     } catch (error: any) {
@@ -236,89 +234,8 @@ export class AudioProcessingService {
     }
   }
 
-  // Process embeddings in background to improve performance
-  private static async processEmbeddingsInBackground(meetingId: string, transcriptContent: string) {
-    try {
-      console.log('[EMBEDDINGS] Creating embeddings for transcript in background...');
-      const chunks = chunkText(transcriptContent);
-      
-      if (chunks.length > 0) {
-        console.log(`[EMBEDDINGS] Created ${chunks.length} unique chunks from transcript`);
-        const embeddings = await generateEmbeddings(chunks);
-        await this.saveEmbeddings(meetingId, chunks, embeddings, transcriptContent);
-        console.log('[EMBEDDINGS] Background embeddings processing completed successfully');
-      }
-    } catch (error) {
-      console.error('[EMBEDDINGS] Background embeddings processing failed:', error);
-      // Don't throw error as this is background processing
-    }
-  }
+  // CORRECTION: Supprimer la fonction processEmbeddingsInBackground car elle cause la duplication
+  // Les embeddings sont maintenant gérés uniquement dans process-transcript
 
-  private static async saveEmbeddings(
-    meetingId: string, 
-    chunks: string[], 
-    embeddings: number[][],
-    fullTranscript: string
-  ) {
-    try {
-      console.log(`[EMBEDDINGS] Starting to save ${embeddings.length} embeddings for meeting ${meetingId}`);
-      
-      // First, store the document
-      const { data: documentData, error: documentError } = await supabase
-        .from('documents')
-        .insert({
-          title: `Meeting Transcript - ${meetingId}`,
-          type: 'meeting_transcript',
-          content: fullTranscript,
-          metadata: { meeting_id: meetingId }
-        })
-        .select()
-        .single();
-
-      if (documentError) {
-        console.error('[EMBEDDINGS] Error creating document:', documentError);
-        throw documentError;
-      }
-
-      console.log(`[EMBEDDINGS] Document created with ID: ${documentData.id}`);
-
-      // Then store embeddings in batches
-      const batchSize = 10;
-      for (let i = 0; i < embeddings.length; i += batchSize) {
-        const batch = [];
-        const endIndex = Math.min(i + batchSize, embeddings.length);
-        
-        for (let j = i; j < endIndex; j++) {
-          // Convert embedding array to the format expected by the vector type
-          const embeddingVector = `[${embeddings[j].join(',')}]`;
-          
-          batch.push({
-            document_id: documentData.id,
-            meeting_id: meetingId,
-            embedding: embeddingVector,
-            chunk_text: chunks[j],
-            chunk_index: j,
-            type: 'meeting_transcript',
-            metadata: { meeting_id: meetingId, chunk_index: j }
-          });
-        }
-
-        const { error: embeddingError } = await supabase
-          .from('document_embeddings')
-          .insert(batch);
-
-        if (embeddingError) {
-          console.error(`[EMBEDDINGS] Error saving batch ${i / batchSize + 1}:`, embeddingError);
-          throw embeddingError;
-        }
-
-        console.log(`[EMBEDDINGS] Saved batch ${i / batchSize + 1}/${Math.ceil(embeddings.length / batchSize)}`);
-      }
-
-      console.log(`[EMBEDDINGS] Successfully saved all ${embeddings.length} embeddings`);
-    } catch (error) {
-      console.error('[EMBEDDINGS] Failed to save embeddings:', error);
-      throw error;
-    }
-  }
+  // CORRECTION: Supprimer la fonction saveEmbeddings car elle n'est plus utilisée
 }
