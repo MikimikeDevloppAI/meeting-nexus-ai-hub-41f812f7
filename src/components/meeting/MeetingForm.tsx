@@ -56,6 +56,18 @@ export const MeetingForm = ({ isSubmitting, processingSteps, progress, onSubmit 
   
   const { toast } = useToast();
 
+  // Reset form state when component mounts (ensures form shows on new meeting page)
+  useEffect(() => {
+    setHasStartedSubmission(false);
+    setMeetingResults({});
+    setTitle("");
+    setAudioBlob(null);
+    setAudioFile(null);
+    setAudioUrl(null);
+    setSelectedParticipantIds([]);
+    setIsRecording(false);
+  }, []);
+
   useEffect(() => {
     const fetchParticipants = async () => {
       try {
