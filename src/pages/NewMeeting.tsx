@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 const NewMeeting = () => {
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
-  const { isSubmitting, processingSteps, progress, createMeeting, resetMeetingCreation, cleanupOnUnmount } = useMeetingCreation();
+  const { isSubmitting, processingSteps, createMeeting, resetMeetingCreation, cleanupOnUnmount } = useMeetingCreation();
 
   // Only reset meeting creation state when component mounts AND not currently submitting
   useEffect(() => {
@@ -79,7 +79,6 @@ const NewMeeting = () => {
       <MeetingForm
         isSubmitting={isSubmitting}
         processingSteps={processingSteps}
-        progress={progress}
         onSubmit={createMeeting}
       />
     </div>
