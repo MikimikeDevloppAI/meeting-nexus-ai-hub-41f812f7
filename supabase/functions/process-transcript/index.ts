@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -386,32 +385,33 @@ ${cleanedTranscript}`
       console.log('Summary generated and saved successfully')
     }
 
-    // Troisième appel OpenAI : Extraire les tâches avec format JSON strict
+    // Troisième appel OpenAI : Extraire les tâches avec assignation améliorée
+    const participantNames = participants.map((p: any) => p.name).join(', ')
     const tasksPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les tâches, actions et suivis mentionnés ou impliqués.
 
 Participants de la réunion : ${participantNames}
 
-Pour chaque tâche identifiée, détermine :
-1. La description précise de la tâche
-2. La personne responsable (si mentionnée explicitement ou si on peut l'inférer)
-3. Si une communication (email, appel, message) est nécessaire pour cette tâche
+**RÈGLES D'ASSIGNATION STRICTES:**
+- Assigne une tâche à un participant SEULEMENT si c'est explicitement mentionné ou clairement déductible du contexte
+- Si aucune assignation claire n'est possible, laisse "assignedTo" à null
+- Utilise les noms EXACTS des participants : ${participantNames}
+- Ne génère AUCUN email draft - ceci sera géré séparément
 
-IMPORTANT pour les communications :
-- Si la tâche implique de contacter quelqu'un, coordonner avec une équipe, demander des informations, faire un suivi, etc.
-- Génère automatiquement un draft d'email professionnel même si ce n'est pas explicitement mentionné
-- L'email doit être personnalisé selon le contexte et l'objectif de la communication
+**RÈGLES D'EXTRACTION:**
+- Identifie toutes les actions concrètes à entreprendre
+- Inclus les suivis, communications, recherches, achats, etc.
+- Sois précis dans la description de chaque tâche
+- N'invente pas de tâches qui ne sont pas mentionnées
 
 Transcript :
 ${cleanedTranscript}
 
-IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette structure exacte :
+IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
       "description": "Description précise de la tâche",
-      "assignedTo": "Nom du participant responsable ou null",
-      "needsCommunication": true/false,
-      "emailDraft": "Draft d'email si needsCommunication est true, sinon null"
+      "assignedTo": "Nom exact du participant ou null"
     }
   ]
 }`
@@ -441,7 +441,6 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
     let extractedTasks = []
     if (tasksContent) {
       try {
-        // Nettoyer la réponse avant le parsing
         const cleanedTasksContent = cleanJSONResponse(tasksContent)
         console.log('Cleaned tasks content:', cleanedTasksContent)
         
@@ -451,25 +450,52 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
       } catch (parseError) {
         console.error('Error parsing tasks JSON:', parseError)
         console.log('Raw tasks content:', tasksContent)
-        
-        // Fallback: essayer de récupérer les tâches manuellement
-        console.log('Attempting manual task extraction as fallback')
         extractedTasks = []
       }
     }
 
-    // Sauvegarder les tâches dans la base de données
+    // Sauvegarder les tâches avec assignation améliorée
     const savedTasks = []
     for (const task of extractedTasks) {
       try {
-        // Trouver l'ID du participant assigné
+        // Améliorer la logique de matching des participants
         let assignedToId = null
         if (task.assignedTo) {
-          const assignedParticipant = participants.find((p: any) => 
-            p.name.toLowerCase().includes(task.assignedTo.toLowerCase()) ||
-            task.assignedTo.toLowerCase().includes(p.name.toLowerCase())
+          // Recherche exacte d'abord
+          let assignedParticipant = participants.find((p: any) => 
+            p.name.toLowerCase() === task.assignedTo.toLowerCase()
           )
+          
+          // Si pas trouvé, recherche partielle améliorée
+          if (!assignedParticipant) {
+            assignedParticipant = participants.find((p: any) => {
+              const participantNameLower = p.name.toLowerCase()
+              const assignedToLower = task.assignedTo.toLowerCase()
+              
+              // Vérifier si l'un contient l'autre avec un minimum de caractères
+              return (participantNameLower.includes(assignedToLower) && assignedToLower.length >= 3) ||
+                     (assignedToLower.includes(participantNameLower) && participantNameLower.length >= 3)
+            })
+          }
+          
+          // Si toujours pas trouvé, recherche par mots individuels
+          if (!assignedParticipant) {
+            const assignedWords = task.assignedTo.toLowerCase().split(' ')
+            assignedParticipant = participants.find((p: any) => {
+              const participantWords = p.name.toLowerCase().split(' ')
+              return assignedWords.some(word => 
+                word.length >= 3 && participantWords.some(pWord => pWord.includes(word))
+              )
+            })
+          }
+          
           assignedToId = assignedParticipant?.id || null
+          
+          if (assignedToId) {
+            console.log(`✅ Assigned task "${task.description}" to ${assignedParticipant.name}`)
+          } else {
+            console.log(`⚠️ Could not match "${task.assignedTo}" to any participant for task: ${task.description}`)
+          }
         }
 
         // Insérer la tâche
@@ -489,30 +515,11 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
           continue
         }
 
-        // Si une communication est nécessaire, générer une recommandation avec email
-        if (task.needsCommunication && task.emailDraft) {
-          const recommendationText = `Communication recommandée pour cette tâche. Un email draft a été préparé pour faciliter le suivi.`
-          
-          const { error: recommendationError } = await supabaseClient
-            .from('todo_ai_recommendations')
-            .insert({
-              todo_id: todoData.id,
-              recommendation_text: recommendationText,
-              email_draft: task.emailDraft
-            })
-
-          if (recommendationError) {
-            console.error('Error saving AI recommendation:', recommendationError)
-          } else {
-            console.log('AI recommendation with email draft saved for task:', task.description)
-          }
-        }
-
         savedTasks.push({
           id: todoData.id,
           description: task.description,
           assignedTo: task.assignedTo,
-          needsCommunication: task.needsCommunication
+          assignedToId: assignedToId
         })
 
       } catch (taskError) {
@@ -520,8 +527,69 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
       }
     }
 
+    // NOUVELLE LOGIQUE: Générer des recommandations avec le nouvel agent
+    console.log('🤖 Generating AI recommendations using specialized agent...')
+    
+    for (const task of savedTasks) {
+      try {
+        console.log(`🎯 Processing recommendations for task: ${task.description}`)
+        
+        // Appeler le nouvel agent de recommandations
+        const { data: recommendationResult, error: recommendationError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
+          body: {
+            task: { description: task.description },
+            transcript: cleanedTranscript,
+            meetingContext: {
+              title: meetingName,
+              date: meetingDate,
+              participants: participantNames
+            },
+            participants: participants
+          }
+        });
+
+        if (recommendationError) {
+          console.error('Error calling task recommendation agent:', recommendationError);
+          continue;
+        }
+
+        if (recommendationResult?.recommendation?.hasRecommendation) {
+          const rec = recommendationResult.recommendation;
+          
+          // Sauvegarder la recommandation
+          const { error: saveError } = await supabaseClient
+            .from('todo_ai_recommendations')
+            .insert({
+              todo_id: task.id,
+              recommendation_text: rec.recommendation,
+              email_draft: rec.needsExternalEmail ? rec.emailDraft : null
+            });
+
+          if (saveError) {
+            console.error('Error saving AI recommendation:', saveError);
+          } else {
+            console.log(`✅ AI recommendation saved for task: ${task.description}`);
+            if (rec.externalProviders?.length > 0) {
+              console.log(`📋 Providers found: ${rec.externalProviders.join(', ')}`);
+            }
+          }
+        } else {
+          console.log(`ℹ️ No valuable recommendation for task: ${task.description}`);
+        }
+
+        // Marquer que l'IA a traité cette tâche
+        await supabaseClient
+          .from('todos')
+          .update({ ai_recommendation_generated: true })
+          .eq('id', task.id);
+
+      } catch (recError) {
+        console.error('Error processing recommendation for task:', task.description, recError);
+      }
+    }
+
     console.log(`Successfully processed transcript for meeting ${meetingId}`)
-    console.log(`Saved ${savedTasks.length} tasks with recommendations`)
+    console.log(`Saved ${savedTasks.length} tasks with AI recommendations`)
     console.log(`Generated ${chunks.length} embedding chunks for the document`)
 
     return new Response(
@@ -532,7 +600,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide sans balises markdown, avec cette 
         tasks: savedTasks,
         embeddingsCount: chunks.length,
         documentId: documentData.id,
-        message: `Successfully processed transcript, extracted ${savedTasks.length} tasks, and created ${chunks.length} embedding chunks`
+        message: `Successfully processed transcript, extracted ${savedTasks.length} tasks with AI recommendations, and created ${chunks.length} embedding chunks`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
