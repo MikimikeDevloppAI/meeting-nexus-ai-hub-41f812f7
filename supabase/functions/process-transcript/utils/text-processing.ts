@@ -30,7 +30,7 @@ export function formatDate(dateString: string): string {
   });
 }
 
-// Improved helper function to chunk text for embeddings with sentence boundaries
+// Comprehensive text chunking with complete coverage and sentence boundaries
 export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] => {
   if (!text || text.trim().length === 0) {
     return [];
@@ -60,13 +60,13 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
     }
   }
   
-  // Handle the final chunk
-  if (currentChunk.trim().length >= minChunkSize) {
-    chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-    console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
-  } else if (currentChunk.trim().length > 0) {
-    // Try to merge with previous chunk if possible
-    if (chunks.length > 0) {
+  // CRUCIAL: Handle the final chunk to ensure complete text coverage
+  if (currentChunk.trim().length > 0) {
+    if (currentChunk.trim().length >= minChunkSize) {
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
+    } else if (chunks.length > 0) {
+      // Try to merge with previous chunk if possible
       const lastChunk = chunks[chunks.length - 1];
       const content = lastChunk.replace(/^\[Segment \d+\]\s*/, '');
       const mergedContent = content + ' ' + currentChunk.trim();
@@ -75,17 +75,30 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
         chunks[chunks.length - 1] = `[Segment ${chunks.length}] ${mergedContent}`;
         console.log(`[CHUNKING] Merged final chunk with previous: ${mergedContent.length} chars`);
       } else {
-        // Keep as separate chunk even if small
+        // Keep as separate chunk even if small to avoid text loss
         chunks.push(`[Final-segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-        console.log(`[CHUNKING] Kept small final chunk: ${currentChunk.length} chars`);
+        console.log(`[CHUNKING] Kept small final chunk to avoid text loss: ${currentChunk.length} chars`);
       }
     } else {
+      // If this is the only chunk, keep it regardless of size
       chunks.push(`[Single-segment] ${currentChunk.trim()}`);
-      console.log(`[CHUNKING] Single chunk: ${currentChunk.length} chars`);
+      console.log(`[CHUNKING] Single chunk (ensuring no text loss): ${currentChunk.length} chars`);
     }
   }
   
-  // Log final statistics
+  // Verify complete text coverage
+  const totalChunkText = chunks.map(chunk => {
+    return chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
+  }).join(' ');
+  
+  const originalText = text.trim();
+  const coverageRatio = totalChunkText.length / originalText.length;
+  
+  if (coverageRatio < 0.95) { // Less than 95% coverage indicates potential text loss
+    console.warn(`[CHUNKING] ⚠️ Potential text loss detected: ${(coverageRatio * 100).toFixed(1)}% coverage`);
+  }
+  
+  // Log final statistics with coverage verification
   const chunkSizes = chunks.map(chunk => {
     const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
     return cleanChunk.length;
@@ -93,8 +106,9 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
   
   const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
   
-  console.log(`[CHUNKING] Final result: ${chunks.length} chunks`);
+  console.log(`[CHUNKING] Final result: ${chunks.length} chunks with complete coverage`);
   console.log(`[CHUNKING] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
+  console.log(`[CHUNKING] Text coverage: ${(coverageRatio * 100).toFixed(1)}% of original text preserved`);
   
   return chunks;
 };

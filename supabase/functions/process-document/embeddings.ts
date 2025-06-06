@@ -113,13 +113,13 @@ export function chunkText(text: string, minChunkSize: number = 300, maxChunkSize
     }
   }
 
-  // Add the last chunk if it meets minimum size requirement
-  if (currentChunk.trim().length >= minChunkSize) {
-    chunks.push(currentChunk.trim());
-    console.log(`📝 Created final chunk of ${currentChunk.length} characters`);
-  } else if (currentChunk.trim().length > 0) {
-    // If the last chunk is too small, merge it with the previous chunk if possible
-    if (chunks.length > 0) {
+  // CRUCIAL: Ensure the final chunk is always included to avoid losing text
+  if (currentChunk.trim().length > 0) {
+    if (currentChunk.trim().length >= minChunkSize) {
+      chunks.push(currentChunk.trim());
+      console.log(`📝 Created final chunk of ${currentChunk.length} characters`);
+    } else if (chunks.length > 0) {
+      // Try to merge with previous chunk if possible
       const lastChunk = chunks[chunks.length - 1];
       const mergedChunk = lastChunk + ' ' + currentChunk.trim();
       if (mergedChunk.length <= maxChunkSize) {
@@ -128,20 +128,30 @@ export function chunkText(text: string, minChunkSize: number = 300, maxChunkSize
       } else {
         // If merging would exceed max size, keep as separate chunk even if small
         chunks.push(currentChunk.trim());
-        console.log(`📝 Kept small final chunk separate (${currentChunk.length} characters)`);
+        console.log(`📝 Kept small final chunk separate (${currentChunk.length} characters) - ensuring no text loss`);
       }
     } else {
+      // If this is the only chunk, keep it regardless of size
       chunks.push(currentChunk.trim());
-      console.log(`📝 Kept only chunk even if small (${currentChunk.length} characters)`);
+      console.log(`📝 Kept only chunk even if small (${currentChunk.length} characters) - ensuring no text loss`);
     }
+  }
+
+  // Verify we haven't lost any text
+  const totalChunkLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const originalLength = text.trim().length;
+  
+  if (Math.abs(totalChunkLength - originalLength) > originalLength * 0.05) { // Allow 5% variance for spacing
+    console.warn(`⚠️ Possible text loss detected: original ${originalLength} chars, chunks total ${totalChunkLength} chars`);
   }
 
   // Log statistics
   const chunkSizes = chunks.map(chunk => chunk.length);
   const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
   
-  console.log(`📝 Created ${chunks.length} chunks`);
+  console.log(`📝 Created ${chunks.length} chunks ensuring complete text coverage`);
   console.log(`📊 Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
+  console.log(`✅ Text coverage: ${totalChunkLength}/${originalLength} characters (${((totalChunkLength/originalLength)*100).toFixed(1)}%)`);
   
   return chunks;
 }

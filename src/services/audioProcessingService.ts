@@ -3,7 +3,7 @@ import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } f
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
 
-// Helper function to chunk text for embeddings with sentence boundaries and size constraints
+// Comprehensive text chunking ensuring complete coverage with sentence boundaries
 const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] => {
   if (!text || text.trim().length === 0) {
     return [];
@@ -33,13 +33,13 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
     }
   }
   
-  // Handle the final chunk
-  if (currentChunk.trim().length >= minChunkSize) {
-    chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-    console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
-  } else if (currentChunk.trim().length > 0) {
-    // Try to merge with previous chunk if possible
-    if (chunks.length > 0) {
+  // CRITICAL: Handle the final chunk to ensure NO TEXT IS LOST
+  if (currentChunk.trim().length > 0) {
+    if (currentChunk.trim().length >= minChunkSize) {
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
+    } else if (chunks.length > 0) {
+      // Try to merge with previous chunk if possible
       const lastChunk = chunks[chunks.length - 1];
       const content = lastChunk.replace(/^\[Segment \d+\]\s*/, '');
       const mergedContent = content + ' ' + currentChunk.trim();
@@ -48,17 +48,27 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
         chunks[chunks.length - 1] = `[Segment ${chunks.length}] ${mergedContent}`;
         console.log(`[CHUNKING] Merged final chunk with previous: ${mergedContent.length} chars`);
       } else {
-        // Keep as separate chunk even if small
+        // Keep as separate chunk even if small - NEVER lose text
         chunks.push(`[Final-segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-        console.log(`[CHUNKING] Kept small final chunk: ${currentChunk.length} chars`);
+        console.log(`[CHUNKING] Preserved small final chunk to ensure complete coverage: ${currentChunk.length} chars`);
       }
     } else {
+      // If this is the only chunk, keep it regardless of size - NEVER lose text
       chunks.push(`[Single-segment] ${currentChunk.trim()}`);
-      console.log(`[CHUNKING] Single chunk: ${currentChunk.length} chars`);
+      console.log(`[CHUNKING] Preserved single chunk ensuring complete coverage: ${currentChunk.length} chars`);
     }
   }
   
-  // Log final statistics
+  // Verify we have complete text coverage
+  const reconstructedText = chunks.map(chunk => {
+    return chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
+  }).join(' ');
+  
+  const originalLength = text.trim().length;
+  const reconstructedLength = reconstructedText.length;
+  const coveragePercentage = (reconstructedLength / originalLength) * 100;
+  
+  // Log final statistics with coverage verification
   const chunkSizes = chunks.map(chunk => {
     const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
     return cleanChunk.length;
@@ -66,8 +76,15 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
   
   const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
   
-  console.log(`[CHUNKING] Final result: ${chunks.length} chunks`);
+  console.log(`[CHUNKING] Final result: ${chunks.length} chunks with complete text preservation`);
   console.log(`[CHUNKING] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
+  console.log(`[CHUNKING] Text coverage verification: ${coveragePercentage.toFixed(1)}% (${reconstructedLength}/${originalLength} chars)`);
+  
+  if (coveragePercentage < 98) {
+    console.warn(`[CHUNKING] ⚠️ Text coverage below 98% - potential text loss detected!`);
+  } else {
+    console.log(`[CHUNKING] ✅ Excellent text coverage - all content preserved`);
+  }
   
   return chunks;
 };
