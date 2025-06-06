@@ -38,8 +38,8 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing transcript for meeting:', meetingId)
-    console.log('Participants:', participants)
+    console.log('🎬 Processing transcript for meeting:', meetingId)
+    console.log('👥 Participants:', participants?.map((p: any) => p.name).join(', '))
 
     const supabaseClient = createSupabaseClient()
 
@@ -51,9 +51,9 @@ serve(async (req) => {
     const meetingData = await getMeetingData(supabaseClient, meetingId)
     const meetingName = meetingData.title
     const meetingDate = formatDate(meetingData.created_at)
-    const participantNames = participants.map((p: any) => p.name).join(', ')
+    const participantNames = participants?.map((p: any) => p.name).join(', ') || 'Participants non spécifiés'
     
-    console.log('Meeting details:', { meetingName, meetingDate, participantNames })
+    console.log('📋 Meeting details:', { meetingName, meetingDate, participantNames })
 
     // Clean transcript
     const transcriptPrompt = createTranscriptPrompt(participantNames, transcript)
@@ -63,7 +63,7 @@ serve(async (req) => {
       throw new Error('No transcript returned from OpenAI')
     }
 
-    console.log('Cleaned transcript generated successfully')
+    console.log('✨ Cleaned transcript generated successfully')
     await saveTranscript(supabaseClient, meetingId, cleanedTranscript)
 
     // Process document and embeddings in parallel with AI processing
@@ -77,7 +77,7 @@ serve(async (req) => {
     )
 
     // Parallelize summary and tasks extraction
-    console.log('Starting parallel processing of summary and tasks...')
+    console.log('⚡ Starting parallel processing of summary and tasks...')
     const summaryPrompt = createSummaryPrompt(meetingName, meetingDate, participantNames, cleanedTranscript)
     const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript)
 
@@ -86,12 +86,12 @@ serve(async (req) => {
       callOpenAI(tasksPrompt, openAIKey)
     ])
 
-    console.log('Parallel AI processing completed')
+    console.log('✅ Parallel AI processing completed')
 
     // Save summary
     if (summaryResult) {
       await saveSummary(supabaseClient, meetingId, summaryResult)
-      console.log('Summary generated and saved successfully')
+      console.log('📝 Summary generated and saved successfully')
     }
 
     // Process and save tasks
@@ -99,33 +99,36 @@ serve(async (req) => {
     if (tasksResult) {
       try {
         const cleanedTasksContent = cleanJSONResponse(tasksResult)
-        console.log('Cleaned tasks content:', cleanedTasksContent)
+        console.log('🔍 Cleaned tasks content:', cleanedTasksContent)
         
         const tasksJson = JSON.parse(cleanedTasksContent)
         extractedTasks = tasksJson.tasks || []
-        console.log(`Extracted ${extractedTasks.length} tasks from transcript`)
+        console.log(`📋 Extracted ${extractedTasks.length} tasks from transcript`)
       } catch (parseError) {
-        console.error('Error parsing tasks JSON:', parseError)
-        console.log('Raw tasks content:', tasksResult)
+        console.error('❌ Error parsing tasks JSON:', parseError)
+        console.log('📄 Raw tasks content:', tasksResult)
         extractedTasks = []
       }
     }
 
     const savedTasks = []
+    console.log('💾 Saving tasks to database...')
     for (const task of extractedTasks) {
       try {
         const savedTask = await saveTask(supabaseClient, task, meetingId, participants)
         savedTasks.push(savedTask)
+        console.log(`✅ Task saved: ${savedTask.description.substring(0, 50)}...`)
       } catch (taskError) {
-        console.error('Error processing task:', taskError)
+        console.error('❌ Error processing task:', taskError)
       }
     }
 
     // Wait for document processing to complete
     const documentData = await documentProcessingPromise
-    console.log(`Document processing completed with ${documentData.chunksCount} chunks`)
+    console.log(`📄 Document processing completed with ${documentData.chunksCount} chunks`)
 
-    // Process AI recommendations
+    // IMPORTANT: Process AI recommendations for all saved tasks
+    console.log('🤖 Starting AI recommendations generation...')
     await processAIRecommendations(
       supabaseClient,
       savedTasks,
@@ -133,12 +136,11 @@ serve(async (req) => {
       meetingName,
       meetingDate,
       participantNames,
-      participants
+      participants || []
     )
 
-    console.log(`Successfully processed transcript for meeting ${meetingId}`)
-    console.log(`Saved ${savedTasks.length} tasks with AI recommendations`)
-    console.log(`Generated ${documentData.chunksCount} embedding chunks for the document`)
+    console.log(`🎉 Successfully processed transcript for meeting ${meetingId}`)
+    console.log(`📊 Final summary: ${savedTasks.length} tasks with AI recommendations, ${documentData.chunksCount} embedding chunks`)
 
     return new Response(
       JSON.stringify({
@@ -156,7 +158,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in process-transcript function:', error)
+    console.error('❌ Error in process-transcript function:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message,

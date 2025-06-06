@@ -11,17 +11,19 @@ Participants de la réunion : ${participantNames}
 - Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" = 1 tâche "Obtenir devis pour X")
 - Maximum 8-10 tâches au total, même pour de longues réunions
 
-**RÈGLES DE CONCISION:**
-- Description COURTE et CLAIRE (maximum 2 lignes)
-- Inclus SEULEMENT l'essentiel : quoi, qui, quand si précis
-- Supprime les détails de contexte excessifs
-- Pas de phrases d'explication longues
-- Focus sur l'ACTION principale
+**RÈGLES DE CONCISION AVEC CONTEXTE:**
+- Description COURTE et PRÉCISE avec contexte essentiel
+- Inclus SEULEMENT l'action principale + le contexte nécessaire
+- Supprime les noms des participants (ils seront assignés automatiquement)
+- Focus sur QUOI faire, pas QUI le fait
+- Maximum 1 phrase courte avec contexte essentiel
+- Assez de détails pour comprendre l'action sans être verbeux
 
 **EXEMPLES DE BONNES TÂCHES CONCISES:**
-✅ "Installer fontaine à eau : contacter prestataires et obtenir devis (Leïla)"
-✅ "Organiser visite foyer Valon - 22 mai 14h (Leïla informe participants)"
-✅ "Demander porte coulissante back-office/cuisine à la régie (Leïla)"
+✅ "Installer fontaine à eau : contacter prestataires et obtenir devis"
+✅ "Organiser visite foyer Valon - 22 mai 14h"  
+✅ "Demander porte coulissante back-office/cuisine à la régie"
+✅ "Réparer imprimante bureau : contacter technicien maintenance"
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Assigne SEULEMENT si explicitement mentionné ou clairement déductible
@@ -37,7 +39,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Description COURTE et CLAIRE de l'action principale (max 2 lignes)",
+      "description": "Action principale + contexte essentiel en 1 phrase courte",
       "assignedTo": "Nom exact du participant tel qu'il apparaît dans la liste ou null"
     }
   ]
