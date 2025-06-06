@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Send, Bot, User, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
 
 interface Message {
   id: string;
@@ -219,7 +220,12 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
                     ? 'bg-blue-500 text-white' 
                     : 'bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200'
                 }`}>
-                  <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                  <div 
+                    className="leading-relaxed"
+                    dangerouslySetInnerHTML={{ 
+                      __html: sanitizeHtml(renderMessageWithLinks(message.content))
+                    }}
+                  />
                   <div className={`text-xs mt-2 ${
                     message.isUser ? 'text-blue-100' : 'text-gray-500'
                   }`}>

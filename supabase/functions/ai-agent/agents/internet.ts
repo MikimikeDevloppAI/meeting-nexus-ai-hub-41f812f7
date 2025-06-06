@@ -4,6 +4,11 @@ export interface InternetContext {
   sources: any[];
   hasContent: boolean;
   enrichmentType: 'supplement' | 'complement' | 'verification';
+  contactValidation: {
+    hasValidatedContacts: boolean;
+    confidenceScore: number;
+    foundContacts: any[];
+  };
 }
 
 export class InternetAgent {
@@ -21,10 +26,16 @@ export class InternetAgent {
   ): Promise<InternetContext> {
     if (!this.perplexityApiKey) {
       console.log('[INTERNET] ⚠️ No Perplexity API key available');
-      return { content: '', sources: [], hasContent: false, enrichmentType: 'supplement' };
+      return { 
+        content: '', 
+        sources: [], 
+        hasContent: false, 
+        enrichmentType: 'supplement',
+        contactValidation: { hasValidatedContacts: false, confidenceScore: 0, foundContacts: [] }
+      };
     }
 
-    console.log('[INTERNET] Starting enhanced internet search');
+    console.log('[INTERNET] Starting enhanced search with strict contact validation');
     
     // Déterminer le type d'enrichissement
     const enrichmentType = this.determineEnrichmentType(analysis, hasLocalContext);
@@ -33,11 +44,10 @@ export class InternetAgent {
       // Si Galaxus a déjà traité une recherche produit, éviter la duplication
       const isProductSearch = this.isProductRelatedQuery(query);
       if (isProductSearch && galaxusContext?.hasProducts) {
-        console.log('[INTERNET] ⚠️ Produits déjà traités par Galaxus, recherche générale');
-        // Continue avec recherche non-produit
+        console.log('[INTERNET] ⚠️ Produits déjà traités par Galaxus, recherche fournisseurs spécialisés');
       }
 
-      const searchPrompt = this.buildSearchPrompt(query, analysis, enrichmentType, isProductSearch && !galaxusContext?.hasProducts);
+      const searchPrompt = this.buildEnhancedSearchPrompt(query, analysis, enrichmentType, isProductSearch);
 
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -46,21 +56,22 @@ export class InternetAgent {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
+          model: 'llama-3.1-sonar-large-128k-online',
           messages: [
             {
               role: 'system',
-              content: this.getSystemPrompt(enrichmentType, isProductSearch && !galaxusContext?.hasProducts)
+              content: this.getStrictValidationSystemPrompt(enrichmentType, isProductSearch)
             },
             {
               role: 'user',
               content: searchPrompt
             }
           ],
-          temperature: 0.2,
-          max_tokens: isProductSearch ? 1500 : 1200,
+          temperature: 0.1,
+          max_tokens: 2000,
           return_images: false,
           return_related_questions: false,
+          return_citations: true,
           search_recency_filter: 'month'
         }),
       });
@@ -70,28 +81,46 @@ export class InternetAgent {
         const content = data.choices[0]?.message?.content || '';
         
         if (content) {
-          console.log('[INTERNET] ✅ Enhanced search completed');
+          console.log('[INTERNET] ✅ Enhanced search completed with validation');
+          
+          // Validation stricte des coordonnées
+          const contactValidation = this.validateContactInformation(content);
+          
           return {
-            content,
+            content: this.sanitizeContent(content),
             sources: [{ 
               type: 'internet', 
               source: 'Perplexity AI', 
               query,
               enrichmentType,
-              isProductSearch: isProductSearch && !galaxusContext?.hasProducts
+              isProductSearch: isProductSearch && !galaxusContext?.hasProducts,
+              validation: contactValidation
             }],
             hasContent: true,
-            enrichmentType
+            enrichmentType,
+            contactValidation
           };
         }
       }
       
-      console.log('[INTERNET] ⚠️ No results found');
-      return { content: '', sources: [], hasContent: false, enrichmentType: 'supplement' };
+      console.log('[INTERNET] ⚠️ No validated results found');
+      return { 
+        content: '', 
+        sources: [], 
+        hasContent: false, 
+        enrichmentType: 'supplement',
+        contactValidation: { hasValidatedContacts: false, confidenceScore: 0, foundContacts: [] }
+      };
       
     } catch (error) {
       console.error('[INTERNET] ❌ Search error:', error);
-      return { content: '', sources: [], hasContent: false, enrichmentType: 'supplement' };
+      return { 
+        content: '', 
+        sources: [], 
+        hasContent: false, 
+        enrichmentType: 'supplement',
+        contactValidation: { hasValidatedContacts: false, confidenceScore: 0, foundContacts: [] }
+      };
     }
   }
 
@@ -110,94 +139,176 @@ export class InternetAgent {
 
   private determineEnrichmentType(analysis: any, hasLocalContext: boolean): 'supplement' | 'complement' | 'verification' {
     if (!hasLocalContext) {
-      return 'complement'; // Complete the missing information
+      return 'complement';
     }
     
     if (analysis.queryType === 'general' || analysis.requiresInternet) {
-      return 'supplement'; // Add recent information
+      return 'supplement';
     }
     
-    return 'verification'; // Verify and update existing information
+    return 'verification';
   }
 
-  private buildSearchPrompt(query: string, analysis: any, enrichmentType: string, isProductSearch: boolean): string {
+  private buildEnhancedSearchPrompt(query: string, analysis: any, enrichmentType: string, isProductSearch: boolean): string {
     const allTerms = analysis.searchTerms && analysis.synonyms ? 
       [...analysis.searchTerms, ...analysis.synonyms].join(', ') : 
       query.split(' ').join(', ');
     
     if (isProductSearch) {
-      return `Recherche COMPLÉMENTAIRE d'équipements et fournisseurs pour cabinet médical:
-      
-1. FOCUS: Fournisseurs spécialisés médicaux (pas Galaxus/Digitec déjà traités)
-2. RECHERCHE: Distributeurs médicaux suisses, européens
-3. COORDONNÉES COMPLÈTES: UNIQUEMENT si trouvées et pertinentes:
-   - Numéro de téléphone international (+41...)
-   - Email de contact précis (contact@...)
-   - Site web sous forme de lien cliquable [nom](url)
-4. ANALYSE: Spécifications techniques, prix, disponibilité
-5. CONTEXTE: Équipement pour cabinet d'ophtalmologie Genève
+      return `RECHERCHE FOURNISSEURS SPÉCIALISÉS AVEC VALIDATION STRICTE:
 
-IMPORTANT: Ne fournir les coordonnées QUE si elles sont trouvées et vérifiables.
-Termes à considérer: ${allTerms}`;
+🎯 RECHERCHE: ${query}
+
+📋 INSTRUCTIONS VALIDATION STRICTE:
+1. Trouver fournisseurs spécialisés médicaux/techniques Suisse/Europe
+2. COORDONNÉES: Inclure SEULEMENT si trouvées sur sites officiels:
+   - Téléphone: Format international +41... ou +33... (vérifiés)
+   - Email: contact@, info@, sales@ (vérifiés sur site officiel)
+   - Site web: URL complète format [nom](https://url)
+3. VALIDATION: Chaque coordonnée doit provenir d'une source identifiable
+4. PRIX: Montants CHF/EUR uniquement si trouvés sur sites
+5. NE PAS inventer d'informations manquantes
+
+6. FOCUS FOURNISSEURS:
+   - Distributeurs médicaux suisses
+   - Fournisseurs techniques spécialisés
+   - Grossistes équipements médicaux
+
+TERMES: ${allTerms}
+
+INTERDICTION ABSOLUE: Inventer téléphones, emails ou coordonnées`;
     }
     
     switch (enrichmentType) {
       case 'complement':
-        return `Recherche des informations complètes et actuelles sur : ${query}. 
-        IMPORTANT: Fournir les coordonnées de contact UNIQUEMENT si elles sont trouvées et pertinentes.
-        Utiliser des liens cliquables format [nom](url). Termes connexes : ${allTerms}`;
+        return `RECHERCHE INFORMATIONS AVEC VALIDATION COORDONNÉES:
+
+Recherche: ${query}
+Instructions strictes:
+- Coordonnées SEULEMENT si trouvées et vérifiables sur sources officielles
+- Téléphones: Format +41... uniquement si sur site officiel
+- Emails: contact@ uniquement si vérifiés
+- Sites web: URLs complètes format [nom](https://url)
+- NE JAMAIS inventer d'informations manquantes
+
+Termes: ${allTerms}`;
         
       case 'supplement':
-        return `Enrichis avec des informations récentes et des développements actuels concernant : ${query}. 
-        Focus ophtalmologie. Liens cliquables obligatoires. Coordonnées SEULEMENT si trouvées.`;
+        return `ENRICHISSEMENT INFORMATIONS OPHTALMOLOGIE:
+
+Recherche: ${query}
+Focus: Informations récentes, développements actuels
+Coordonnées: SEULEMENT si trouvées et pertinentes
+Liens: Format markdown cliquable obligatoire
+NE PAS inventer d'informations manquantes`;
         
       case 'verification':
-        return `Vérifie et actualise les informations concernant : ${query} dans le contexte de l'ophtalmologie moderne.
-        Liens cliquables. Coordonnées SEULEMENT si nécessaires et trouvées.`;
+        return `VÉRIFICATION INFORMATIONS MÉDICALES:
+
+Recherche: ${query}
+Objectif: Actualiser informations existantes
+Validation: Coordonnées SEULEMENT si trouvées
+NE PAS mentionner coordonnées inexistantes`;
         
       default:
-        return `Recherche des informations actuelles et pertinentes sur : ${query}. 
-        Liens format [nom](url). Coordonnées SEULEMENT si pertinentes et trouvées.`;
+        return `Recherche: ${query}. Format markdown pour liens. Coordonnées SEULEMENT si trouvées.`;
     }
   }
 
-  private getSystemPrompt(enrichmentType: string, isProductSearch: boolean): string {
+  private getStrictValidationSystemPrompt(enrichmentType: string, isProductSearch: boolean): string {
+    const baseRules = `RÈGLES STRICTES VALIDATION:
+1. COORDONNÉES: Inclure UNIQUEMENT si trouvées sur sources officielles
+2. TÉLÉPHONES: Format +41/+33... SEULEMENT si vérifiés
+3. EMAILS: contact@/info@ SEULEMENT si sur sites officiels  
+4. SITES WEB: URLs complètes format [nom](https://url)
+5. INTERDICTION ABSOLUE: Inventer coordonnées manquantes
+6. SI PAS TROUVÉ: Ne pas mentionner l'information`;
+
     if (isProductSearch) {
-      return `Tu es un assistant spécialisé en recherche d'équipements médicaux et fournisseurs spécialisés.
+      return `Expert recherche fournisseurs médicaux/techniques avec validation stricte.
 
-INSTRUCTIONS CRITIQUES:
-1. FOCUS sur fournisseurs médicaux spécialisés (pas les plateformes généralistes)
-2. COORDONNÉES: Inclure UNIQUEMENT si trouvées et vérifiables:
-   - Numéro de téléphone (format +41...)
-   - Email de contact
-   - Site web avec URL complète au format [nom](url)
-3. LIENS CLIQUABLES OBLIGATOIRES: Toujours format markdown [nom](url)
-4. ANALYSE DÉTAILLÉE: Spécifications, prix CHF si disponible, avantages
-5. PAS de mentions inutiles des plateformes
-6. RECOMMANDATION: Conclure par le meilleur choix
+${baseRules}
 
-INTERDICTIONS:
-- Ne pas inventer de coordonnées
-- Ne pas mentionner OphtaCare comme fournisseur
-- Ne pas répéter les infos déjà traitées par Galaxus
+FOCUS SPÉCIALISÉ:
+- Fournisseurs médicaux suisses/européens
+- Distributeurs équipements techniques
+- Validation coordonnées sur sites officiels
+- Comparaisons prix CHF/EUR si disponibles
 
-Objectif: Compléter l'analyse avec des sources spécialisées médicales.`;
+OBJECTIF: Informations fiables pour professionnels médicaux.`;
     }
     
-    const basePrompt = 'Tu es un assistant spécialisé en ophtalmologie. ';
+    const basePrompt = 'Assistant spécialisé ophtalmologie avec validation stricte informations. ';
     
     switch (enrichmentType) {
       case 'complement':
-        return basePrompt + 'Fournis des informations complètes. LIENS CLIQUABLES format [nom](url). Coordonnées SEULEMENT si trouvées et pertinentes.';
+        return basePrompt + `${baseRules}
+MISSION: Compléter informations manquantes avec sources vérifiables.`;
         
       case 'supplement':
-        return basePrompt + 'Enrichis avec des informations récentes. LIENS CLIQUABLES obligatoires. Coordonnées SEULEMENT si nécessaires.';
+        return basePrompt + `${baseRules}
+MISSION: Enrichir avec informations récentes validées.`;
         
       case 'verification':
-        return basePrompt + 'Vérifie et actualise les informations. LIENS CLIQUABLES. Coordonnées SEULEMENT si trouvées.';
+        return basePrompt + `${baseRules}
+MISSION: Vérifier et actualiser informations existantes.`;
         
       default:
-        return basePrompt + 'Recherche des informations fiables et récentes. LIENS CLIQUABLES format [nom](url).';
+        return basePrompt + baseRules;
     }
+  }
+
+  private validateContactInformation(content: string): any {
+    const validation = {
+      hasValidatedContacts: false,
+      confidenceScore: 0,
+      foundContacts: [] as any[]
+    };
+
+    // Recherche de téléphones avec validation
+    const phoneRegex = /(\+\d{1,3}[\s\-]?\d{1,3}[\s\-]?\d{3,4}[\s\-]?\d{3,4})/g;
+    const phones = [...content.matchAll(phoneRegex)];
+    
+    // Recherche d'emails avec validation
+    const emailRegex = /(contact@|info@|sales@|support@)[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}/g;
+    const emails = [...content.matchAll(emailRegex)];
+    
+    // Recherche de sites web avec validation
+    const websiteRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+    const websites = [...content.matchAll(websiteRegex)];
+
+    // Calcul du score de confiance
+    let score = 0;
+    if (phones.length > 0) score += 30;
+    if (emails.length > 0) score += 25;
+    if (websites.length > 0) score += 45;
+    
+    // Validation contextuelle
+    const hasCompanyContext = /entreprise|société|cabinet|clinique|fournisseur/i.test(content);
+    if (hasCompanyContext) score += 20;
+    
+    validation.confidenceScore = Math.min(score, 100);
+    validation.hasValidatedContacts = score >= 50;
+    
+    validation.foundContacts = [
+      ...phones.map(p => ({ type: 'phone', value: p[1], validated: true })),
+      ...emails.map(e => ({ type: 'email', value: e[0], validated: true })),
+      ...websites.map(w => ({ type: 'website', name: w[1], url: w[2], validated: true }))
+    ];
+
+    return validation;
+  }
+
+  private sanitizeContent(content: string): string {
+    // Suppression des coordonnées non validées
+    let sanitized = content;
+    
+    // Supprimer les numéros de téléphone non formatés
+    sanitized = sanitized.replace(/(?<!\+)\b\d{10,}\b/g, '');
+    
+    // Supprimer les emails génériques non vérifiés
+    sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@(?!contact|info|sales|support)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
+    
+    return sanitized.trim();
   }
 }

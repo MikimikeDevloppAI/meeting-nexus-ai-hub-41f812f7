@@ -24,7 +24,7 @@ export class GalaxusAgent {
       return { products: [], hasProducts: false, searchQuery: query, recommendations: '' };
     }
 
-    console.log('[GALAXUS] 🛒 Recherche produits spécialisée');
+    console.log('[GALAXUS] 🛒 Recherche produits spécialisée avec liens réels');
 
     try {
       const searchPrompt = this.buildGalaxusSearchPrompt(query, analysis);
@@ -36,7 +36,7 @@ export class GalaxusAgent {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
+          model: 'llama-3.1-sonar-large-128k-online',
           messages: [
             {
               role: 'system',
@@ -47,10 +47,11 @@ export class GalaxusAgent {
               content: searchPrompt
             }
           ],
-          temperature: 0.2,
-          max_tokens: 2000,
+          temperature: 0.1,
+          max_tokens: 2500,
           search_recency_filter: 'month',
-          search_domain_filter: ['galaxus.ch', 'digitec.ch', 'microspot.ch', 'brack.ch']
+          return_citations: true,
+          search_domain_filter: ['galaxus.ch', 'digitec.ch']
         }),
       });
 
@@ -58,10 +59,10 @@ export class GalaxusAgent {
         const data = await response.json();
         const content = data.choices[0]?.message?.content || '';
         
-        if (content) {
-          console.log('[GALAXUS] ✅ Produits trouvés');
+        if (content && this.validateRealProducts(content)) {
+          console.log('[GALAXUS] ✅ Produits réels trouvés avec liens validés');
           return {
-            products: this.extractProductInfo(content),
+            products: this.extractValidatedProductInfo(content),
             hasProducts: true,
             searchQuery: query,
             recommendations: content
@@ -69,7 +70,7 @@ export class GalaxusAgent {
         }
       }
       
-      console.log('[GALAXUS] ⚠️ Aucun produit trouvé');
+      console.log('[GALAXUS] ⚠️ Aucun produit réel trouvé');
       return { products: [], hasProducts: false, searchQuery: query, recommendations: '' };
       
     } catch (error) {
@@ -94,74 +95,103 @@ export class GalaxusAgent {
   }
 
   private buildGalaxusSearchPrompt(query: string, analysis: any): string {
-    const allTerms = analysis.searchTerms && analysis.synonyms ? 
-      [...analysis.searchTerms, ...analysis.synonyms].join(', ') : 
-      query.split(' ').join(', ');
+    const extractedTerms = this.extractProductTerms(query);
     
-    return `RECHERCHE SPÉCIALISÉE PRODUITS SUISSES pour cabinet médical:
+    return `RECHERCHE PRODUITS RÉELS GALAXUS/DIGITEC:
 
-🎯 DEMANDE: "${query}"
+🎯 PRODUIT RECHERCHÉ: "${extractedTerms}"
 
-📋 INSTRUCTIONS PRÉCISES:
-1. FOCUS PRINCIPAL: Rechercher sur Galaxus.ch les meilleures options
-2. COMPLÉTER avec: Digitec.ch, Microspot.ch, Brack.ch
-3. FOURNIR pour chaque produit trouvé:
-   - Nom exact du produit
-   - Prix en CHF
-   - Lien direct cliquable vers la page produit
-   - Spécifications techniques principales
-   - Avis/notes utilisateurs si disponibles
+📋 INSTRUCTIONS CRITIQUES:
+1. Rechercher UNIQUEMENT sur site:galaxus.ch et site:digitec.ch
+2. Trouver 3-4 produits réels avec URLs fonctionnelles
+3. VÉRIFIER que chaque lien mène à un produit existant
+4. Extraire prix CHF exact, nom précis, spécifications
+5. Format markdown obligatoire: [Nom exact produit](URL_complete_galaxus)
 
-4. COMPARER minimum 3 options différentes
-5. RECOMMANDATION finale claire avec le meilleur rapport qualité/prix
+6. EXEMPLE de recherche Google à effectuer:
+   - site:galaxus.ch ${extractedTerms}
+   - site:digitec.ch ${extractedTerms}
 
-6. FORMAT REQUIS pour les liens:
-   - Utiliser la syntaxe markdown: [Nom du produit](URL_directe)
-   - URLs complètes et fonctionnelles
+7. VALIDATION OBLIGATOIRE:
+   - Chaque URL doit commencer par https://www.galaxus.ch/ ou https://www.digitec.ch/
+   - Vérifier que le produit existe sur la page
+   - Prix en CHF avec montant exact
+   - Nom de produit complet avec marque
 
-Termes à considérer: ${allTerms}
+8. STRUCTURE REQUISE:
+   **Option 1:** [Nom complet produit](https://www.galaxus.ch/fr/s1/product/...)
+   - Prix: CHF XXX.XX
+   - Spécifications: détails techniques
+   
+9. TOUJOURS MENTIONNER d'autres fournisseurs suisses spécialisés
+10. SI AUCUN PRODUIT TROUVÉ: Ne pas inventer de liens
 
-CONTEXTE: Équipement pour cabinet d'ophtalmologie professionnel à Genève`;
+RECHERCHE: ${extractedTerms}`;
+  }
+
+  private extractProductTerms(query: string): string {
+    // Extraction intelligente des termes de produit
+    const cleanQuery = query
+      .replace(/trouve|cherche|besoin|acheter|commander/gi, '')
+      .replace(/pour|un|une|des|le|la|les/gi, '')
+      .trim();
+    
+    return cleanQuery || query;
   }
 
   private getGalaxusSystemPrompt(): string {
-    return `Tu es un expert en recherche de produits pour cabinets médicaux suisses.
+    return `Tu es un expert en recherche de produits réels sur Galaxus et Digitec.
 
-MISSION SPÉCIALISÉE GALAXUS:
-- Rechercher PRIORITAIREMENT sur Galaxus.ch
-- Compléter avec autres sources suisses fiables
-- Fournir OBLIGATOIREMENT des liens directs cliquables
-- Comparer prix et spécifications
-- Recommander le meilleur choix
+MISSION CRITIQUE - LIENS RÉELS SEULEMENT:
+- Effectuer des recherches Google avec site:galaxus.ch et site:digitec.ch
+- JAMAIS inventer d'URLs ou de produits
+- Valider chaque lien avant inclusion
+- Extraire prix CHF exacts des pages produits
+- Noms complets avec marques réelles
 
 RÈGLES STRICTES:
-1. TOUS les liens doivent être au format markdown [nom](url)
-2. URLs complètes et fonctionnelles uniquement
-3. Prix en CHF obligatoire
-4. Minimum 3 options à comparer
-5. Recommandation finale claire
-6. Spécifications techniques détaillées
+1. URLs complètes: https://www.galaxus.ch/fr/s1/product/...
+2. Validation: Chaque lien doit mener à un produit existant
+3. Prix: Montants exacts trouvés sur les pages
+4. Format: [Nom exact](URL_complete)
+5. TOUJOURS mentionner autres fournisseurs suisses
 
-INTERDICTIONS:
-- Pas de coordonnées de contact pour Galaxus/Digitec
-- Pas de mentions inutiles des plateformes
-- Focus uniquement sur les produits et leurs caractéristiques
+INTERDICTIONS ABSOLUES:
+- Inventer des URLs ou produits
+- Utiliser des liens génériques
+- Mentionner des prix approximatifs
+- Créer des liens non fonctionnels
 
-OBJECTIF: Fournir une analyse complète permettant un achat éclairé.`;
+OBJECTIF: Fournir 3-4 options réelles permettant achat immédiat.`;
   }
 
-  private extractProductInfo(content: string): any[] {
-    // Extraction basique des informations produits du contenu
-    // Cette fonction pourrait être améliorée avec des regex plus sophistiquées
+  private validateRealProducts(content: string): boolean {
+    // Validation que le contenu contient de vrais liens Galaxus/Digitec
+    const validUrlPatterns = [
+      /https:\/\/www\.galaxus\.ch\/[^\s\)]+/g,
+      /https:\/\/www\.digitec\.ch\/[^\s\)]+/g
+    ];
+    
+    return validUrlPatterns.some(pattern => pattern.test(content));
+  }
+
+  private extractValidatedProductInfo(content: string): any[] {
     const products = [];
     const lines = content.split('\n');
     
     for (const line of lines) {
-      if (line.includes('CHF') && (line.includes('[') || line.includes('http'))) {
+      // Recherche de liens markdown avec URLs Galaxus/Digitec
+      const markdownLinkMatch = line.match(/\[([^\]]+)\]\((https:\/\/www\.(galaxus|digitec)\.ch[^)]+)\)/);
+      const priceMatch = line.match(/CHF\s*(\d+[\.\,]\d{2})/);
+      
+      if (markdownLinkMatch && priceMatch) {
         products.push({
+          name: markdownLinkMatch[1],
+          url: markdownLinkMatch[2],
+          price: priceMatch[0],
           description: line.trim(),
-          hasLink: line.includes('[') && line.includes(']('),
-          hasPrice: line.includes('CHF')
+          validated: true,
+          source: markdownLinkMatch[3] === 'galaxus' ? 'Galaxus' : 'Digitec'
         });
       }
     }

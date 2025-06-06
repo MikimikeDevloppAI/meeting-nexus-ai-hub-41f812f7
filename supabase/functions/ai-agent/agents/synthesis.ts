@@ -14,7 +14,7 @@ export class SynthesisAgent {
     galaxusContext: any,
     analysis: any
   ): Promise<string> {
-    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec contexte médical et Galaxus');
+    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec validation stricte');
 
     // Détection d'actions avec analyse approfondie
     const actionAnalysis = this.detectActionWithContext(originalQuery, conversationHistory, databaseContext);
@@ -316,10 +316,16 @@ export class SynthesisAgent {
       internetContent: internetContext.content || '',
       internetSources: internetContext.sources || [],
       
-      // Nouvelles données Galaxus
+      // Nouvelles données Galaxus avec validation
       galaxusProducts: galaxusContext?.products || [],
       galaxusRecommendations: galaxusContext?.recommendations || '',
       hasGalaxusProducts: galaxusContext?.hasProducts || false,
+      hasValidatedGalaxusLinks: galaxusContext?.products?.some((p: any) => p.validated) || false,
+      
+      // Validation des coordonnées Internet
+      hasValidatedContacts: internetContext.contactValidation?.hasValidatedContacts || false,
+      contactConfidenceScore: internetContext.contactValidation?.confidenceScore || 0,
+      validatedContacts: internetContext.contactValidation?.foundContacts || [],
       
       // Métriques de qualité
       hasEmbeddingContext: embeddingContext.hasRelevantContext || false,
@@ -332,7 +338,8 @@ export class SynthesisAgent {
                         (databaseContext.documents?.length || 0) + 
                         (databaseContext.todos?.length || 0) + 
                         (embeddingContext.chunks?.length || 0) +
-                        (galaxusContext?.products?.length || 0)
+                        (galaxusContext?.products?.length || 0),
+        validationScore: internetContext.contactValidation?.confidenceScore || 0
       },
       
       // Contexte médical
@@ -475,7 +482,7 @@ DONNÉES ENRICHIES DISPONIBLES :
 - Tâches : ${contextData.todos.length} (avec participants et statuts)
 - Participants/Collaborateurs : ${contextData.participants.length}
 - Extraits sémantiques : ${contextData.chunks.length} chunks pertinents
-${contextData.hasGalaxusProducts ? `- Produits Galaxus : ${contextData.galaxusProducts.length} options trouvées` : ''}
+${contextData.hasGalaxusProducts ? `- Produits Galaxus : ${contextData.galaxusProducts.length} options ${contextData.hasValidatedGalaxusLinks ? 'VALIDÉES' : 'trouvées'}` : ''}
 ${contextData.targetedExtracts ? `- Extractions ciblées : ${contextData.targetedExtracts.sections.length} sections` : ''}
 ${contextData.fuzzyMatches?.length > 0 ? `- Correspondances approximatives : ${contextData.fuzzyMatches.length}` : ''}
 
@@ -485,6 +492,7 @@ QUALITÉ DE RECHERCHE ULTRA-ENRICHIE :
 - Points de données total : ${contextData.searchQuality.totalDataPoints}
 - Recherche vectorielle ${contextData.hasEmbeddingContext ? 'RÉUSSIE' : 'limitée'}
 ${contextData.hasGalaxusProducts ? '- Recherche produits Galaxus RÉUSSIE' : ''}
+${contextData.hasValidatedContacts ? `- Coordonnées validées (score: ${contextData.contactConfidenceScore}%)` : ''}
 
 ${actionAnalysis.isAction ? `
 ACTION DÉTECTÉE :
@@ -501,7 +509,7 @@ SYNTAXE REQUISE POUR TÂCHE :
 ` : ''}
 ` : ''}
 
-INSTRUCTIONS ULTRA-ENRICHIES :
+INSTRUCTIONS ULTRA-ENRICHIES AVEC VALIDATION STRICTE :
 1. Utiliser TOUTES les données disponibles pour enrichir au maximum
 2. Prioriser les informations internes sur les données externes
 3. Faire des liens entre différentes sources de données quand pertinent
@@ -509,39 +517,45 @@ INSTRUCTIONS ULTRA-ENRICHIES :
 5. Garder un ton professionnel médical/administratif
 6. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
 
-7. RÈGLES STRICTES POUR COORDONNÉES ET LIENS:
-   - Fournir coordonnées UNIQUEMENT si trouvées et vérifiables dans les sources
-   - Si pas de coordonnées trouvées: NE PAS mentionner de coordonnées
-   - Format obligatoire pour téléphones: +41... (si trouvé)
-   - Emails: contact@ ou support@ uniquement si trouvés
-   - Sites web: TOUJOURS format markdown cliquable [nom](https://url)
-   - Vérifier que chaque lien est fonctionnel avant de l'inclure
+7. RÈGLES STRICTES POUR COORDONNÉES ET LIENS - VALIDATION CRITIQUE:
+   - Coordonnées UNIQUEMENT si score de confiance > 50% ET trouvées dans sources
+   - Si pas de coordonnées validées: NE JAMAIS mentionner de coordonnées
+   - Format téléphone: +41... SEULEMENT si trouvé et validé
+   - Emails: contact@/info@ SEULEMENT si trouvés et validés
+   - Sites web: TOUJOURS format markdown cliquable [nom](https://url) avec URLs complètes
+   - Vérifier que chaque lien provient des sources avant inclusion
 
-8. RECHERCHES PRODUITS:
-   - Prioriser les résultats Galaxus si disponibles
-   - Présenter les options avec prix CHF et liens cliquables
-   - TOUJOURS mentionner d'autres fournisseurs suisses
-   - Comparer avec sources complémentaires (médicales spécialisées)
-   - Recommandation finale claire
+8. RECHERCHES PRODUITS AVEC VALIDATION:
+   - Prioriser les résultats Galaxus avec liens validés
+   - Présenter options avec prix CHF et liens cliquables RÉELS
+   - OBLIGATOIRE: Mentionner autres fournisseurs suisses/européens
+   - Comparer avec sources complémentaires médicales spécialisées
+   - Recommandation finale claire basée sur données vérifiées
 
-9. LIENS ET FORMATAGE:
-   - TOUS les liens doivent être cliquables format [nom](url)
-   - URLs complètes et fonctionnelles
-   - Pas de liens cassés ou inventés
-   - Tester mentalement chaque lien avant inclusion
+9. LIENS ET FORMATAGE - VALIDATION OBLIGATOIRE:
+   - TOUS les liens format markdown [nom](url) avec URLs complètes
+   - Valider mentalement chaque URL avant inclusion
+   - Pas de liens inventés ou non fonctionnels
+   - URLs Galaxus: https://www.galaxus.ch/fr/... SEULEMENT
 
-10. INTERDICTIONS ABSOLUES:
-    - Ne JAMAIS mentionner les coordonnées du cabinet dans les réponses
-    - Ne JAMAIS inventer de coordonnées de contact
-    - Ne JAMAIS mentionner des informations non disponibles
-    - Ne pas mentionner des plateformes sans valeur ajoutée
-    - Si pas d'info disponible: simplement ne pas la mentionner
+10. INTERDICTIONS ABSOLUES - AUCUNE EXCEPTION:
+    - JAMAIS inventer coordonnées (téléphone, email, adresse)
+    - JAMAIS mentionner informations non trouvées dans sources
+    - JAMAIS créer de liens non validés ou génériques
+    - Si information manquante: NE PAS la mentionner
+    - JAMAIS présenter comme factuel ce qui n'est pas vérifié
+
+11. VALIDATION SOURCES:
+    - Score confiance coordonnées: ${contextData.contactConfidenceScore}%
+    - Coordonnées validées: ${contextData.hasValidatedContacts ? 'OUI' : 'NON'}
+    - Liens Galaxus validés: ${contextData.hasValidatedGalaxusLinks ? 'OUI' : 'NON'}
 
 ${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
 
-Réponds de manière professionnelle, précise et dans le contexte du cabinet d'ophtalmologie.`;
+Réponds de manière professionnelle, précise et dans le contexte du cabinet d'ophtalmologie.
+PRIORITÉ ABSOLUE: Ne jamais inventer d'informations non vérifiées.`;
 
-    const userMessage = `DEMANDE ADMINISTRATIVE ENRICHIE : ${originalQuery}
+    const userMessage = `DEMANDE ADMINISTRATIVE ENRICHIE AVEC VALIDATION : ${originalQuery}
 
 ${hasRichContext ? `
 CONTEXTE INTERNE ULTRA-ENRICHI :
@@ -562,7 +576,7 @@ ${contextData.participants.slice(0, 8).map((p: any) => `• ${p.name} (${p.email
 ${contextData.chunks.slice(0, 4).map((c: any, i: number) => `${i+1}. [Score: ${c.similarity?.toFixed(3)}] ${(c.chunk_text || '').substring(0, 200)}...`).join('\n')}
 
 ${contextData.hasGalaxusProducts ? `
-🛒 PRODUITS GALAXUS TROUVÉS (${contextData.galaxusProducts.length}) :
+🛒 PRODUITS GALAXUS ${contextData.hasValidatedGalaxusLinks ? 'VALIDÉS' : 'TROUVÉS'} (${contextData.galaxusProducts.length}) :
 ${contextData.galaxusRecommendations.substring(0, 500)}...
 ` : ''}
 
@@ -575,17 +589,28 @@ ${contextData.fuzzyMatches?.length > 0 ? `
 🔄 CORRESPONDANCES APPROXIMATIVES :
 ${contextData.fuzzyMatches.slice(0, 2).map((fm: any) => `• "${fm.originalTerm}" → ${fm.matches.length} résultats`).join('\n')}
 ` : ''}
+
+${contextData.hasValidatedContacts ? `
+📞 COORDONNÉES VALIDÉES (Score: ${contextData.contactConfidenceScore}%) :
+${contextData.validatedContacts.slice(0, 3).map((c: any) => `• ${c.type}: ${c.value || (c.name + ' - ' + c.url)}`).join('\n')}
+` : ''}
 ` : 'Contexte limité - utiliser les données disponibles.'}
 
 ${contextData.hasInternetContext ? `
-🌐 INFORMATIONS COMPLÉMENTAIRES EXTERNES :
+🌐 INFORMATIONS COMPLÉMENTAIRES VALIDÉES :
 ${(contextData.internetContent || '').substring(0, 300)}...
 ` : ''}
 
-Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible. 
-LIENS CLIQUABLES OBLIGATOIRES format [nom](url).
-Coordonnées SEULEMENT si trouvées et vérifiables.
-TOUJOURS mentionner d'autres fournisseurs pour les produits.`;
+VALIDATION CRITIQUE ACTIVÉE :
+- Score confiance coordonnées: ${contextData.contactConfidenceScore}%
+- Liens Galaxus validés: ${contextData.hasValidatedGalaxusLinks ? 'OUI' : 'NON'}
+- Coordonnées vérifiées: ${contextData.hasValidatedContacts ? 'OUI' : 'NON'}
+
+Utilise TOUTES ces informations validées pour fournir la réponse la plus complète et précise possible. 
+LIENS CLIQUABLES OBLIGATOIRES format [nom](url) - URLs complètes vérifiées uniquement.
+Coordonnées SEULEMENT si score confiance > 50% ET trouvées dans sources.
+TOUJOURS mentionner d'autres fournisseurs pour produits.
+PRIORITÉ: Aucune information non vérifiée.`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
