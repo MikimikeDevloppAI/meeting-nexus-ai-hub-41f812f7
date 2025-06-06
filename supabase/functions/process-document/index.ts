@@ -1,5 +1,4 @@
 
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -26,14 +25,14 @@ serve(async (req) => {
     console.log(`📄 Starting processing for document: ${documentId}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const pdfcoApiKey = Deno.env.get('PDFCO_API_KEY');
+    const convertApiKey = Deno.env.get('CONVERTAPI_SECRET');
     
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    if (!pdfcoApiKey) {
-      throw new Error('PDF.co API key not configured');
+    if (!convertApiKey) {
+      throw new Error('ConvertAPI secret not configured');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -77,7 +76,7 @@ serve(async (req) => {
 
     let text = '';
     try {
-      text = await processor.extractText(fileData, pdfcoApiKey);
+      text = await processor.extractText(fileData, convertApiKey);
       console.log(`📝 Text extracted successfully: ${text.length} characters`);
       
       if (!text || text.trim().length === 0) {
@@ -106,7 +105,7 @@ serve(async (req) => {
     // Return immediate response
     return new Response(JSON.stringify({ 
       success: true, 
-      message: 'Traitement du document démarré',
+      message: 'Traitement du document démarré avec ConvertAPI',
       textLength: text.length,
       fileType: document.content_type,
       estimatedTime: '20-45 secondes selon la taille'
@@ -176,7 +175,7 @@ async function processDocumentInBackground(
       processedAt: new Date().toISOString(),
       textLength: text.length,
       chunksGenerated: limitedChunks.length,
-      processingVersion: '2.2',
+      processingVersion: '2.3-convertapi',
       ...analysis.taxonomy
     };
 
@@ -255,7 +254,7 @@ async function processDocumentInBackground(
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processing completed successfully!`);
+    console.log(`🎉 Document ${documentId} processing completed successfully with ConvertAPI!`);
     console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${chunks.length} chunks, ${text.length} chars`);
 
   } catch (error) {
@@ -273,7 +272,7 @@ async function processDocumentInBackground(
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.2'
+            processingVersion: '2.3-convertapi'
           }
         })
         .eq('id', documentId);
@@ -282,4 +281,3 @@ async function processDocumentInBackground(
     }
   }
 }
-

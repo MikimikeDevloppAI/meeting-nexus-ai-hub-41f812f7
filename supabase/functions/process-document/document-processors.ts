@@ -1,5 +1,5 @@
 
-// Document processing utilities for different file types
+// Document processing utilities for different file types using ConvertAPI
 
 export interface DocumentProcessor {
   canProcess(contentType: string): boolean;
@@ -12,95 +12,63 @@ export class PDFProcessor implements DocumentProcessor {
   }
 
   async extractText(fileData: Blob, apiKey: string): Promise<string> {
-    console.log(`🔄 Processing PDF (${fileData.size} bytes)...`);
+    console.log(`🔄 Processing PDF (${fileData.size} bytes) with ConvertAPI...`);
 
     const formData = new FormData();
-    formData.append('file', fileData, 'document.pdf');
+    formData.append('File', fileData, 'document.pdf');
 
-    console.log('📤 Uploading PDF to PDF.co...');
+    console.log('📤 Uploading PDF to ConvertAPI...');
 
     const uploadController = new AbortController();
-    const uploadTimeout = setTimeout(() => uploadController.abort(), 30000);
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 45000);
 
     try {
-      const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload', {
+      const extractResponse = await fetch('https://v2.convertapi.com/convert/pdf/to/txt', {
         method: 'POST',
-        headers: { 'x-api-key': apiKey },
+        headers: { 
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: formData,
         signal: uploadController.signal
       });
 
       clearTimeout(uploadTimeout);
 
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(`PDF upload failed: ${uploadResponse.status} - ${errorText}`);
+      if (!extractResponse.ok) {
+        const errorText = await extractResponse.text();
+        console.error('❌ ConvertAPI PDF error:', errorText);
+        throw new Error(`PDF extraction failed: ${extractResponse.status} - ${errorText}`);
       }
 
-      const uploadData = await uploadResponse.json();
+      const extractData = await extractResponse.json();
       
-      if (uploadData.error || !uploadData.url) {
-        throw new Error(`PDF upload failed: ${uploadData.message || 'No URL returned'}`);
+      if (!extractData.Files || extractData.Files.length === 0) {
+        throw new Error('PDF text extraction failed - no result files');
       }
 
-      console.log('📤 PDF uploaded, extracting text...');
-
-      const extractController = new AbortController();
-      const extractTimeout = setTimeout(() => extractController.abort(), 60000);
-
-      try {
-        const extractResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: uploadData.url,
-            async: false,
-            pages: "",
-            password: "",
-            inline: true
-          }),
-          signal: extractController.signal
-        });
-
-        clearTimeout(extractTimeout);
-
-        if (!extractResponse.ok) {
-          const errorText = await extractResponse.text();
-          throw new Error(`PDF text extraction failed: ${extractResponse.status} - ${errorText}`);
-        }
-
-        const extractData = await extractResponse.json();
-
-        if (extractData.error || !extractData.body) {
-          throw new Error('PDF text extraction failed - may be image-based or corrupted');
-        }
-
-        const extractedText = extractData.body.trim();
-        
-        if (extractedText.length === 0) {
-          throw new Error('PDF contains no extractable text');
-        }
-
-        console.log(`✅ PDF text extracted successfully (${extractedText.length} chars)`);
-        return extractedText;
-
-      } catch (extractError) {
-        clearTimeout(extractTimeout);
-        if (extractError.name === 'AbortError') {
-          throw new Error('PDF text extraction timed out');
-        }
-        throw extractError;
+      // Download the converted text file
+      const textFileUrl = extractData.Files[0].Url;
+      const textResponse = await fetch(textFileUrl);
+      
+      if (!textResponse.ok) {
+        throw new Error('Failed to download extracted text');
       }
 
-    } catch (uploadError) {
+      const extractedText = await textResponse.text();
+      
+      if (extractedText.length === 0) {
+        throw new Error('PDF contains no extractable text');
+      }
+
+      console.log(`✅ PDF text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
+
+    } catch (extractError) {
       clearTimeout(uploadTimeout);
-      if (uploadError.name === 'AbortError') {
-        throw new Error('PDF upload timed out');
+      if (extractError.name === 'AbortError') {
+        throw new Error('PDF text extraction timed out');
       }
-      throw uploadError;
+      throw extractError;
     }
   }
 }
@@ -130,57 +98,64 @@ export class WordProcessor implements DocumentProcessor {
   }
 
   async extractText(fileData: Blob, apiKey: string): Promise<string> {
-    console.log(`🔄 Processing Word document (${fileData.size} bytes)...`);
+    console.log(`🔄 Processing Word document (${fileData.size} bytes) with ConvertAPI...`);
 
     const formData = new FormData();
-    formData.append('file', fileData, 'document.docx');
+    formData.append('File', fileData, 'document.docx');
 
-    const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey },
-      body: formData
-    });
+    console.log('📤 Uploading Word document to ConvertAPI...');
 
-    if (!uploadResponse.ok) {
-      throw new Error(`Word document upload failed: ${uploadResponse.status}`);
+    const uploadController = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 45000);
+
+    try {
+      const extractResponse = await fetch('https://v2.convertapi.com/convert/docx/to/txt', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+        signal: uploadController.signal
+      });
+
+      clearTimeout(uploadTimeout);
+
+      if (!extractResponse.ok) {
+        const errorText = await extractResponse.text();
+        console.error('❌ ConvertAPI Word error:', errorText);
+        throw new Error(`Word extraction failed: ${extractResponse.status} - ${errorText}`);
+      }
+
+      const extractData = await extractResponse.json();
+      
+      if (!extractData.Files || extractData.Files.length === 0) {
+        throw new Error('Word text extraction failed - no result files');
+      }
+
+      // Download the converted text file
+      const textFileUrl = extractData.Files[0].Url;
+      const textResponse = await fetch(textFileUrl);
+      
+      if (!textResponse.ok) {
+        throw new Error('Failed to download extracted text');
+      }
+
+      const extractedText = await textResponse.text();
+      
+      if (extractedText.length === 0) {
+        throw new Error('Word document contains no extractable text');
+      }
+
+      console.log(`✅ Word text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
+
+    } catch (extractError) {
+      clearTimeout(uploadTimeout);
+      if (extractError.name === 'AbortError') {
+        throw new Error('Word text extraction timed out');
+      }
+      throw extractError;
     }
-
-    const uploadData = await uploadResponse.json();
-    
-    if (uploadData.error || !uploadData.url) {
-      throw new Error('Word document upload failed');
-    }
-
-    const extractResponse = await fetch('https://api.pdf.co/v1/doc/convert/to/text', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: uploadData.url,
-        async: false
-      })
-    });
-
-    if (!extractResponse.ok) {
-      throw new Error(`Word text extraction failed: ${extractResponse.status}`);
-    }
-
-    const extractData = await extractResponse.json();
-
-    if (extractData.error || !extractData.body) {
-      throw new Error('Word text extraction failed');
-    }
-
-    const extractedText = extractData.body.trim();
-    
-    if (extractedText.length === 0) {
-      throw new Error('Word document contains no extractable text');
-    }
-
-    console.log(`✅ Word text extracted successfully (${extractedText.length} chars)`);
-    return extractedText;
   }
 }
 
@@ -191,57 +166,64 @@ export class PowerPointProcessor implements DocumentProcessor {
   }
 
   async extractText(fileData: Blob, apiKey: string): Promise<string> {
-    console.log(`🔄 Processing PowerPoint (${fileData.size} bytes)...`);
+    console.log(`🔄 Processing PowerPoint (${fileData.size} bytes) with ConvertAPI...`);
 
     const formData = new FormData();
-    formData.append('file', fileData, 'presentation.pptx');
+    formData.append('File', fileData, 'presentation.pptx');
 
-    const uploadResponse = await fetch('https://api.pdf.co/v1/file/upload', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey },
-      body: formData
-    });
+    console.log('📤 Uploading PowerPoint to ConvertAPI...');
 
-    if (!uploadResponse.ok) {
-      throw new Error(`PowerPoint upload failed: ${uploadResponse.status}`);
+    const uploadController = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 45000);
+
+    try {
+      const extractResponse = await fetch('https://v2.convertapi.com/convert/pptx/to/txt', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+        signal: uploadController.signal
+      });
+
+      clearTimeout(uploadTimeout);
+
+      if (!extractResponse.ok) {
+        const errorText = await extractResponse.text();
+        console.error('❌ ConvertAPI PowerPoint error:', errorText);
+        throw new Error(`PowerPoint extraction failed: ${extractResponse.status} - ${errorText}`);
+      }
+
+      const extractData = await extractResponse.json();
+      
+      if (!extractData.Files || extractData.Files.length === 0) {
+        throw new Error('PowerPoint text extraction failed - no result files');
+      }
+
+      // Download the converted text file
+      const textFileUrl = extractData.Files[0].Url;
+      const textResponse = await fetch(textFileUrl);
+      
+      if (!textResponse.ok) {
+        throw new Error('Failed to download extracted text');
+      }
+
+      const extractedText = await textResponse.text();
+      
+      if (extractedText.length === 0) {
+        throw new Error('PowerPoint contains no extractable text');
+      }
+
+      console.log(`✅ PowerPoint text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
+
+    } catch (extractError) {
+      clearTimeout(uploadTimeout);
+      if (extractError.name === 'AbortError') {
+        throw new Error('PowerPoint text extraction timed out');
+      }
+      throw extractError;
     }
-
-    const uploadData = await uploadResponse.json();
-    
-    if (uploadData.error || !uploadData.url) {
-      throw new Error('PowerPoint upload failed');
-    }
-
-    const extractResponse = await fetch('https://api.pdf.co/v1/ppt/convert/to/text', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: uploadData.url,
-        async: false
-      })
-    });
-
-    if (!extractResponse.ok) {
-      throw new Error(`PowerPoint text extraction failed: ${extractResponse.status}`);
-    }
-
-    const extractData = await extractResponse.json();
-
-    if (extractData.error || !extractData.body) {
-      throw new Error('PowerPoint text extraction failed');
-    }
-
-    const extractedText = extractData.body.trim();
-    
-    if (extractedText.length === 0) {
-      throw new Error('PowerPoint contains no extractable text');
-    }
-
-    console.log(`✅ PowerPoint text extracted successfully (${extractedText.length} chars)`);
-    return extractedText;
   }
 }
 
