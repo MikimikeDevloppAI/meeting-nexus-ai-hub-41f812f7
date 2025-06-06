@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export const uploadAudio = async (audioBlob: Blob, meetingId: string) => {
@@ -33,6 +34,9 @@ const findBestParticipantMatch = (taskText: string, allParticipants: any[]) => {
 
   const taskLower = taskText.toLowerCase();
   
+  console.log(`[PARTICIPANT_MATCH] Searching for match in task: "${taskText}"`);
+  console.log(`[PARTICIPANT_MATCH] Available participants:`, allParticipants.map(p => p.name));
+  
   // Direct name matching (exact or partial)
   for (const participant of allParticipants) {
     const nameLower = participant.name.toLowerCase();
@@ -40,6 +44,7 @@ const findBestParticipantMatch = (taskText: string, allParticipants: any[]) => {
     
     // Check for exact name match
     if (taskLower.includes(nameLower) || taskLower.includes(firstNameLower)) {
+      console.log(`✅ [PARTICIPANT_MATCH] Found match: ${participant.name}`);
       return participant.id;
     }
   }
@@ -59,17 +64,19 @@ const findBestParticipantMatch = (taskText: string, allParticipants: any[]) => {
       if (keywords.some(keyword => taskLower.includes(keyword))) {
         // If participant's name suggests they might have this role
         if (nameLower.includes(role) || participant.email?.toLowerCase().includes(role)) {
+          console.log(`✅ [PARTICIPANT_MATCH] Found role-based match: ${participant.name} for role: ${role}`);
           return participant.id;
         }
       }
     }
   }
 
+  console.log(`⚠️ [PARTICIPANT_MATCH] No match found for task`);
   return null;
 };
 
 const saveTasks = async (tasks: string[], meetingId: string, allParticipants: any[]) => {
-  console.log('Saving tasks with participants:', { tasks, meetingId, participantCount: allParticipants.length });
+  console.log('[SAVE_TASKS] Starting task save process:', { tasks, meetingId, participantCount: allParticipants.length });
   
   const savedTasks = [];
   
@@ -78,16 +85,16 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
       // Find best participant match
       const assignedTo = findBestParticipantMatch(task, allParticipants);
       
-      console.log('Task assignment:', { task: task.substring(0, 50), assignedTo });
+      console.log('[SAVE_TASKS] Task assignment:', { task: task.substring(0, 50), assignedTo });
 
-      // Save the todo (even if no participant is assigned)
+      // Save the todo
       const { data: todoData, error: todoError } = await supabase
         .from("todos")
         .insert({
           description: task.trim(),
           status: "pending",
           meeting_id: meetingId,
-          assigned_to: assignedTo, // This might be null, which is fine
+          assigned_to: assignedTo,
         })
         .select()
         .single();
@@ -108,12 +115,14 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
           
           if (participantError) {
             console.error('Error creating todo-participant relationship:', participantError);
+          } else {
+            console.log(`✅ [SAVE_TASKS] Created todo-participant relationship for task ${todoData.id}`);
           }
         }
 
         // Generate AI recommendation in the background
         try {
-          const response = await fetch('/functions/v1/todo-recommendations', {
+          const response = await fetch('/functions/v1/enhanced-todo-recommendations', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -122,7 +131,9 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
             body: JSON.stringify({
               todoId: todoData.id,
               description: task.trim(),
-              meetingContext: `Meeting ID: ${meetingId}`
+              meetingContext: `Meeting ID: ${meetingId}`,
+              meetingId: meetingId,
+              participantList: allParticipants.map(p => p.name).join(', ')
             }),
           });
           
@@ -138,7 +149,7 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
     }
   }
 
-  console.log('Tasks saved successfully:', savedTasks.length);
+  console.log('[SAVE_TASKS] Tasks saved successfully:', savedTasks.length);
   return savedTasks;
 };
 
@@ -242,29 +253,36 @@ export const MeetingService = {
   }
 };
 
-// Update the processMeetingData function to fetch all participants
+// Update the processMeetingData function to pass meeting participants correctly
 export const processMeetingData = async (
   meetingId: string,
   participantIds: string[],
   audioBlob: Blob | null,
   audioFile: File | null
 ): Promise<void> => {
-  console.log('Processing meeting data for meeting:', meetingId);
+  console.log('[PROCESS_MEETING] Processing meeting data for meeting:', meetingId);
 
   try {
-    // Fetch ALL participants from the database for better assignment
-    const { data: allParticipants, error: participantsError } = await supabase
-      .from("participants")
-      .select("id, name, email");
+    // Récupérer les participants de la réunion (ceux qui sont vraiment dans la réunion)
+    const { data: meetingParticipants, error: meetingParticipantsError } = await supabase
+      .from("meeting_participants")
+      .select(`
+        participant_id,
+        participants (
+          id,
+          name,
+          email
+        )
+      `)
+      .eq('meeting_id', meetingId);
 
-    if (participantsError) {
-      console.error('Error fetching all participants:', participantsError);
+    if (meetingParticipantsError) {
+      console.error('[PROCESS_MEETING] Error fetching meeting participants:', meetingParticipantsError);
     }
 
-    // Use all participants for task assignment, fallback to meeting participants if needed
-    const participantsForAssignment = allParticipants && allParticipants.length > 0 
-      ? allParticipants 
-      : [];
+    // Utiliser les participants de la réunion pour l'assignation
+    const participantsForAssignment = meetingParticipants?.map((mp: any) => mp.participants).filter(Boolean) || [];
+    console.log('[PROCESS_MEETING] Participants for assignment:', participantsForAssignment.map(p => ({ id: p.id, name: p.name })));
 
     // Upload audio file
     let audioUrl = null;
@@ -277,7 +295,7 @@ export const processMeetingData = async (
         .upload(fileName, fileToUpload);
 
       if (uploadError) {
-        console.error('Error uploading audio:', uploadError);
+        console.error('[PROCESS_MEETING] Error uploading audio:', uploadError);
         throw uploadError;
       }
 
@@ -286,7 +304,7 @@ export const processMeetingData = async (
         .getPublicUrl(fileName);
 
       audioUrl = urlData.publicUrl;
-      console.log('Audio uploaded successfully:', audioUrl);
+      console.log('[PROCESS_MEETING] Audio uploaded successfully:', audioUrl);
     }
 
     // Update meeting with audio URL
@@ -296,13 +314,13 @@ export const processMeetingData = async (
       .eq("id", meetingId);
 
     if (updateError) {
-      console.error('Error updating meeting with audio URL:', updateError);
+      console.error('[PROCESS_MEETING] Error updating meeting with audio URL:', updateError);
       throw updateError;
     }
 
-    // Process transcript and extract tasks
+    // Process transcript and extract tasks with correct participants
     if (audioUrl) {
-      console.log('Starting transcript processing...');
+      console.log('[PROCESS_MEETING] Starting transcript processing...');
       
       const response = await fetch('/functions/v1/process-transcript', {
         method: 'POST',
@@ -319,16 +337,16 @@ export const processMeetingData = async (
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Transcript processing failed:', errorText);
+        console.error('[PROCESS_MEETING] Transcript processing failed:', errorText);
         throw new Error(`Transcript processing failed: ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('Transcript processing completed:', result);
+      console.log('[PROCESS_MEETING] Transcript processing completed:', result);
     }
 
   } catch (error) {
-    console.error('Error in processMeetingData:', error);
+    console.error('[PROCESS_MEETING] Error in processMeetingData:', error);
     throw error;
   }
 };
