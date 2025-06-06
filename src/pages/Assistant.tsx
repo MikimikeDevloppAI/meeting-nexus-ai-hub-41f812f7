@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n\nQue puis-je faire pour vous ?",
+      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare",
       isUser: false,
       timestamp: new Date(),
     }
@@ -98,7 +99,7 @@ const Assistant = () => {
     setMessages([
       {
         id: '1',
-        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian. 🏥\n\nJ'ai maintenant une architecture d'agents intelligents améliorée :\n• 🧠 **Coordinateur** : Analyse sémantique avec expansion des termes de recherche\n• 🗄️ **Base de données** : Recherche intelligente avec extraction ciblée\n• 🎯 **Embeddings** : Recherche itérative avec synonymes et fallback\n• 🌐 **Internet** : Enrichissement contextuel stratégique\n\nQue puis-je faire pour vous ?",
+        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare",
         isUser: false,
         timestamp: new Date(),
       }
