@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Trash2, Pen } from "lucide-react";
+import { CheckCircle, Trash2, Pen, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -12,6 +12,12 @@ import { TodoAIChat } from "@/components/TodoAIChat";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MeetingTodosProps {
   meetingId: string;
@@ -20,6 +26,8 @@ interface MeetingTodosProps {
 export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showParticipantDialog, setShowParticipantDialog] = useState(false);
+  const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,6 +134,15 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     ));
   };
 
+  const openParticipantManager = (todoId: string) => {
+    setCurrentTodoId(todoId);
+    setShowParticipantDialog(true);
+  };
+
+  const handleParticipantsUpdated = () => {
+    fetchTodos();
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -181,7 +198,7 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2"
+                    className="h-7 px-2 hover:bg-blue-100 hover:text-blue-800"
                   >
                     <Pen className="h-3 w-3" />
                   </Button>
@@ -200,13 +217,21 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {getStatusBadge(todo.status)}
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-gray-600 flex items-center gap-2">
                     <TodoParticipantManager
                       todoId={todo.id}
                       currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
                       onParticipantsUpdate={fetchTodos}
                       compact={true}
                     />
+                    <Button 
+                      onClick={() => openParticipantManager(todo.id)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
                 
@@ -236,6 +261,25 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
           </CardContent>
         </Card>
       ))}
+
+      {/* Dialog for managing participants */}
+      <Dialog open={showParticipantDialog} onOpenChange={setShowParticipantDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gérer les participants</DialogTitle>
+          </DialogHeader>
+          {currentTodoId && (
+            <TodoParticipantManager
+              todoId={currentTodoId}
+              currentParticipants={
+                todos.find(todo => todo.id === currentTodoId)?.todo_participants?.map(tp => tp.participants) || []
+              }
+              onParticipantsUpdate={handleParticipantsUpdated}
+              compact={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

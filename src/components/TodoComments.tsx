@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Send, Trash2 } from "lucide-react";
+import { MessageCircle, Send, Trash2, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Comment {
@@ -15,6 +15,7 @@ interface Comment {
   user_id: string;
   created_at: string;
   updated_at: string;
+  user_name?: string;  // Nouveau champ pour le nom de l'utilisateur
 }
 
 interface TodoCommentsProps {
@@ -31,26 +32,33 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Add diagnostic logging for user auth state
   useEffect(() => {
     console.log("TodoComments - Auth state:", { user, userExists: !!user, userId: user?.id });
-  }, [user]);
-
-  useEffect(() => {
-    fetchComments();
-  }, [todoId]);
+    if (user) {
+      fetchComments();
+    }
+  }, [todoId, user]);
 
   const fetchComments = async () => {
     setIsLoading(true);
     try {
+      // Récupérer les commentaires avec JOIN pour obtenir les noms d'utilisateurs
       const { data, error } = await supabase
         .from("todo_comments")
-        .select("*")
+        .select(`*, users:user_id (name)`)
         .eq("todo_id", todoId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setComments(data || []);
+      
+      // Transformer les données pour inclure le nom de l'utilisateur
+      const processedComments = data?.map(item => ({
+        ...item,
+        user_name: item.users?.name || 'Utilisateur inconnu'
+      })) || [];
+      
+      setComments(processedComments);
+      console.log("Comments fetched:", processedComments);
     } catch (error: any) {
       console.error("Error fetching comments:", error);
       toast({
@@ -111,7 +119,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
             comment: newComment.trim(),
           },
         ])
-        .select()
+        .select(`*, users:user_id (name)`)
         .single();
 
       if (error) {
@@ -120,7 +128,14 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       }
 
       console.log("Comment inserted successfully:", data);
-      setComments([...comments, data]);
+      
+      // Ajouter le nom de l'utilisateur au nouveau commentaire
+      const newCommentWithUser = {
+        ...data,
+        user_name: data.users?.name || 'Utilisateur inconnu'
+      };
+      
+      setComments([...comments, newCommentWithUser]);
       setNewComment("");
       toast({
         title: "Commentaire ajouté",
@@ -206,14 +221,19 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                 comments.map((comment) => (
                   <div key={comment.id} className="border rounded-lg p-3">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{comment.user_name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
                       {user?.id === comment.user_id && (
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDeleteComment(comment.id)}
+                          className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -262,14 +282,18 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
             {comments.map((comment) => (
               <div key={comment.id} className="bg-gray-50 rounded p-2 text-sm">
                 <div className="flex justify-between items-start">
-                  <span className="text-xs text-gray-500">
-                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs font-medium">{comment.user_name}</span>
+                    <span className="text-xs text-gray-500 ml-1">
+                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
                   {user?.id === comment.user_id && (
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-5 w-5 p-0"
+                      className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800"
                       onClick={() => handleDeleteComment(comment.id)}
                     >
                       <Trash2 className="h-3 w-3" />
