@@ -82,8 +82,9 @@ export const useMeetingCreation = () => {
 
     console.log('[useMeetingCreation] ========== VALIDATION PASSED - STARTING PROCESS ==========');
     
-    // Initialize states immediately
+    // IMPORTANT: Set isSubmitting to true IMMEDIATELY to trigger UI changes
     if (!isMountedRef.current) return;
+    console.log('[useMeetingCreation] Setting isSubmitting to true');
     setIsSubmitting(true);
     resetSteps();
 

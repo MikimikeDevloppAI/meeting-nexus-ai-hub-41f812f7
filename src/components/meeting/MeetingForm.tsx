@@ -143,9 +143,41 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
   };
 
   const handleSubmit = () => {
-    console.log('[MeetingForm] handleSubmit called - calling onSubmit directly (NO VALIDATION HERE)');
+    console.log('[MeetingForm] handleSubmit called with:', { 
+      title, 
+      hasAudio: !!(audioBlob || audioFile), 
+      participantCount: selectedParticipantIds.length 
+    });
     
-    // NO validation here - it's ALL handled in the hook
+    // Basic validation before calling onSubmit
+    if (!title?.trim()) {
+      toast({
+        title: "Titre requis",
+        description: "Veuillez saisir un titre pour la réunion",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedParticipantIds.length === 0) {
+      toast({
+        title: "Participants requis",
+        description: "Veuillez sélectionner au moins un participant",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!audioBlob && !audioFile) {
+      toast({
+        title: "Audio requis",
+        description: "Veuillez enregistrer ou télécharger un fichier audio",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log('[MeetingForm] Validation passed, calling onSubmit');
     // Reset results et appeler directement onSubmit
     setMeetingResults({});
     onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
@@ -192,7 +224,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
               disabled={isSubmitting}
               className="w-full"
             >
-              Soumettre la réunion
+              {isSubmitting ? "Traitement en cours..." : "Soumettre la réunion"}
             </Button>
           </div>
 
