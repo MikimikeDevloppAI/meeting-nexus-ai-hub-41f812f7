@@ -8,6 +8,7 @@ import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink,
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import EditableTaskValidationDialog from "@/components/EditableTaskValidationDialog";
+import { renderMessageWithLinks } from "@/utils/linkRenderer";
 
 interface TaskAction {
   type: 'create' | 'update' | 'delete' | 'complete';
