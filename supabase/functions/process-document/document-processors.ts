@@ -49,45 +49,65 @@ export class PDFProcessor implements DocumentProcessor {
       }
 
       const resultFile = extractData.Files[0];
-      if (!resultFile.Url) {
-        console.error('❌ No URL in result file:', resultFile);
-        throw new Error('PDF text extraction failed - no download URL in result');
+      
+      let extractedText = '';
+      
+      // Check if we have FileData (base64) or Url
+      if (resultFile.FileData) {
+        console.log('📥 Extracting text from base64 FileData...');
+        try {
+          // Decode base64 data
+          const base64Data = resultFile.FileData;
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const decoder = new TextDecoder('utf-8');
+          extractedText = decoder.decode(bytes);
+          console.log(`✅ Text extracted from base64 (${extractedText.length} chars)`);
+        } catch (decodeError) {
+          console.error('❌ Failed to decode base64 FileData:', decodeError);
+          throw new Error('Failed to decode extracted text from base64');
+        }
+      } else if (resultFile.Url) {
+        console.log(`📥 Downloading extracted text from URL: ${resultFile.Url}`);
+        
+        const downloadController = new AbortController();
+        const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
+        
+        try {
+          const textResponse = await fetch(resultFile.Url, {
+            signal: downloadController.signal
+          });
+          
+          clearTimeout(downloadTimeout);
+          
+          if (!textResponse.ok) {
+            throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
+          }
+
+          extractedText = await textResponse.text();
+          console.log(`✅ Text downloaded from URL (${extractedText.length} chars)`);
+
+        } catch (downloadError) {
+          clearTimeout(downloadTimeout);
+          if (downloadError.name === 'AbortError') {
+            throw new Error('Text download timed out');
+          }
+          throw downloadError;
+        }
+      } else {
+        console.error('❌ No FileData or URL in result file:', resultFile);
+        throw new Error('PDF text extraction failed - no FileData or download URL in result');
       }
 
-      // Download the converted text file
-      const textFileUrl = resultFile.Url;
-      console.log(`📥 Downloading extracted text from: ${textFileUrl}`);
-      
-      const downloadController = new AbortController();
-      const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
-      
-      try {
-        const textResponse = await fetch(textFileUrl, {
-          signal: downloadController.signal
-        });
-        
-        clearTimeout(downloadTimeout);
-        
-        if (!textResponse.ok) {
-          throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
-        }
-
-        const extractedText = await textResponse.text();
-        
-        if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('PDF contains no extractable text');
-        }
-
-        console.log(`✅ PDF text extracted successfully (${extractedText.length} chars)`);
-        return extractedText;
-
-      } catch (downloadError) {
-        clearTimeout(downloadTimeout);
-        if (downloadError.name === 'AbortError') {
-          throw new Error('Text download timed out');
-        }
-        throw downloadError;
+      if (!extractedText || extractedText.trim().length === 0) {
+        throw new Error('PDF contains no extractable text');
       }
+
+      console.log(`✅ PDF text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
 
     } catch (extractError) {
       clearTimeout(uploadTimeout);
@@ -161,45 +181,65 @@ export class WordProcessor implements DocumentProcessor {
       }
 
       const resultFile = extractData.Files[0];
-      if (!resultFile.Url) {
-        console.error('❌ No URL in result file:', resultFile);
-        throw new Error('Word text extraction failed - no download URL in result');
+      
+      let extractedText = '';
+      
+      // Check if we have FileData (base64) or Url
+      if (resultFile.FileData) {
+        console.log('📥 Extracting text from base64 FileData...');
+        try {
+          // Decode base64 data
+          const base64Data = resultFile.FileData;
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const decoder = new TextDecoder('utf-8');
+          extractedText = decoder.decode(bytes);
+          console.log(`✅ Text extracted from base64 (${extractedText.length} chars)`);
+        } catch (decodeError) {
+          console.error('❌ Failed to decode base64 FileData:', decodeError);
+          throw new Error('Failed to decode extracted text from base64');
+        }
+      } else if (resultFile.Url) {
+        console.log(`📥 Downloading extracted text from URL: ${resultFile.Url}`);
+        
+        const downloadController = new AbortController();
+        const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
+        
+        try {
+          const textResponse = await fetch(resultFile.Url, {
+            signal: downloadController.signal
+          });
+          
+          clearTimeout(downloadTimeout);
+          
+          if (!textResponse.ok) {
+            throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
+          }
+
+          extractedText = await textResponse.text();
+          console.log(`✅ Text downloaded from URL (${extractedText.length} chars)`);
+
+        } catch (downloadError) {
+          clearTimeout(downloadTimeout);
+          if (downloadError.name === 'AbortError') {
+            throw new Error('Text download timed out');
+          }
+          throw downloadError;
+        }
+      } else {
+        console.error('❌ No FileData or URL in result file:', resultFile);
+        throw new Error('Word text extraction failed - no FileData or download URL in result');
       }
 
-      // Download the converted text file
-      const textFileUrl = resultFile.Url;
-      console.log(`📥 Downloading extracted text from: ${textFileUrl}`);
-      
-      const downloadController = new AbortController();
-      const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
-      
-      try {
-        const textResponse = await fetch(textFileUrl, {
-          signal: downloadController.signal
-        });
-        
-        clearTimeout(downloadTimeout);
-        
-        if (!textResponse.ok) {
-          throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
-        }
-
-        const extractedText = await textResponse.text();
-        
-        if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('Word document contains no extractable text');
-        }
-
-        console.log(`✅ Word text extracted successfully (${extractedText.length} chars)`);
-        return extractedText;
-
-      } catch (downloadError) {
-        clearTimeout(downloadTimeout);
-        if (downloadError.name === 'AbortError') {
-          throw new Error('Text download timed out');
-        }
-        throw downloadError;
+      if (!extractedText || extractedText.trim().length === 0) {
+        throw new Error('Word document contains no extractable text');
       }
+
+      console.log(`✅ Word text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
 
     } catch (extractError) {
       clearTimeout(uploadTimeout);
@@ -255,45 +295,65 @@ export class PowerPointProcessor implements DocumentProcessor {
       }
 
       const resultFile = extractData.Files[0];
-      if (!resultFile.Url) {
-        console.error('❌ No URL in result file:', resultFile);
-        throw new Error('PowerPoint text extraction failed - no download URL in result');
+      
+      let extractedText = '';
+      
+      // Check if we have FileData (base64) or Url
+      if (resultFile.FileData) {
+        console.log('📥 Extracting text from base64 FileData...');
+        try {
+          // Decode base64 data
+          const base64Data = resultFile.FileData;
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const decoder = new TextDecoder('utf-8');
+          extractedText = decoder.decode(bytes);
+          console.log(`✅ Text extracted from base64 (${extractedText.length} chars)`);
+        } catch (decodeError) {
+          console.error('❌ Failed to decode base64 FileData:', decodeError);
+          throw new Error('Failed to decode extracted text from base64');
+        }
+      } else if (resultFile.Url) {
+        console.log(`📥 Downloading extracted text from URL: ${resultFile.Url}`);
+        
+        const downloadController = new AbortController();
+        const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
+        
+        try {
+          const textResponse = await fetch(resultFile.Url, {
+            signal: downloadController.signal
+          });
+          
+          clearTimeout(downloadTimeout);
+          
+          if (!textResponse.ok) {
+            throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
+          }
+
+          extractedText = await textResponse.text();
+          console.log(`✅ Text downloaded from URL (${extractedText.length} chars)`);
+
+        } catch (downloadError) {
+          clearTimeout(downloadTimeout);
+          if (downloadError.name === 'AbortError') {
+            throw new Error('Text download timed out');
+          }
+          throw downloadError;
+        }
+      } else {
+        console.error('❌ No FileData or URL in result file:', resultFile);
+        throw new Error('PowerPoint text extraction failed - no FileData or download URL in result');
       }
 
-      // Download the converted text file
-      const textFileUrl = resultFile.Url;
-      console.log(`📥 Downloading extracted text from: ${textFileUrl}`);
-      
-      const downloadController = new AbortController();
-      const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
-      
-      try {
-        const textResponse = await fetch(textFileUrl, {
-          signal: downloadController.signal
-        });
-        
-        clearTimeout(downloadTimeout);
-        
-        if (!textResponse.ok) {
-          throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
-        }
-
-        const extractedText = await textResponse.text();
-        
-        if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('PowerPoint contains no extractable text');
-        }
-
-        console.log(`✅ PowerPoint text extracted successfully (${extractedText.length} chars)`);
-        return extractedText;
-
-      } catch (downloadError) {
-        clearTimeout(downloadTimeout);
-        if (downloadError.name === 'AbortError') {
-          throw new Error('Text download timed out');
-        }
-        throw downloadError;
+      if (!extractedText || extractedText.trim().length === 0) {
+        throw new Error('PowerPoint contains no extractable text');
       }
+
+      console.log(`✅ PowerPoint text extracted successfully (${extractedText.length} chars)`);
+      return extractedText;
 
     } catch (extractError) {
       clearTimeout(uploadTimeout);
