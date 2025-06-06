@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, MessageCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Calendar, MessageCircle, Trash2, Pen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -17,7 +17,6 @@ export default function Todos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [openComments, setOpenComments] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,8 +43,16 @@ export default function Todos() {
         throw error;
       }
 
-      console.log("Fetched todos:", data);
-      setTodos(data as Todo[]);
+      // Convert any 'pending' status to 'confirmed'
+      const updatedTodos = data?.map(todo => {
+        if (todo.status === 'pending') {
+          return { ...todo, status: 'confirmed' };
+        }
+        return todo;
+      }) || [];
+
+      console.log("Fetched todos:", updatedTodos);
+      setTodos(updatedTodos as Todo[]);
     } catch (error: any) {
       console.error("Error:", error);
       toast({
@@ -110,33 +117,6 @@ export default function Todos() {
     }
   };
 
-  const updateTodoStatus = async (todoId: string, newStatus: Todo['status']) => {
-    try {
-      const { error } = await supabase
-        .from("todos")
-        .update({ status: newStatus })
-        .eq("id", todoId);
-
-      if (error) throw error;
-
-      setTodos(todos.map(todo => 
-        todo.id === todoId ? { ...todo, status: newStatus } : todo
-      ));
-
-      toast({
-        title: "Statut mis à jour",
-        description: `La tâche a été marquée comme ${newStatus === 'completed' ? 'terminée' : newStatus === 'confirmed' ? 'confirmée' : 'en attente'}`,
-      });
-    } catch (error: any) {
-      console.error("Error updating todo status:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour le statut",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleTodoSave = (todoId: string, newDescription: string) => {
     setTodos(todos.map(todo => 
       todo.id === todoId ? { ...todo, description: newDescription } : todo
@@ -145,27 +125,29 @@ export default function Todos() {
 
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
-      'pending': 'En attente',
+      'pending': 'En cours', // Convert pending to "En cours" label
       'confirmed': 'En cours',
       'completed': 'Terminée'
     };
 
     const className = status === 'completed' 
       ? 'bg-green-100 text-green-800 border-green-200' 
-      : status === 'confirmed'
-      ? 'bg-blue-100 text-blue-800 border-blue-200'
-      : 'bg-gray-100 text-gray-800 border-gray-200';
+      : 'bg-blue-100 text-blue-800 border-blue-200';
 
     return (
       <Badge variant="outline" className={className}>
-        {labels[status] || status}
+        {labels[status] || 'En cours'}
       </Badge>
     );
   };
 
   const filteredTodos = statusFilter === "all" 
     ? todos 
-    : todos.filter(todo => todo.status === statusFilter);
+    : todos.filter(todo => {
+        // Convert 'pending' to 'confirmed' for filtering purposes
+        const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
+        return effectiveStatus === statusFilter;
+      });
 
   if (loading) {
     return (
@@ -191,13 +173,6 @@ export default function Todos() {
             onClick={() => setStatusFilter("all")}
           >
             Toutes
-          </Button>
-          <Button
-            variant={statusFilter === "pending" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("pending")}
-          >
-            En attente
           </Button>
           <Button
             variant={statusFilter === "confirmed" ? "default" : "outline"}
@@ -229,14 +204,26 @@ export default function Todos() {
             <Card key={todo.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-4">
                 <div className="space-y-3">
-                  {/* Editable task description */}
-                  <div className="text-sm font-medium">
-                    <EditableContent
-                      content={todo.description}
-                      onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                      type="todo"
-                      id={todo.id}
-                    />
+                  {/* Task header with edit button */}
+                  <div className="flex justify-between items-start">
+                    <div className="text-sm font-medium flex-grow">
+                      <EditableContent
+                        content={todo.description}
+                        onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                        type="todo"
+                        id={todo.id}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteTodo(todo.id)}
+                        className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* Status, meeting and participants */}
@@ -260,15 +247,6 @@ export default function Todos() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setOpenComments(todo.id)}
-                        className="h-7 px-2"
-                      >
-                        <MessageCircle className="h-3 w-3" />
-                      </Button>
-                      
                       {todo.status !== 'completed' && (
                         <Button
                           size="sm"
@@ -279,15 +257,6 @@ export default function Todos() {
                           Terminer
                         </Button>
                       )}
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteTodo(todo.id)}
-                        className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
                     </div>
                   </div>
 
@@ -297,12 +266,8 @@ export default function Todos() {
                   {/* AI Chat for this todo */}
                   <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
 
-                  {/* Comments section */}
-                  <TodoComments 
-                    todoId={todo.id} 
-                    isOpen={openComments === todo.id}
-                    onClose={() => setOpenComments(null)}
-                  />
+                  {/* Inline Comments section */}
+                  <TodoComments todoId={todo.id} />
                 </div>
               </CardContent>
             </Card>

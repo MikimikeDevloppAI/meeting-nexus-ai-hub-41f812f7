@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Trash2, MessageCircle } from "lucide-react";
+import { CheckCircle, Trash2, Pen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -20,7 +20,6 @@ interface MeetingTodosProps {
 export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openComments, setOpenComments] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -47,8 +46,16 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         throw error;
       }
 
-      console.log("Fetched meeting todos:", data);
-      setTodos(data as Todo[]);
+      // Convert any 'pending' status to 'confirmed'
+      const updatedTodos = data?.map(todo => {
+        if (todo.status === 'pending') {
+          return { ...todo, status: 'confirmed' };
+        }
+        return todo;
+      }) || [];
+
+      console.log("Fetched meeting todos:", updatedTodos);
+      setTodos(updatedTodos as Todo[]);
     } catch (error: any) {
       console.error("Error:", error);
       toast({
@@ -121,20 +128,18 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
 
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
-      'pending': 'En attente',
+      'pending': 'En cours', // Convert pending to "En cours" label
       'confirmed': 'En cours',
       'completed': 'Terminée'
     };
 
     const className = status === 'completed' 
       ? 'bg-green-100 text-green-800 border-green-200' 
-      : status === 'confirmed'
-      ? 'bg-blue-100 text-blue-800 border-blue-200'
-      : 'bg-gray-100 text-gray-800 border-gray-200';
+      : 'bg-blue-100 text-blue-800 border-blue-200';
 
     return (
       <Badge variant="outline" className={className}>
-        {labels[status] || status}
+        {labels[status] || 'En cours'}
       </Badge>
     );
   };
@@ -162,14 +167,26 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         <Card key={todo.id} className="hover:shadow-sm transition-shadow">
           <CardContent className="p-4">
             <div className="space-y-3">
-              {/* Editable task description */}
-              <div className="text-sm font-medium">
-                <EditableContent
-                  content={todo.description}
-                  onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                  type="todo"
-                  id={todo.id}
-                />
+              {/* Task header with edit button */}
+              <div className="flex justify-between items-start">
+                <div className="text-sm font-medium flex-grow">
+                  <EditableContent
+                    content={todo.description}
+                    onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                    type="todo"
+                    id={todo.id}
+                  />
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteTodo(todo.id)}
+                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
               
               {/* Status, participants and actions */}
@@ -187,15 +204,6 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setOpenComments(todo.id)}
-                    className="h-7 px-2"
-                  >
-                    <MessageCircle className="h-3 w-3" />
-                  </Button>
-                  
                   {todo.status !== 'completed' && (
                     <Button
                       size="sm"
@@ -206,15 +214,6 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                       Terminer
                     </Button>
                   )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteTodo(todo.id)}
-                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
                 </div>
               </div>
 
@@ -225,11 +224,7 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
               <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
 
               {/* Comments section */}
-              <TodoComments 
-                todoId={todo.id} 
-                isOpen={openComments === todo.id}
-                onClose={() => setOpenComments(null)}
-              />
+              <TodoComments todoId={todo.id} />
             </div>
           </CardContent>
         </Card>

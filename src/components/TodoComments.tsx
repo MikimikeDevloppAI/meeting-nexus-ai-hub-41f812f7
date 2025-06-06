@@ -19,8 +19,8 @@ interface Comment {
 
 interface TodoCommentsProps {
   todoId: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => {
@@ -32,10 +32,9 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen) {
-      fetchComments();
-    }
-  }, [isOpen, todoId]);
+    // Load comments on component mount or when the todoId changes
+    fetchComments();
+  }, [todoId]);
 
   const fetchComments = async () => {
     setIsLoading(true);
@@ -121,70 +120,125 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     }
   };
 
-  if (!isOpen) return null;
+  // For the modal view
+  if (isOpen === false) return null;
+  
+  // If it's used as a modal
+  if (isOpen === true) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Commentaires
+              </h3>
+              <Button variant="ghost" onClick={onClose}>
+                ×
+              </Button>
+            </div>
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Commentaires
-            </h3>
-            <Button variant="ghost" onClick={onClose}>
-              ×
-            </Button>
-          </div>
-
-          <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
-            {isLoading ? (
-              <div className="text-center py-4">Chargement...</div>
-            ) : comments.length > 0 ? (
-              comments.map((comment) => (
-                <div key={comment.id} className="border rounded-lg p-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                    </span>
-                    {user?.id === comment.user_id && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteComment(comment.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+            <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+              {isLoading ? (
+                <div className="text-center py-4">Chargement...</div>
+              ) : comments.length > 0 ? (
+                comments.map((comment) => (
+                  <div key={comment.id} className="border rounded-lg p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-sm text-muted-foreground">
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                      </span>
+                      {user?.id === comment.user_id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteComment(comment.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-sm">{comment.comment}</p>
                   </div>
-                  <p className="text-sm">{comment.comment}</p>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  Aucun commentaire pour le moment
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                Aucun commentaire pour le moment
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="space-y-3">
-            <Textarea
-              placeholder="Ajouter un commentaire..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              rows={3}
-            />
-            <Button
-              onClick={handleAddComment}
-              disabled={!newComment.trim() || isSubmitting}
-              className="w-full"
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Envoi..." : "Ajouter un commentaire"}
-            </Button>
+            <div className="space-y-3">
+              <Textarea
+                placeholder="Ajouter un commentaire..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                rows={3}
+              />
+              <Button
+                onClick={handleAddComment}
+                disabled={!newComment.trim() || isSubmitting}
+                className="w-full"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {isSubmitting ? "Envoi..." : "Ajouter un commentaire"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // For the inline display in the card
+  return (
+    <div className="space-y-3 mt-2 border-t pt-2">
+      {comments.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-gray-500">Commentaires ({comments.length})</h4>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {comments.map((comment) => (
+              <div key={comment.id} className="bg-gray-50 rounded p-2 text-sm">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-gray-500">
+                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                  </span>
+                  {user?.id === comment.user_id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 w-5 p-0"
+                      onClick={() => handleDeleteComment(comment.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs mt-1">{comment.comment}</p>
+              </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Textarea
+          placeholder="Ajouter un commentaire..."
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          rows={1}
+          className="text-xs min-h-[40px] py-1"
+        />
+        <Button
+          onClick={handleAddComment}
+          disabled={!newComment.trim() || isSubmitting}
+          className="h-10"
+          size="sm"
+        >
+          <Send className="h-3 w-3" />
+        </Button>
+      </div>
     </div>
   );
 };
