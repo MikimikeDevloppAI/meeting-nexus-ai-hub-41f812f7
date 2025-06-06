@@ -38,11 +38,11 @@ export const ParticipantsSection = ({
       </div>
 
       {participants.length > 0 ? (
-        <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+        <div className="border rounded-md divide-y max-h-[400px] overflow-y-auto">
           {participants.map((participant) => (
             <div
               key={participant.id}
-              className="flex items-center p-3"
+              className="flex items-center p-4"
             >
               <Checkbox
                 id={`participant-${participant.id}`}

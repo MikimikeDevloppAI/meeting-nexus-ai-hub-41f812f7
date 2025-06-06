@@ -50,7 +50,13 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
           .order('name', { ascending: true });
 
         if (error) throw error;
-        setParticipants(data || []);
+        
+        const participantsList = data || [];
+        setParticipants(participantsList);
+        
+        // Automatiquement sélectionner tous les participants
+        const allParticipantIds = participantsList.map(p => p.id);
+        setSelectedParticipantIds(allParticipantIds);
       } catch (error: any) {
         console.error("Error fetching participants:", error);
         toast({
