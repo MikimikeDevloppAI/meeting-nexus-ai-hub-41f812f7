@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { useProcessingSteps } from "./useProcessingSteps";
+import { useRealisticProcessing } from "./useRealisticProcessing";
 import { MeetingService } from "@/services/meetingService";
 import { AudioProcessingService } from "@/services/audioProcessingService";
 import { MeetingCreationData } from "@/types/meeting";
@@ -16,7 +16,12 @@ export const useMeetingCreation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { processingSteps, updateStepStatus, resetSteps } = useProcessingSteps();
+  const { 
+    processingSteps, 
+    resetSteps, 
+    startRealisticProcessing, 
+    cleanup 
+  } = useRealisticProcessing();
 
   console.log('[useMeetingCreation] Current user:', user);
 
@@ -82,16 +87,21 @@ export const useMeetingCreation = () => {
     setIsSubmitting(true);
     resetSteps();
 
-    // Small delay to ensure UI updates
-    await new Promise(resolve => setTimeout(resolve, 100));
-
+    const hasAudio = !!(audioBlob || audioFile);
     let meetingId: string | null = null;
+
+    // Start realistic processing animation
+    startRealisticProcessing(hasAudio, () => {
+      // This callback is called when all steps are complete
+      console.log('[useMeetingCreation] All processing steps completed, navigating...');
+      if (meetingId && isMountedRef.current) {
+        navigate(`/meetings/${meetingId}`);
+      }
+    });
 
     try {
       // Step 1: Create meeting in database FIRST - this is critical
       console.log('[CREATE] ========== CREATING MEETING IN DATABASE ==========');
-      if (!isMountedRef.current) return;
-      updateStepStatus('create', 'processing');
       
       // CRITICAL: Create meeting and verify it was created
       meetingId = await MeetingService.createMeeting(title.trim(), user.id);
@@ -123,19 +133,13 @@ export const useMeetingCreation = () => {
       } else {
         console.log('[CREATE] No participants to add');
       }
-      
-      if (!isMountedRef.current) return;
-      updateStepStatus('create', 'completed');
 
       // Step 2: Process audio only if provided
-      if (audioBlob || audioFile) {
+      if (hasAudio) {
         console.log('[AUDIO] ========== PROCESSING AUDIO ==========');
         
         // Upload audio
         console.log('[UPLOAD] Starting audio upload...');
-        if (!isMountedRef.current) return;
-        updateStepStatus('upload', 'processing');
-
         try {
           const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
           console.log('[UPLOAD] ✅ Audio uploaded:', audioFileUrl);
@@ -145,15 +149,9 @@ export const useMeetingCreation = () => {
           // Save audio URL to meeting
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
           console.log('[UPLOAD] ✅ Audio URL saved to meeting');
-          
-          if (!isMountedRef.current) return;
-          updateStepStatus('upload', 'completed');
 
           // Transcribe audio
           console.log('[TRANSCRIBE] Starting transcription...');
-          if (!isMountedRef.current) return;
-          updateStepStatus('transcribe', 'processing');
-          
           try {
             const participantCount = Math.max(selectedParticipantIds.length, 2);
             const transcript = await AudioProcessingService.transcribeAudio(
@@ -163,14 +161,9 @@ export const useMeetingCreation = () => {
             );
             
             console.log('[TRANSCRIBE] ✅ Transcription completed');
-            if (!isMountedRef.current) return;
-            updateStepStatus('transcribe', 'completed');
             
             // Process transcript with OpenAI
             console.log('[PROCESS] Starting OpenAI processing...');
-            if (!isMountedRef.current) return;
-            updateStepStatus('clean', 'processing');
-            
             const selectedParticipants = participants.filter(p => 
               selectedParticipantIds.includes(p.id)
             );
@@ -183,51 +176,7 @@ export const useMeetingCreation = () => {
               );
 
               console.log('[PROCESS] ✅ OpenAI processing result:', result);
-              if (!isMountedRef.current) return;
-
-              if (result.processedTranscript) {
-                updateStepStatus('clean', 'completed');
-                console.log('[PROCESS] ✅ Processed transcript saved successfully');
-                
-                // Document step
-                if (!isMountedRef.current) return;
-                updateStepStatus('document', 'processing');
-                // Small delay to show the step
-                await new Promise(resolve => setTimeout(resolve, 300));
-                if (!isMountedRef.current) return;
-                updateStepStatus('document', 'completed');
-                console.log('[DOCUMENT] ✅ Document saved successfully');
-                
-                // Embeddings step
-                if (!isMountedRef.current) return;
-                updateStepStatus('embeddings', 'processing');
-                // Small delay to show the step
-                await new Promise(resolve => setTimeout(resolve, 300));
-                if (!isMountedRef.current) return;
-                if (result.embeddingsCount && result.embeddingsCount > 0) {
-                  updateStepStatus('embeddings', 'completed');
-                  console.log(`[EMBEDDINGS] ✅ ${result.embeddingsCount} embeddings created successfully`);
-                } else {
-                  updateStepStatus('embeddings', 'completed');
-                  console.log('[EMBEDDINGS] ✅ Embeddings step completed');
-                }
-              }
-
-              if (result.summary) {
-                if (!isMountedRef.current) return;
-                updateStepStatus('summary', 'processing');
-                // Small delay to show the step
-                await new Promise(resolve => setTimeout(resolve, 300));
-                if (!isMountedRef.current) return;
-                updateStepStatus('summary', 'completed');
-                console.log('[SUMMARY] ✅ Summary generated and saved successfully');
-              }
-
-              if (!isMountedRef.current) return;
-              updateStepStatus('tasks', 'processing');
-              // Small delay to show the step
-              await new Promise(resolve => setTimeout(resolve, 300));
-              if (!isMountedRef.current) return;
+              
               if (result.tasks && result.tasks.length > 0) {
                 console.log(`[TASKS] ✅ ${result.tasks.length} tasks extracted and saved successfully`);
                 toast({
@@ -236,70 +185,22 @@ export const useMeetingCreation = () => {
                   duration: 5000,
                 });
               }
-              updateStepStatus('tasks', 'completed');
               
             } catch (openaiError: any) {
               console.error('[PROCESS] OpenAI processing failed:', openaiError);
-              if (!isMountedRef.current) return;
-              updateStepStatus('clean', 'error');
-              updateStepStatus('document', 'error');
-              updateStepStatus('embeddings', 'error');
-              updateStepStatus('summary', 'error');
-              updateStepStatus('tasks', 'error');
-              
-              // Don't show error toast, just log it - the meeting was still created successfully
               console.log('[PROCESS] OpenAI processing failed, but meeting and transcript were saved successfully');
             }
           } catch (transcriptionError: any) {
             console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
-            if (!isMountedRef.current) return;
-            updateStepStatus('transcribe', 'error');
-            updateStepStatus('clean', 'error');
-            updateStepStatus('document', 'error');
-            updateStepStatus('embeddings', 'error');
-            updateStepStatus('summary', 'error');
-            updateStepStatus('tasks', 'error');
-            
-            // Don't show error toast, just log it - the meeting was still created successfully
             console.log('[TRANSCRIBE] Transcription failed, but meeting was created successfully');
           }
         } catch (uploadError: any) {
           console.error('[UPLOAD] Audio upload failed:', uploadError);
-          if (!isMountedRef.current) return;
-          updateStepStatus('upload', 'error');
-          updateStepStatus('transcribe', 'error');
-          updateStepStatus('clean', 'error');
-          updateStepStatus('document', 'error');
-          updateStepStatus('embeddings', 'error');
-          updateStepStatus('summary', 'error');
-          updateStepStatus('tasks', 'error');
-          
-          // Don't show error toast, just log it - the meeting was still created successfully
           console.log('[UPLOAD] Audio upload failed, but meeting was created successfully');
         }
       } else {
-        // No audio provided - mark audio steps as completed
         console.log('[NO_AUDIO] No audio provided, skipping audio processing');
-        if (!isMountedRef.current) return;
-        updateStepStatus('upload', 'completed');
-        updateStepStatus('transcribe', 'completed');
-        updateStepStatus('clean', 'completed');
-        updateStepStatus('document', 'completed');
-        updateStepStatus('embeddings', 'completed');
-        updateStepStatus('summary', 'completed');
-        updateStepStatus('tasks', 'completed');
       }
-
-      // Step 3: Finalize
-      console.log('[FINALIZE] ========== FINALIZING MEETING CREATION ==========');
-      if (!isMountedRef.current) return;
-      updateStepStatus('finalize', 'processing');
-
-      // Small delay to show the finalization step
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      if (!isMountedRef.current) return;
-      updateStepStatus('finalize', 'completed');
 
       console.log('[SUCCESS] ========== MEETING CREATION COMPLETED SUCCESSFULLY ==========');
 
@@ -308,14 +209,6 @@ export const useMeetingCreation = () => {
         description: "Votre réunion a été créée avec succès",
         duration: 5000,
       });
-
-      // Navigate after showing completion
-      console.log('[NAVIGATION] Preparing navigation to meeting page...');
-      setTimeout(() => {
-        if (!isMountedRef.current) return;
-        console.log('[NAVIGATION] Navigating to meeting:', meetingId);
-        navigate(`/meetings/${meetingId}`);
-      }, 1500);
 
     } catch (error: any) {
       console.error("[ERROR] ========== CRITICAL ERROR IN MEETING CREATION ==========");
@@ -330,21 +223,6 @@ export const useMeetingCreation = () => {
           description: "La réunion a été créée avec succès",
           duration: 5000,
         });
-        
-        // Complete all remaining steps as completed since the meeting exists
-        if (isMountedRef.current) {
-          updateStepStatus('finalize', 'processing');
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              updateStepStatus('finalize', 'completed');
-              setTimeout(() => {
-                if (isMountedRef.current) {
-                  navigate(`/meetings/${meetingId}`);
-                }
-              }, 1000);
-            }
-          }, 500);
-        }
       } else {
         // Complete failure - meeting not created
         console.log('[ERROR] Complete failure - meeting was not created');
@@ -355,18 +233,8 @@ export const useMeetingCreation = () => {
           duration: 10000,
         });
         
-        // Mark all steps as error and reset after delay
+        // Reset after delay
         if (isMountedRef.current) {
-          updateStepStatus('create', 'error');
-          updateStepStatus('upload', 'error');
-          updateStepStatus('transcribe', 'error');
-          updateStepStatus('clean', 'error');
-          updateStepStatus('document', 'error');
-          updateStepStatus('embeddings', 'error');
-          updateStepStatus('summary', 'error');
-          updateStepStatus('tasks', 'error');
-          updateStepStatus('finalize', 'error');
-          
           setTimeout(() => {
             if (isMountedRef.current) {
               setIsSubmitting(false);
@@ -382,6 +250,7 @@ export const useMeetingCreation = () => {
   const cleanupOnUnmount = () => {
     console.log('[useMeetingCreation] Cleanup on unmount');
     isMountedRef.current = false;
+    cleanup();
   };
 
   return {
