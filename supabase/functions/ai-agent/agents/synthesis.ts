@@ -509,27 +509,33 @@ INSTRUCTIONS ULTRA-ENRICHIES :
 5. Garder un ton professionnel médical/administratif
 6. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
 
-7. RÈGLES STRICTES POUR COORDONNÉES:
-   - Fournir coordonnées UNIQUEMENT si trouvées et vérifiables
-   - Format obligatoire pour téléphones: +41...
+7. RÈGLES STRICTES POUR COORDONNÉES ET LIENS:
+   - Fournir coordonnées UNIQUEMENT si trouvées et vérifiables dans les sources
+   - Si pas de coordonnées trouvées: NE PAS mentionner de coordonnées
+   - Format obligatoire pour téléphones: +41... (si trouvé)
    - Emails: contact@ ou support@ uniquement si trouvés
    - Sites web: TOUJOURS format markdown cliquable [nom](https://url)
+   - Vérifier que chaque lien est fonctionnel avant de l'inclure
 
 8. RECHERCHES PRODUITS:
    - Prioriser les résultats Galaxus si disponibles
    - Présenter les options avec prix CHF et liens cliquables
-   - Comparer avec sources complémentaires
+   - TOUJOURS mentionner d'autres fournisseurs suisses
+   - Comparer avec sources complémentaires (médicales spécialisées)
    - Recommandation finale claire
 
 9. LIENS ET FORMATAGE:
    - TOUS les liens doivent être cliquables format [nom](url)
    - URLs complètes et fonctionnelles
    - Pas de liens cassés ou inventés
+   - Tester mentalement chaque lien avant inclusion
 
-10. INTERDICTIONS:
+10. INTERDICTIONS ABSOLUES:
     - Ne JAMAIS mentionner les coordonnées du cabinet dans les réponses
-    - Ne pas inventer de coordonnées de contact
+    - Ne JAMAIS inventer de coordonnées de contact
+    - Ne JAMAIS mentionner des informations non disponibles
     - Ne pas mentionner des plateformes sans valeur ajoutée
+    - Si pas d'info disponible: simplement ne pas la mentionner
 
 ${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
 
@@ -578,7 +584,8 @@ ${(contextData.internetContent || '').substring(0, 300)}...
 
 Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible. 
 LIENS CLIQUABLES OBLIGATOIRES format [nom](url).
-Coordonnées SEULEMENT si trouvées et vérifiables.`;
+Coordonnées SEULEMENT si trouvées et vérifiables.
+TOUJOURS mentionner d'autres fournisseurs pour les produits.`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
