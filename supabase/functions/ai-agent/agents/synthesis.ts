@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -62,14 +61,14 @@ ${embeddingContext.chunks.slice(0, 5).map((chunk: any, i: number) =>
 ).join('\n\n')}
 
 INSTRUCTIONS STRICTES :
-- Réponds DIRECTEMENT à la question en 1-2 phrases maximum
+- Réponds DIRECTEMENT à la question de manière concise
 - Utilise UNIQUEMENT les informations des extraits
 - Sois factuel et précis
 - NE mentionne PAS les sources
-- NE donne PAS de détails supplémentaires non demandés
+- Fournis les détails nécessaires selon la question
 - Si la réponse est OUI/NON, commence par OUI ou NON
 
-RÉPONSE COURTE ET DIRECTE :`;
+RÉPONSE DIRECTE :`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -82,7 +81,7 @@ RÉPONSE COURTE ET DIRECTE :`;
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: vectorPrompt }],
           temperature: 0.1,
-          max_tokens: 150, // Limité pour forcer la concision
+          max_tokens: 300,
         }),
       });
 
@@ -108,7 +107,7 @@ ${internetContext.content}
 
 INSTRUCTIONS STRICTES :
 - Utilise les informations trouvées pour répondre directement
-- Sois concis et précis (2-3 phrases maximum)
+- Sois concis et précis
 - NE mentionne PAS que tu utilises Internet
 - Contextualise pour le cabinet médical si pertinent
 - Reste professionnel
@@ -126,7 +125,7 @@ RÉPONSE DIRECTE :`;
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: internetPrompt }],
           temperature: 0.1,
-          max_tokens: 200,
+          max_tokens: 400,
         }),
       });
 
@@ -170,14 +169,14 @@ CONTEXTE CABINET DR TABIBIAN :
 ${contextSummary}
 
 RÈGLES DE RÉPONSE STRICTES :
-1. **CONCISION ABSOLUE** - Maximum 2-3 phrases pour répondre
-2. **RÉPONSE DIRECTE** - Vas droit au but sans détails superflus
+1. **CONCISION** - Sois concis mais fournis les informations nécessaires
+2. **RÉPONSE DIRECTE** - Vas droit au but
 3. **PAS DE SOURCES** - Ne mentionne jamais d'où viennent les informations
 4. **UTILISATION INTERNET** - Si des informations Internet sont disponibles, utilise-les
 5. **CONTEXTE OPHTALMOLOGIE** - Maintiens l'expertise médicale
 6. **ACTIONS STRUCTURÉES** - Utilise [ACTION_TACHE:...] pour les tâches si demandé
 
-STYLE CABINET MÉDICAL CONCIS :
+STYLE CABINET MÉDICAL :
 - Professionnel mais direct
 - Pas d'émojis sauf si vraiment pertinent
 - Réponses factuelles et précises`;
@@ -200,9 +199,9 @@ ${dataContext ? `DONNÉES DISPONIBLES : ${dataContext}\n` : ''}
 ${taskContext.hasTaskContext ? `TÂCHES EN COURS : ${taskContext.currentTasks.length}` : ''}
 
 INSTRUCTIONS :
-- Réponds DIRECTEMENT et CONCISÉMENT
+- Réponds DIRECTEMENT et de manière appropriée à la question
 - Utilise les données disponibles
-- Maximum 2-3 phrases
+- Sois concis mais complet selon le besoin
 - Pas de mention des sources`;
 
     try {
@@ -219,7 +218,7 @@ INSTRUCTIONS :
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.2,
-          max_tokens: 300, // Limité pour forcer la concision
+          max_tokens: 500,
         }),
       });
 
