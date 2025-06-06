@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -76,79 +75,55 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 💬 Phase 1: Réponse conversationnelle générale');
     }
 
-    // Construction du contexte pour l'IA avec historique prioritaire
-    let contextData = '';
-    
+    // Construction du prompt avec historique AU DÉBUT
+    let systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
+
+🚨🚨🚨 INSTRUCTION CRITIQUE - HISTORIQUE DE CONVERSATION 🚨🚨🚨
+`;
+
     // HISTORIQUE DE CONVERSATION - Section PRIORITAIRE au début
     if (conversationHistory && conversationHistory.length > 0) {
-      contextData += `\n\n🔥 === CONTEXTE CONVERSATIONNEL CRITIQUE - UTILISE ABSOLUMENT === 🔥\n`;
-      contextData += `INSTRUCTION IMPÉRATIVE: UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE ET LES RÉFÉRENCES.\n`;
-      contextData += `L'utilisateur peut faire référence à des éléments mentionnés précédemment - tu DOIS en tenir compte.\n\n`;
+      systemPrompt += `
+VOICI LES 10 DERNIERS ÉCHANGES DE CETTE CONVERSATION (UTILISE-LES ABSOLUMENT) :
+══════════════════════════════════════════════════════════════════════
+
+`;
       
-      // Formatage optimisé de l'historique
-      contextData += `CONVERSATION RÉCENTE (du plus ancien au plus récent):\n`;
-      const recentHistory = conversationHistory.slice(-6);
+      // Formatage optimisé de l'historique (10 derniers messages)
+      const recentHistory = conversationHistory.slice(-10);
       
       recentHistory.forEach((msg: any, index: number) => {
-        const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 ASSISTANT';
+        const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 TOI (ASSISTANT)';
         const timestamp = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { 
           hour: '2-digit', 
           minute: '2-digit' 
         });
-        const content = msg.content.length > 300 ? msg.content.substring(0, 300) + '...' : msg.content;
-        contextData += `\n[${timestamp}] ${role}:\n"${content}"\n`;
+        const content = msg.content.length > 200 ? msg.content.substring(0, 200) + '...' : msg.content;
+        systemPrompt += `${index + 1}. [${timestamp}] ${role}: "${content}"\n\n`;
       });
 
       // Détection spéciale des réponses courtes
       if (isShortResponseToQuestion) {
-        contextData += `\n🚨 ATTENTION CRITIQUE: L'utilisateur vient de donner une RÉPONSE COURTE ("${message}") à une question de l'assistant.\n`;
-        contextData += `DERNIÈRE QUESTION DE L'ASSISTANT: "${lastAssistantMessage}"\n`;
-        contextData += `INSTRUCTION: Traite "${message}" comme une RÉPONSE DIRECTE à cette question, pas comme une nouvelle demande indépendante.\n\n`;
+        systemPrompt += `🔥🔥🔥 ATTENTION CRITIQUE 🔥🔥🔥
+L'utilisateur vient de donner une RÉPONSE COURTE ("${message}") à ta dernière question.
+TA DERNIÈRE QUESTION ÉTAIT: "${lastAssistantMessage}"
+➡️ TRAITE "${message}" comme une RÉPONSE DIRECTE à cette question, PAS comme une nouvelle demande !
+
+`;
       }
       
-      contextData += `\n=== FIN CONTEXTE CONVERSATIONNEL ===\n\n`;
-    }
-    
-    // Ajouter le contexte des tâches si disponible
-    if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
-      contextData += `\nTÂCHES EN COURS (${taskContext.currentTasks.length}):\n`;
-      taskContext.currentTasks.forEach((task: any, index: number) => {
-        contextData += `${index + 1}. ${task.description} (ID: ${task.id}, Statut: ${task.status})\n`;
-      });
+      systemPrompt += `══════════════════════════════════════════════════════════════════════
+FIN DE L'HISTORIQUE - UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE !
+
+`;
     }
 
-    // Ajouter le contexte des embeddings si disponible
-    if (embeddingContext.hasRelevantContext) {
-      console.log('[SYNTHESIS] 🎯 Utilisation des données embeddings disponibles');
-      contextData += `\nCONTEXTE DOCUMENTAIRE CABINET (${embeddingContext.chunks.length} éléments):\n`;
-      embeddingContext.chunks.slice(0, 5).forEach((chunk: any, index: number) => {
-        contextData += `${index + 1}. ${chunk.chunk_text.substring(0, 200)}...\n`;
-      });
-    }
-
-    // Ajouter le contexte internet si disponible
-    if (internetContext.hasContent) {
-      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet disponibles');
-      contextData += `\nINFORMATIONS INTERNET ENRICHIES:\n${internetContext.content.substring(0, 1000)}...\n`;
-    }
-
-    // Ajouter le contexte de base de données
-    if (databaseContext.meetings?.length > 0) {
-      contextData += `\nRÉUNIONS RÉCENTES (${databaseContext.meetings.length}):\n`;
-      databaseContext.meetings.slice(0, 3).forEach((meeting: any, index: number) => {
-        contextData += `${index + 1}. ${meeting.title} (${meeting.meeting_date})\n`;
-      });
-    }
-
-    // Construction du prompt pour l'IA avec emphasis sur l'historique
-    const systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
-
-🔥 INSTRUCTION CRITIQUE N°1: UTILISE ABSOLUMENT L'HISTORIQUE DE CONVERSATION FOURNI pour maintenir la continuité et comprendre les références. 
-🔥 INSTRUCTION CRITIQUE N°2: Si l'utilisateur donne une réponse courte après que tu aies posé une question, traite cette réponse comme la réponse à ta question.
-
-EXEMPLE CRUCIAL:
-- Si tu demandes "À qui assigner cette tâche ?" et que l'utilisateur répond "david", tu dois comprendre qu'il veut assigner la tâche à David Tabibian.
-- Si tu demandes une précision et que l'utilisateur donne juste un nom ou une réponse courte, c'est une réponse à ta question.
+    systemPrompt += `
+🔥 RÈGLES IMPÉRATIVES D'UTILISATION DE L'HISTORIQUE :
+1. UTILISE L'HISTORIQUE pour comprendre les références et le contexte
+2. Si l'utilisateur donne une réponse courte après que tu aies posé une question, c'est une RÉPONSE à ta question
+3. Maintiens la CONTINUITÉ de la conversation en te basant sur l'historique
+4. Si l'utilisateur fait référence à "ça", "cela", "cette tâche", regarde l'historique pour comprendre
 
 MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
 
@@ -188,10 +163,40 @@ GESTION DES TÂCHES:
 - Pour les autres actions: TYPE=update|delete|complete avec les paramètres appropriés
 - Toujours confirmer la création/modification des tâches
 - Si pas d'assignation précisée, demander à qui assigner la tâche
+`;
 
-${contextData ? `CONTEXTE DISPONIBLE:${contextData}` : ''}
+    // Ajouter le contexte des tâches si disponible
+    if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
+      systemPrompt += `\nTÂCHES EN COURS (${taskContext.currentTasks.length}):\n`;
+      taskContext.currentTasks.forEach((task: any, index: number) => {
+        systemPrompt += `${index + 1}. ${task.description} (ID: ${task.id}, Statut: ${task.status})\n`;
+      });
+    }
 
-QUESTION/DEMANDE ACTUELLE: ${message}`;
+    // Ajouter le contexte des embeddings si disponible
+    if (embeddingContext.hasRelevantContext) {
+      console.log('[SYNTHESIS] 🎯 Utilisation des données embeddings disponibles');
+      systemPrompt += `\nCONTEXTE DOCUMENTAIRE CABINET (${embeddingContext.chunks.length} éléments):\n`;
+      embeddingContext.chunks.slice(0, 5).forEach((chunk: any, index: number) => {
+        systemPrompt += `${index + 1}. ${chunk.chunk_text.substring(0, 200)}...\n`;
+      });
+    }
+
+    // Ajouter le contexte internet si disponible
+    if (internetContext.hasContent) {
+      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet disponibles');
+      systemPrompt += `\nINFORMATIONS INTERNET ENRICHIES:\n${internetContext.content.substring(0, 1000)}...\n`;
+    }
+
+    // Ajouter le contexte de base de données
+    if (databaseContext.meetings?.length > 0) {
+      systemPrompt += `\nRÉUNIONS RÉCENTES (${databaseContext.meetings.length}):\n`;
+      databaseContext.meetings.slice(0, 3).forEach((meeting: any, index: number) => {
+        systemPrompt += `${index + 1}. ${meeting.title} (${meeting.meeting_date})\n`;
+      });
+    }
+
+    systemPrompt += `\nQUESTION/DEMANDE ACTUELLE: ${message}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

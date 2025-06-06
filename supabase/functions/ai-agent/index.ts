@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -22,24 +21,29 @@ serve(async (req) => {
   try {
     const { message, conversationHistory, todoId, taskContext: inputTaskContext } = await req.json();
     console.log(`[AI-AGENT-CABINET-MEDICAL] 🏥 TRAITEMENT OPTIMISÉ OPHTALMOLOGIE: ${message.substring(0, 100)}...`);
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 💬 Historique reçu: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
-    // Log de l'historique complet pour debug (amélioré)
+    // Log de l'historique complet pour debug avec formatage amélioré
     if (conversationHistory && conversationHistory.length > 0) {
-      console.log(`[AI-AGENT-CABINET-MEDICAL] 📜 HISTORIQUE COMPLET DÉTAILLÉ:`);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 📜 HISTORIQUE DÉTAILLÉ (${conversationHistory.length} messages) :`);
       conversationHistory.forEach((msg: any, index: number) => {
         const role = msg.isUser ? '👤 USER' : '🤖 ASSISTANT';
         const timestamp = new Date(msg.timestamp).toLocaleString('fr-FR');
-        console.log(`  ${index + 1}. [${timestamp}] ${role}: "${msg.content.substring(0, 150)}${msg.content.length > 150 ? '...' : ''}"`);
+        const preview = msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '');
+        console.log(`  ${index + 1}. [${timestamp}] ${role}: "${preview}"`);
       });
       
       // Log spécial pour analyser les réponses courtes
       if (message.trim().length < 20 && conversationHistory.length > 0) {
         const lastAssistantMsg = conversationHistory.slice().reverse().find((msg: any) => !msg.isUser);
         if (lastAssistantMsg) {
-          console.log(`[AI-AGENT-CABINET-MEDICAL] 🔍 DÉTECTION RÉPONSE COURTE: "${message}" après question assistant: "${lastAssistantMsg.content.substring(0, 100)}..."`);
+          console.log(`[AI-AGENT-CABINET-MEDICAL] 🔍 DÉTECTION RÉPONSE COURTE POTENTIELLE:`);
+          console.log(`  Message utilisateur: "${message}"`);
+          console.log(`  Dernière question assistant: "${lastAssistantMsg.content.substring(0, 150)}..."`);
         }
       }
+    } else {
+      console.log(`[AI-AGENT-CABINET-MEDICAL] ⚠️ AUCUN HISTORIQUE TRANSMIS !`);
     }
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -61,8 +65,8 @@ serve(async (req) => {
     const taskAgent = new TaskAgent(supabase);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 🧠 PHASE 1: ANALYSE INTELLIGENTE OPTIMISÉE - avec historique enrichi
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente optimisée avec historique enrichi');
+    // 🧠 PHASE 1: ANALYSE INTELLIGENTE OPTIMISÉE - avec historique enrichi transmis explicitement
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente avec historique transmis au coordinateur');
     let analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
     console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Analyse optimisée:', {
       queryType: analysis.queryType,
@@ -81,7 +85,7 @@ serve(async (req) => {
     let taskContextData = { currentTasks: [], hasTaskContext: false };
     
     if (analysis.requiresTasks && analysis.isSimpleRequest) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT TÂCHES: traitement direct avec historique');
+      console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT TÂCHES: traitement direct avec historique transmis');
       taskContextData = await taskAgent.handleTaskRequest(message, analysis, conversationHistory || []);
       
       // Réponse ultra-rapide pour les actions pures sur tâches
@@ -96,7 +100,7 @@ serve(async (req) => {
           taskContextData
         );
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE ULTRA-RAPIDE TÂCHES générée avec historique');
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE ULTRA-RAPIDE TÂCHES générée avec historique transmis');
         return new Response(JSON.stringify({
           response: quickResponse,
           sources: [],
@@ -117,13 +121,13 @@ serve(async (req) => {
 
     // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE) - avec historique enrichi et passé
     if (analysis.requiresEmbeddings) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE avec historique enrichi');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE avec historique transmis');
       embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds, conversationHistory || []);
       console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Embeddings: ${embeddingContext.chunks.length} chunks trouvés avec historique`);
       
       // COURT-CIRCUIT si recherche vectorielle réussie avec haute confiance
       if (embeddingContext.hasRelevantContext && embeddingContext.chunks.length >= 3 && !analysis.requiresDatabase) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT VECTORIEL: résultats suffisants trouvés avec historique');
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT VECTORIEL: résultats suffisants trouvés avec historique transmis');
         
         const quickResponse = await synthesisAgent.synthesizeResponse(
           message,
@@ -135,7 +139,7 @@ serve(async (req) => {
           taskContextData
         );
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE RAPIDE VECTORIELLE générée avec historique complet');
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE RAPIDE VECTORIELLE générée avec historique transmis explicitement');
         return new Response(JSON.stringify({
           response: quickResponse,
           sources: embeddingContext.sources,
@@ -178,8 +182,8 @@ serve(async (req) => {
       }
     }
 
-    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique intégral et prioritaire
-    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale optimisée avec historique complet prioritaire');
+    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique transmis explicitement au début du prompt
+    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale avec historique transmis au début du prompt système');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
@@ -228,7 +232,7 @@ serve(async (req) => {
       }
     };
 
-    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE OPTIMISÉE générée avec historique intégré (confiance: ${feedback.confidenceScore}, historique: ${conversationHistory ? conversationHistory.length : 0} messages)`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE FINALE générée avec historique transmis explicitement (confiance: ${feedback.confidenceScore}, historique: ${conversationHistory ? conversationHistory.length : 0} messages)`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
