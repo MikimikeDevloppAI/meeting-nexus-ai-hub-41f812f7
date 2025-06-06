@@ -164,7 +164,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const startEditComment = (comment: Comment, e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
-    console.log("Starting edit for comment:", comment.id);
+    console.log("Starting edit for comment:", comment.id, "Current user:", user?.id, "Comment user:", comment.user_id);
     setEditComment({ id: comment.id, text: comment.comment });
   };
 
@@ -310,9 +310,12 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
                                 aria-label="Modifier le commentaire"
-                                onClick={(e) => startEditComment(comment, e)}
+                                onClick={(e) => {
+                                  console.log("Edit button clicked for comment:", comment.id);
+                                  startEditComment(comment, e);
+                                }}
                               >
                                 <Pen className="h-4 w-4" />
                               </Button>
@@ -320,7 +323,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                                 size="sm"
                                 variant="ghost"
                                 onClick={(e) => handleDeleteComment(comment.id, e)}
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -403,16 +406,19 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 w-5 p-0"
+                            className="h-5 w-5 p-0 hover:bg-blue-50 hover:text-blue-600"
                             aria-label="Modifier le commentaire"
-                            onClick={(e) => startEditComment(comment, e)}
+                            onClick={(e) => {
+                              console.log("Inline edit button clicked for comment:", comment.id);
+                              startEditComment(comment, e);
+                            }}
                           >
                             <Pen className="h-3 w-3" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 w-5 p-0"
+                            className="h-5 w-5 p-0 hover:bg-red-50 hover:text-red-600"
                             onClick={(e) => handleDeleteComment(comment.id, e)}
                           >
                             <Trash2 className="h-3 w-3" />
