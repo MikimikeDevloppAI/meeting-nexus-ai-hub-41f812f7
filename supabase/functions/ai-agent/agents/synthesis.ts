@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -42,7 +41,7 @@ export class SynthesisAgent {
       return response;
     }
 
-    // Si tâche en attente d'assignation
+    // Si tâche en attente d'assignation SEULEMENT SI EXPLICITEMENT DEMANDÉE
     if (taskContext.pendingTaskCreation?.waitingForAssignment) {
       console.log('[SYNTHESIS] ⏳ Demande d\'assignation pour tâche');
       let response = `Je vais créer une tâche pour "${taskContext.pendingTaskCreation.description}". \n\n`;
@@ -75,35 +74,35 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 💬 Phase 1: Réponse conversationnelle générale');
     }
 
-    // Construction du prompt système amélioré avec historique AU DÉBUT
-    let systemPrompt = `🚨🚨🚨 PRIORITÉ ABSOLUE - CONTEXTE CONVERSATIONNEL 🚨🚨🚨
+    // Construction du prompt système avec priorité absolue à l'historique
+    let systemPrompt = `🚨🚨🚨 INSTRUCTION CRITIQUE PRIORITÉ ABSOLUE 🚨🚨🚨
 
 Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
 
-INSTRUCTION CRITIQUE NUMÉRO 1 - HISTORIQUE DE CONVERSATION:
-Voici la conversation en cours. Tu DOIS absolument utiliser cet historique pour comprendre le contexte de la demande actuelle:
+═══════════════ HISTORIQUE CONVERSATION PRIORITAIRE ═══════════════
+UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE ACTUEL:
 
 `;
 
     // HISTORIQUE DE CONVERSATION - Section ULTRA PRIORITAIRE
     if (conversationHistory && conversationHistory.length > 0) {
-      systemPrompt += `═══════════════ CONVERSATION EN COURS ═══════════════\n`;
-      
       // Prendre les 10 derniers échanges et les formater clairement
       const recentHistory = conversationHistory.slice(-10);
       
       recentHistory.forEach((msg: any, index: number) => {
-        const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 TOI';
+        const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 ASSISTANT';
         const timestamp = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { 
           hour: '2-digit', 
           minute: '2-digit' 
         });
-        systemPrompt += `\n${role} [${timestamp}]: "${msg.content}"\n`;
+        systemPrompt += `${role} [${timestamp}]: "${msg.content}"\n\n`;
       });
 
-      systemPrompt += `\n═══════════════ FIN CONVERSATION ═══════════════\n\n`;
+      systemPrompt += `═══════════════ FIN HISTORIQUE ═══════════════\n\n`;
 
-      // Analyse contextuelle spéciale
+      // Analyser si l'utilisateur fait référence à quelque chose de précédent
+      const contextAnalysis = this.analyzeConversationContext(message, conversationHistory);
+      
       if (contextAnalysis.isReferencingPrevious) {
         systemPrompt += `🔥🔥🔥 ATTENTION CRITIQUE 🔥🔥🔥
 L'utilisateur fait référence à quelque chose de la conversation précédente !
@@ -129,12 +128,13 @@ Ta dernière question était: "${lastAssistantMessage}"
     }
 
     systemPrompt += `
-🔥 RÈGLES ABSOLUES D'UTILISATION DE L'HISTORIQUE :
+🔥 RÈGLES ABSOLUES :
 1. TOUJOURS lire l'historique complet avant de répondre
-2. Si l'utilisateur dit "fournisseur", "ça", "cela", "cette chose" → regarder l'historique pour comprendre DE QUOI il parle
-3. Si l'utilisateur donne juste un nom après une question → c'est une réponse à ta question
-4. Maintenir la CONTINUITÉ absolue de la conversation
-5. JAMAIS demander des précisions si l'information est dans l'historique
+2. Si l'utilisateur dit "fournisseur", "ça", "cela" → regarder l'historique pour comprendre DE QUOI il parle
+3. Maintenir la CONTINUITÉ absolue de la conversation
+4. JAMAIS inventer de coordonnées ou numéros de téléphone
+5. NE PAS créer de tâches automatiquement SAUF si explicitement demandé
+6. JAMAIS suggérer de créer une tâche sauf si l'utilisateur le demande clairement
 
 MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
 
@@ -142,38 +142,34 @@ CONTEXTE CABINET:
 - Cabinet d'ophtalmologie Dr David Tabibian
 - Situé à Genève, Suisse 
 - Spécialisé en ophtalmologie et chirurgie oculaire
-- Équipe administrative et médicale
 
-PARTICIPANTS DISPONIBLES POUR ASSIGNATION:
+PARTICIPANTS DISPONIBLES POUR ASSIGNATION (SI DEMANDÉ):
 - David Tabibian (ID: c04c6400-1025-4906-9823-30478123bd71)
 - Emilie (ID: 9b8b37f6-ee0c-4354-be18-6a0ca0930b12)
 - Leila (ID: 42445b1f-d701-4f30-b57c-48814b64a1df)
 - Parmice (ID: a0c5df24-45ba-49c8-bb5e-1a6e9fc7f49d)
 - Sybil (ID: 2fdb2b35-91ef-4966-93ec-9261172c31c1)
 
-CAPACITÉS PRINCIPALES:
-- Gestion administrative (rendez-vous, dossiers patients, facturation)
-- Assistance aux procédures médicales et chirurgicales
-- Recherche dans les transcripts de réunions et documents
-- Gestion des tâches et follow-up administratif
-- Recommandations basées sur l'historique du cabinet
-- Consultation de données externes pour informations récentes
-
 RÈGLES DE COMMUNICATION:
 - Ton professionnel mais accessible
 - Réponses précises et actionnables
 - Toujours contextualiser par rapport au cabinet Dr Tabibian
 - Pour les prix, utiliser les CHF (francs suisses)
-- Mentionner les sources quand tu utilises des données spécifiques
-- 🔥 UTILISER L'HISTORIQUE pour comprendre les références et maintenir le contexte
-- JAMAIS demander de clarification si l'information est dans l'historique de conversation
+- JAMAIS inventer de coordonnées, téléphones ou contacts
+- SEULEMENT utiliser les informations trouvées via internet si disponibles
+- NE PAS proposer automatiquement de créer des tâches
 
-GESTION DES TÂCHES:
-- Quand on te demande de créer une tâche, utilise cette syntaxe à la fin de ta réponse:
-  [ACTION_TACHE: TYPE=create, description="description de la tâche", assigned_to="id_participant"]
-- Pour les autres actions: TYPE=update|delete|complete avec les paramètres appropriés
-- Toujours confirmer la création/modification des tâches
-- Si pas d'assignation précisée, demander à qui assigner la tâche
+RÈGLES STRICTES POUR LES COORDONNÉES:
+- JAMAIS inventer de numéros de téléphone
+- SEULEMENT utiliser les coordonnées trouvées dans internetContext si hasContent=true
+- Si pas de coordonnées trouvées via internet, dire "Je n'ai pas trouvé les coordonnées de contact"
+- TOUJOURS préciser la source des informations (internet ou données internes)
+
+GESTION DES TÂCHES (SEULEMENT SI DEMANDÉ):
+- Créer une tâche SEULEMENT quand explicitement demandé par l'utilisateur
+- Mots-clés pour création: "créer une tâche", "créé une tâche", "nouvelle tâche", "faire une tâche"
+- Si pas d'assignation précisée, demander à qui assigner
+- JAMAIS proposer automatiquement de créer une tâche
 `;
 
     // Ajouter le contexte des tâches si disponible
@@ -184,6 +180,15 @@ GESTION DES TÂCHES:
       });
     }
 
+    // Ajouter le contexte internet SEULEMENT s'il y a vraiment du contenu
+    if (internetContext.hasContent && internetContext.content) {
+      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet VÉRIFIÉES');
+      systemPrompt += `\nINFORMATIONS INTERNET VÉRIFIÉES:\n${internetContext.content}\n`;
+      systemPrompt += `\nSOURCE: Recherche internet via Perplexity AI\n`;
+    } else {
+      systemPrompt += `\nAUCUNE INFORMATION INTERNET DISPONIBLE - ne pas inventer de coordonnées\n`;
+    }
+
     // Ajouter le contexte des embeddings si disponible
     if (embeddingContext.hasRelevantContext) {
       console.log('[SYNTHESIS] 🎯 Utilisation des données embeddings disponibles');
@@ -191,12 +196,6 @@ GESTION DES TÂCHES:
       embeddingContext.chunks.slice(0, 5).forEach((chunk: any, index: number) => {
         systemPrompt += `${index + 1}. ${chunk.chunk_text.substring(0, 200)}...\n`;
       });
-    }
-
-    // Ajouter le contexte internet si disponible
-    if (internetContext.hasContent) {
-      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet disponibles');
-      systemPrompt += `\nINFORMATIONS INTERNET ENRICHIES:\n${internetContext.content.substring(0, 1000)}...\n`;
     }
 
     // Ajouter le contexte de base de données
@@ -209,7 +208,11 @@ GESTION DES TÂCHES:
 
     systemPrompt += `\n🔥 QUESTION/DEMANDE ACTUELLE: ${message}
 
-RAPPEL FINAL: Utilise l'historique de conversation ci-dessus pour comprendre le contexte et les références. Si l'utilisateur fait référence à quelque chose mentionné précédemment, utilise ces informations pour donner une réponse contextuelle appropriée.`;
+RAPPEL FINAL: 
+- Utilise l'historique de conversation pour comprendre le contexte
+- JAMAIS inventer de coordonnées ou téléphones
+- SEULEMENT utiliser les informations trouvées via internet si disponibles
+- NE PAS créer de tâches automatiquement sauf si explicitement demandé`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -247,7 +250,8 @@ RAPPEL FINAL: Utilise l'historique de conversation ci-dessus pour comprendre le 
     const referenceKeywords = [
       'fournisseur', 'ça', 'cela', 'cette', 'celui', 'celle', 'ceci',
       'la même', 'le même', 'comme ça', 'pareille', 'similaire',
-      'pour ça', 'avec ça', 'de ça'
+      'pour ça', 'avec ça', 'de ça', 'du premier', 'le premier',
+      'premier que', 'mentionné', 'dit', 'parlé'
     ];
 
     const isReferencingPrevious = referenceKeywords.some(keyword => lowerMessage.includes(keyword));
@@ -266,10 +270,10 @@ RAPPEL FINAL: Utilise l'historique de conversation ci-dessus pour comprendre le 
             context: 'Référence à la fontaine à eau discutée précédemment' 
           };
         }
-        if (content.includes('café')) {
+        if (content.includes('café') || content.includes('nespresso')) {
           return { 
             isReferencingPrevious: true, 
-            context: 'Référence à l\'achat de café discuté précédemment' 
+            context: 'Référence aux fournisseurs de café discutés précédemment' 
           };
         }
         if (content.includes('tâche')) {
