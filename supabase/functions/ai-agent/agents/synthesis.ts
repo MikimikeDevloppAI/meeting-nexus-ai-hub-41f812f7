@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -7,6 +6,185 @@ export class SynthesisAgent {
   }
 
   async synthesizeResponse(
+    originalQuery: string,
+    conversationHistory: any[],
+    databaseContext: any,
+    embeddingContext: any,
+    internetContext: any,
+    analysis: any,
+    taskContext: any
+  ): Promise<string> {
+    console.log('[SYNTHESIS] 🏥 Synthèse INTELLIGENTE Cabinet Dr Tabibian');
+
+    // PHASE 1: RÉPONSE BASÉE SUR LA RECHERCHE VECTORIELLE UNIQUEMENT
+    console.log('[SYNTHESIS] 🎯 Phase 1: Réponse basée sur recherche vectorielle');
+    
+    if (embeddingContext.chunks && embeddingContext.chunks.length > 0) {
+      const vectorBasedResponse = await this.generateVectorBasedResponse(
+        originalQuery, 
+        embeddingContext, 
+        analysis
+      );
+      
+      // Si la réponse vectorielle est satisfaisante, l'enrichir avec les détails du meeting
+      if (vectorBasedResponse && this.isResponseSatisfactory(vectorBasedResponse, originalQuery)) {
+        console.log('[SYNTHESIS] ✅ Réponse vectorielle satisfaisante, enrichissement avec détails meeting');
+        
+        const enrichedResponse = await this.enrichWithMeetingDetails(
+          vectorBasedResponse,
+          originalQuery,
+          databaseContext,
+          embeddingContext,
+          analysis
+        );
+        
+        return this.finalizeResponse(enrichedResponse, analysis, embeddingContext, databaseContext);
+      }
+    }
+
+    // PHASE 2: FALLBACK - SYNTHÈSE COMPLÈTE CLASSIQUE
+    console.log('[SYNTHESIS] 🔄 Phase 2: Fallback synthèse complète');
+    return this.generateFullSynthesis(originalQuery, conversationHistory, databaseContext, embeddingContext, internetContext, analysis, taskContext);
+  }
+
+  private async generateVectorBasedResponse(
+    originalQuery: string,
+    embeddingContext: any,
+    analysis: any
+  ): Promise<string> {
+    const vectorPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
+
+MISSION PRIORITAIRE : Répondre directement à partir des extraits de documents trouvés.
+
+QUESTION : "${originalQuery}"
+
+EXTRAITS PERTINENTS TROUVÉS DANS LES DONNÉES CABINET :
+${embeddingContext.chunks.slice(0, 5).map((chunk: any, i: number) => 
+  `${i+1}. [Similarité: ${(chunk.similarity * 100).toFixed(0)}%] ${chunk.chunk_text}`
+).join('\n\n')}
+
+INSTRUCTIONS :
+- Réponds DIRECTEMENT à la question en utilisant les extraits fournis
+- Si la réponse est dans les extraits, dis OUI et explique
+- Si la réponse n'est PAS dans les extraits, dis NON clairement
+- Sois précis et factuel
+- Cite les éléments pertinents trouvés
+- N'invente rien qui n'est pas dans les extraits
+
+RÉPONSE COURTE ET PRÉCISE :`;
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: vectorPrompt }],
+          temperature: 0.1, // Très faible pour réponses factuelles
+          max_tokens: 500,
+        }),
+      });
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content || '';
+    } catch (error) {
+      console.error('[SYNTHESIS] ❌ Erreur réponse vectorielle:', error);
+      return '';
+    }
+  }
+
+  private isResponseSatisfactory(response: string, originalQuery: string): boolean {
+    // Vérifier si la réponse contient des éléments positifs
+    const positiveIndicators = ['oui', 'effectivement', 'dans', 'mentionné', 'parlé', 'évoqué', 'discuté'];
+    const negativeIndicators = ['non', 'pas', 'aucun', 'introuvable', 'absent'];
+    
+    const lowerResponse = response.toLowerCase();
+    const hasPositive = positiveIndicators.some(indicator => lowerResponse.includes(indicator));
+    const hasNegative = negativeIndicators.some(indicator => lowerResponse.includes(indicator));
+    
+    // La réponse est satisfaisante si elle est suffisamment longue et contient des éléments factuels
+    return response.length > 50 && (hasPositive || !hasNegative);
+  }
+
+  private async enrichWithMeetingDetails(
+    baseResponse: string,
+    originalQuery: string,
+    databaseContext: any,
+    embeddingContext: any,
+    analysis: any
+  ): Promise<string> {
+    console.log('[SYNTHESIS] 📋 Enrichissement avec détails meeting');
+
+    // Identifier les meetings pertinents à partir des chunks
+    const relevantMeetings = this.extractRelevantMeetings(embeddingContext.chunks, databaseContext.meetings);
+    
+    if (relevantMeetings.length === 0) {
+      return baseResponse;
+    }
+
+    const enrichmentPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian.
+
+RÉPONSE DE BASE : 
+${baseResponse}
+
+DÉTAILS DES RÉUNIONS PERTINENTES :
+${relevantMeetings.map((meeting: any, i: number) => `
+${i+1}. RÉUNION: ${meeting.title} (${new Date(meeting.created_at).toLocaleDateString('fr-FR')})
+   RÉSUMÉ: ${meeting.summary || 'Pas de résumé'}
+   ${meeting.transcript ? `TRANSCRIPT DISPONIBLE (${meeting.transcript.length} caractères)` : 'Pas de transcript'}
+`).join('\n')}
+
+MISSION : Enrichir la réponse de base avec les détails spécifiques des réunions.
+
+RÈGLES :
+- Garde la réponse de base comme fondation
+- Ajoute les détails pertinents des réunions (dates, contexte, participants)
+- Si un transcript complet est demandé, fournis-le
+- Reste factuel et précis
+- Mentionne les sources (quelle réunion)
+
+RÉPONSE ENRICHIE :`;
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: enrichmentPrompt }],
+          temperature: 0.2,
+          max_tokens: 1200,
+        }),
+      });
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content || baseResponse;
+    } catch (error) {
+      console.error('[SYNTHESIS] ❌ Erreur enrichissement:', error);
+      return baseResponse;
+    }
+  }
+
+  private extractRelevantMeetings(chunks: any[], meetings: any[]): any[] {
+    if (!chunks || !meetings) return [];
+    
+    // Extraire les meeting_ids des chunks
+    const meetingIds = [...new Set(chunks
+      .filter(chunk => chunk.meeting_id)
+      .map(chunk => chunk.meeting_id)
+    )];
+    
+    // Trouver les meetings correspondants
+    return meetings.filter(meeting => meetingIds.includes(meeting.id));
+  }
+
+  private async generateFullSynthesis(
     originalQuery: string,
     conversationHistory: any[],
     databaseContext: any,
@@ -150,6 +328,21 @@ INSTRUCTIONS INTELLIGENTES CABINET :
       // Réponse de fallback intelligente même en cas d'erreur
       return this.generateIntelligentFallback(originalQuery, databaseContext, embeddingContext, taskContext);
     }
+  }
+
+  private finalizeResponse(response: string, analysis: any, embeddingContext: any, databaseContext: any): string {
+    let finalizedResponse = response;
+
+    // Ajout d'indicateurs de source
+    if (embeddingContext.chunks?.length > 0) {
+      finalizedResponse += `\n\n🔍 *Basé sur ${embeddingContext.chunks.length} élément(s) trouvé(s) dans vos données cabinet.*`;
+    }
+
+    if (databaseContext.meetings?.length > 0) {
+      finalizedResponse += `\n\n📊 *Sources: ${databaseContext.meetings.length} réunion(s) de votre cabinet Dr Tabibian.*`;
+    }
+
+    return finalizedResponse;
   }
 
   private buildIntelligentContextSummary(databaseContext: any, embeddingContext: any, internetContext: any, taskContext: any): string {
