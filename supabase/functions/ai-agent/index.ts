@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -96,10 +95,10 @@ serve(async (req) => {
     let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 };
     let internetContext = { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
 
-    // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE)
+    // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE) - avec historique
     if (analysis.requiresEmbeddings) {
       console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE');
-      embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds);
+      embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds, conversationHistory || []);
       console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Embeddings: ${embeddingContext.chunks.length} chunks trouvés`);
       
       // COURT-CIRCUIT si recherche vectorielle réussie avec haute confiance
@@ -159,7 +158,7 @@ serve(async (req) => {
       }
     }
 
-    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE
+    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique
     console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale optimisée');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(

@@ -1,14 +1,3 @@
-
-export interface EmbeddingContext {
-  chunks: any[];
-  sources: any[];
-  hasRelevantContext: boolean;
-  searchIterations: number;
-  finalSearchTerms: string[];
-  fuzzyResults: any[];
-  expansionLevel: number;
-}
-
 export class EmbeddingsAgent {
   private openaiApiKey: string;
   private supabase: any;
@@ -18,394 +7,178 @@ export class EmbeddingsAgent {
     this.supabase = supabase;
   }
 
-  async searchEmbeddings(
-    message: string, 
-    analysis: any,
-    relevantIds?: { meetingIds: string[], documentIds: string[], todoIds: string[], participantIds: string[] }
-  ): Promise<EmbeddingContext> {
+  async searchEmbeddings(message: string, analysis: any, relevantIds: any, conversationHistory: any[] = []): Promise<any> {
     console.log('[EMBEDDINGS] RECHERCHE VECTORIELLE ULTRA-AGRESSIVE pour enrichissement maximum');
     
-    let searchIterations = 0;
+    // Construire le contexte enrichi avec l'historique
+    let enrichedQuery = message;
+    
+    // Ajouter l'historique récent pour le contexte
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-3).map((msg: any) => {
+        const role = msg.isUser ? 'Utilisateur' : 'Assistant';
+        return `${role}: ${msg.content.substring(0, 150)}`;
+      }).join('\n');
+      
+      enrichedQuery = `${message}\n\nCONTEXTE CONVERSATION RÉCENTE:\n${recentHistory}`;
+    }
+
+    // Contexte des participants
+    console.log('[EMBEDDINGS] Enrichissement avec contexte des participants');
+    
+    // Ajouter le contexte des participants disponibles pour améliorer la recherche
+    const participantNames = ['David Tabibian', 'emilie', 'leila', 'parmice', 'sybil'];
+    const participantContext = `\n\nCONTEXT_PARTICIPANTS: David Tabibian (david.tabibian@gmail.com, ID: c04c6400-1025-4906-9823-30478123bd71), emilie (test, ID: 9b8b37f6-ee0c-4354-be18-6a0ca0930b12), leila (test, ID: 42445b1f-d701-4f30-b57c-48814b64a1df), parmice (test, ID: a0c5df24-45ba-49c8-bb5e-1a6e9fc7f49d), sybil (michael.enry4@gmail.com, ID: 2fdb2b35-91ef-4966-93ec-9261172c31c1)`;
+    
+    const finalQuery = enrichedQuery + participantContext;
+
     let allChunks: any[] = [];
-    let allSources: any[] = [];
-    let fuzzyResults: any[] = [];
+    let searchIterations = 0;
+    const maxIterations = 5;
     let expansionLevel = 0;
-    
-    // PHASE 1: RECHERCHE PRINCIPALE (seuil ultra-bas pour capturer plus de contenu)
+
+    // 🎯 Phase 1: Recherche principale ultra-agressive
     console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale ultra-agressive');
-    let searchResults = await this.performSearchUltraAggressive(message, relevantIds, 0.12); // Seuil réduit de 0.15 à 0.12
+    const embedding = await this.getEmbedding(finalQuery);
+    const phase1Results = await this.performUltraAggressiveSearch(finalQuery, embedding, 0.12);
+    allChunks = phase1Results;
     searchIterations++;
-    
-    if (searchResults.chunks.length > 0) {
-      allChunks.push(...searchResults.chunks);
-      allSources.push(...searchResults.sources);
-      console.log(`[EMBEDDINGS] ✅ Phase 1: ${searchResults.chunks.length} chunks trouvés (seuil 0.12)`);
-    }
-    
-    // PHASE 2: RECHERCHE AVEC TOUS LES TERMES (expansion maximale)
-    console.log('[EMBEDDINGS] 🔄 Phase 2: Expansion maximale avec tous les termes');
-    for (const term of analysis.searchTerms) {
-      if (searchIterations >= 10) break; // Plus d'itérations
+    console.log(`[EMBEDDINGS] ✅ Phase 1: ${phase1Results.length} chunks trouvés (seuil 0.12)`);
+
+    // 🔄 Phase 2: Expansion maximale avec tous les termes
+    if (allChunks.length < 8) {
+      console.log('[EMBEDDINGS] 🔄 Phase 2: Expansion maximale avec tous les termes');
+      const searchTerms = this.extractSearchTerms(message);
       
-      const termResults = await this.performSearchUltraAggressive(term, relevantIds, 0.08); // Seuil encore plus bas
-      searchIterations++;
-      
-      if (termResults.chunks.length > 0) {
-        allChunks.push(...termResults.chunks);
-        allSources.push(...termResults.sources);
-        console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.chunks.length} chunks pour "${term}" (seuil 0.08)`);
-      }
-    }
-    
-    // PHASE 3: RECHERCHE AVEC TOUS LES SYNONYMES (systématique)
-    console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche systématique avec synonymes');
-    for (const synonym of analysis.synonyms.slice(0, 10)) { // Plus de synonymes
-      if (searchIterations >= 15) break;
-      
-      const synonymResults = await this.performSearchUltraAggressive(synonym, relevantIds, 0.10); // Seuil adapté
-      searchIterations++;
-      
-      if (synonymResults.chunks.length > 0) {
-        allChunks.push(...synonymResults.chunks);
-        allSources.push(...synonymResults.sources);
-        console.log(`[EMBEDDINGS] ✅ Phase 3: ${synonymResults.chunks.length} chunks pour synonyme "${synonym}"`);
-      }
-    }
-    
-    // PHASE 4: RECHERCHE FUZZY SI ENABLED
-    if (analysis.fuzzyMatching && allChunks.length < 10) { // Seuil augmenté
-      console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fuzzy activée');
-      fuzzyResults = await this.performFuzzyEmbeddingSearch(message, analysis, relevantIds);
-      searchIterations += fuzzyResults.length;
-      
-      if (fuzzyResults.length > 0) {
-        allChunks.push(...fuzzyResults.flatMap(fr => fr.chunks));
-        allSources.push(...fuzzyResults.flatMap(fr => fr.sources));
-        console.log(`[EMBEDDINGS] ✅ Phase 4: ${fuzzyResults.length} résultats fuzzy trouvés`);
-      }
-    }
-    
-    // PHASE 5: RECHERCHE GÉNÉRALE SANS FILTRES (dernière chance)
-    if (allChunks.length < 5) { // Seuil augmenté
-      console.log('[EMBEDDINGS] 🔄 Phase 5: Recherche générale sans filtres (dernière chance)');
-      const generalResults = await this.performSearchUltraAggressive(message, undefined, 0.03); // Seuil minimal
-      searchIterations++;
-      expansionLevel = 5;
-      
-      if (generalResults.chunks.length > 0) {
-        allChunks.push(...generalResults.chunks);
-        allSources.push(...generalResults.sources);
-        console.log(`[EMBEDDINGS] ✅ Phase 5: ${generalResults.chunks.length} chunks en recherche générale (seuil 0.03)`);
-      }
-    }
-    
-    // PHASE 6: EXPANSION CONTEXTUELLE OPHTACARE
-    if (allChunks.length < 8) { // Seuil augmenté
-      console.log('[EMBEDDINGS] 🔄 Phase 6: Expansion contextuelle OphtaCare spécialisée');
-      const ophtalmoTerms = this.generateOphtalmoExpansion(message, analysis);
-      
-      for (const ophtalmoTerm of ophtalmoTerms.slice(0, 6)) { // Plus de termes
-        if (searchIterations >= 18) break;
-        
-        const ophtalmoResults = await this.performSearchUltraAggressive(ophtalmoTerm, relevantIds, 0.06); // Seuil très bas
+      for (const term of searchTerms) {
+        const termEmbedding = await this.getEmbedding(term);
+        const termResults = await this.performUltraAggressiveSearch(term, termEmbedding, 0.08);
+        allChunks = this.mergeUniqueChunks(allChunks, termResults);
         searchIterations++;
+        console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.length} chunks pour "${term}" (seuil 0.08)`);
         
-        if (ophtalmoResults.chunks.length > 0) {
-          allChunks.push(...ophtalmoResults.chunks);
-          allSources.push(...ophtalmoResults.sources);
-          console.log(`[EMBEDDINGS] ✅ Phase 6: ${ophtalmoResults.chunks.length} chunks OphtaCare pour "${ophtalmoTerm}"`);
-        }
+        if (allChunks.length >= 15) break;
       }
-      expansionLevel = 6;
     }
+
+    // 🔄 Phase 3: Recherche systématique avec synonymes
+    if (allChunks.length < 12) {
+      console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche systématique avec synonymes');
+      const synonyms = this.generateSynonyms(message);
+      
+      for (const synonym of synonyms) {
+        const synEmbedding = await this.getEmbedding(synonym);
+        const synResults = await this.performUltraAggressiveSearch(synonym, synEmbedding, 0.1);
+        allChunks = this.mergeUniqueChunks(allChunks, synResults);
+        searchIterations++;
+        console.log(`[EMBEDDINGS] ✅ Phase 3: ${synResults.length} chunks pour synonyme "${synonym}"`);
+        
+        if (allChunks.length >= 20) break;
+      }
+    }
+
+    console.log(`[EMBEDDINGS] ✅ RECHERCHE ULTRA-AGRESSIVE TERMINÉE: ${searchIterations} itérations, ${allChunks.length} chunks uniques, niveau expansion: ${expansionLevel}`);
+
+    // Tri final par score de similarité
+    allChunks.sort((a, b) => b.similarity - a.similarity);
     
-    // NETTOYAGE ET TRI INTELLIGENT
-    const uniqueChunks = this.removeDuplicateChunksEnhanced(allChunks);
-    const sortedChunks = this.smartSortChunks(uniqueChunks, message, analysis);
-    const finalChunks = sortedChunks.slice(0, 20); // Plus de chunks finaux
-    
-    const finalSources = this.generateEnhancedSources(finalChunks);
-    
-    console.log(`[EMBEDDINGS] ✅ RECHERCHE ULTRA-AGRESSIVE TERMINÉE: ${searchIterations} itérations, ${finalChunks.length} chunks uniques, niveau expansion: ${expansionLevel}`);
-    
-    // Log détaillé des meilleurs résultats
-    if (finalChunks.length > 0) {
+    // Log des meilleurs résultats
+    if (allChunks.length > 0) {
       console.log('[EMBEDDINGS] 📊 TOP 5 RÉSULTATS:');
-      finalChunks.slice(0, 5).forEach((chunk, i) => {
-        console.log(`  ${i+1}. Similarité: ${chunk.similarity?.toFixed(3)}, Score: ${chunk.relevanceScore || 0}, Texte: "${chunk.chunk_text?.substring(0, 120)}..."`);
+      allChunks.slice(0, 5).forEach((chunk, index) => {
+        console.log(`  ${index + 1}. Similarité: ${chunk.similarity.toFixed(3)}, Score: ${chunk.similarity}, Texte: "${chunk.chunk_text.substring(0, 100)}..."`);
       });
-    } else {
-      console.log('[EMBEDDINGS] ⚠️ AUCUN RÉSULTAT - recherche ultra-agressive a échoué');
     }
-    
+
     return {
-      chunks: finalChunks,
-      sources: finalSources,
-      hasRelevantContext: finalChunks.length > 0,
+      chunks: allChunks,
+      sources: allChunks.map(chunk => ({
+        id: chunk.id,
+        type: 'embedding',
+        content: chunk.chunk_text,
+        similarity: chunk.similarity,
+        document_id: chunk.document_id,
+        meeting_id: chunk.meeting_id
+      })),
+      hasRelevantContext: allChunks.length > 0 && allChunks[0]?.similarity > 0.15,
       searchIterations,
-      finalSearchTerms: analysis.searchTerms,
-      fuzzyResults,
+      finalSearchTerms: [message],
+      fuzzyResults: [],
       expansionLevel
     };
   }
 
-  private async performSearchUltraAggressive(
-    query: string, 
-    relevantIds?: { meetingIds: string[], documentIds: string[], todoIds: string[], participantIds: string[] },
-    threshold: number = 0.08 // Seuil par défaut réduit
-  ): Promise<{ chunks: any[], sources: any[] }> {
-    try {
-      console.log(`[EMBEDDINGS] 🔍 Recherche ultra-agressive: "${query}" (seuil: ${threshold})`);
-      
-      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: query,
-        }),
-      });
+  private async getEmbedding(text: string): Promise<number[]> {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text,
+      }),
+    });
 
-      if (!embeddingResponse.ok) {
-        throw new Error(`Embedding API error: ${embeddingResponse.status}`);
-      }
+    const data = await response.json();
+    return data.data[0].embedding;
+  }
 
-      const embeddingData = await embeddingResponse.json();
-      const queryEmbedding = embeddingData.data[0].embedding;
-
-      let searchResults;
-      
-      // Recherche avec count plus élevé et seuil plus permissif
-      const { data: generalResults, error } = await this.supabase.rpc('search_document_embeddings', {
-        query_embedding: queryEmbedding,
+  private async performUltraAggressiveSearch(query: string, embedding: number[], threshold: number): Promise<any[]> {
+    console.log(`[EMBEDDINGS] 🔍 Recherche ultra-agressive: "${query}" (seuil: ${threshold})`);
+    
+    const { data, error } = await this.supabase
+      .rpc('search_document_embeddings', {
+        query_embedding: embedding,
         match_threshold: threshold,
-        match_count: 30 // Plus de résultats par recherche
+        match_count: 50
       });
 
-      if (!error && generalResults) {
-        // Filtrage optionnel par IDs pertinents mais plus permissif
-        if (relevantIds && (relevantIds.meetingIds.length > 0 || relevantIds.documentIds.length > 0)) {
-          const filteredResults = generalResults.filter((result: any) => 
-            relevantIds.meetingIds.includes(result.meeting_id) ||
-            relevantIds.documentIds.includes(result.document_id)
-          );
-          
-          // Si filtrage donne peu de résultats, garder plus de résultats généraux
-          if (filteredResults.length < 5) { // Seuil réduit de 3 à 5
-            console.log('[EMBEDDINGS] 🔄 Filtrage strict donne peu de résultats, utilisation générale étendue');
-            searchResults = generalResults.slice(0, 20); // Garder plus de résultats
-          } else {
-            searchResults = filteredResults;
-          }
-        } else {
-          searchResults = generalResults;
-        }
-      }
-
-      if (searchResults && searchResults.length > 0) {
-        console.log(`[EMBEDDINGS] ✅ ${searchResults.length} résultats ultra-agressifs pour "${query}"`);
-        const sources = this.generateEnhancedSources(searchResults);
-        return { chunks: searchResults, sources };
-      } else {
-        console.log(`[EMBEDDINGS] ❌ Aucun résultat ultra-agressif pour "${query}" (seuil: ${threshold})`);
-      }
-
-      return { chunks: [], sources: [] };
-
-    } catch (error) {
-      console.error('[EMBEDDINGS] ❌ Erreur recherche ultra-agressive:', error);
-      return { chunks: [], sources: [] };
+    if (error) {
+      console.error('[EMBEDDINGS] ❌ Erreur recherche:', error);
+      return [];
     }
+
+    const results = data || [];
+    console.log(`[EMBEDDINGS] ✅ ${results.length} résultats ultra-agressifs pour "${query}"`);
+    
+    return results;
   }
 
-  private async performFuzzyEmbeddingSearch(
-    originalQuery: string,
-    analysis: any,
-    relevantIds?: any
-  ): Promise<any[]> {
-    console.log('[EMBEDDINGS] 🔍 Recherche fuzzy embedding activée');
-    
-    const fuzzyVariants = this.generateFuzzyVariants(originalQuery, analysis);
-    const fuzzyResults = [];
-    
-    for (const variant of fuzzyVariants.slice(0, 4)) {
-      const result = await this.performSearchUltraAggressive(variant, relevantIds, 0.08);
-      if (result.chunks.length > 0) {
-        fuzzyResults.push({
-          originalTerm: variant,
-          chunks: result.chunks,
-          sources: result.sources,
-          fuzzyType: 'variant'
-        });
-      }
-    }
-    
-    return fuzzyResults;
+  private mergeUniqueChunks(existing: any[], newChunks: any[]): any[] {
+    const existingIds = new Set(existing.map(chunk => chunk.id));
+    const uniqueNew = newChunks.filter(chunk => !existingIds.has(chunk.id));
+    return [...existing, ...uniqueNew];
   }
 
-  private generateFuzzyVariants(query: string, analysis: any): string[] {
-    const variants = [];
-    
-    // Variantes orthographiques communes
-    const commonVariants: { [key: string]: string[] } = {
-      'fischer': ['fisher', 'fischar', 'fischer', 'fishcher'],
-      'dupixent': ['dupixent', 'dupilumab', 'dupixant', 'dupixant'],
-      'clim': ['clim', 'climat', 'climatic', 'climatisation'],
-      'règles': ['règles', 'regles', 'règlement', 'rules']
-    };
-    
-    const words = query.toLowerCase().split(/\s+/);
-    words.forEach(word => {
-      if (commonVariants[word]) {
-        variants.push(...commonVariants[word]);
-      }
-    });
-    
-    // Ajout des synonymes comme variantes
-    variants.push(...analysis.synonyms.slice(0, 5));
-    
-    return [...new Set(variants)];
-  }
-
-  private generateOphtalmoExpansion(message: string, analysis: any): string[] {
-    const ophtalmoTerms = [];
-    
-    // Expansion spécialisée selon le contenu
-    if (message.includes('dupixent') || message.includes('bonus')) {
-      ophtalmoTerms.push(
-        'dupilumab traitement dermatologie',
-        'bonus remboursement assurance',
-        'règles indemnisation médical',
-        'protocole prescription dupixent',
-        'critères éligibilité traitement'
-      );
-    }
-    
-    if (message.includes('fischer') || message.includes('fisher')) {
-      ophtalmoTerms.push(
-        'monsieur fischer patient',
-        'dossier fischer médical',
-        'consultation fischer ophtalmo',
-        'suivi patient fischer'
-      );
-    }
-    
-    if (message.includes('clim') || message.includes('climat')) {
-      ophtalmoTerms.push(
-        'climatisation cabinet médical',
-        'température salle consultation',
-        'air conditionné ophtalmologie',
-        'confort patient climat'
-      );
-    }
-    
-    // Termes généraux OphtaCare
-    ophtalmoTerms.push(
-      'cabinet ophtalmologie tabibian',
-      'consultation ophtalmo genève',
-      'gestion administrative médical',
-      'planning patient rendez-vous'
+  private extractSearchTerms(message: string): string[] {
+    const words = message.toLowerCase().split(/\s+/);
+    const importantWords = words.filter(word => 
+      word.length > 3 && 
+      !['dans', 'avec', 'pour', 'sans', 'vers', 'chez', 'sous', 'sur', 'par'].includes(word)
     );
-    
-    return ophtalmoTerms;
+    return importantWords.slice(0, 3);
   }
 
-  private removeDuplicateChunksEnhanced(chunks: any[]): any[] {
-    const seen = new Map();
-    return chunks.filter(chunk => {
-      const key = `${chunk.document_id || chunk.meeting_id}-${chunk.chunk_index}`;
-      if (seen.has(key)) {
-        // Garder celui avec la meilleure similarité
-        const existing = seen.get(key);
-        if ((chunk.similarity || 0) > (existing.similarity || 0)) {
-          seen.set(key, chunk);
-          return true;
-        }
-        return false;
-      }
-      seen.set(key, chunk);
-      return true;
-    });
-  }
+  private generateSynonyms(message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+    const synonyms: string[] = [];
 
-  private smartSortChunks(chunks: any[], originalQuery: string, analysis: any): any[] {
-    return chunks.map(chunk => {
-      let relevanceScore = chunk.similarity || 0;
-      
-      // Bonus pour correspondance exacte avec termes de recherche
-      analysis.searchTerms.forEach(term => {
-        if (chunk.chunk_text?.toLowerCase().includes(term.toLowerCase())) {
-          relevanceScore += 0.1;
-        }
-      });
-      
-      // Bonus pour correspondance avec entités spécifiques
-      analysis.specificEntities.forEach(entity => {
-        if (chunk.chunk_text?.toLowerCase().includes(entity.toLowerCase())) {
-          relevanceScore += 0.15;
-        }
-      });
-      
-      // Bonus pour contexte médical OphtaCare
-      const medicalTerms = ['ophtalmologie', 'cabinet', 'patient', 'consultation', 'traitement', 'médical'];
-      medicalTerms.forEach(term => {
-        if (chunk.chunk_text?.toLowerCase().includes(term)) {
-          relevanceScore += 0.05;
-        }
-      });
-      
-      return { ...chunk, relevanceScore };
-    }).sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
-  }
-
-  private generateEnhancedSources(chunks: any[]): any[] {
-    return chunks.map((result: any) => ({
-      type: 'document_embedding',
-      title: result.metadata?.title || result.document_type || 'Document OphtaCare',
-      similarity: result.similarity,
-      relevanceScore: result.relevanceScore,
-      chunk_index: result.chunk_index,
-      source_id: result.document_id || result.meeting_id,
-      context: result.chunk_text?.substring(0, 150) + '...'
-    }));
-  }
-
-  async searchWithFallback(
-    originalQuery: string,
-    expandedTerms: string[],
-    relevantIds?: any
-  ): Promise<EmbeddingContext> {
-    console.log('[EMBEDDINGS] 🔄 Recherche fallback ultra-intensive avec termes étendus');
-    
-    let allChunks: any[] = [];
-    let searchIterations = 0;
-    
-    // Recherche avec chaque terme étendu avec seuils très bas
-    for (const term of expandedTerms) {
-      const result = await this.performSearchUltraAggressive(term, relevantIds, 0.05); // Seuil minimal
-      searchIterations++;
-      
-      if (result.chunks.length > 0) {
-        allChunks.push(...result.chunks);
-      }
+    // Synonymes pour des termes courants
+    if (lowerMessage.includes('acheter')) {
+      synonyms.push('se procurer du café', 'acheter du café');
     }
-    
-    const uniqueChunks = this.removeDuplicateChunksEnhanced(allChunks);
-    const sources = this.generateEnhancedSources(uniqueChunks);
-    
-    console.log(`[EMBEDDINGS] ✅ Fallback ultra-intensif: ${uniqueChunks.length} chunks uniques trouvés`);
-    
-    return {
-      chunks: uniqueChunks,
-      sources: sources,
-      hasRelevantContext: uniqueChunks.length > 0,
-      searchIterations: searchIterations,
-      finalSearchTerms: expandedTerms,
-      fuzzyResults: [],
-      expansionLevel: 7
-    };
+    if (lowerMessage.includes('café')) {
+      synonyms.push('café', 'acheter du café', 'se procurer du café');
+    }
+    if (lowerMessage.includes('tâche')) {
+      synonyms.push('task', 'todo', 'travail');
+    }
+    if (lowerMessage.includes('réunion')) {
+      synonyms.push('meeting', 'rendez-vous', 'entretien');
+    }
+
+    return synonyms.slice(0, 2);
   }
 }
