@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +42,7 @@ const Documents = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch documents
+  // Fetch documents with automatic refetch for processing documents
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: async () => {
@@ -52,8 +53,47 @@ const Documents = () => {
       
       if (error) throw error;
       return data as UploadedDocument[];
+    },
+    refetchInterval: (data) => {
+      // Refetch every 3 seconds if there are documents being processed
+      const hasProcessingDocs = data?.some(doc => !doc.processed);
+      return hasProcessingDocs ? 3000 : false;
     }
   });
+
+  // Listen for real-time updates on document processing
+  useEffect(() => {
+    console.log('Setting up real-time subscription for documents...');
+    
+    const channel = supabase
+      .channel('documents-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'uploaded_documents'
+        },
+        (payload) => {
+          console.log('Document updated via real-time:', payload);
+          queryClient.invalidateQueries({ queryKey: ['documents'] });
+          
+          // Show toast when a document is processed
+          if (payload.new.processed && !payload.old.processed) {
+            toast({
+              title: "Document traité",
+              description: `${payload.new.ai_generated_name || payload.new.original_name} a été traité avec succès`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up real-time subscription...');
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, toast]);
 
   // Get the first processed document for default chat
   const defaultChatDocument = useMemo(() => {
