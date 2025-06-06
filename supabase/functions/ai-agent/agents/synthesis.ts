@@ -52,9 +52,13 @@ export class SynthesisAgent {
       return response;
     }
 
-    // Analyser l'historique pour comprendre le contexte et la continuité
+    // NOUVELLE ANALYSE APPROFONDIE DU CONTEXTE DE CONVERSATION
     const contextAnalysis = this.analyzeConversationContext(message, conversationHistory);
-    console.log('[SYNTHESIS] 🧠 Analyse du contexte:', contextAnalysis);
+    console.log('[SYNTHESIS] 🧠 Analyse du contexte APPROFONDIE:', contextAnalysis);
+
+    // EXTRACTION DU SUJET PRINCIPAL ACTIF
+    const mainSubject = this.extractMainSubject(conversationHistory, message);
+    console.log('[SYNTHESIS] 🎯 Sujet principal détecté:', mainSubject);
 
     // Déterminer le type de synthèse basé sur le contexte disponible
     let synthesisType = 'database';
@@ -76,22 +80,30 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 💬 Phase 1: Réponse conversationnelle générale');
     }
 
-    // Construction du prompt système avec priorité absolue à l'historique et continuité
-    let systemPrompt = `🚨🚨🚨 INSTRUCTION CRITIQUE PRIORITÉ ABSOLUE 🚨🚨🚨
+    // Construction du prompt système avec priorité ABSOLUE à la continuité
+    let systemPrompt = `🚨🚨🚨 INSTRUCTION CRITIQUE PRIORITÉ ABSOLUE - CONTINUITÉ DE CONVERSATION 🚨🚨🚨
 
 Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
 
-═══════════════ HISTORIQUE CONVERSATION PRIORITAIRE ═══════════════
-UTILISE CET HISTORIQUE POUR MAINTENIR LA CONTINUITÉ ABSOLUE DE LA CONVERSATION:
+═══════════════ CONTEXTE CONVERSATION ACTUEL ═══════════════
+SUJET PRINCIPAL ACTIF: ${mainSubject || 'Aucun sujet spécifique détecté'}
+TYPE DE CONTINUITÉ: ${contextAnalysis.continuationType}
+RÉFÉRENCE PRÉCÉDENTE: ${contextAnalysis.isReferencingPrevious ? 'OUI' : 'NON'}
+CONTINUATION DÉTECTÉE: ${contextAnalysis.isContinuation ? 'OUI' : 'NON'}
 
 `;
 
     // HISTORIQUE DE CONVERSATION - Section ULTRA PRIORITAIRE avec formatage amélioré
     if (conversationHistory && conversationHistory.length > 0) {
-      console.log('[SYNTHESIS] 📜 Formatage de l\'historique pour continuité');
+      console.log('[SYNTHESIS] 📜 Formatage de l\'historique pour continuité MAXIMALE');
       
-      // Prendre les 10 derniers échanges et les formater clairement
-      const recentHistory = conversationHistory.slice(-10);
+      systemPrompt += `═══════════════ HISTORIQUE CONVERSATION COMPLET ═══════════════
+UTILISE CET HISTORIQUE POUR MAINTENIR LA CONTINUITÉ ABSOLUE:
+
+`;
+      
+      // Prendre les 8 derniers échanges et les formater clairement
+      const recentHistory = conversationHistory.slice(-8);
       
       recentHistory.forEach((msg: any, index: number) => {
         const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 ASSISTANT';
@@ -103,46 +115,40 @@ UTILISE CET HISTORIQUE POUR MAINTENIR LA CONTINUITÉ ABSOLUE DE LA CONVERSATION:
       });
 
       systemPrompt += `═══════════════ FIN HISTORIQUE ═══════════════\n\n`;
-
-      // Analyser si l'utilisateur fait référence à quelque chose de précédent
-      if (contextAnalysis.isReferencingPrevious || contextAnalysis.isContinuation) {
-        systemPrompt += `🔥🔥🔥 ATTENTION CRITIQUE - CONTINUITÉ DÉTECTÉE 🔥🔥🔥
-Message actuel de l'utilisateur: "${message}"
-Type de continuité: ${contextAnalysis.continuationType}
-Contexte détecté: ${contextAnalysis.context}
-Sujet précédent identifié: ${contextAnalysis.previousSubject}
-
-➡️ INSTRUCTION IMPÉRATIVE: Ce message fait suite à la conversation précédente !
-➡️ Tu DOIS utiliser l'historique ci-dessus pour comprendre DE QUOI il parle !
-➡️ Maintiens la CONTINUITÉ ABSOLUE avec le dernier échange !
-
-`;
-      }
-
-      // Cas spécial pour les réponses courtes à des questions
-      const lastAssistantMessage = this.getLastAssistantMessage(conversationHistory);
-      const isShortResponse = this.isShortResponseToQuestion(message, lastAssistantMessage);
-      
-      if (isShortResponse) {
-        systemPrompt += `🔥🔥🔥 RÉPONSE COURTE DÉTECTÉE 🔥🔥🔥
-L'utilisateur donne une réponse courte ("${message}") à ta dernière question.
-Ta dernière question était: "${lastAssistantMessage}"
-➡️ Traite "${message}" comme une RÉPONSE DIRECTE à cette question !
-
-`;
-      }
     }
 
-    systemPrompt += `
-🔥 RÈGLES ABSOLUES POUR LA CONTINUITÉ :
-1. TOUJOURS lire l'historique complet avant de répondre
-2. Si l'utilisateur dit "recherche sur internet", "ça", "cela", "fournisseur" → regarder l'historique pour comprendre DE QUOI il parle
-3. Maintenir la CONTINUITÉ absolue de la conversation
-4. JAMAIS inventer de coordonnées ou numéros de téléphone
-5. NE PAS créer de tâches automatiquement SAUF si explicitement demandé
-6. JAMAIS suggérer de créer une tâche sauf si l'utilisateur le demande clairement
-7. Si une recherche internet est demandée, utiliser le CONTEXTE de la conversation précédente
+    // INSTRUCTIONS CRITIQUES POUR LA CONTINUITÉ
+    systemPrompt += `🔥🔥🔥 RÈGLES CRITIQUES DE CONTINUITÉ 🔥🔥🔥
 
+MESSAGE UTILISATEUR ACTUEL: "${message}"
+
+🎯 ANALYSE OBLIGATOIRE AVANT RÉPONSE:
+1. DE QUOI parle ce message ? ${mainSubject ? `Le sujet semble être: ${mainSubject}` : 'Analyser l\'historique pour comprendre'}
+2. Est-ce une CONTINUATION du sujet précédent ? ${contextAnalysis.isContinuation ? 'OUI - maintenir le sujet' : 'Vérifier l\'historique'}
+3. Si l'utilisateur dit "recherche", "site", "adresse" → rechercher QUOI exactement ?
+
+🚨 INSTRUCTIONS IMPÉRATIVES:
+- Si l'utilisateur dit "recherche sur internet/web" → il parle du SUJET PRÉCÉDENT dans l'historique
+- Si l'utilisateur dit "site internet", "adresse" → il veut les coordonnées du SUJET PRÉCÉDENT  
+- Si l'utilisateur dit "ça", "cela", "le même" → se référer au DERNIER SUJET mentionné
+- JAMAIS supposer qu'il parle du cabinet Dr Tabibian sauf s'il le mentionne explicitement
+- TOUJOURS vérifier l'historique pour comprendre le CONTEXTE
+
+`;
+
+    // Cas spécial pour les demandes courtes avec contexte
+    if (contextAnalysis.isContinuation && mainSubject) {
+      systemPrompt += `🔥🔥🔥 CONTINUITÉ DÉTECTÉE - TRAITEMENT SPÉCIALISÉ 🔥🔥🔥
+L'utilisateur demande: "${message}"
+Concernant le sujet: "${mainSubject}"
+➡️ INTERPRÉTATION: "${message}" signifie "${message} pour ${mainSubject}"
+➡️ AGIR EN CONSÉQUENCE pour ${mainSubject} !
+
+`;
+    }
+
+    // Instructions générales pour l'assistant
+    systemPrompt += `
 MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
 
 CONTEXTE CABINET:
@@ -187,10 +193,11 @@ GESTION DES TÂCHES (SEULEMENT SI DEMANDÉ):
       });
     }
 
-    // Ajouter le contexte internet SEULEMENT s'il y a vraiment du contenu
+    // Ajouter le contexte internet SEULEMENT s'il y a vraiment du contenu ET correspond au sujet
     if (internetContext.hasContent && internetContext.content) {
       console.log('[SYNTHESIS] 🌐 Utilisation des données Internet VÉRIFIÉES avec contexte');
-      systemPrompt += `\nINFORMATIONS INTERNET VÉRIFIÉES POUR: ${contextAnalysis.previousSubject || 'votre demande'}:\n${internetContext.content}\n`;
+      const searchSubject = mainSubject || 'votre demande';
+      systemPrompt += `\nINFORMATIONS INTERNET VÉRIFIÉES POUR: ${searchSubject}:\n${internetContext.content}\n`;
       systemPrompt += `\nSOURCE: Recherche internet via Perplexity AI\n`;
     } else {
       systemPrompt += `\nAUCUNE INFORMATION INTERNET DISPONIBLE - ne pas inventer de coordonnées\n`;
@@ -215,15 +222,16 @@ GESTION DES TÂCHES (SEULEMENT SI DEMANDÉ):
 
     systemPrompt += `\n🔥 QUESTION/DEMANDE ACTUELLE: ${message}
 
-RAPPEL FINAL POUR LA CONTINUITÉ: 
+RAPPEL FINAL CRITIQUE: 
+- AVANT de répondre, identifie clairement DE QUOI parle l'utilisateur
 - Utilise l'historique de conversation pour comprendre le contexte COMPLET
-- Si l'utilisateur dit "recherche sur internet", comprends qu'il veut que tu cherches le sujet de la conversation précédente
+- Si l'utilisateur dit "recherche sur internet", comprends qu'il veut chercher le sujet de la conversation précédente
 - JAMAIS inventer de coordonnées ou téléphones
 - SEULEMENT utiliser les informations trouvées via internet si disponibles
-- NE PAS créer de tâches automatiquement sauf si explicitement demandé
-- Maintiens la CONTINUITÉ ABSOLUE avec la conversation précédente`;
+- Maintiens la CONTINUITÉ ABSOLUE avec la conversation précédente
+- Si le message est court et fait référence à quelque chose, cherche QUOI dans l'historique`;
 
-    console.log('[SYNTHESIS] 🚀 Envoi du prompt enrichi avec historique formaté');
+    console.log('[SYNTHESIS] 🚀 Envoi du prompt enrichi avec contexte RENFORCÉ');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -263,19 +271,25 @@ RAPPEL FINAL POUR LA CONTINUITÉ:
 
     const lowerMessage = message.toLowerCase().trim();
     
-    // Mots clés qui indiquent une référence au contexte précédent
+    // Mots clés qui indiquent une référence au contexte précédent (RENFORCÉS)
     const referenceKeywords = [
-      'fournisseur', 'ça', 'cela', 'cette', 'celui', 'celle', 'ceci',
-      'la même', 'le même', 'comme ça', 'pareille', 'similaire',
-      'pour ça', 'avec ça', 'de ça', 'du premier', 'le premier',
-      'premier que', 'mentionné', 'dit', 'parlé'
+      'ça', 'cela', 'cette', 'celui', 'celle', 'ceci', 'celui-ci', 'celle-ci',
+      'la même', 'le même', 'les mêmes', 'comme ça', 'pareille', 'similaire',
+      'pour ça', 'avec ça', 'de ça', 'du premier', 'le premier', 'la première',
+      'premier que', 'mentionné', 'dit', 'parlé', 'évoqué', 'discuté',
+      'précédent', 'précédente', 'avant', 'tantôt', 'plus haut', 'ci-dessus'
     ];
 
-    // Mots clés pour continuité d'action
+    // Mots clés pour continuité d'action (RENFORCÉS)
     const continuationKeywords = [
       'recherche sur internet', 'cherche sur internet', 'trouve sur internet',
       'recherche internet', 'cherche internet', 'trouve internet',
-      'recherche', 'cherche', 'trouve', 'contact', 'coordonnées'
+      'recherche sur le web', 'cherche sur le web', 'trouve sur le web',
+      'recherche web', 'cherche web', 'trouve web',
+      'recherche', 'cherche', 'trouve', 'contact', 'coordonnées',
+      'site internet', 'site web', 'adresse internet', 'adresse web',
+      'numéro', 'téléphone', 'email', 'mail', 'informations',
+      'pour moi', 'stp', 's\'il te plaît', 'aide moi'
     ];
 
     const isReferencingPrevious = referenceKeywords.some(keyword => lowerMessage.includes(keyword));
@@ -287,15 +301,15 @@ RAPPEL FINAL POUR LA CONTINUITÉ:
     let contextDescription = '';
 
     if (isReferencingPrevious || isContinuation) {
-      const recentMessages = conversationHistory.slice(-5);
+      // Chercher dans les 6 derniers messages pour identifier le sujet
+      const recentMessages = conversationHistory.slice(-6);
       
-      // Chercher le dernier message de l'utilisateur pour identifier le sujet
       for (let i = recentMessages.length - 1; i >= 0; i--) {
         const msg = recentMessages[i];
         if (msg.isUser && msg.content.toLowerCase() !== lowerMessage) {
           const content = msg.content.toLowerCase();
           
-          // Identifier des sujets spécifiques
+          // Identifier des sujets spécifiques avec plus de patterns
           if (content.includes('nespresso') || content.includes('café')) {
             previousSubject = 'Nespresso Professionnel';
             contextDescription = 'Référence à la recherche de contacts Nespresso Professionnel';
@@ -308,40 +322,44 @@ RAPPEL FINAL POUR LA CONTINUITÉ:
             continuationType = 'equipment_search';
             break;
           }
-          if (content.includes('fournisseur')) {
-            previousSubject = 'fournisseur mentionné précédemment';
+          if (content.includes('fournisseur') || content.includes('prestataire') || content.includes('entreprise')) {
+            previousSubject = this.extractCompanyName(content) || 'fournisseur mentionné précédemment';
             contextDescription = 'Référence aux fournisseurs discutés précédemment';
             continuationType = 'supplier_search';
             break;
           }
-          if (content.includes('contact') || content.includes('coordonnées')) {
-            // Extraire le sujet de la recherche de contact
-            const words = content.split(' ');
-            for (let j = 0; j < words.length; j++) {
-              if (words[j].includes('contact') || words[j].includes('coordonnées')) {
-                if (j > 0) {
-                  previousSubject = words.slice(0, j).join(' ');
-                  break;
-                }
-              }
-            }
+          if (content.includes('contact') || content.includes('coordonnées') || content.includes('trouve')) {
+            // Extraire le sujet de la recherche de contact plus précisément
+            previousSubject = this.extractSearchSubject(content);
             contextDescription = 'Référence à une recherche de contact précédente';
             continuationType = 'contact_search';
+            break;
+          }
+          // Nouveau: détecter les noms de produits/services
+          const productMatches = content.match(/(?:contact|trouve|cherche|recherche)\s+(?:moi\s+)?(?:les?\s+)?(?:contact|coordonnées|info|information)?\s*(?:de|pour|sur)?\s+([a-zà-ÿ\s]+)/i);
+          if (productMatches && productMatches[1]) {
+            previousSubject = productMatches[1].trim();
+            contextDescription = `Référence à la recherche pour ${previousSubject}`;
+            continuationType = 'product_search';
             break;
           }
         }
       }
 
       // Si c'est une demande de recherche internet sans sujet précis identifié
-      if (isContinuation && lowerMessage.includes('recherche') && lowerMessage.includes('internet') && !previousSubject) {
+      if (isContinuation && (lowerMessage.includes('recherche') || lowerMessage.includes('web') || lowerMessage.includes('internet')) && !previousSubject) {
         // Chercher le dernier sujet mentionné dans la conversation
         for (let i = recentMessages.length - 1; i >= 0; i--) {
           const msg = recentMessages[i];
           if (msg.isUser) {
-            previousSubject = msg.content;
-            contextDescription = 'Demande de recherche internet pour le sujet précédent';
-            continuationType = 'internet_search';
-            break;
+            // Extraire le sujet principal du message
+            const extractedSubject = this.extractSearchSubject(msg.content);
+            if (extractedSubject) {
+              previousSubject = extractedSubject;
+              contextDescription = 'Demande de recherche internet pour le sujet précédent';
+              continuationType = 'internet_search';
+              break;
+            }
           }
         }
       }
@@ -354,6 +372,69 @@ RAPPEL FINAL POUR LA CONTINUITÉ:
       continuationType,
       previousSubject
     };
+  }
+
+  private extractMainSubject(conversationHistory: any[], currentMessage: string): string | null {
+    if (!conversationHistory || conversationHistory.length === 0) return null;
+
+    // Analyser les 5 derniers messages pour extraire le sujet principal
+    const recentMessages = conversationHistory.slice(-5);
+    
+    // Rechercher dans l'ordre inverse pour trouver le dernier sujet mentionné
+    for (let i = recentMessages.length - 1; i >= 0; i--) {
+      const msg = recentMessages[i];
+      if (msg.isUser) {
+        const subject = this.extractSearchSubject(msg.content);
+        if (subject) {
+          console.log(`[SYNTHESIS] 🎯 Sujet extrait du message ${i}: "${subject}"`);
+          return subject;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractSearchSubject(content: string): string | null {
+    const lowerContent = content.toLowerCase();
+    
+    // Patterns pour extraire le sujet de recherche
+    const patterns = [
+      /(?:contact|trouve|cherche|recherche)\s+(?:moi\s+)?(?:les?\s+)?(?:contact|coordonnées|info|information)?\s*(?:de|pour|sur)?\s+([a-zà-ÿ\s]{3,30})/i,
+      /(?:adresse|site|numéro|téléphone|email)\s+(?:de|pour|sur)?\s+([a-zà-ÿ\s]{3,30})/i,
+      /([a-zà-ÿ\s]{3,30})\s+(?:professionnel|entreprise|société|contact|coordonnées)/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        let subject = match[1].trim();
+        // Nettoyer le sujet extrait
+        subject = subject.replace(/\b(les|des|pour|sur|avec|sans|dans|par)\b/gi, '').trim();
+        if (subject.length > 2) {
+          return subject;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractCompanyName(content: string): string | null {
+    // Patterns pour extraire des noms d'entreprise
+    const companyPatterns = [
+      /([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)*)\s+(?:SA|SARL|AG|GmbH|Sàrl|Ltd|Inc|Corp)/i,
+      /([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)*)\s+(?:professionnel|entreprise|société)/i
+    ];
+
+    for (const pattern of companyPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
   }
 
   private getLastAssistantMessage(conversationHistory: any[]): string {
