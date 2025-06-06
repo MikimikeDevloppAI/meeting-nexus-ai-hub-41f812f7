@@ -5,25 +5,23 @@ export function createTasksPrompt(participantNames: string, cleanedTranscript: s
 Participants de la réunion : ${participantNames}
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
-- Regroupe toutes les actions liées au MÊME SUJET en UNE SEULE tâche concise
-- Une tâche = un sujet principal avec l'essentiel seulement
+- Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
+- Une tâche = un sujet principal avec TOUT le contexte nécessaire
 - Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
-- Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" = 1 tâche "Obtenir devis pour X")
-- Maximum 8-10 tâches au total, même pour de longues réunions
+- Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
+- Maximum 6-8 tâches au total pour éviter la fragmentation
 
-**RÈGLES DE CONCISION AVEC CONTEXTE:**
-- Description COURTE et PRÉCISE avec contexte essentiel
-- Inclus SEULEMENT l'action principale + le contexte nécessaire
-- Supprime les noms des participants (ils seront assignés automatiquement)
-- Focus sur QUOI faire, pas QUI le fait
-- Maximum 1 phrase courte avec contexte essentiel
-- Assez de détails pour comprendre l'action sans être verbeux
+**RÈGLES DE CONTEXTE ENRICHI:**
+- Inclus TOUT le contexte nécessaire : dates, lieux, contraintes, objectifs
+- Mentionne les détails techniques, budgétaires ou logistiques discutés
+- Inclus les raisons/motivations derrière chaque action
+- Spécifie les délais, échéances ou priorités mentionnées
+- 2-3 phrases avec contexte complet pour être autonome
 
-**EXEMPLES DE BONNES TÂCHES CONCISES:**
-✅ "Installer fontaine à eau : contacter prestataires et obtenir devis"
-✅ "Organiser visite foyer Valon - 22 mai 14h"  
-✅ "Demander porte coulissante back-office/cuisine à la régie"
-✅ "Réparer imprimante bureau : contacter technicien maintenance"
+**EXEMPLES DE BONNES TÂCHES CONTEXTUALISÉES:**
+✅ "Organiser installation fontaine à eau au bureau : contacter 3 prestataires pour devis installation + contrat maintenance, comparer coûts, négocier prix sans frais d'entretien si possible, prévoir budget 500-800€, installation prévue avant fin juin"
+✅ "Coordonner visite foyer Valon + CIR le 22 mai 14h : confirmer présence tous participants, préparer questions sur infrastructure réseau, organiser transport collectif, prévoir documentation technique pour audit sécurité"
+✅ "Résoudre problème porte coulissante back-office/cuisine : contacter régie pour réparation urgente, vérifier garantie, prévoir solution temporaire si délais longs, budget maintenance 200-300€"
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Assigne SEULEMENT si explicitement mentionné ou clairement déductible
@@ -39,7 +37,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Action principale + contexte essentiel en 1 phrase courte",
+      "description": "Action principale + contexte complet en 2-3 phrases détaillées",
       "assignedTo": "Nom exact du participant tel qu'il apparaît dans la liste ou null"
     }
   ]
