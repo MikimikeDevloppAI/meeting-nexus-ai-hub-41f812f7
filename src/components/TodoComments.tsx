@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -44,7 +43,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const fetchComments = async () => {
     setIsLoading(true);
     try {
-      // Utiliser une jointure interne avec la table users (noter le ! pour forcer la jointure)
+      // Utiliser une jointure avec la table users du schéma public
       const { data, error } = await supabase
         .from("todo_comments")
         .select(`*, users!user_id(name)`)
