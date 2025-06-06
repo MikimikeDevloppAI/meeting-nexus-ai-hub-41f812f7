@@ -1,12 +1,12 @@
-
 export interface QueryAnalysis {
   requiresDatabase: boolean;
   requiresEmbeddings: boolean;
   requiresInternet: boolean;
+  requiresTasks: boolean; // Nouveau
   queryType: 'meeting' | 'document' | 'task' | 'general' | 'mixed' | 'assistance';
   specificEntities: string[];
   timeContext?: string;
-  priority: 'database' | 'embeddings' | 'internet';
+  priority: 'database' | 'embeddings' | 'internet' | 'tasks';
   searchTerms: string[];
   synonyms: string[];
   iterativeSearch: boolean;
@@ -16,11 +16,12 @@ export interface QueryAnalysis {
   };
   fuzzyMatching: boolean;
   actionDetected?: {
-    type: 'create' | 'update' | 'delete' | 'help';
+    type: 'create' | 'update' | 'delete' | 'help' | 'list';
     target: string;
   };
   medicalContext: boolean;
   requiresClarification: boolean;
+  taskAction?: 'list' | 'create' | 'update' | 'complete';
 }
 
 export interface SearchFeedback {
@@ -39,97 +40,59 @@ export class CoordinatorAgent {
   }
 
   async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
-    console.log('[COORDINATOR] ANALYSE APPROFONDIE avec gestion fuzzy et contexte médical:', message.substring(0, 100));
+    console.log('[COORDINATOR] ANALYSE INTELLIGENTE avec détection de contexte:', message.substring(0, 100));
 
-    const analysisPrompt = `Tu es le coordinateur intelligent OphtaCare du Dr Tabibian à Genève - spécialiste en gestion administrative médicale.
+    // Détection rapide si c'est lié aux tâches
+    const isTaskRelated = this.quickTaskDetection(message);
+    
+    if (isTaskRelated) {
+      console.log('[COORDINATOR] 📋 Contexte TÂCHES détecté - analyse spécialisée');
+      return this.analyzeTaskQuery(message, conversationHistory);
+    }
 
-MISSION CRITIQUE : ENRICHISSEMENT MAXIMUM DES RÉPONSES
-- TOUJOURS privilégier les données internes OphtaCare (embeddings + base de données)
-- requiresEmbeddings = true pour TOUTES les questions (sauf actions pures)
-- priority = "embeddings" OBLIGATOIRE
-- Recherche vectorielle SYSTÉMATIQUE avant tout autre type
-- Expansion sémantique MAXIMALE pour capturer toute information pertinente
+    // Analyse complète pour les autres types de requêtes
+    const analysisPrompt = `Tu es le coordinateur intelligent OphtaCare du Dr Tabibian à Genève.
 
-QUESTION ADMINISTRATIVE: "${message}"
+QUESTION: "${message}"
 
-HISTORIQUE CONVERSATION: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'ADMIN' : 'ASSISTANT'}: ${h.content.substring(0, 150)}`).join('\n')}
+HISTORIQUE: ${conversationHistory.slice(-3).map(h => `${h.isUser ? 'ADMIN' : 'ASSISTANT'}: ${h.content.substring(0, 150)}`).join('\n')}
 
-CONTEXTE OPHTACARE GENÈVE RENFORCÉ :
-- Cabinet d'ophtalmologie dirigé par Dr Tabibian
-- Utilisateur = responsable administratif du cabinet
-- Données disponibles : réunions, documents, tâches, transcripts, planning, participants
-- Focus sur gestion administrative et organisation du cabinet
-- Base de données avec embeddings TRÈS RICHE - ne jamais sous-estimer
+RÈGLES DE PRIORISATION INTELLIGENTE :
+1. SI la question concerne des TÂCHES (créer, lister, voir, gérer) → requiresTasks = true, priority = "tasks"
+2. SI recherche d'informations spécifiques → requiresEmbeddings = true, priority = "embeddings"
+3. SI recherche de produits/achats → requiresInternet = true pour Galaxus
+4. SINON → analyse contextuelle complète
 
-RÈGLES D'ANALYSE ULTRA-RENFORCÉES :
-1. TOUJOURS requiresEmbeddings = true (sauf création pure de tâche)
-2. TOUJOURS priority = "embeddings" - recherche vectorielle PRIORITAIRE
-3. TOUJOURS iterativeSearch = true pour maximiser les résultats
-4. TOUJOURS medicalContext = true (contexte cabinet médical)
-5. Générer ÉNORMÉMENT de termes de recherche et synonymes
-6. Gestion fuzzy matching pour noms/termes approximatifs
-7. Détection PRÉCISE des actions (créer, modifier, aider, etc.)
+DÉTECTION CONTEXTE SPÉCIALISÉ :
+- Mots-clés TÂCHES : "tâche", "task", "todo", "créer", "faire", "action", "en cours"
+- Mots-clés RECHERCHE : "trouve", "cherche", "information", "données"
+- Mots-clés ACHAT : "acheter", "produit", "matériel", "équipement", "liens"
 
-GESTION FUZZY MATCHING INTELLIGENTE :
-- "m fisher" → "mr fischer", "monsieur fischer", "fischer"
-- "dupixent" → "dupilumab", "dupixent", variations orthographiques
-- "clim" → "climatisation", "air conditionné", "climate"
-- Variantes de noms, abréviations, fautes de frappe communes
+FOCUS EFFICACITÉ :
+- Ne pas sur-analyser les requêtes simples
+- Prioriser UNE source principale par requête
+- requiresEmbeddings = false pour les actions pures (création tâche)
+- iterativeSearch = false pour les requêtes directes
 
-DÉTECTION D'ACTIONS RENFORCÉE :
-- Mots-clés action : "crée", "créer", "ajoute", "modifie", "aide", "explique", "montre"
-- Actions sur tâches : "nouvelle tâche", "task", "todo", "faire", "action"
-- Demandes d'aide : "comment", "aide-moi", "explique", "montre-moi"
-- Si action détectée → actionDetected avec type et target
-
-CONTEXTE MÉDICAL PERMANENT :
-- Toujours garder le contexte cabinet ophtalmologie OphtaCare
-- Terminologie médicale et administrative spécialisée
-- Participants = équipe médicale et administrative
-- Tâches = activités de gestion du cabinet
-
-EXPANSION SÉMANTIQUE MAXIMALE :
-Pour chaque terme, générer :
-- Synonymes médicaux et administratifs
-- Variantes orthographiques
-- Abréviations courantes
-- Termes connexes dans le domaine médical
-- Contexte OphtaCare spécifique
-
-EXEMPLES SPÉCIALISÉS OPHTACARE :
-- "dupixent" → ["dupilumab", "dermatologie", "bonus", "règles", "traitement", "indemnisation", "remboursement", "assurance", "protocole", "prescription", "critères", "conditions"]
-- "mr fischer" → ["fischer", "monsieur fischer", "dr fischer", "docteur fischer", "m. fischer", variations fuzzy]
-- "clim" → ["climatisation", "air conditionné", "température", "refroidissement", "HVAC", "ventilation"]
-- "tâche" → ["task", "action", "travail", "mission", "activité", "todo", "faire"]
-
-VALIDATION CONTEXTUELLE :
-- Si réponse incomplète → requiresClarification = true
-- Toujours vérifier cohérence avec contexte médical
-- Demander précisions si ambiguïté
-
-Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
+Réponds UNIQUEMENT avec un JSON valide :
 {
   "requiresDatabase": boolean,
   "requiresEmbeddings": boolean,
   "requiresInternet": boolean,
+  "requiresTasks": boolean,
   "queryType": "meeting|document|task|general|mixed|assistance",
-  "specificEntities": ["entité1", "entité2"],
-  "timeContext": "dernière|récent|specific_date|null",
-  "priority": "embeddings",
-  "searchTerms": ["terme1", "terme2", "terme3"],
-  "synonyms": ["synonyme1", "synonyme2", "synonyme3"],
-  "iterativeSearch": true,
-  "targetedExtraction": {
-    "entity": "nom_personne_ou_concept",
-    "context": "contexte_recherche"
-  },
+  "specificEntities": ["entité1"],
+  "timeContext": "récent|null",
+  "priority": "tasks|embeddings|internet|database",
+  "searchTerms": ["terme1", "terme2"],
+  "synonyms": ["synonyme1"],
+  "iterativeSearch": boolean,
+  "targetedExtraction": {"entity": "nom", "context": "contexte"},
   "fuzzyMatching": boolean,
-  "actionDetected": {
-    "type": "create|update|delete|help",
-    "target": "description_action"
-  },
+  "actionDetected": {"type": "create|list|help", "target": "description"},
   "medicalContext": true,
-  "requiresClarification": boolean
+  "requiresClarification": false,
+  "taskAction": "list|create|update|complete"
 }`;
 
     try {
@@ -143,7 +106,7 @@ Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: analysisPrompt }],
           temperature: 0.1,
-          max_tokens: 1200,
+          max_tokens: 800,
         }),
       });
 
@@ -155,125 +118,131 @@ Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const analysis = JSON.parse(jsonMatch[0]);
-        console.log('[COORDINATOR] ✅ Analyse enrichie complète:', analysis);
+        console.log('[COORDINATOR] ✅ Analyse intelligente complète:', analysis);
         return analysis;
       }
       
-      console.log('[COORDINATOR] ⚠️ Using enhanced fallback analysis');
-      return this.getEnhancedFallbackAnalysis(message);
+      console.log('[COORDINATOR] ⚠️ Using intelligent fallback analysis');
+      return this.getIntelligentFallbackAnalysis(message);
       
     } catch (error) {
       console.error('[COORDINATOR] ❌ Analysis error:', error);
-      return this.getEnhancedFallbackAnalysis(message);
+      return this.getIntelligentFallbackAnalysis(message);
     }
   }
 
-  private getEnhancedFallbackAnalysis(message: string): QueryAnalysis {
+  private quickTaskDetection(message: string): boolean {
+    const taskKeywords = [
+      'tâche', 'taches', 'task', 'todo', 'à faire',
+      'créer une', 'nouvelle', 'ajouter', 'faire une',
+      'mes tâches', 'tâches en cours', 'que dois-je',
+      'action à faire', 'terminer', 'compléter'
+    ];
+
+    const lowerMessage = message.toLowerCase();
+    return taskKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  private analyzeTaskQuery(message: string, conversationHistory: any[]): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Détection d'actions renforcée
-    const actionPatterns = {
-      create: ['crée', 'créer', 'ajoute', 'ajouter', 'nouvelle', 'nouveau', 'faire'],
-      update: ['modifie', 'modifier', 'change', 'changer', 'update', 'mettre à jour'],
-      delete: ['supprime', 'supprimer', 'efface', 'effacer', 'delete'],
-      help: ['aide', 'explique', 'comment', 'montre', 'help', 'assistance']
-    };
+    // Détection action spécifique
+    let taskAction: 'list' | 'create' | 'update' | 'complete' = 'list';
+    let actionType: 'create' | 'list' | 'help' = 'list';
     
-    let actionDetected = null;
-    for (const [type, patterns] of Object.entries(actionPatterns)) {
-      if (patterns.some(pattern => lowerMessage.includes(pattern))) {
-        actionDetected = {
-          type: type as 'create' | 'update' | 'delete' | 'help',
-          target: message
-        };
-        break;
-      }
+    if (lowerMessage.includes('créer') || lowerMessage.includes('nouvelle') || lowerMessage.includes('ajouter')) {
+      taskAction = 'create';
+      actionType = 'create';
+    } else if (lowerMessage.includes('terminer') || lowerMessage.includes('compléter')) {
+      taskAction = 'complete';
+    } else if (lowerMessage.includes('modifier') || lowerMessage.includes('changer')) {
+      taskAction = 'update';
     }
-    
-    // Extraction d'entités avec fuzzy matching
-    const entities = this.extractEntitiesWithFuzzy(lowerMessage);
-    const searchTerms = this.generateEnhancedSearchTerms(lowerMessage);
-    const synonyms = this.generateMaximalSynonyms(searchTerms, lowerMessage);
-    
-    const isTaskQuery = actionDetected?.type === 'create' && 
-                       ['tâche', 'task', 'todo', 'faire', 'action'].some(t => lowerMessage.includes(t));
-    
+
     return {
-      requiresDatabase: true, // Toujours pour accès aux tâches et participants
-      requiresEmbeddings: !isTaskQuery, // TOUJOURS sauf création pure de tâche
-      requiresInternet: false, // Prioriser interne
-      queryType: isTaskQuery ? 'task' : actionDetected?.type === 'help' ? 'assistance' : 
-                lowerMessage.includes('réunion') ? 'meeting' : 
-                lowerMessage.includes('document') ? 'document' : 'general',
-      specificEntities: entities,
-      timeContext: lowerMessage.includes('dernière') || lowerMessage.includes('récent') ? 'récent' : null,
-      priority: 'embeddings', // TOUJOURS embeddings d'abord
-      searchTerms,
-      synonyms,
-      iterativeSearch: true, // TOUJOURS pour maximiser
-      targetedExtraction: entities.length > 0 ? {
-        entity: entities[0],
-        context: lowerMessage
-      } : undefined,
-      fuzzyMatching: true, // TOUJOURS actif
-      actionDetected,
-      medicalContext: true, // TOUJOURS dans contexte médical
+      requiresDatabase: false, // L'agent tâches gère directement
+      requiresEmbeddings: false, // Pas besoin pour les tâches
+      requiresInternet: false,
+      requiresTasks: true, // NOUVEAU : priorité tâches
+      queryType: 'task',
+      specificEntities: [],
+      timeContext: null,
+      priority: 'tasks', // NOUVEAU : priorité tâches
+      searchTerms: [message],
+      synonyms: [],
+      iterativeSearch: false, // Action directe
+      fuzzyMatching: false,
+      actionDetected: {
+        type: actionType,
+        target: message
+      },
+      medicalContext: true,
+      requiresClarification: false,
+      taskAction
+    };
+  }
+
+  private getIntelligentFallbackAnalysis(message: string): QueryAnalysis {
+    const lowerMessage = message.toLowerCase();
+    
+    // Détection intelligente du type de requête
+    const isTaskQuery = this.quickTaskDetection(message);
+    const isProductQuery = ['acheter', 'produit', 'matériel', 'équipement', 'liens'].some(term => lowerMessage.includes(term));
+    const isInfoQuery = ['trouve', 'cherche', 'information', 'données', 'dit', 'parlé'].some(term => lowerMessage.includes(term));
+
+    if (isTaskQuery) {
+      return this.analyzeTaskQuery(message, []);
+    }
+
+    return {
+      requiresDatabase: !isProductQuery, // Pas de DB pour produits
+      requiresEmbeddings: isInfoQuery, // Embeddings pour info
+      requiresInternet: isProductQuery, // Internet pour produits
+      requiresTasks: false,
+      queryType: isProductQuery ? 'general' : isInfoQuery ? 'general' : 'assistance',
+      specificEntities: [],
+      timeContext: null,
+      priority: isProductQuery ? 'internet' : isInfoQuery ? 'embeddings' : 'database',
+      searchTerms: [message],
+      synonyms: [],
+      iterativeSearch: isInfoQuery, // Itératif pour recherche info
+      fuzzyMatching: isInfoQuery,
+      actionDetected: {
+        type: 'help',
+        target: message
+      },
+      medicalContext: true,
       requiresClarification: false
     };
   }
 
-  private extractEntitiesWithFuzzy(message: string): string[] {
-    const entities: string[] = [];
+  async provideFeedback(searchResults: any, originalQuery: string): Promise<SearchFeedback> {
+    console.log('[COORDINATOR] Évaluation qualité résultats pour OphtaCare avec contexte enrichi');
     
-    // Détection noms avec fuzzy matching
-    const namePatterns = [
-      /(mr|mme|dr|monsieur|madame|docteur|m\.)\s*([a-záàâäéèêëíìîïóòôöúùûüç]+)/gi,
-      /([a-záàâäéèêëíìîïóòôöúùûüç]{2,})\s+(fischer|fisher|tabibian|[a-záàâäéèêëíìîïóòôöúùûüç]+)/gi
-    ];
+    const hasRelevantContent = searchResults && (
+      (searchResults.meetings && searchResults.meetings.length > 0) ||
+      (searchResults.chunks && searchResults.chunks.length > 0) ||
+      (searchResults.todos && searchResults.todos.length > 0) ||
+      (searchResults.content && searchResults.content.length > 0)
+    );
     
-    namePatterns.forEach(pattern => {
-      const matches = message.match(pattern);
-      if (matches) {
-        entities.push(...matches);
-      }
-    });
+    if (!hasRelevantContent) {
+      const expandedTerms = this.generateMaximalSynonyms([originalQuery], originalQuery);
+      
+      return {
+        success: false,
+        foundRelevant: false,
+        needsExpansion: true,
+        suggestedTerms: expandedTerms,
+        missingContext: 'Recherche plus approfondie nécessaire dans les données OphtaCare - expansion des termes en cours'
+      };
+    }
     
-    // Termes OphtaCare avec variantes
-    const ophtalmoTermsWithVariants = {
-      'dupixent': ['dupixent', 'dupilumab'],
-      'fischer': ['fischer', 'fisher', 'mr fischer', 'monsieur fischer'],
-      'clim': ['clim', 'climatisation', 'air conditionné'],
-      'bonus': ['bonus', 'indemnisation', 'remboursement'],
-      'règles': ['règles', 'règlement', 'protocole', 'procédure']
+    return {
+      success: true,
+      foundRelevant: true,
+      needsExpansion: false
     };
-    
-    Object.entries(ophtalmoTermsWithVariants).forEach(([key, variants]) => {
-      if (variants.some(variant => message.includes(variant))) {
-        entities.push(key, ...variants);
-      }
-    });
-    
-    return [...new Set(entities)];
-  }
-
-  private generateEnhancedSearchTerms(message: string): string[] {
-    const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const expandedTerms = [...words];
-    
-    // Ajout contexte spécialisé selon contenu
-    if (message.includes('dupixent') || message.includes('bonus')) {
-      expandedTerms.push('dupilumab', 'dermatologie', 'traitement', 'indemnisation', 'remboursement', 'assurance', 'protocole', 'prescription', 'critères', 'règles', 'conditions');
-    }
-    
-    if (message.includes('fischer') || message.includes('fisher')) {
-      expandedTerms.push('fischer', 'fisher', 'monsieur fischer', 'mr fischer', 'docteur fischer');
-    }
-    
-    if (message.includes('clim')) {
-      expandedTerms.push('climatisation', 'air conditionné', 'température', 'refroidissement', 'HVAC', 'ventilation');
-    }
-    
-    return [...new Set(expandedTerms)];
   }
 
   private generateMaximalSynonyms(searchTerms: string[], fullMessage: string): string[] {
@@ -308,34 +277,5 @@ Réponds UNIQUEMENT avec un JSON valide suivant cette structure exacte :
     }
     
     return [...new Set(synonyms)];
-  }
-
-  async provideFeedback(searchResults: any, originalQuery: string): Promise<SearchFeedback> {
-    console.log('[COORDINATOR] Évaluation qualité résultats pour OphtaCare avec contexte enrichi');
-    
-    const hasRelevantContent = searchResults && (
-      (searchResults.meetings && searchResults.meetings.length > 0) ||
-      (searchResults.chunks && searchResults.chunks.length > 0) ||
-      (searchResults.todos && searchResults.todos.length > 0) ||
-      (searchResults.content && searchResults.content.length > 0)
-    );
-    
-    if (!hasRelevantContent) {
-      const expandedTerms = this.generateMaximalSynonyms([originalQuery], originalQuery);
-      
-      return {
-        success: false,
-        foundRelevant: false,
-        needsExpansion: true,
-        suggestedTerms: expandedTerms,
-        missingContext: 'Recherche plus approfondie nécessaire dans les données OphtaCare - expansion des termes en cours'
-      };
-    }
-    
-    return {
-      success: true,
-      foundRelevant: true,
-      needsExpansion: false
-    };
   }
 }

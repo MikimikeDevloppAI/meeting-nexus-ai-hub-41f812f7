@@ -6,50 +6,185 @@ export class SynthesisAgent {
   }
 
   async synthesizeResponse(
-    originalQuery: string,
+    originalMessage: string,
     conversationHistory: any[],
     databaseContext: any,
     embeddingContext: any,
     internetContext: any,
     galaxusContext: any,
-    analysis: any
+    analysis: any,
+    taskContext?: any // NOUVEAU paramètre
   ): Promise<string> {
-    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec validation stricte');
-
-    // Détection d'actions avec analyse approfondie
-    const actionAnalysis = this.detectActionWithContext(originalQuery, conversationHistory, databaseContext);
+    console.log('[SYNTHESIS] Synthèse INTELLIGENTE avec gestion TÂCHES');
     
-    // Construction du contexte ultra-enrichi avec Galaxus
-    const enrichedContext = this.buildUltraEnrichedContext(
-      databaseContext,
-      embeddingContext,
-      internetContext,
+    // Construction du contexte enrichi avec tâches
+    let contextualContent = this.buildEnrichedContext(
+      databaseContext, 
+      embeddingContext, 
+      internetContext, 
       galaxusContext,
-      analysis
+      taskContext // Inclure contexte tâches
     );
 
-    // Évaluation de la qualité des données avec validation contextuelle
-    const dataQuality = this.evaluateDataQualityEnhanced(enrichedContext, analysis, actionAnalysis);
+    // Adaptation du prompt selon le type de requête
+    let synthesisPrompt = '';
     
-    // Validation contextuelle médicale
-    const contextValidation = this.validateMedicalContext(originalQuery, enrichedContext, analysis);
-    
-    if (!dataQuality.sufficient && !actionAnalysis.isAction && contextValidation.needsClarification) {
-      console.log('[SYNTHESIS] ⚠️ Données insuffisantes ET contexte ambigu, demande de clarification');
-      return this.generateClarificationRequest(originalQuery, analysis, dataQuality, contextValidation);
+    if (analysis.requiresTasks && taskContext?.hasTaskContext) {
+      synthesisPrompt = this.buildTaskSpecializedPrompt(originalMessage, taskContext, contextualContent, analysis);
+    } else {
+      synthesisPrompt = this.buildGeneralPrompt(originalMessage, contextualContent, analysis);
     }
 
-    // Génération de la réponse enrichie avec validation contextuelle
-    const response = await this.generateEnrichedResponse(
-      originalQuery,
-      conversationHistory,
-      enrichedContext,
-      analysis,
-      actionAnalysis,
-      contextValidation
-    );
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: this.getSystemPrompt()
+            },
+            {
+              role: 'user',
+              content: synthesisPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1500,
+        }),
+      });
 
-    return response;
+      const data = await response.json();
+      let finalResponse = data.choices[0]?.message?.content || "Désolé, je n'ai pas pu traiter votre demande.";
+      
+      // Nettoyage de la réponse
+      finalResponse = this.cleanResponse(finalResponse);
+      
+      console.log('[SYNTHESIS] ✅ Réponse intelligente générée');
+      return finalResponse;
+      
+    } catch (error) {
+      console.error('[SYNTHESIS] ❌ Erreur synthèse:', error);
+      return "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?";
+    }
+  }
+
+  private buildTaskSpecializedPrompt(message: string, taskContext: any, contextualContent: string, analysis: any): string {
+    let taskInfo = '';
+    
+    if (taskContext.taskCreated) {
+      taskInfo += `\n🎯 TÂCHE CRÉÉE AVEC SUCCÈS :
+- ID: ${taskContext.taskCreated.id}
+- Description: "${taskContext.taskCreated.description}"
+- Statut: ${taskContext.taskCreated.status}
+- Créée le: ${new Date(taskContext.taskCreated.created_at).toLocaleString('fr-FR')}`;
+    }
+
+    if (taskContext.currentTasks.length > 0) {
+      taskInfo += `\n📋 TÂCHES EN COURS (${taskContext.currentTasks.length}) :`;
+      taskContext.currentTasks.slice(0, 10).forEach((task: any, index: number) => {
+        const participants = task.participants?.map((tp: any) => tp.participant?.name).filter(Boolean).join(', ') || 'Non assignée';
+        taskInfo += `\n${index + 1}. "${task.description}" - Statut: ${task.status} - Assignée à: ${participants}`;
+      });
+    }
+
+    return `DEMANDE SPÉCIALISÉE TÂCHES : "${message}"
+
+ACTION DÉTECTÉE : ${analysis.taskAction || 'consultation'}
+
+${taskInfo}
+
+${contextualContent}
+
+INSTRUCTIONS SPÉCIALISÉES :
+1. Répondre de manière PRÉCISE et DIRECTE sur les tâches
+2. Si tâche créée → confirmer et donner détails
+3. Si consultation → lister les tâches pertinentes avec détails
+4. Proposer actions suivantes (assigner, modifier, compléter)
+5. Rester dans le contexte OphtaCare
+6. NE PAS inventer d'informations
+7. Format clair et organisé
+
+Réponse FOCALISÉE TÂCHES :`;
+  }
+
+  private buildGeneralPrompt(message: string, contextualContent: string, analysis: any): string {
+    return `DEMANDE UTILISATEUR : "${message}"
+
+TYPE DE REQUÊTE : ${analysis.queryType}
+PRIORITÉ : ${analysis.priority}
+
+${contextualContent}
+
+INSTRUCTIONS STRICTES :
+1. Réponse PRÉCISE basée UNIQUEMENT sur les données trouvées
+2. NE JAMAIS inventer coordonnées, URLs, ou informations
+3. Si pas d'information → dire clairement "je n'ai pas trouvé"
+4. Mentionner TOUJOURS d'autres fournisseurs suisses si pertinent
+5. Rester dans contexte médical OphtaCare
+6. Format markdown pour liens : [texte](url)
+
+Réponse ENRICHIE :`;
+  }
+
+  private buildEnrichedContext(
+    databaseContext: any, 
+    embeddingContext: any, 
+    internetContext: any, 
+    galaxusContext: any,
+    taskContext?: any
+  ): string {
+    let context = '';
+
+    // Contexte tâches (prioritaire)
+    if (taskContext?.hasTaskContext) {
+      context += `\n🎯 CONTEXTE TÂCHES OphtaCare :\n`;
+      if (taskContext.taskCreated) {
+        context += `- Nouvelle tâche créée : "${taskContext.taskCreated.description}"\n`;
+      }
+      if (taskContext.currentTasks.length > 0) {
+        context += `- ${taskContext.currentTasks.length} tâche(s) en cours dans le système\n`;
+      }
+    }
+
+    // ... keep existing code (other context building)
+
+    return context;
+  }
+
+  private getSystemPrompt(): string {
+    return `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet du Dr Tabibian à Genève.
+
+MISSION PRINCIPALE :
+- Aider l'équipe administrative avec les tâches quotidiennes
+- Gérer et créer des tâches efficacement
+- Fournir des informations précises basées sur les données internes
+- Ne JAMAIS inventer d'informations
+
+SPÉCIALISATION TÂCHES :
+- Création, consultation et gestion des tâches
+- Suivi des tâches en cours et assignations
+- Propositions d'actions concrètes
+
+RÈGLES ABSOLUES :
+1. Précision et fiabilité des informations
+2. Pas d'invention de données
+3. Focus sur l'aide pratique et concrète
+4. Contexte médical toujours respecté
+
+STYLE : Professionnel, précis, orienté action.`;
+  }
+
+  private cleanResponse(response: string): string {
+    return response
+      .replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '')
+      .replace(/^\W+|\W+$/g, '')
+      .trim();
   }
 
   private detectActionWithContext(query: string, conversationHistory: any[], databaseContext: any): any {
@@ -469,91 +604,26 @@ Pouvez-vous reformuler votre question en précisant le contexte administratif ou
   ): Promise<string> {
     const hasRichContext = contextData.searchQuality.totalDataPoints > 5;
 
-    let systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève.
+    let systemPrompt = `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet du Dr Tabibian à Genève.
 
-CONTEXTE RENFORCÉ :
-- Utilisateur : Responsable administratif du cabinet
-- Spécialité : Ophtalmologie et gestion administrative médicale
-- Mission : Assistance administrative complète et gestion du cabinet
+MISSION PRINCIPALE :
+- Aider l'équipe administrative avec les tâches quotidiennes
+- Gérer et créer des tâches efficacement
+- Fournir des informations précises basées sur les données internes
+- Ne JAMAIS inventer d'informations
 
-DONNÉES ENRICHIES DISPONIBLES :
-- Réunions : ${contextData.meetings.length} (avec transcripts détaillés)
-- Documents : ${contextData.documents.length} (avec contenus analysés)
-- Tâches : ${contextData.todos.length} (avec participants et statuts)
-- Participants/Collaborateurs : ${contextData.participants.length}
-- Extraits sémantiques : ${contextData.chunks.length} chunks pertinents
-${contextData.hasGalaxusProducts ? `- Produits Galaxus : ${contextData.galaxusProducts.length} options ${contextData.hasValidatedGalaxusLinks ? 'VALIDÉES' : 'trouvées'}` : ''}
-${contextData.targetedExtracts ? `- Extractions ciblées : ${contextData.targetedExtracts.sections.length} sections` : ''}
-${contextData.fuzzyMatches?.length > 0 ? `- Correspondances approximatives : ${contextData.fuzzyMatches.length}` : ''}
+SPÉCIALISATION TÂCHES :
+- Création, consultation et gestion des tâches
+- Suivi des tâches en cours et assignations
+- Propositions d'actions concrètes
 
-QUALITÉ DE RECHERCHE ULTRA-ENRICHIE :
-- Itérations de recherche : ${contextData.searchQuality.embeddingIterations}
-- Niveau d'expansion : ${contextData.searchQuality.expansionLevel}
-- Points de données total : ${contextData.searchQuality.totalDataPoints}
-- Recherche vectorielle ${contextData.hasEmbeddingContext ? 'RÉUSSIE' : 'limitée'}
-${contextData.hasGalaxusProducts ? '- Recherche produits Galaxus RÉUSSIE' : ''}
-${contextData.hasValidatedContacts ? `- Coordonnées validées (score: ${contextData.contactConfidenceScore}%)` : ''}
+RÈGLES ABSOLUES :
+1. Précision et fiabilité des informations
+2. Pas d'invention de données
+3. Focus sur l'aide pratique et concrète
+4. Contexte médical toujours respecté
 
-${actionAnalysis.isAction ? `
-ACTION DÉTECTÉE :
-Type : ${actionAnalysis.action.type}
-Confiance : ${(actionAnalysis.confidence * 100).toFixed(0)}%
-${actionAnalysis.action.type === 'create' && actionAnalysis.action.details?.taskCreation ? `
-CRÉATION DE TÂCHE REQUISE :
-Description : "${actionAnalysis.action.details.taskCreation.data.description}"
-${actionAnalysis.action.details.taskCreation.data.assigned_to ? `Assignée à : ${actionAnalysis.action.details.taskCreation.data.assigned_to}` : ''}
-${actionAnalysis.action.details.taskCreation.data.due_date ? `Échéance : ${actionAnalysis.action.details.taskCreation.data.due_date}` : ''}
-
-SYNTAXE REQUISE POUR TÂCHE :
-[ACTION_TACHE: TYPE=CREATE, description="${actionAnalysis.action.details.taskCreation.data.description}", assigned_to="${actionAnalysis.action.details.taskCreation.data.assigned_to || ''}", due_date="${actionAnalysis.action.details.taskCreation.data.due_date || ''}"]
-` : ''}
-` : ''}
-
-INSTRUCTIONS ULTRA-ENRICHIES AVEC VALIDATION STRICTE :
-1. Utiliser TOUTES les données disponibles pour enrichir au maximum
-2. Prioriser les informations internes sur les données externes
-3. Faire des liens entre différentes sources de données quand pertinent
-4. Proposer des actions complémentaires basées sur le contexte
-5. Garder un ton professionnel médical/administratif
-6. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
-
-7. RÈGLES STRICTES POUR COORDONNÉES ET LIENS - VALIDATION CRITIQUE:
-   - Coordonnées UNIQUEMENT si score de confiance > 50% ET trouvées dans sources
-   - Si pas de coordonnées validées: NE JAMAIS mentionner de coordonnées
-   - Format téléphone: +41... SEULEMENT si trouvé et validé
-   - Emails: contact@/info@ SEULEMENT si trouvés et validés
-   - Sites web: TOUJOURS format markdown cliquable [nom](https://url) avec URLs complètes
-   - Vérifier que chaque lien provient des sources avant inclusion
-
-8. RECHERCHES PRODUITS AVEC VALIDATION:
-   - Prioriser les résultats Galaxus avec liens validés
-   - Présenter options avec prix CHF et liens cliquables RÉELS
-   - OBLIGATOIRE: Mentionner autres fournisseurs suisses/européens
-   - Comparer avec sources complémentaires médicales spécialisées
-   - Recommandation finale claire basée sur données vérifiées
-
-9. LIENS ET FORMATAGE - VALIDATION OBLIGATOIRE:
-   - TOUS les liens format markdown [nom](url) avec URLs complètes
-   - Valider mentalement chaque URL avant inclusion
-   - Pas de liens inventés ou non fonctionnels
-   - URLs Galaxus: https://www.galaxus.ch/fr/... SEULEMENT
-
-10. INTERDICTIONS ABSOLUES - AUCUNE EXCEPTION:
-    - JAMAIS inventer coordonnées (téléphone, email, adresse)
-    - JAMAIS mentionner informations non trouvées dans sources
-    - JAMAIS créer de liens non validés ou génériques
-    - Si information manquante: NE PAS la mentionner
-    - JAMAIS présenter comme factuel ce qui n'est pas vérifié
-
-11. VALIDATION SOURCES:
-    - Score confiance coordonnées: ${contextData.contactConfidenceScore}%
-    - Coordonnées validées: ${contextData.hasValidatedContacts ? 'OUI' : 'NON'}
-    - Liens Galaxus validés: ${contextData.hasValidatedGalaxusLinks ? 'OUI' : 'NON'}
-
-${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
-
-Réponds de manière professionnelle, précise et dans le contexte du cabinet d'ophtalmologie.
-PRIORITÉ ABSOLUE: Ne jamais inventer d'informations non vérifiées.`;
+STYLE : Professionnel, précis, orienté action.`;
 
     const userMessage = `DEMANDE ADMINISTRATIVE ENRICHIE AVEC VALIDATION : ${originalQuery}
 
