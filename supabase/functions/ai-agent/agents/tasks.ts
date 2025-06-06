@@ -22,7 +22,7 @@ export class TaskAgent {
       taskAction: this.detectTaskAction(message)
     };
 
-    // Récupérer toutes les tâches en cours
+    // Récupérer toutes les tâches en cours avec descriptions courtes
     console.log('[TASKS] 📋 Récupération de toutes les tâches en cours');
     const { data: allTasks } = await this.supabase
       .from('todos')
@@ -48,10 +48,13 @@ export class TaskAgent {
       if (taskDescription) {
         console.log('[TASKS] ➕ Création d\'une nouvelle tâche:', taskDescription);
         
+        // Rendre la description plus concise
+        const shortDescription = this.makeDescriptionConcise(taskDescription);
+        
         const { data: newTask, error } = await this.supabase
           .from('todos')
           .insert([{
-            description: taskDescription,
+            description: shortDescription,
             status: 'confirmed',
             meeting_id: null // Tâche créée via assistant
           }])
@@ -69,6 +72,19 @@ export class TaskAgent {
     }
 
     return context;
+  }
+
+  private makeDescriptionConcise(description: string): string {
+    // Raccourcir les descriptions trop longues
+    if (description.length > 150) {
+      // Garder seulement la première phrase ou les 150 premiers caractères
+      const firstSentence = description.split('.')[0];
+      if (firstSentence.length > 0 && firstSentence.length < 150) {
+        return firstSentence.trim();
+      }
+      return description.substring(0, 147).trim() + '...';
+    }
+    return description.trim();
   }
 
   private detectTaskAction(message: string): 'list' | 'create' | 'update' | 'complete' | undefined {
@@ -114,7 +130,7 @@ export class TaskAgent {
     for (const pattern of patterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
-        return match[1].trim();
+        return this.makeDescriptionConcise(match[1].trim());
       }
     }
 
@@ -125,7 +141,7 @@ export class TaskAgent {
       if (index !== -1) {
         const afterKeyword = message.substring(index + keyword.length).trim();
         if (afterKeyword.length > 5) {
-          return afterKeyword;
+          return this.makeDescriptionConcise(afterKeyword);
         }
       }
     }
