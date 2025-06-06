@@ -293,7 +293,7 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
-      // Prendre les 10 derniers messages comme historique complet (AVANT d'ajouter le message actuel)
+      // Prendre les 10 derniers messages COMPLETS (utilisateur ET assistant) comme historique
       // Ceci garantit que l'agent a accès à tout le contexte de conversation
       const conversationHistory = messages
         .slice(-10)
@@ -303,12 +303,12 @@ const Assistant = () => {
           timestamp: msg.timestamp.toISOString()
         }));
 
-      console.log('[ASSISTANT] 📜 Envoi de l\'historique:', {
+      console.log('[ASSISTANT] 📜 Envoi de l\'historique COMPLET:', {
         messageCount: conversationHistory.length,
         currentMessage: currentMessage.substring(0, 50) + '...',
-        lastMessages: conversationHistory.slice(-3).map(m => ({
-          isUser: m.isUser,
-          preview: m.content.substring(0, 30) + '...'
+        fullHistory: conversationHistory.map(m => ({
+          type: m.isUser ? 'USER' : 'ASSISTANT',
+          preview: m.content.substring(0, 50) + '...'
         }))
       });
 
