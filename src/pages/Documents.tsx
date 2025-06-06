@@ -54,9 +54,9 @@ const Documents = () => {
       if (error) throw error;
       return data as UploadedDocument[];
     },
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Refetch every 3 seconds if there are documents being processed
-      const hasProcessingDocs = data?.some(doc => !doc.processed);
+      const hasProcessingDocs = query.state.data?.some(doc => !doc.processed);
       return hasProcessingDocs ? 3000 : false;
     }
   });
