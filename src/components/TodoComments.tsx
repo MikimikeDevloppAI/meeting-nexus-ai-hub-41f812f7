@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -162,7 +161,9 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     }
   };
 
-  const startEditComment = (comment: Comment) => {
+  const startEditComment = (comment: Comment, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     console.log("Starting edit for comment:", comment.id);
     setEditComment({ id: comment.id, text: comment.comment });
   };
@@ -207,7 +208,10 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
+  const handleDeleteComment = async (commentId: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     try {
       const { error } = await supabase
         .from("todo_comments")
@@ -308,14 +312,14 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                                 variant="ghost"
                                 className="h-8 w-8 p-0"
                                 aria-label="Modifier le commentaire"
-                                onClick={() => startEditComment(comment)}
+                                onClick={(e) => startEditComment(comment, e)}
                               >
                                 <Pen className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleDeleteComment(comment.id)}
+                                onClick={(e) => handleDeleteComment(comment.id, e)}
                                 className="h-8 w-8 p-0"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -401,7 +405,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                             variant="ghost"
                             className="h-5 w-5 p-0"
                             aria-label="Modifier le commentaire"
-                            onClick={() => startEditComment(comment)}
+                            onClick={(e) => startEditComment(comment, e)}
                           >
                             <Pen className="h-3 w-3" />
                           </Button>
@@ -409,7 +413,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                             size="sm"
                             variant="ghost"
                             className="h-5 w-5 p-0"
-                            onClick={() => handleDeleteComment(comment.id)}
+                            onClick={(e) => handleDeleteComment(comment.id, e)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
