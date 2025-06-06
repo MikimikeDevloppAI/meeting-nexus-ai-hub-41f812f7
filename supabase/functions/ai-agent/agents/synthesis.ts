@@ -1,3 +1,4 @@
+
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -129,7 +130,7 @@ INSTRUCTIONS INTELLIGENTES CABINET :
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
-          temperature: 0.7,
+          temperature: 0.2,
           max_tokens: 1500, // Plus de tokens pour réponses complètes avec transcripts
         }),
       });
