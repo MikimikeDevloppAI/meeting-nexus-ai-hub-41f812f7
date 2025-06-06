@@ -16,6 +16,12 @@ export class SynthesisAgent {
   ): Promise<string> {
     console.log('[SYNTHESIS] 🏥 Synthèse INTELLIGENTE Cabinet Dr Tabibian');
 
+    // TRAITEMENT SPÉCIAL: Questions météo et informations temps réel
+    if (this.isWeatherOrRealTimeQuery(originalQuery) && internetContext.hasContent) {
+      console.log('[SYNTHESIS] 🌤️ Traitement spécial météo/temps réel avec données Internet');
+      return this.generateWeatherOrRealTimeResponse(originalQuery, internetContext, analysis);
+    }
+
     // PHASE 1: RÉPONSE BASÉE SUR LA RECHERCHE VECTORIELLE UNIQUEMENT
     console.log('[SYNTHESIS] 🎯 Phase 1: Réponse basée sur recherche vectorielle');
     
@@ -45,6 +51,63 @@ export class SynthesisAgent {
     // PHASE 2: FALLBACK - SYNTHÈSE COMPLÈTE CLASSIQUE
     console.log('[SYNTHESIS] 🔄 Phase 2: Fallback synthèse complète');
     return this.generateFullSynthesis(originalQuery, conversationHistory, databaseContext, embeddingContext, internetContext, analysis, taskContext);
+  }
+
+  private isWeatherOrRealTimeQuery(query: string): boolean {
+    const weatherTerms = ['météo', 'weather', 'température', 'temps', 'pluie', 'soleil', 'nuage', 'vent'];
+    const realTimeTerms = ['aujourd\'hui', 'maintenant', 'actuellement', 'en ce moment', 'temps réel'];
+    const lowerQuery = query.toLowerCase();
+    
+    const hasWeatherTerm = weatherTerms.some(term => lowerQuery.includes(term));
+    const hasRealTimeTerm = realTimeTerms.some(term => lowerQuery.includes(term));
+    
+    return hasWeatherTerm || hasRealTimeTerm;
+  }
+
+  private async generateWeatherOrRealTimeResponse(
+    originalQuery: string,
+    internetContext: any,
+    analysis: any
+  ): Promise<string> {
+    const weatherPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
+
+QUESTION : "${originalQuery}"
+
+INFORMATIONS TROUVÉES SUR INTERNET :
+${internetContext.content}
+
+INSTRUCTIONS :
+- Utilise les informations trouvées sur Internet pour répondre à la question météo/temps réel
+- Sois précis et utilise les données actuelles trouvées
+- Maintiens le contexte du cabinet médical dans ta réponse
+- Si des recommandations médicales liées à la météo sont pertinentes (UV, sécheresse oculaire, etc.), mentionne-les brièvement
+- Reste professionnel et contextualise pour le cabinet d'ophtalmologie à Genève
+
+RÉPONSE COMPLÈTE AVEC DONNÉES INTERNET :`;
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: weatherPrompt }],
+          temperature: 0.1,
+          max_tokens: 800,
+        }),
+      });
+
+      const data = await response.json();
+      const weatherResponse = data.choices[0]?.message?.content || 'Informations météo non disponibles.';
+      
+      return weatherResponse + '\n\n🌐 *Informations en temps réel via recherche Internet.*';
+    } catch (error) {
+      console.error('[SYNTHESIS] ❌ Erreur réponse météo:', error);
+      return `Voici les informations météo que j'ai trouvées :\n\n${internetContext.content}\n\n🌐 *Informations en temps réel via recherche Internet.*`;
+    }
   }
 
   private async generateVectorBasedResponse(
@@ -83,7 +146,7 @@ RÉPONSE COURTE ET PRÉCISE :`;
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: vectorPrompt }],
-          temperature: 0.1, // Très faible pour réponses factuelles
+          temperature: 0.1,
           max_tokens: 500,
         }),
       });
@@ -97,7 +160,6 @@ RÉPONSE COURTE ET PRÉCISE :`;
   }
 
   private isResponseSatisfactory(response: string, originalQuery: string): boolean {
-    // Vérifier si la réponse contient des éléments positifs
     const positiveIndicators = ['oui', 'effectivement', 'dans', 'mentionné', 'parlé', 'évoqué', 'discuté'];
     const negativeIndicators = ['non', 'pas', 'aucun', 'introuvable', 'absent'];
     
@@ -105,7 +167,6 @@ RÉPONSE COURTE ET PRÉCISE :`;
     const hasPositive = positiveIndicators.some(indicator => lowerResponse.includes(indicator));
     const hasNegative = negativeIndicators.some(indicator => lowerResponse.includes(indicator));
     
-    // La réponse est satisfaisante si elle est suffisamment longue et contient des éléments factuels
     return response.length > 50 && (hasPositive || !hasNegative);
   }
 
@@ -118,7 +179,6 @@ RÉPONSE COURTE ET PRÉCISE :`;
   ): Promise<string> {
     console.log('[SYNTHESIS] 📋 Enrichissement avec détails meeting');
 
-    // Identifier les meetings pertinents à partir des chunks
     const relevantMeetings = this.extractRelevantMeetings(embeddingContext.chunks, databaseContext.meetings);
     
     if (relevantMeetings.length === 0) {
@@ -174,13 +234,11 @@ RÉPONSE ENRICHIE :`;
   private extractRelevantMeetings(chunks: any[], meetings: any[]): any[] {
     if (!chunks || !meetings) return [];
     
-    // Extraire les meeting_ids des chunks
     const meetingIds = [...new Set(chunks
       .filter(chunk => chunk.meeting_id)
       .map(chunk => chunk.meeting_id)
     )];
     
-    // Trouver les meetings correspondants
     return meetings.filter(meeting => meetingIds.includes(meeting.id));
   }
 
@@ -205,7 +263,7 @@ MISSION CABINET MÉDICAL :
 - Priorité ABSOLUE : Recherche sémantique dans les données internes AVANT tout enrichissement
 - Accès complet aux transcripts de réunions, documents, tâches administratives
 - Compréhension intelligente des références temporelles (dernière réunion, réunion de juin, etc.)
-- Enrichissement internet seulement après recherche interne
+- UTILISATION OBLIGATOIRE des informations Internet quand disponibles (météo, actualités, etc.)
 
 CONTEXTE CABINET DR TABIBIAN :
 ${contextSummary}
@@ -217,12 +275,13 @@ ${analysis.temporalReference ? `- Référence détectée: ${analysis.temporalRef
 
 RÈGLES DE RÉPONSE CABINET MÉDICAL :
 1. **PRIORITÉ RECHERCHE SÉMANTIQUE** - Utilise d'abord les données internes trouvées
-2. **COMPRÉHENSION TEMPORELLE** - Identifie correctement les références aux réunions
-3. **RÉPONSES COMPLÈTES** - Fournis toujours une réponse utile, même avec données limitées  
-4. **CONTEXTE OPHTALMOLOGIE** - Maintiens l'expertise médicale et le contexte genevois
-5. **TRANSPARENCE SOURCES** - Indique clairement les sources utilisées (interne vs externe)
-6. **ACCÈS TRANSCRIPTS** - Fournis les transcripts si demandés explicitement
-7. **ACTIONS STRUCTURÉES** - Utilise la syntaxe [ACTION_TACHE:...] pour les tâches
+2. **UTILISATION INTERNET OBLIGATOIRE** - Si des informations Internet sont disponibles, utilise-les TOUJOURS
+3. **COMPRÉHENSION TEMPORELLE** - Identifie correctement les références aux réunions
+4. **RÉPONSES COMPLÈTES** - Fournis toujours une réponse utile, même avec données limitées  
+5. **CONTEXTE OPHTALMOLOGIE** - Maintiens l'expertise médicale et le contexte genevois
+6. **TRANSPARENCE SOURCES** - Indique clairement les sources utilisées (interne vs externe)
+7. **ACCÈS TRANSCRIPTS** - Fournis les transcripts si demandés explicitement
+8. **ACTIONS STRUCTURÉES** - Utilise la syntaxe [ACTION_TACHE:...] pour les tâches
 
 SYNTAXE ACTIONS TÂCHES :
 - [ACTION_TACHE:TYPE=create,description="Description précise",assigned_to="Nom personne"]
@@ -287,6 +346,7 @@ ${taskContext.currentTasks.slice(0, 10).map(task => `- ${task.description} (${ta
 INSTRUCTIONS INTELLIGENTES CABINET :
 - Réponds directement et complètement à la question
 - Utilise PRIORITAIREMENT les données internes du cabinet trouvées
+- UTILISE OBLIGATOIREMENT les informations Internet si disponibles
 - Si données limitées, fournis quand même une réponse utile
 - Maintiens le contexte ophtalmologie cabinet Dr Tabibian Genève
 - Sois précis sur les sources utilisées (données cabinet vs informations générales)
@@ -309,14 +369,13 @@ INSTRUCTIONS INTELLIGENTES CABINET :
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.2,
-          max_tokens: 1500, // Plus de tokens pour réponses complètes avec transcripts
+          max_tokens: 1500,
         }),
       });
 
       const data = await response.json();
       let finalResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu traiter votre demande.';
 
-      // Enrichissement intelligent de la réponse
       finalResponse = this.enrichResponseWithContext(finalResponse, analysis, confidence, databaseContext, embeddingContext, internetContext);
 
       console.log('[SYNTHESIS] ✅ Réponse cabinet médical intelligente générée');
@@ -333,7 +392,6 @@ INSTRUCTIONS INTELLIGENTES CABINET :
   private finalizeResponse(response: string, analysis: any, embeddingContext: any, databaseContext: any): string {
     let finalizedResponse = response;
 
-    // Ajout d'indicateurs de source
     if (embeddingContext.chunks?.length > 0) {
       finalizedResponse += `\n\n🔍 *Basé sur ${embeddingContext.chunks.length} élément(s) trouvé(s) dans vos données cabinet.*`;
     }
@@ -384,7 +442,6 @@ INSTRUCTIONS INTELLIGENTES CABINET :
   private buildDataContext(databaseContext: any, embeddingContext: any, internetContext: any): string {
     const dataParts = [];
 
-    // Contexte des réunions avec détails temporels
     if (databaseContext.meetings?.length > 0) {
       dataParts.push(`\n🏥 RÉUNIONS CABINET TROUVÉES (${databaseContext.meetings.length}) :`);
       databaseContext.meetings.slice(0, 3).forEach((meeting: any, i: number) => {
@@ -399,7 +456,6 @@ INSTRUCTIONS INTELLIGENTES CABINET :
       });
     }
 
-    // Contexte des chunks avec relevance
     if (embeddingContext.chunks?.length > 0) {
       dataParts.push(`\n🎯 CONTENU SÉMANTIQUE PERTINENT (${embeddingContext.chunks.length} éléments) :`);
       embeddingContext.chunks.slice(0, 3).forEach((chunk: any, i: number) => {
@@ -410,7 +466,6 @@ INSTRUCTIONS INTELLIGENTES CABINET :
       });
     }
 
-    // Contexte des documents cabinet
     if (databaseContext.documents?.length > 0) {
       dataParts.push(`\n📁 DOCUMENTS CABINET (${databaseContext.documents.length}) :`);
       databaseContext.documents.slice(0, 2).forEach((doc: any, i: number) => {
@@ -421,10 +476,12 @@ INSTRUCTIONS INTELLIGENTES CABINET :
       });
     }
 
-    // Contexte enrichissement internet
     if (internetContext.hasContent) {
       dataParts.push(`\n🌐 ENRICHISSEMENT EXTERNE :`);
       dataParts.push(`  Informations complémentaires trouvées pour le contexte cabinet`);
+      if (internetContext.content) {
+        dataParts.push(`  Contenu: ${internetContext.content.substring(0, 200)}${internetContext.content.length > 200 ? '...' : ''}`);
+      }
     }
 
     return dataParts.join('\n');
@@ -440,12 +497,10 @@ INSTRUCTIONS INTELLIGENTES CABINET :
   ): string {
     let enrichedResponse = response;
 
-    // Ajout d'indicateurs de confiance si nécessaire
     if (confidence < 0.5 && !response.includes('données limitées')) {
       enrichedResponse += '\n\n💡 *Réponse basée sur des informations limitées du cabinet. Pour plus de précision, n\'hésitez pas à me donner plus de contexte.*';
     }
 
-    // Ajout de contexte source si pertinent
     if (databaseContext.meetings?.length > 0 && analysis.queryType === 'meeting') {
       enrichedResponse += `\n\n📊 *Basé sur ${databaseContext.meetings.length} réunion(s) de votre cabinet Dr Tabibian.*`;
     }
@@ -458,7 +513,6 @@ INSTRUCTIONS INTELLIGENTES CABINET :
       enrichedResponse += `\n\n🌐 *Enrichi avec des informations externes complémentaires.*`;
     }
 
-    // Ajout contexte temporel si pertinent
     if (analysis.temporalReference?.needs_database_lookup && databaseContext.meetings?.length > 0) {
       enrichedResponse += `\n\n📅 *Réunion identifiée selon votre référence temporelle: ${analysis.temporalReference.type}.*`;
     }
