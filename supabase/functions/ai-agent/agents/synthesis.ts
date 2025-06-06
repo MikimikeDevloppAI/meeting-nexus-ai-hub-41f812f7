@@ -11,18 +11,20 @@ export class SynthesisAgent {
     databaseContext: any,
     embeddingContext: any,
     internetContext: any,
+    galaxusContext: any,
     analysis: any
   ): Promise<string> {
-    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec contexte médical OphtaCare');
+    console.log('[SYNTHESIS] Création réponse ENRICHIE MAXIMALE avec contexte médical et Galaxus');
 
     // Détection d'actions avec analyse approfondie
     const actionAnalysis = this.detectActionWithContext(originalQuery, conversationHistory, databaseContext);
     
-    // Construction du contexte ultra-enrichi
+    // Construction du contexte ultra-enrichi avec Galaxus
     const enrichedContext = this.buildUltraEnrichedContext(
       databaseContext,
       embeddingContext,
       internetContext,
+      galaxusContext,
       analysis
     );
 
@@ -298,7 +300,7 @@ export class SynthesisAgent {
     return 'general';
   }
 
-  private buildUltraEnrichedContext(databaseContext: any, embeddingContext: any, internetContext: any, analysis: any): any {
+  private buildUltraEnrichedContext(databaseContext: any, embeddingContext: any, internetContext: any, galaxusContext: any, analysis: any): any {
     const enriched = {
       // Données de base
       meetings: databaseContext.meetings || [],
@@ -314,6 +316,11 @@ export class SynthesisAgent {
       internetContent: internetContext.content || '',
       internetSources: internetContext.sources || [],
       
+      // Nouvelles données Galaxus
+      galaxusProducts: galaxusContext?.products || [],
+      galaxusRecommendations: galaxusContext?.recommendations || '',
+      hasGalaxusProducts: galaxusContext?.hasProducts || false,
+      
       // Métriques de qualité
       hasEmbeddingContext: embeddingContext.hasRelevantContext || false,
       hasInternetContext: internetContext.hasContent || false,
@@ -324,7 +331,8 @@ export class SynthesisAgent {
         totalDataPoints: (databaseContext.meetings?.length || 0) + 
                         (databaseContext.documents?.length || 0) + 
                         (databaseContext.todos?.length || 0) + 
-                        (embeddingContext.chunks?.length || 0)
+                        (embeddingContext.chunks?.length || 0) +
+                        (galaxusContext?.products?.length || 0)
       },
       
       // Contexte médical
@@ -354,7 +362,8 @@ export class SynthesisAgent {
       documents: contextData.documents.length,
       todos: contextData.todos.length,
       participants: contextData.participants.length,
-      chunks: contextData.chunks.length
+      chunks: contextData.chunks.length,
+      galaxusProducts: contextData.galaxusProducts.length
     };
     
     // Calcul du score de qualité
@@ -366,6 +375,7 @@ export class SynthesisAgent {
     
     // Bonus pour correspondance avec analyse
     if (contextData.hasEmbeddingContext) quality.score += 30;
+    if (contextData.hasGalaxusProducts) quality.score += 25;
     if (contextData.targetedExtracts?.sections?.length > 0) quality.score += 20;
     if (contextData.fuzzyMatches?.length > 0) quality.score += 15;
     
@@ -383,7 +393,7 @@ export class SynthesisAgent {
       quality.recommendations = [
         'Préciser le contexte temporel (récent, cette semaine, etc.)',
         'Mentionner des noms de personnes ou entités spécifiques',
-        'Utiliser des termes liés au cabinet médical OphtaCare'
+        'Utiliser des termes liés au cabinet médical'
       ];
     }
     
@@ -452,10 +462,9 @@ Pouvez-vous reformuler votre question en précisant le contexte administratif ou
   ): Promise<string> {
     const hasRichContext = contextData.searchQuality.totalDataPoints > 5;
 
-    let systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie OphtaCare du Dr Tabibian à Genève.
+    let systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
-CONTEXTE OPHTACARE RENFORCÉ :
-- Cabinet : OphtaCare, dirigé par Dr Tabibian, Genève
+CONTEXTE RENFORCÉ :
 - Utilisateur : Responsable administratif du cabinet
 - Spécialité : Ophtalmologie et gestion administrative médicale
 - Mission : Assistance administrative complète et gestion du cabinet
@@ -466,6 +475,7 @@ DONNÉES ENRICHIES DISPONIBLES :
 - Tâches : ${contextData.todos.length} (avec participants et statuts)
 - Participants/Collaborateurs : ${contextData.participants.length}
 - Extraits sémantiques : ${contextData.chunks.length} chunks pertinents
+${contextData.hasGalaxusProducts ? `- Produits Galaxus : ${contextData.galaxusProducts.length} options trouvées` : ''}
 ${contextData.targetedExtracts ? `- Extractions ciblées : ${contextData.targetedExtracts.sections.length} sections` : ''}
 ${contextData.fuzzyMatches?.length > 0 ? `- Correspondances approximatives : ${contextData.fuzzyMatches.length}` : ''}
 
@@ -474,6 +484,7 @@ QUALITÉ DE RECHERCHE ULTRA-ENRICHIE :
 - Niveau d'expansion : ${contextData.searchQuality.expansionLevel}
 - Points de données total : ${contextData.searchQuality.totalDataPoints}
 - Recherche vectorielle ${contextData.hasEmbeddingContext ? 'RÉUSSIE' : 'limitée'}
+${contextData.hasGalaxusProducts ? '- Recherche produits Galaxus RÉUSSIE' : ''}
 
 ${actionAnalysis.isAction ? `
 ACTION DÉTECTÉE :
@@ -491,40 +502,43 @@ SYNTAXE REQUISE POUR TÂCHE :
 ` : ''}
 
 INSTRUCTIONS ULTRA-ENRICHIES :
-1. TOUJOURS maintenir le contexte cabinet OphtaCare dans tes réponses
-2. Utiliser TOUTES les données disponibles pour enrichir au maximum
-3. Prioriser les informations internes sur les données externes
-4. Faire des liens entre différentes sources de données quand pertinent
-5. Proposer des actions complémentaires basées sur le contexte
-6. Garder un ton professionnel médical/administratif
-7. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
-8. CRITIQUE - POUR TOUTE SOCIÉTÉ/FOURNISSEUR MENTIONNÉ: 
-   - OBLIGATOIRE: Numéro de téléphone international (+41...)
-   - OBLIGATOIRE: Email de contact précis (contact@...)
-   - OBLIGATOIRE: Site web sous forme de lien cliquable markdown [nom](url)
-   - Si matériel/produit: références précises et liens vers Galaxus.ch en priorité
-   - Présenter toutes ces informations de façon structurée et facilement repérable
+1. Utiliser TOUTES les données disponibles pour enrichir au maximum
+2. Prioriser les informations internes sur les données externes
+3. Faire des liens entre différentes sources de données quand pertinent
+4. Proposer des actions complémentaires basées sur le contexte
+5. Garder un ton professionnel médical/administratif
+6. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
 
-9. RECHERCHES MATÉRIEL/PRODUITS:
-   - Si la demande concerne des produits/équipements:
-   - PRIORITÉ à Galaxus.ch avec références et liens précis
-   - Comparer avec au moins 3 sources différentes
-   - Présenter les options avec prix CHF et caractéristiques
+7. RÈGLES STRICTES POUR COORDONNÉES:
+   - Fournir coordonnées UNIQUEMENT si trouvées et vérifiables
+   - Format obligatoire pour téléphones: +41...
+   - Emails: contact@ ou support@ uniquement si trouvés
+   - Sites web: TOUJOURS format markdown cliquable [nom](https://url)
 
-10. EMAILS:
-    - Si tu génères un email, rédige-le comme un assistant administratif (sans mentionner de titre)
-    - Style professionnel mais naturel et direct
-    - Inclure présentation brève du cabinet
-    - Toujours signer avec coordonnées du cabinet
+8. RECHERCHES PRODUITS:
+   - Prioriser les résultats Galaxus si disponibles
+   - Présenter les options avec prix CHF et liens cliquables
+   - Comparer avec sources complémentaires
+   - Recommandation finale claire
+
+9. LIENS ET FORMATAGE:
+   - TOUS les liens doivent être cliquables format [nom](url)
+   - URLs complètes et fonctionnelles
+   - Pas de liens cassés ou inventés
+
+10. INTERDICTIONS:
+    - Ne JAMAIS mentionner les coordonnées du cabinet dans les réponses
+    - Ne pas inventer de coordonnées de contact
+    - Ne pas mentionner des plateformes sans valeur ajoutée
 
 ${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
 
-Réponds de manière professionnelle, précise et dans le contexte OphtaCare Genève.`;
+Réponds de manière professionnelle, précise et dans le contexte du cabinet d'ophtalmologie.`;
 
     const userMessage = `DEMANDE ADMINISTRATIVE ENRICHIE : ${originalQuery}
 
 ${hasRichContext ? `
-CONTEXTE INTERNE OPHTACARE ULTRA-ENRICHI :
+CONTEXTE INTERNE ULTRA-ENRICHI :
 
 📋 RÉUNIONS RÉCENTES (${contextData.meetings.length}) :
 ${contextData.meetings.slice(0, 3).map((m: any) => `• "${m.title}" - ${(m.summary || m.transcript || '').substring(0, 200)}...`).join('\n')}
@@ -540,6 +554,11 @@ ${contextData.participants.slice(0, 8).map((p: any) => `• ${p.name} (${p.email
 
 🔍 EXTRAITS SÉMANTIQUES PERTINENTS (${contextData.chunks.length}) :
 ${contextData.chunks.slice(0, 4).map((c: any, i: number) => `${i+1}. [Score: ${c.similarity?.toFixed(3)}] ${(c.chunk_text || '').substring(0, 200)}...`).join('\n')}
+
+${contextData.hasGalaxusProducts ? `
+🛒 PRODUITS GALAXUS TROUVÉS (${contextData.galaxusProducts.length}) :
+${contextData.galaxusRecommendations.substring(0, 500)}...
+` : ''}
 
 ${contextData.targetedExtracts ? `
 🎯 EXTRACTIONS CIBLÉES pour "${contextData.targetedExtracts.entity}" :
@@ -557,7 +576,9 @@ ${contextData.hasInternetContext ? `
 ${(contextData.internetContent || '').substring(0, 300)}...
 ` : ''}
 
-Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible dans le contexte OphtaCare. Pour toute société mentionnée, inclus ses coordonnées complètes (téléphone, email, site web cliquable).`;
+Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible. 
+LIENS CLIQUABLES OBLIGATOIRES format [nom](url).
+Coordonnées SEULEMENT si trouvées et vérifiables.`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -573,7 +594,7 @@ Utilise TOUTES ces informations pour fournir la réponse la plus complète et pr
             { role: 'user', content: userMessage }
           ],
           temperature: 0.7,
-          max_tokens: 1500, // Plus de tokens pour réponses enrichies
+          max_tokens: 1800, // Plus de tokens pour réponses enrichies avec Galaxus
         }),
       });
 
@@ -594,7 +615,7 @@ Utilise TOUTES ces informations pour fournir la réponse la plus complète et pr
         const taskData = actionAnalysis.action.details.taskCreation.data;
         const actionSyntax = `[ACTION_TACHE: TYPE=CREATE, description="${taskData.description}", assigned_to="${taskData.assigned_to || ''}", due_date="${taskData.due_date || ''}"]`;
         
-        return `Je vais créer cette tâche pour le cabinet OphtaCare selon votre demande :
+        return `Je vais créer cette tâche selon votre demande :
 
 **Nouvelle tâche administrative :**
 - Description : ${taskData.description}
@@ -607,7 +628,7 @@ ${actionSyntax}
 Cette tâche sera intégrée dans le système de gestion du cabinet.`;
       }
       
-      return `Je rencontre un problème technique temporaire. Les données OphtaCare sont disponibles (${contextData.searchQuality.totalDataPoints} éléments trouvés), mais je ne peux pas générer la réponse complète actuellement. 
+      return `Je rencontre un problème technique temporaire. Les données sont disponibles (${contextData.searchQuality.totalDataPoints} éléments trouvés), mais je ne peux pas générer la réponse complète actuellement. 
 
 Pouvez-vous reformuler votre demande ou réessayer dans quelques instants ?`;
     }

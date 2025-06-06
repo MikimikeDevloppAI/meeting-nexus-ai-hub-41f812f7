@@ -16,7 +16,8 @@ export class InternetAgent {
   async searchInternet(
     query: string, 
     analysis: any,
-    hasLocalContext: boolean = false
+    hasLocalContext: boolean = false,
+    galaxusContext?: any
   ): Promise<InternetContext> {
     if (!this.perplexityApiKey) {
       console.log('[INTERNET] ⚠️ No Perplexity API key available');
@@ -25,13 +26,18 @@ export class InternetAgent {
 
     console.log('[INTERNET] Starting enhanced internet search');
     
-    // Determine enrichment strategy
+    // Déterminer le type d'enrichissement
     const enrichmentType = this.determineEnrichmentType(analysis, hasLocalContext);
     
     try {
-      // Check if query is related to office equipment or products
+      // Si Galaxus a déjà traité une recherche produit, éviter la duplication
       const isProductSearch = this.isProductRelatedQuery(query);
-      const searchPrompt = this.buildSearchPrompt(query, analysis, enrichmentType, isProductSearch);
+      if (isProductSearch && galaxusContext?.hasProducts) {
+        console.log('[INTERNET] ⚠️ Produits déjà traités par Galaxus, recherche générale');
+        // Continue avec recherche non-produit
+      }
+
+      const searchPrompt = this.buildSearchPrompt(query, analysis, enrichmentType, isProductSearch && !galaxusContext?.hasProducts);
 
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -44,7 +50,7 @@ export class InternetAgent {
           messages: [
             {
               role: 'system',
-              content: this.getSystemPrompt(enrichmentType, isProductSearch)
+              content: this.getSystemPrompt(enrichmentType, isProductSearch && !galaxusContext?.hasProducts)
             },
             {
               role: 'user',
@@ -52,7 +58,7 @@ export class InternetAgent {
             }
           ],
           temperature: 0.2,
-          max_tokens: isProductSearch ? 1500 : 1200, // More tokens for detailed product searches
+          max_tokens: isProductSearch ? 1500 : 1200,
           return_images: false,
           return_related_questions: false,
           search_recency_filter: 'month'
@@ -72,7 +78,7 @@ export class InternetAgent {
               source: 'Perplexity AI', 
               query,
               enrichmentType,
-              isProductSearch
+              isProductSearch: isProductSearch && !galaxusContext?.hasProducts
             }],
             hasContent: true,
             enrichmentType
@@ -120,66 +126,78 @@ export class InternetAgent {
       query.split(' ').join(', ');
     
     if (isProductSearch) {
-      return `Recherche APPROFONDIE des produits et équipements pour cabinet médical:
+      return `Recherche COMPLÉMENTAIRE d'équipements et fournisseurs pour cabinet médical:
       
-1. RECHERCHE PRINCIPALE SUR GALAXUS.CH: Trouve les meilleures références de produits sur Galaxus.ch pour: "${query}"
-2. RECHERCHE COMPARATIVE: Compare avec d'autres sources suisses (Digitec, Microspot, etc.)
-3. ANALYSE COMPLÈTE: Spécifications techniques détaillées, prix, disponibilité, avis utilisateurs
-4. MULTIPLE SOURCES: Utilise au moins 3 sources différentes pour comparer les options
-5. COORDONNÉES COMPLÈTES: Pour chaque fournisseur, trouve numéro de téléphone, email et site web
-6. CONTEXTE: Équipement pour cabinet d'ophtalmologie Dr Tabibian à Genève
+1. FOCUS: Fournisseurs spécialisés médicaux (pas Galaxus/Digitec déjà traités)
+2. RECHERCHE: Distributeurs médicaux suisses, européens
+3. COORDONNÉES COMPLÈTES: UNIQUEMENT si trouvées et pertinentes:
+   - Numéro de téléphone international (+41...)
+   - Email de contact précis (contact@...)
+   - Site web sous forme de lien cliquable [nom](url)
+4. ANALYSE: Spécifications techniques, prix, disponibilité
+5. CONTEXTE: Équipement pour cabinet d'ophtalmologie Genève
 
-Ne néglige aucun détail même si la recherche prend plus de temps. Termes à considérer: ${allTerms}`;
+IMPORTANT: Ne fournir les coordonnées QUE si elles sont trouvées et vérifiables.
+Termes à considérer: ${allTerms}`;
     }
     
     switch (enrichmentType) {
       case 'complement':
-        return `Recherche des informations complètes et actuelles sur : ${query}. Termes connexes : ${allTerms}`;
+        return `Recherche des informations complètes et actuelles sur : ${query}. 
+        IMPORTANT: Fournir les coordonnées de contact UNIQUEMENT si elles sont trouvées et pertinentes.
+        Utiliser des liens cliquables format [nom](url). Termes connexes : ${allTerms}`;
         
       case 'supplement':
-        return `Enrichis avec des informations récentes et des développements actuels concernant : ${query}. Focus ophtalmologie.`;
+        return `Enrichis avec des informations récentes et des développements actuels concernant : ${query}. 
+        Focus ophtalmologie. Liens cliquables obligatoires. Coordonnées SEULEMENT si trouvées.`;
         
       case 'verification':
-        return `Vérifie et actualise les informations concernant : ${query} dans le contexte de l'ophtalmologie moderne.`;
+        return `Vérifie et actualise les informations concernant : ${query} dans le contexte de l'ophtalmologie moderne.
+        Liens cliquables. Coordonnées SEULEMENT si nécessaires et trouvées.`;
         
       default:
-        return `Recherche des informations actuelles et pertinentes sur : ${query}`;
+        return `Recherche des informations actuelles et pertinentes sur : ${query}. 
+        Liens format [nom](url). Coordonnées SEULEMENT si pertinentes et trouvées.`;
     }
   }
 
   private getSystemPrompt(enrichmentType: string, isProductSearch: boolean): string {
     if (isProductSearch) {
-      return `Tu es un assistant spécialisé en recherche approfondie d'équipements et produits pour cabinets médicaux en Suisse.
+      return `Tu es un assistant spécialisé en recherche d'équipements médicaux et fournisseurs spécialisés.
 
 INSTRUCTIONS CRITIQUES:
-1. PRIORITÉ à Galaxus.ch: Trouve toujours les meilleures références produits sur Galaxus.ch
-2. COMPARAISON OBLIGATOIRE avec d'autres sources (au moins 3 différentes)
-3. ANALYSE DÉTAILLÉE: Spécifications complètes, prix CHF, disponibilité, avantages/inconvénients
-4. PRISE DE TEMPS: Fais une recherche exhaustive même si cela prend plus de temps
-5. COORDONNÉES COMPLÈTES: Pour chaque fournisseur mentionné, inclus TOUJOURS:
+1. FOCUS sur fournisseurs médicaux spécialisés (pas les plateformes généralistes)
+2. COORDONNÉES: Inclure UNIQUEMENT si trouvées et vérifiables:
    - Numéro de téléphone (format +41...)
    - Email de contact
-   - Site web avec URL complète
-6. FORMAT: Présente l'information de manière structurée avec comparatifs clairs
-7. RECOMMANDATION: Termine toujours par une recommandation claire du meilleur produit
+   - Site web avec URL complète au format [nom](url)
+3. LIENS CLIQUABLES OBLIGATOIRES: Toujours format markdown [nom](url)
+4. ANALYSE DÉTAILLÉE: Spécifications, prix CHF si disponible, avantages
+5. PAS de mentions inutiles des plateformes
+6. RECOMMANDATION: Conclure par le meilleur choix
 
-Ton objectif: Fournir l'analyse la plus complète possible pour permettre une décision d'achat éclairée pour un cabinet d'ophtalmologie à Genève.`;
+INTERDICTIONS:
+- Ne pas inventer de coordonnées
+- Ne pas mentionner OphtaCare comme fournisseur
+- Ne pas répéter les infos déjà traitées par Galaxus
+
+Objectif: Compléter l'analyse avec des sources spécialisées médicales.`;
     }
     
     const basePrompt = 'Tu es un assistant spécialisé en ophtalmologie. ';
     
     switch (enrichmentType) {
       case 'complement':
-        return basePrompt + 'Fournis des informations complètes et détaillées pour combler les lacunes d\'information.';
+        return basePrompt + 'Fournis des informations complètes. LIENS CLIQUABLES format [nom](url). Coordonnées SEULEMENT si trouvées et pertinentes.';
         
       case 'supplement':
-        return basePrompt + 'Enrichis les connaissances existantes avec des informations récentes et des développements actuels.';
+        return basePrompt + 'Enrichis avec des informations récentes. LIENS CLIQUABLES obligatoires. Coordonnées SEULEMENT si nécessaires.';
         
       case 'verification':
-        return basePrompt + 'Vérifie et actualise les informations, en signalant tout changement ou développement récent.';
+        return basePrompt + 'Vérifie et actualise les informations. LIENS CLIQUABLES. Coordonnées SEULEMENT si trouvées.';
         
       default:
-        return basePrompt + 'Recherche des informations fiables et récentes.';
+        return basePrompt + 'Recherche des informations fiables et récentes. LIENS CLIQUABLES format [nom](url).';
     }
   }
 }
