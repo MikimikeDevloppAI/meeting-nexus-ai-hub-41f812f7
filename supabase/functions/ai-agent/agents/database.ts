@@ -115,7 +115,7 @@ export class DatabaseAgent {
     }
 
     // 5. FUZZY MATCHING RESULTS
-    if (analysis.fuzzyMatching && analysis.specificEntities.length > 0) {
+    if (analysis.fuzzyMatching && analysis.specificEntities && analysis.specificEntities.length > 0) {
       context.fuzzyMatches = await this.performFuzzyMatching(analysis.specificEntities, context);
     }
 
@@ -129,7 +129,9 @@ export class DatabaseAgent {
       return todos.slice(0, 20); // Plus de tâches par défaut
     }
 
-    const allTerms = [...analysis.searchTerms, ...analysis.synonyms];
+    // Assurer que synonyms existe et est un tableau
+    const synonyms = analysis.synonyms || [];
+    const allTerms = [...analysis.searchTerms, ...synonyms];
     
     return todos.filter(todo => {
       const searchText = `${todo.description} ${todo.status} ${todo.assigned_to || ''}`.toLowerCase();
@@ -153,7 +155,9 @@ export class DatabaseAgent {
       return participants.slice(0, 10);
     }
 
-    const allTerms = [...analysis.searchTerms, ...analysis.synonyms];
+    // Assurer que synonyms existe et est un tableau
+    const synonyms = analysis.synonyms || [];
+    const allTerms = [...analysis.searchTerms, ...synonyms];
     
     return participants.filter(participant => {
       const searchText = `${participant.name} ${participant.email}`.toLowerCase();
@@ -174,7 +178,9 @@ export class DatabaseAgent {
       return meetings.slice(0, 8);
     }
 
-    const allTerms = [...analysis.searchTerms, ...analysis.synonyms];
+    // Assurer que synonyms existe et est un tableau
+    const synonyms = analysis.synonyms || [];
+    const allTerms = [...analysis.searchTerms, ...synonyms];
     
     const scoredMeetings = meetings.map(meeting => {
       const searchText = `${meeting.title} ${meeting.transcript || ''} ${meeting.summary || ''}`.toLowerCase();
@@ -204,7 +210,9 @@ export class DatabaseAgent {
       return documents.slice(0, 8);
     }
 
-    const allTerms = [...analysis.searchTerms, ...analysis.synonyms];
+    // Assurer que synonyms existe et est un tableau
+    const synonyms = analysis.synonyms || [];
+    const allTerms = [...analysis.searchTerms, ...synonyms];
     
     const scoredDocuments = documents.map(doc => {
       const searchText = `${doc.ai_generated_name || ''} ${doc.original_name} ${doc.extracted_text || ''} ${doc.ai_summary || ''}`.toLowerCase();
