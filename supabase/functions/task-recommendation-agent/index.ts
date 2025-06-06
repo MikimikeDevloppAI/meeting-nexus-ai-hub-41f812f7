@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -52,7 +53,7 @@ class CoordinatorAgent {
   }
 }
 
-// Simple database agent
+// Enhanced database agent with existing tasks context
 class DatabaseAgent {
   private supabase: any;
 
@@ -61,10 +62,22 @@ class DatabaseAgent {
   }
 
   async searchContext(analysis: QueryAnalysis): Promise<DatabaseContext> {
+    console.log('[DATABASE] Récupération du contexte incluant tâches existantes');
+    
+    // Récupérer les tâches en cours pour éviter les doublons
+    const { data: existingTodos } = await this.supabase
+      .from('todos')
+      .select('id, description, status, created_at')
+      .in('status', ['pending', 'confirmed'])
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    console.log(`[DATABASE] ${existingTodos?.length || 0} tâches existantes trouvées`);
+
     return {
       meetings: [],
       documents: [],
-      todos: [],
+      todos: existingTodos || [],
       relevantIds: { meetingIds: [], documentIds: [], todoIds: [] }
     };
   }
@@ -88,7 +101,7 @@ class EmbeddingsAgent {
   }
 }
 
-// Enhanced internet agent with specific provider search
+// Enhanced internet agent with strict contact validation
 class InternetAgent {
   private perplexityApiKey: string;
 
@@ -102,9 +115,8 @@ class InternetAgent {
     }
 
     try {
-      // Enhanced search with specific provider focus
-      const isProductSearch = this.isProductRelatedQuery(query);
-      const enhancedQuery = this.buildEnhancedQuery(query, isProductSearch);
+      // Enhanced search focusing on context and company information
+      const enhancedQuery = this.buildContextualQuery(query);
       
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -113,21 +125,19 @@ class InternetAgent {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
+          model: 'llama-3.1-sonar-large-128k-online',
           messages: [
             {
               role: 'system',
-              content: isProductSearch ? 
-                'Tu es un expert en recherche de produits pour cabinets médicaux suisses. Recherche TOUJOURS sur Galaxus.ch en priorité et inclus des comparaisons avec au moins 3 sources différentes. Pour chaque fournisseur, inclus systématiquement leurs coordonnées complètes (téléphone, email, site web). Prends le temps nécessaire pour une recherche approfondie.' : 
-                'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève. Inclus toujours les coordonnées complètes (téléphone, email, site web) des entreprises mentionnées.'
+              content: this.getStrictContactSystemPrompt()
             },
             {
               role: 'user',
               content: enhancedQuery
             }
           ],
-          temperature: 0.2,
-          max_tokens: isProductSearch ? 1500 : 1200, // More tokens for product searches
+          temperature: 0.1,
+          max_tokens: 1500,
           search_recency_filter: 'month'
         }),
       });
@@ -148,61 +158,57 @@ class InternetAgent {
     return { content: '', hasContent: false, enrichmentType: 'supplement' };
   }
 
-  private isProductRelatedQuery(query: string): boolean {
-    const productTerms = [
-      'matériel', 'équipement', 'acheter', 'produit', 'galaxus', 'achat',
-      'ordinateur', 'imprimante', 'chaise', 'bureau', 'écran', 'moniteur',
-      'clavier', 'souris', 'téléphone', 'appareil', 'scanner', 'meuble',
-      'logiciel', 'licence', 'stockage', 'disque', 'référence', 'recommandation',
-      'comparaison', 'prix', 'modèle', 'marque', 'spécification'
-    ];
-    
+  private buildContextualQuery(query: string): string {
     const lowerQuery = query.toLowerCase();
-    return productTerms.some(term => lowerQuery.includes(term));
+    
+    // Détection des entreprises/sociétés mentionnées
+    const companyKeywords = ['société', 'entreprise', 'cabinet', 'firme', 'sa ', 'sarl', 'sas', 'ag ', 'gmbh', 'ltd', 'inc', 'corp'];
+    const hasCompanyMention = companyKeywords.some(keyword => lowerQuery.includes(keyword));
+    
+    if (hasCompanyMention) {
+      return `RECHERCHE ENTREPRISE AVEC COORDONNÉES STRICTES pour cabinet médical ophtalmologie Genève:
+
+TÂCHE: ${query}
+
+INSTRUCTIONS CRITIQUES:
+1. IDENTIFIER l'entreprise/société mentionnée dans la tâche
+2. COORDONNÉES: Inclure UNIQUEMENT si trouvées sur sources officielles vérifiables:
+   - Site web: URL complète format [nom](https://url)
+   - Téléphone: Format international +41... ou +33... SEULEMENT si sur site officiel
+   - Email: contact@ ou info@ SEULEMENT si vérifiés sur site
+3. CONTEXTE MÉDICAL: Cabinet d'ophtalmologie Dr Tabibian à Genève
+4. NE JAMAIS inventer ou supposer des coordonnées manquantes
+5. Si aucune coordonnée trouvée: Ne pas en mentionner
+
+INTERDICTION ABSOLUE: Inventer téléphones, emails ou sites web`;
+    }
+    
+    return `RECOMMANDATION CONTEXTUELLE pour cabinet ophtalmologie Genève:
+
+TÂCHE: ${query}
+
+FOCUS:
+- Comprendre le contexte spécifique de la tâche
+- Fournir recommandations pertinentes au domaine médical
+- Cabinet Dr Tabibian spécialisé ophtalmologie
+- Solutions pratiques adaptées à Genève/Suisse
+
+Si entreprise externe mentionnée: coordonnées SEULEMENT si trouvées`;
   }
 
-  private buildEnhancedQuery(query: string, isProductSearch: boolean): string {
-    // Detect specific scenarios and enhance query accordingly
-    const lowerQuery = query.toLowerCase();
-    
-    if (isProductSearch) {
-      return `RECHERCHE DE PRODUIT APPROFONDIE (prendre le temps nécessaire):
-      
-1. RECHERCHE GALAXUS.CH: Trouve les meilleures références sur Galaxus.ch pour "${query}"
-2. COMPARAISON AVEC 3+ SOURCES suisses différentes (Digitec, Microspot, autres sites spécialisés)
-3. CRITÈRES: qualité/prix, spécifications, avis, disponibilité, garantie
-4. PRIX EN CHF uniquement
-5. INCLURE COORDONNÉES COMPLÈTES pour chaque fournisseur (téléphone, email, site web)
-6. CONTEXTE: Cabinet d'ophtalmologie à Genève
+  private getStrictContactSystemPrompt(): string {
+    return `Expert en recommandations pour cabinet médical ophtalmologie avec validation stricte des coordonnées.
 
-Ne néglige aucun détail, même si la recherche prend plus de temps.`;
-    }
-    
-    if (lowerQuery.includes('email') || lowerQuery.includes('mail')) {
-      if (lowerQuery.includes('infomaniak') || lowerQuery.includes('sécurité')) {
-        return `Infomaniak règles sécurité email configuration SMTP cabinet médical Suisse coordonnées complètes: ${query}`;
-      }
-      return `Configuration email professionnel cabinet médical Suisse fournisseurs recommandés coordonnées complètes: ${query}`;
-    }
-    
-    if (lowerQuery.includes('matériel') || lowerQuery.includes('équipement')) {
-      return `Fournisseurs matériel médical ophtalmologie Genève Suisse prix coordonnées complètes: ${query}`;
-    }
-    
-    if (lowerQuery.includes('site') || lowerQuery.includes('web')) {
-      return `Développeurs sites web cabinet médical Genève Suisse prix coordonnées complètes: ${query}`;
-    }
-    
-    if (lowerQuery.includes('formation')) {
-      return `Formation médicale ophtalmologie Suisse organismes certifiés coordonnées complètes: ${query}`;
-    }
-    
-    if (lowerQuery.includes('service') || lowerQuery.includes('maintenance')) {
-      return `Services maintenance technique cabinet médical Genève prestataires coordonnées complètes: ${query}`;
-    }
-    
-    // General enhancement for Swiss medical practice context
-    return `Cabinet médical ophtalmologie Genève Suisse fournisseurs prestataires coordonnées complètes: ${query}`;
+RÈGLES ABSOLUES COORDONNÉES:
+1. SITES WEB: URLs complètes format [nom](https://url) SEULEMENT si trouvés
+2. TÉLÉPHONES: Format +41/+33... SEULEMENT si vérifiés sur sites officiels
+3. EMAILS: contact@/info@ SEULEMENT si trouvés sur sites officiels
+4. INTERDICTION TOTALE: Inventer coordonnées inexistantes
+5. SI PAS TROUVÉ: Ne pas mentionner l'information
+
+CONTEXTE: Cabinet ophtalmologie Dr Tabibian Genève - Recommandations pertinentes uniquement.
+
+OBJECTIF: Informations fiables et contextuelles pour professionnels médicaux.`;
   }
 }
 
@@ -219,7 +225,7 @@ serve(async (req) => {
   try {
     const { task, transcript, meetingContext, participants } = await req.json();
     
-    console.log(`[TASK-RECOMMENDATION] 📋 Analysing task: ${task.description.substring(0, 100)}...`);
+    console.log(`[TASK-RECOMMENDATION] 📋 Analyse contextuelle: ${task.description.substring(0, 100)}...`);
     console.log(`[TASK-RECOMMENDATION] 👥 Participants: ${participants.map((p: any) => p.name).join(', ')}`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -233,134 +239,113 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Initialisation des agents spécialisés
+    // Initialisation des agents avec contexte amélioré
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
 
-    // 🧠 PHASE 1: ANALYSE SPÉCIALISÉE pour recommandations de tâches
-    console.log('[TASK-RECOMMENDATION] 🧠 Phase 1: Analyse spécialisée de la tâche');
+    // 🧠 PHASE 1: ANALYSE avec contexte des tâches existantes
+    console.log('[TASK-RECOMMENDATION] 🧠 Analyse avec contexte tâches existantes');
     
-    // Adapter l'analyse pour se concentrer sur cette tâche spécifique
-    const taskQuery = `Recommandation pour la tâche: ${task.description}`;
+    const taskQuery = `Recommandation contextuelle: ${task.description}`;
     const analysis = await coordinator.analyzeQuery(taskQuery, []);
     
-    // Forcer la recherche d'embeddings et internet pour les recommandations
     analysis.requiresEmbeddings = true;
     analysis.requiresInternet = true;
-    analysis.priority = 'embeddings';
+    analysis.priority = 'context';
 
-    console.log('[TASK-RECOMMENDATION] 📊 Analyse:', {
-      queryType: analysis.queryType,
-      requiresEmbeddings: analysis.requiresEmbeddings,
-      requiresInternet: analysis.requiresInternet
-    });
-
-    // 🗄️ PHASE 2: RECHERCHE DATABASE avec contexte de la tâche
-    console.log('[TASK-RECOMMENDATION] 🗄️ Phase 2: Recherche database contextuelle');
+    // 🗄️ PHASE 2: RECHERCHE avec tâches existantes
+    console.log('[TASK-RECOMMENDATION] 🗄️ Récupération contexte + tâches existantes');
     const databaseContext = await databaseAgent.searchContext(analysis);
     
-    console.log('[TASK-RECOMMENDATION] ✅ Database:', {
-      meetings: databaseContext.meetings.length,
-      documents: databaseContext.documents.length,
-      todos: databaseContext.todos.length
+    console.log('[TASK-RECOMMENDATION] ✅ Contexte récupéré:', {
+      existingTodos: databaseContext.todos.length
     });
 
-    // Enhanced Phase 4: Internet search with specific product focus
-    console.log('[TASK-RECOMMENDATION] 🌐 Phase 4: Recherche internet approfondie');
+    // 🌐 PHASE 3: Recherche internet contextuelle avec coordonnées strictes
+    console.log('[TASK-RECOMMENDATION] 🌐 Recherche internet contextuelle');
     const internetAgent = new InternetAgent(perplexityApiKey);
     const internetContext = await internetAgent.searchInternet(
       task.description, 
-      { requiresInternet: true, queryType: 'task', searchTerms: [], synonyms: [], requiresDatabase: false, requiresEmbeddings: false, priority: 'internet' }, 
+      analysis, 
       false
     );
 
     console.log('[TASK-RECOMMENDATION] ✅ Internet:', {
       hasContent: internetContext.hasContent,
-      contentLength: internetContext.content.length,
-      isProductSearch: internetAgent.isProductRelatedQuery ? internetAgent.isProductRelatedQuery(task.description) : false
+      contentLength: internetContext.content.length
     });
 
-    // ⚡ PHASE 5: Enhanced synthesis with provider-specific recommendations
-    console.log('[TASK-RECOMMENDATION] ⚡ Phase 5: Synthèse avec fournisseurs spécifiques');
+    // ⚡ PHASE 4: Synthèse contextuelle avec validation coordonnées
+    console.log('[TASK-RECOMMENDATION] ⚡ Synthèse contextuelle avancée');
     
-    const taskRecommendationPrompt = `Tu es un assistant IA expert pour cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans les recommandations précises avec fournisseurs spécifiques ou informations techniques utiles.
+    // Extraction du contexte autour de la tâche dans le transcript
+    const taskContext = this.extractTaskContext(task.description, transcript);
+    
+    const contextualPrompt = `Tu es l'assistant IA expert OphtaCare pour cabinet Dr Tabibian à Genève, spécialisé dans les recommandations précises avec compréhension contextuelle.
 
 **CONTEXTE CABINET:**
-- Cabinet d'ophtalmologie dirigé par Dr Tabibian à Genève, Suisse
-- Participants: ${participants.map((p: any) => p.name).join(', ')}
-- Budget en CHF (francs suisses)
+- Cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse
+- Participants réunion: ${participants.map((p: any) => p.name).join(', ')}
+- Utilisation: Outil professionnel pour gestion cabinet médical
 
 **TÂCHE À ANALYSER:**
 ${task.description}
 
-**CONTEXTE RÉUNION:**
-${transcript.substring(0, 1500)}...
+**CONTEXTE DÉTAILLÉ DE LA TÂCHE DANS LA RÉUNION:**
+${taskContext}
 
-**INFORMATIONS INTERNET ACTUELLES:**
-${internetContext.content ? internetContext.content.substring(0, 1500) : 'Informations limitées disponibles'}
+**TÂCHES EXISTANTES À ÉVITER (${databaseContext.todos.length}):**
+${databaseContext.todos.slice(0, 10).map((todo: any) => `- ${todo.description}`).join('\n')}
 
-**INSTRUCTIONS CRITIQUES:**
+**INFORMATIONS INTERNET CONTEXTUELLES:**
+${internetContext.content ? internetContext.content.substring(0, 1500) : 'Informations contextuelles limitées'}
 
-1. **RECOMMANDATIONS CONCRÈTES ET UTILES**:
-   - Fournir des **fournisseurs spécifiques** suisses ou européens selon le besoin (services, matériel, support technique, etc.)
-   - Si produit/matériel: **PRIORITÉ À GALAXUS.CH** avec liens et références précises
-   - Si aucun fournisseur pertinent, fournir des **informations techniques précises** (ex : protocoles de configuration, normes à respecter, détails techniques utiles)
-   - Si un service est mentionné (ex. messagerie, site web, stockage, logiciels, etc.), proposer **plusieurs prestataires** avec **avantages et inconvénients résumés de chacun**
+**INSTRUCTIONS CRITIQUES CONTEXTUELLES:**
 
-2. **INFORMATIONS CONCRÈTES**:
-   - Prix approximatifs en CHF
-   - Contacts/sites web si disponibles
-   - Procédures spécifiques utiles
-   - Délais typiques
-   - Pour produits: liens Galaxus.ch et autres sites, références et modèles précis
+1. **COMPRÉHENSION CONTEXTUELLE OBLIGATOIRE**:
+   - Analyser le CONTEXTE précis dans lequel la tâche a été mentionnée
+   - Comprendre le POURQUOI et les ENJEUX de cette tâche
+   - Adapter les recommandations au contexte médical/ophtalmologique
 
-3. **COORDONNÉES COMPLÈTES OBLIGATOIRES POUR TOUTES LES ENTREPRISES MENTIONNÉES**:
-   - Numéro de téléphone (format international +41...)
-   - Email de contact (contact@entreprise.ch)
-   - Site web formaté en markdown cliquable [entreprise](https://www.entreprise.ch)
-   - Adresse physique si pertinente
+2. **ÉVITER DOUBLONS**:
+   - Vérifier si une tâche similaire existe déjà
+   - Si similaire trouvée, mentionner "Tâche similaire existante: [description]"
 
-4. **EMAIL EXTERNE - STYLE ASSISTANT ADMINISTRATIF**: Si recommandé, l'email doit être:
-   - Écrit comme par un assistant administratif (sans mentionner de titre)
-   - Style professionnel mais naturel
-   - Présentation du cabinet Dr Tabibian
-   - Demande précise de devis/information
-   - Mention du contexte ophtalmologique
-   - Coordonnées du cabinet à Genève
+3. **COORDONNÉES ENTREPRISES EXTERNES** (VALIDATION STRICTE):
+   - Si entreprise/société mentionnée dans la tâche
+   - Coordonnées UNIQUEMENT si trouvées dans mes informations:
+     * Site web: [nom](https://url) si URL exacte connue
+     * Téléphone: +41... si numéro exact connu
+     * Email: contact@ si adresse exacte connue
+   - SI AUCUNE COORDONNÉE CONNUE: Ne rien mentionner
 
-5. **RECHERCHES APPROFONDIES**:
-   - Prends le temps nécessaire pour des recherches complètes
-   - Compare plusieurs sources (minimum 3 pour les produits)
-   - Pour le matériel, TOUJOURS chercher sur Galaxus.ch
+4. **RECOMMANDATIONS CONTEXTUELLES**:
+   - Basées sur la compréhension du contexte spécifique
+   - Adaptées au domaine ophtalmologique
+   - Pratiques pour cabinet médical genevois
 
-6. **FORMAT JSON REQUIS**:
+5. **FORMAT JSON REQUIS**:
 {
   "hasRecommendation": [true/false],
-  "recommendation": "[Recommandation avec fournisseurs ou infos techniques concrètes et prix CHF]",
+  "contextAnalysis": "[Analyse du contexte spécifique de la tâche]",
+  "recommendation": "[Recommandation adaptée au contexte]",
+  "duplicateTask": "[Si tâche similaire existe déjà]",
   "needsExternalEmail": [true/false],
-  "emailDraft": "[Email professionnel d'assistant administratif pour prestataire externe]",
-  "externalProviders": ["Liste noms entreprises/fournisseurs spécifiques"],
-  "estimatedCost": "[Coût en CHF avec fourchette]",
-  "specificInfo": "[Infos techniques spécifiques ex: protocole SMTP sécurisé, type de licence, contraintes réglementaires, etc.]",
+  "emailDraft": "[Email si prestataire externe]",
+  "externalProviders": ["Liste entreprises spécifiques"],
+  "estimatedCost": "[Coût CHF si pertinent]",
   "contactInfo": [
     {
       "name": "Nom entreprise",
-      "phone": "Téléphone",
-      "email": "Email",
-      "website": "URL site web",
-      "address": "Adresse (optionnel)"
+      "phone": "Téléphone SI CONNU",
+      "email": "Email SI CONNU", 
+      "website": "URL SI CONNUE"
     }
   ]
 }
 
-**EXEMPLES DE BONNES RECOMMANDATIONS:**
-- "Pour ce moniteur médical, Galaxus.ch propose le modèle BenQ GW2780 à 199 CHF qui offre un bon rapport qualité/prix. Alternatives: modèle Philips sur Digitec (229 CHF), modèle Dell sur Microspot (249 CHF)" + coordonnées complètes
-- "Configurer un service mail sécurisé avec SPF/DKIM, tarif environ 50-100 CHF/an" + coordonnées complètes
-- "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure" + téléphone et site
-- "Comparaison : MedWeb (+ spécialisé / - plus cher), SwissDigitalCare (+ flexible / - moins orienté santé), budget 5000-15000 CHF" + coordonnées des deux
-
-Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou informations techniques utiles, incluant systématiquement les coordonnées complètes des entreprises mentionnées.`;
+Analyse maintenant la tâche avec son contexte spécifique et fournis une recommandation JSON contextuelle.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -373,11 +358,11 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
         messages: [
           { 
             role: 'system', 
-            content: 'Tu es un expert en recommandations pour cabinet médical avec focus sur les fournisseurs suisses spécifiques. Tu dois systématiquement inclure les coordonnées complètes (téléphone, email, site web cliquable) des entreprises mentionnées. Réponds UNIQUEMENT en JSON valide.' 
+            content: 'Tu es un expert en recommandations contextuelles pour cabinet médical. Tu comprends le contexte spécifique des tâches et ne fournis des coordonnées que si tu les connais vraiment. Réponds UNIQUEMENT en JSON valide.' 
           },
-          { role: 'user', content: taskRecommendationPrompt }
+          { role: 'user', content: contextualPrompt }
         ],
-        max_tokens: 1000,
+        max_tokens: 1200,
         temperature: 0.2,
       }),
     });
@@ -387,7 +372,6 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
     
     try {
       const content = aiData.choices[0].message.content.trim();
-      // Nettoyer le JSON si nécessaire
       const cleanedContent = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       recommendationResult = JSON.parse(cleanedContent);
     } catch (parseError) {
@@ -395,19 +379,20 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
       recommendationResult = { hasRecommendation: false };
     }
 
-    console.log('[TASK-RECOMMENDATION] ✅ RECOMMANDATION AVEC FOURNISSEURS:', {
+    console.log('[TASK-RECOMMENDATION] ✅ RECOMMANDATION CONTEXTUELLE:', {
       hasRecommendation: recommendationResult.hasRecommendation,
-      providers: recommendationResult.externalProviders?.length || 0,
-      hasSpecificInfo: !!recommendationResult.specificInfo,
-      contactInfo: recommendationResult.contactInfo?.length || 0
+      hasContextAnalysis: !!recommendationResult.contextAnalysis,
+      hasDuplicateCheck: !!recommendationResult.duplicateTask,
+      contactInfoValidated: recommendationResult.contactInfo?.length || 0
     });
 
     return new Response(JSON.stringify({
       success: true,
       recommendation: recommendationResult,
       contextUsed: {
+        existingTodos: databaseContext.todos.length,
         internet: internetContext.hasContent,
-        internetContentLength: internetContext.content.length
+        contextAnalysis: !!recommendationResult.contextAnalysis
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -417,10 +402,30 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
     console.error('[TASK-RECOMMENDATION] ❌ ERREUR:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      context: 'Enhanced Task Recommendation Agent'
+      context: 'Enhanced Contextual Task Recommendation Agent'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+// Fonction utilitaire pour extraire le contexte de la tâche
+function extractTaskContext(taskDescription: string, transcript: string): string {
+  if (!transcript || !taskDescription) return 'Contexte non disponible';
+  
+  const taskWords = taskDescription.toLowerCase().split(' ').filter(word => word.length > 3);
+  const transcriptSentences = transcript.split(/[.!?]+/);
+  
+  // Trouver les phrases du transcript qui contiennent des mots-clés de la tâche
+  const relevantSentences = transcriptSentences.filter(sentence => {
+    const sentenceLower = sentence.toLowerCase();
+    return taskWords.some(word => sentenceLower.includes(word));
+  });
+  
+  if (relevantSentences.length > 0) {
+    return relevantSentences.slice(0, 3).join('. ').trim();
+  }
+  
+  return 'Contexte spécifique non identifié dans le transcript';
+}
