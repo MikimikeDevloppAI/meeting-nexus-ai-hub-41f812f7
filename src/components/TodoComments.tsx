@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -43,16 +44,19 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const fetchComments = async () => {
     setIsLoading(true);
     try {
-      // Utiliser une jointure avec la table users du schéma public
       const { data, error } = await supabase
         .from("todo_comments")
-        .select(`*, users!user_id(name)`)
+        .select(`
+          *,
+          users!user_id (
+            name
+          )
+        `)
         .eq("todo_id", todoId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
       
-      // Transformer les données pour inclure le nom de l'utilisateur
       const processedComments = data?.map(item => ({
         ...item,
         user_name: item.users?.name || 'Utilisateur inconnu'
@@ -120,7 +124,12 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
             comment: newComment.trim(),
           },
         ])
-        .select(`*, users!user_id(name)`)
+        .select(`
+          *,
+          users!user_id (
+            name
+          )
+        `)
         .single();
 
       if (error) {
@@ -130,7 +139,6 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
 
       console.log("Comment inserted successfully:", data);
       
-      // Ajouter le nom de l'utilisateur au nouveau commentaire
       const newCommentWithUser = {
         ...data,
         user_name: data.users?.name || 'Utilisateur inconnu'
@@ -155,15 +163,19 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   };
 
   const startEditComment = (comment: Comment) => {
+    console.log("Starting edit for comment:", comment.id);
     setEditComment({ id: comment.id, text: comment.comment });
   };
 
   const cancelEditComment = () => {
+    console.log("Cancelling edit");
     setEditComment(null);
   };
 
   const saveEditComment = async () => {
     if (!editComment) return;
+    
+    console.log("Saving edit for comment:", editComment.id);
     
     try {
       const { error } = await supabase
