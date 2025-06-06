@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +43,7 @@ export default function Todos() {
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const form = useForm<NewTodoForm>({
@@ -227,6 +229,11 @@ export default function Todos() {
     }
   };
 
+  const startEditingTodo = (todoId: string) => {
+    console.log("Starting to edit todo:", todoId);
+    setEditingTodoId(todoId);
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -326,12 +333,16 @@ export default function Todos() {
                         onSave={(newContent) => handleTodoSave(todo.id, newContent)}
                         type="todo"
                         id={todo.id}
+                        isEditing={editingTodoId === todo.id}
+                        onStartEdit={() => setEditingTodoId(todo.id)}
+                        onStopEdit={() => setEditingTodoId(null)}
                       />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => startEditingTodo(todo.id)}
                         className="h-7 px-2 hover:bg-blue-100 hover:text-blue-800"
                       >
                         <Pen className="h-3 w-3" />
