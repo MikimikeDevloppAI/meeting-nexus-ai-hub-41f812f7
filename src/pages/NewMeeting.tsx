@@ -57,9 +57,6 @@ const NewMeeting = () => {
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux Réunions
         </Button>
         <h1 className="text-2xl font-bold">Créer une nouvelle réunion</h1>
-        <p className="text-muted-foreground">
-          Remplissez les détails de la réunion et ajoutez des participants
-        </p>
       </div>
 
       <SimpleMeetingForm
