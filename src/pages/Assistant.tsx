@@ -293,7 +293,8 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
-      // Prendre les 10 derniers messages comme historique (avant d'ajouter le message actuel)
+      // Prendre les 10 derniers messages comme historique complet (AVANT d'ajouter le message actuel)
+      // Ceci garantit que l'agent a accès à tout le contexte de conversation
       const conversationHistory = messages
         .slice(-10)
         .map(msg => ({
@@ -301,6 +302,15 @@ const Assistant = () => {
           content: msg.content,
           timestamp: msg.timestamp.toISOString()
         }));
+
+      console.log('[ASSISTANT] 📜 Envoi de l\'historique:', {
+        messageCount: conversationHistory.length,
+        currentMessage: currentMessage.substring(0, 50) + '...',
+        lastMessages: conversationHistory.slice(-3).map(m => ({
+          isUser: m.isUser,
+          preview: m.content.substring(0, 30) + '...'
+        }))
+      });
 
       // Inclure les participants dans le contexte pour l'AI
       const contextMessage = `${currentMessage}\n\nCONTEXT_PARTICIPANTS: ${participants.map(p => `${p.name} (${p.email}, ID: ${p.id})`).join(', ')}`;

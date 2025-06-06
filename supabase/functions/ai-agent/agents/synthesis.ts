@@ -1,3 +1,4 @@
+
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -51,10 +52,11 @@ export class SynthesisAgent {
       return response;
     }
 
-    // Analyser l'historique pour comprendre le contexte
+    // Analyser l'historique pour comprendre le contexte et la continuité
     const contextAnalysis = this.analyzeConversationContext(message, conversationHistory);
+    console.log('[SYNTHESIS] 🧠 Analyse du contexte:', contextAnalysis);
 
-    // Reste de la logique de synthèse existante
+    // Déterminer le type de synthèse basé sur le contexte disponible
     let synthesisType = 'database';
     
     if (embeddingContext.hasRelevantContext) {
@@ -74,18 +76,20 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 💬 Phase 1: Réponse conversationnelle générale');
     }
 
-    // Construction du prompt système avec priorité absolue à l'historique
+    // Construction du prompt système avec priorité absolue à l'historique et continuité
     let systemPrompt = `🚨🚨🚨 INSTRUCTION CRITIQUE PRIORITÉ ABSOLUE 🚨🚨🚨
 
 Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
 
 ═══════════════ HISTORIQUE CONVERSATION PRIORITAIRE ═══════════════
-UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE ACTUEL:
+UTILISE CET HISTORIQUE POUR MAINTENIR LA CONTINUITÉ ABSOLUE DE LA CONVERSATION:
 
 `;
 
-    // HISTORIQUE DE CONVERSATION - Section ULTRA PRIORITAIRE
+    // HISTORIQUE DE CONVERSATION - Section ULTRA PRIORITAIRE avec formatage amélioré
     if (conversationHistory && conversationHistory.length > 0) {
+      console.log('[SYNTHESIS] 📜 Formatage de l\'historique pour continuité');
+      
       // Prendre les 10 derniers échanges et les formater clairement
       const recentHistory = conversationHistory.slice(-10);
       
@@ -95,20 +99,22 @@ UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE ACTUEL:
           hour: '2-digit', 
           minute: '2-digit' 
         });
-        systemPrompt += `${role} [${timestamp}]: "${msg.content}"\n\n`;
+        systemPrompt += `[${index + 1}] ${role} [${timestamp}]: "${msg.content}"\n\n`;
       });
 
       systemPrompt += `═══════════════ FIN HISTORIQUE ═══════════════\n\n`;
 
       // Analyser si l'utilisateur fait référence à quelque chose de précédent
-      const contextAnalysis = this.analyzeConversationContext(message, conversationHistory);
-      
-      if (contextAnalysis.isReferencingPrevious) {
-        systemPrompt += `🔥🔥🔥 ATTENTION CRITIQUE 🔥🔥🔥
-L'utilisateur fait référence à quelque chose de la conversation précédente !
-Message actuel: "${message}"
+      if (contextAnalysis.isReferencingPrevious || contextAnalysis.isContinuation) {
+        systemPrompt += `🔥🔥🔥 ATTENTION CRITIQUE - CONTINUITÉ DÉTECTÉE 🔥🔥🔥
+Message actuel de l'utilisateur: "${message}"
+Type de continuité: ${contextAnalysis.continuationType}
 Contexte détecté: ${contextAnalysis.context}
-➡️ Tu DOIS utiliser l'historique ci-dessus pour comprendre de quoi il parle !
+Sujet précédent identifié: ${contextAnalysis.previousSubject}
+
+➡️ INSTRUCTION IMPÉRATIVE: Ce message fait suite à la conversation précédente !
+➡️ Tu DOIS utiliser l'historique ci-dessus pour comprendre DE QUOI il parle !
+➡️ Maintiens la CONTINUITÉ ABSOLUE avec le dernier échange !
 
 `;
       }
@@ -128,13 +134,14 @@ Ta dernière question était: "${lastAssistantMessage}"
     }
 
     systemPrompt += `
-🔥 RÈGLES ABSOLUES :
+🔥 RÈGLES ABSOLUES POUR LA CONTINUITÉ :
 1. TOUJOURS lire l'historique complet avant de répondre
-2. Si l'utilisateur dit "fournisseur", "ça", "cela" → regarder l'historique pour comprendre DE QUOI il parle
+2. Si l'utilisateur dit "recherche sur internet", "ça", "cela", "fournisseur" → regarder l'historique pour comprendre DE QUOI il parle
 3. Maintenir la CONTINUITÉ absolue de la conversation
 4. JAMAIS inventer de coordonnées ou numéros de téléphone
 5. NE PAS créer de tâches automatiquement SAUF si explicitement demandé
 6. JAMAIS suggérer de créer une tâche sauf si l'utilisateur le demande clairement
+7. Si une recherche internet est demandée, utiliser le CONTEXTE de la conversation précédente
 
 MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
 
@@ -182,8 +189,8 @@ GESTION DES TÂCHES (SEULEMENT SI DEMANDÉ):
 
     // Ajouter le contexte internet SEULEMENT s'il y a vraiment du contenu
     if (internetContext.hasContent && internetContext.content) {
-      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet VÉRIFIÉES');
-      systemPrompt += `\nINFORMATIONS INTERNET VÉRIFIÉES:\n${internetContext.content}\n`;
+      console.log('[SYNTHESIS] 🌐 Utilisation des données Internet VÉRIFIÉES avec contexte');
+      systemPrompt += `\nINFORMATIONS INTERNET VÉRIFIÉES POUR: ${contextAnalysis.previousSubject || 'votre demande'}:\n${internetContext.content}\n`;
       systemPrompt += `\nSOURCE: Recherche internet via Perplexity AI\n`;
     } else {
       systemPrompt += `\nAUCUNE INFORMATION INTERNET DISPONIBLE - ne pas inventer de coordonnées\n`;
@@ -208,11 +215,15 @@ GESTION DES TÂCHES (SEULEMENT SI DEMANDÉ):
 
     systemPrompt += `\n🔥 QUESTION/DEMANDE ACTUELLE: ${message}
 
-RAPPEL FINAL: 
-- Utilise l'historique de conversation pour comprendre le contexte
+RAPPEL FINAL POUR LA CONTINUITÉ: 
+- Utilise l'historique de conversation pour comprendre le contexte COMPLET
+- Si l'utilisateur dit "recherche sur internet", comprends qu'il veut que tu cherches le sujet de la conversation précédente
 - JAMAIS inventer de coordonnées ou téléphones
 - SEULEMENT utiliser les informations trouvées via internet si disponibles
-- NE PAS créer de tâches automatiquement sauf si explicitement demandé`;
+- NE PAS créer de tâches automatiquement sauf si explicitement demandé
+- Maintiens la CONTINUITÉ ABSOLUE avec la conversation précédente`;
+
+    console.log('[SYNTHESIS] 🚀 Envoi du prompt enrichi avec historique formaté');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -241,10 +252,16 @@ RAPPEL FINAL:
 
   private analyzeConversationContext(message: string, conversationHistory: any[]): any {
     if (!conversationHistory || conversationHistory.length === 0) {
-      return { isReferencingPrevious: false, context: '' };
+      return { 
+        isReferencingPrevious: false, 
+        isContinuation: false,
+        context: '',
+        continuationType: 'none',
+        previousSubject: null
+      };
     }
 
-    const lowerMessage = message.toLowerCase();
+    const lowerMessage = message.toLowerCase().trim();
     
     // Mots clés qui indiquent une référence au contexte précédent
     const referenceKeywords = [
@@ -254,43 +271,89 @@ RAPPEL FINAL:
       'premier que', 'mentionné', 'dit', 'parlé'
     ];
 
+    // Mots clés pour continuité d'action
+    const continuationKeywords = [
+      'recherche sur internet', 'cherche sur internet', 'trouve sur internet',
+      'recherche internet', 'cherche internet', 'trouve internet',
+      'recherche', 'cherche', 'trouve', 'contact', 'coordonnées'
+    ];
+
     const isReferencingPrevious = referenceKeywords.some(keyword => lowerMessage.includes(keyword));
+    const isContinuation = continuationKeywords.some(keyword => lowerMessage.includes(keyword));
     
-    if (isReferencingPrevious) {
-      // Analyser les derniers messages pour extraire le contexte
+    // Analyser les derniers messages pour extraire le contexte
+    let previousSubject = null;
+    let continuationType = 'none';
+    let contextDescription = '';
+
+    if (isReferencingPrevious || isContinuation) {
       const recentMessages = conversationHistory.slice(-5);
-      const lastAssistantMessage = recentMessages.reverse().find(msg => !msg.isUser);
       
-      if (lastAssistantMessage) {
-        // Extraire des sujets clés du dernier message de l'assistant
-        const content = lastAssistantMessage.content.toLowerCase();
-        if (content.includes('fontaine') && content.includes('eau')) {
-          return { 
-            isReferencingPrevious: true, 
-            context: 'Référence à la fontaine à eau discutée précédemment' 
-          };
-        }
-        if (content.includes('café') || content.includes('nespresso')) {
-          return { 
-            isReferencingPrevious: true, 
-            context: 'Référence aux fournisseurs de café discutés précédemment' 
-          };
-        }
-        if (content.includes('tâche')) {
-          return { 
-            isReferencingPrevious: true, 
-            context: 'Référence à la gestion de tâches discutée précédemment' 
-          };
+      // Chercher le dernier message de l'utilisateur pour identifier le sujet
+      for (let i = recentMessages.length - 1; i >= 0; i--) {
+        const msg = recentMessages[i];
+        if (msg.isUser && msg.content.toLowerCase() !== lowerMessage) {
+          const content = msg.content.toLowerCase();
+          
+          // Identifier des sujets spécifiques
+          if (content.includes('nespresso') || content.includes('café')) {
+            previousSubject = 'Nespresso Professionnel';
+            contextDescription = 'Référence à la recherche de contacts Nespresso Professionnel';
+            continuationType = 'contact_search';
+            break;
+          }
+          if (content.includes('fontaine') && content.includes('eau')) {
+            previousSubject = 'fontaine à eau';
+            contextDescription = 'Référence à la fontaine à eau discutée précédemment';
+            continuationType = 'equipment_search';
+            break;
+          }
+          if (content.includes('fournisseur')) {
+            previousSubject = 'fournisseur mentionné précédemment';
+            contextDescription = 'Référence aux fournisseurs discutés précédemment';
+            continuationType = 'supplier_search';
+            break;
+          }
+          if (content.includes('contact') || content.includes('coordonnées')) {
+            // Extraire le sujet de la recherche de contact
+            const words = content.split(' ');
+            for (let j = 0; j < words.length; j++) {
+              if (words[j].includes('contact') || words[j].includes('coordonnées')) {
+                if (j > 0) {
+                  previousSubject = words.slice(0, j).join(' ');
+                  break;
+                }
+              }
+            }
+            contextDescription = 'Référence à une recherche de contact précédente';
+            continuationType = 'contact_search';
+            break;
+          }
         }
       }
-      
-      return { 
-        isReferencingPrevious: true, 
-        context: 'Référence à quelque chose mentionné dans la conversation précédente' 
-      };
+
+      // Si c'est une demande de recherche internet sans sujet précis identifié
+      if (isContinuation && lowerMessage.includes('recherche') && lowerMessage.includes('internet') && !previousSubject) {
+        // Chercher le dernier sujet mentionné dans la conversation
+        for (let i = recentMessages.length - 1; i >= 0; i--) {
+          const msg = recentMessages[i];
+          if (msg.isUser) {
+            previousSubject = msg.content;
+            contextDescription = 'Demande de recherche internet pour le sujet précédent';
+            continuationType = 'internet_search';
+            break;
+          }
+        }
+      }
     }
 
-    return { isReferencingPrevious: false, context: '' };
+    return { 
+      isReferencingPrevious,
+      isContinuation,
+      context: contextDescription,
+      continuationType,
+      previousSubject
+    };
   }
 
   private getLastAssistantMessage(conversationHistory: any[]): string {
