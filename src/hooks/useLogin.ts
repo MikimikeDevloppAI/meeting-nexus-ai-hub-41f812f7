@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useLogin = () => {
   const [email, setEmail] = useState("");
@@ -19,17 +19,8 @@ export const useLogin = () => {
     setEmailNotConfirmed(false);
 
     try {
-      // Clean up any existing auth state first
-      cleanupAuthState();
+      console.log("Attempting to sign in with email:", email);
       
-      // Try to sign out any existing sessions to start fresh
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        // Continue even if this fails
-        console.log('Sign out before login failed:', err);
-      }
-
       // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -37,6 +28,7 @@ export const useLogin = () => {
       });
 
       if (error) {
+        console.error("Sign in error:", error);
         // Check specifically for "Email not confirmed" error
         if (error.message === "Email not confirmed") {
           setEmailNotConfirmed(true);
@@ -45,24 +37,41 @@ export const useLogin = () => {
         throw error;
       }
 
-      // Check if user is approved
       if (data.user) {
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('approved')
-          .eq('id', data.user.id)
-          .single();
+        console.log("Sign in successful, user:", data.user.id);
+        
+        // Check if user is approved with retry logic
+        let userProfile = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
+              .select('approved')
+              .eq('id', data.user.id)
+              .single();
 
-        if (profileError) throw profileError;
+            if (profileError) {
+              console.error(`Profile fetch attempt ${attempt + 1} failed:`, profileError);
+              if (attempt === 2) throw profileError;
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              continue;
+            }
 
-        // Check if we got any results and if the first user is approved
+            userProfile = profile;
+            break;
+          } catch (err) {
+            if (attempt === 2) throw err;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+
         if (!userProfile?.approved) {
           toast({
             title: "Account pending approval",
             description: "Your account is waiting for admin approval.",
             variant: "destructive",
           });
-          await supabase.auth.signOut();
+          // Don't sign out immediately, let the auth state handler manage this
           return;
         }
 
@@ -72,7 +81,7 @@ export const useLogin = () => {
         });
         
         // Use navigate instead of window.location for a better experience
-        navigate("/meetings");
+        navigate("/assistant");
       }
     } catch (error: any) {
       console.error("Sign in error:", error);
