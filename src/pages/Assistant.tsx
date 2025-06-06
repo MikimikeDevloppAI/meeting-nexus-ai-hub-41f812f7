@@ -405,7 +405,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Assistant intelligent optimisé pour le cabinet OphtaCare
+          Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire, consultation internet et recommandations intelligentes pour le cabinet OphtaCare
         </p>
       </div>
 
@@ -429,7 +429,7 @@ const Assistant = () => {
             </div>
           </div>
           <CardDescription>
-            Assistant intelligent optimisé pour le cabinet OphtaCare
+            Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire, consultation internet et recommandations intelligentes pour le cabinet OphtaCare
           </CardDescription>
         </CardHeader>
 
