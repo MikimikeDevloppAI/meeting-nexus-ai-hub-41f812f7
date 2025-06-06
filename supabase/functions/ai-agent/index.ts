@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -23,6 +24,11 @@ serve(async (req) => {
     console.log(`[AI-AGENT-CABINET-MEDICAL] 🏥 TRAITEMENT OPTIMISÉ OPHTALMOLOGIE: ${message.substring(0, 100)}...`);
     console.log(`[AI-AGENT-CABINET-MEDICAL] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
+    // Log de l'historique pour debug
+    if (conversationHistory && conversationHistory.length > 0) {
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 📜 HISTORIQUE DÉTAILLÉ: ${JSON.stringify(conversationHistory.slice(-2), null, 2)}`);
+    }
+    
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
     
@@ -42,8 +48,8 @@ serve(async (req) => {
     const taskAgent = new TaskAgent(supabase);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 🧠 PHASE 1: ANALYSE INTELLIGENTE OPTIMISÉE
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente optimisée');
+    // 🧠 PHASE 1: ANALYSE INTELLIGENTE OPTIMISÉE - avec historique
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente optimisée avec historique');
     let analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
     console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Analyse optimisée:', {
       queryType: analysis.queryType,
@@ -95,9 +101,9 @@ serve(async (req) => {
     let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 };
     let internetContext = { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
 
-    // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE) - avec historique
+    // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE) - avec historique enrichi
     if (analysis.requiresEmbeddings) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE avec historique');
       embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds, conversationHistory || []);
       console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Embeddings: ${embeddingContext.chunks.length} chunks trouvés`);
       
@@ -158,8 +164,8 @@ serve(async (req) => {
       }
     }
 
-    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique
-    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale optimisée');
+    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique intégral
+    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale optimisée avec historique complet');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
@@ -187,7 +193,8 @@ serve(async (req) => {
         temporalReference: analysis.temporalReference,
         administrativeContext: analysis.administrativeContext,
         internetAccess: analysis.requiresInternet,
-        optimizedProcessing: true
+        optimizedProcessing: true,
+        conversationAware: conversationHistory ? conversationHistory.length > 0 : false
       },
       searchMetrics: {
         totalDataPoints: (databaseContext.meetings?.length || 0) + 
@@ -200,11 +207,12 @@ serve(async (req) => {
         intelligentProcessing: true,
         internetEnrichment: internetContext.hasContent,
         optimizedRouting: true,
-        processingTime: 'optimized'
+        processingTime: 'optimized',
+        conversationHistoryUsed: conversationHistory ? conversationHistory.length : 0
       }
     };
 
-    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE OPTIMISÉE générée (confiance: ${feedback.confidenceScore})`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE OPTIMISÉE générée (confiance: ${feedback.confidenceScore}, historique: ${conversationHistory ? conversationHistory.length : 0} messages)`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

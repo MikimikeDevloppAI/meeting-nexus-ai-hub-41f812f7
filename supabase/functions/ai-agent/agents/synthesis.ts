@@ -75,13 +75,23 @@ export class SynthesisAgent {
     // Construction du contexte pour l'IA
     let contextData = '';
     
-    // Ajouter l'historique de conversation récent
+    // HISTORIQUE DE CONVERSATION AMÉLIORÉ - Section prioritaire
     if (conversationHistory && conversationHistory.length > 0) {
-      contextData += `\n\nHISTORIQUE CONVERSATION RÉCENT:\n`;
-      conversationHistory.slice(-4).forEach((msg: any, index: number) => {
-        const role = msg.isUser ? 'Utilisateur' : 'Assistant';
-        contextData += `${role}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}\n`;
+      contextData += `\n\n=== CONTEXTE CONVERSATIONNEL CRUCIAL ===\n`;
+      contextData += `INSTRUCTIONS: UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE, LES RÉFÉRENCES ET LA CONTINUITÉ DE LA CONVERSATION.\n`;
+      contextData += `Les messages récents te donnent le contexte nécessaire pour répondre de manière cohérente.\n\n`;
+      
+      contextData += `DERNIERS ÉCHANGES DE LA CONVERSATION:\n`;
+      conversationHistory.slice(-6).forEach((msg: any, index: number) => {
+        const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 ASSISTANT';
+        const timestamp = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        contextData += `[${timestamp}] ${role}: ${msg.content.substring(0, 300)}${msg.content.length > 300 ? '...' : ''}\n\n`;
       });
+      
+      contextData += `=== FIN CONTEXTE CONVERSATIONNEL ===\n\n`;
     }
     
     // Ajouter le contexte des tâches si disponible
@@ -115,10 +125,13 @@ export class SynthesisAgent {
       });
     }
 
-    // Construction du prompt pour l'IA
+    // Construction du prompt pour l'IA avec emphasis sur l'historique
     const systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
 
 MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
+
+⚠️ INSTRUCTION CRITIQUE: UTILISE ABSOLUMENT L'HISTORIQUE DE CONVERSATION FOURNI pour maintenir la continuité et comprendre les références. 
+L'utilisateur peut faire référence à des éléments mentionnés précédemment - tu DOIS en tenir compte.
 
 CONTEXTE CABINET:
 - Cabinet d'ophtalmologie Dr David Tabibian
@@ -140,7 +153,8 @@ RÈGLES DE COMMUNICATION:
 - Toujours contextualiser par rapport au cabinet Dr Tabibian
 - Pour les prix, utiliser les CHF (francs suisses)
 - Mentionner les sources quand tu utilises des données spécifiques
-- MAINTENIR LE CONTEXTE CONVERSATIONNEL - utilise l'historique pour comprendre les références
+- 🔥 MAINTENIR LE CONTEXTE CONVERSATIONNEL - utilise l'historique pour comprendre les références
+- Si l'utilisateur donne juste un nom ou une réponse courte, regarde l'historique pour comprendre le contexte
 
 GESTION DES TÂCHES:
 - Quand on te demande de créer une tâche, utilise cette syntaxe à la fin de ta réponse:
@@ -151,7 +165,7 @@ GESTION DES TÂCHES:
 
 ${contextData ? `CONTEXTE DISPONIBLE:${contextData}` : ''}
 
-QUESTION/DEMANDE: ${message}`;
+QUESTION/DEMANDE ACTUELLE: ${message}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
