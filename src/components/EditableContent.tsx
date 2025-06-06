@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Edit2, Save, X, Eye } from "lucide-react";
+import { Save, X, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from 'react-markdown';
@@ -180,14 +180,6 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
         ) : (
           <span>{content}</span>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setIsEditing(true)}
-          className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-        >
-          <Edit2 className="h-3 w-3" />
-        </Button>
       </div>
     </div>
   );
