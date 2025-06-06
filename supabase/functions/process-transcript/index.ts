@@ -66,36 +66,39 @@ serve(async (req) => {
     console.log('Cleaned transcript generated successfully')
     await saveTranscript(supabaseClient, meetingId, cleanedTranscript)
 
-    // Process document and embeddings
-    const chunks = chunkText(cleanedTranscript)
-    console.log(`Created ${chunks.length} chunks for embeddings`)
-    
-    const documentData = await handleDocumentProcessing(
+    // Process document and embeddings in parallel with AI processing
+    const documentProcessingPromise = handleDocumentProcessing(
       supabaseClient, 
       meetingId, 
       cleanedTranscript, 
       meetingName,
       meetingDate,
-      chunks
+      chunkText(cleanedTranscript)
     )
 
-    // Generate summary
+    // Parallelize summary and tasks extraction
+    console.log('Starting parallel processing of summary and tasks...')
     const summaryPrompt = createSummaryPrompt(meetingName, meetingDate, participantNames, cleanedTranscript)
-    const summary = await callOpenAI(summaryPrompt, openAIKey)
+    const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript)
 
-    if (summary) {
-      await saveSummary(supabaseClient, meetingId, summary)
+    const [summaryResult, tasksResult] = await Promise.all([
+      callOpenAI(summaryPrompt, openAIKey),
+      callOpenAI(tasksPrompt, openAIKey)
+    ])
+
+    console.log('Parallel AI processing completed')
+
+    // Save summary
+    if (summaryResult) {
+      await saveSummary(supabaseClient, meetingId, summaryResult)
       console.log('Summary generated and saved successfully')
     }
 
-    // Extract and save tasks
-    const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript)
-    const tasksContent = await callOpenAI(tasksPrompt, openAIKey)
-
+    // Process and save tasks
     let extractedTasks = []
-    if (tasksContent) {
+    if (tasksResult) {
       try {
-        const cleanedTasksContent = cleanJSONResponse(tasksContent)
+        const cleanedTasksContent = cleanJSONResponse(tasksResult)
         console.log('Cleaned tasks content:', cleanedTasksContent)
         
         const tasksJson = JSON.parse(cleanedTasksContent)
@@ -103,7 +106,7 @@ serve(async (req) => {
         console.log(`Extracted ${extractedTasks.length} tasks from transcript`)
       } catch (parseError) {
         console.error('Error parsing tasks JSON:', parseError)
-        console.log('Raw tasks content:', tasksContent)
+        console.log('Raw tasks content:', tasksResult)
         extractedTasks = []
       }
     }
@@ -118,6 +121,10 @@ serve(async (req) => {
       }
     }
 
+    // Wait for document processing to complete
+    const documentData = await documentProcessingPromise
+    console.log(`Document processing completed with ${documentData.chunksCount} chunks`)
+
     // Process AI recommendations
     await processAIRecommendations(
       supabaseClient,
@@ -131,17 +138,17 @@ serve(async (req) => {
 
     console.log(`Successfully processed transcript for meeting ${meetingId}`)
     console.log(`Saved ${savedTasks.length} tasks with AI recommendations`)
-    console.log(`Generated ${chunks.length} embedding chunks for the document`)
+    console.log(`Generated ${documentData.chunksCount} embedding chunks for the document`)
 
     return new Response(
       JSON.stringify({
         success: true,
         processedTranscript: cleanedTranscript,
-        summary: summary,
+        summary: summaryResult,
         tasks: savedTasks,
-        embeddingsCount: chunks.length,
+        embeddingsCount: documentData.chunksCount,
         documentId: documentData.id,
-        message: `Successfully processed transcript, extracted ${savedTasks.length} tasks with AI recommendations, and created ${chunks.length} embedding chunks`
+        message: `Successfully processed transcript, extracted ${savedTasks.length} tasks with AI recommendations, and created ${documentData.chunksCount} embedding chunks`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
