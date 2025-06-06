@@ -14,18 +14,42 @@ interface EditableContentProps {
   type: 'summary' | 'todo';
   id: string;
   className?: string;
+  isEditing?: boolean;
+  onStartEdit?: () => void;
+  onStopEdit?: () => void;
 }
 
-export const EditableContent = ({ content, onSave, type, id, className }: EditableContentProps) => {
-  const [isEditing, setIsEditing] = useState(false);
+export const EditableContent = ({ 
+  content, 
+  onSave, 
+  type, 
+  id, 
+  className,
+  isEditing = false,
+  onStartEdit,
+  onStopEdit
+}: EditableContentProps) => {
+  const [internalIsEditing, setInternalIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
   const [isSaving, setIsSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
 
+  // Use external editing state if provided, otherwise use internal state
+  const actualIsEditing = onStartEdit ? isEditing : internalIsEditing;
+
+  const handleStartEdit = () => {
+    if (onStartEdit) {
+      onStartEdit();
+    } else {
+      setInternalIsEditing(true);
+    }
+    setEditedContent(content);
+  };
+
   const handleSave = async () => {
     if (editedContent === content) {
-      setIsEditing(false);
+      handleCancel();
       return;
     }
 
@@ -50,8 +74,7 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
       if (error) throw error;
 
       onSave(editedContent);
-      setIsEditing(false);
-      setShowPreview(false);
+      handleCancel();
       toast({
         title: "Sauvegardé",
         description: `${type === 'summary' ? 'Résumé' : 'Tâche'} mis à jour avec succès`,
@@ -70,11 +93,15 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
 
   const handleCancel = () => {
     setEditedContent(content);
-    setIsEditing(false);
     setShowPreview(false);
+    if (onStopEdit) {
+      onStopEdit();
+    } else {
+      setInternalIsEditing(false);
+    }
   };
 
-  if (isEditing) {
+  if (actualIsEditing) {
     return (
       <div className={className}>
         {type === 'summary' ? (
@@ -133,6 +160,7 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
             disabled={isSaving}
+            autoFocus
           />
         )}
         <div className="flex gap-2 mt-3">
@@ -159,8 +187,8 @@ export const EditableContent = ({ content, onSave, type, id, className }: Editab
   }
 
   return (
-    <div className={`group ${className}`}>
-      <div className="relative">
+    <div className={`group ${className}`} onClick={handleStartEdit}>
+      <div className="relative cursor-pointer hover:bg-gray-50 rounded p-1 -m-1">
         {type === 'summary' ? (
           <div className="prose prose-sm max-w-none">
             <ReactMarkdown 
