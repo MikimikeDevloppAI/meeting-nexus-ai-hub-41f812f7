@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -77,7 +76,7 @@ export default function Todos() {
         .from("todos")
         .select(`
           *,
-          meetings!inner(title),
+          meetings(title),
           participants(name),
           todo_participants(
             participant_id,
