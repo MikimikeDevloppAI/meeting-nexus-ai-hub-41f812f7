@@ -28,7 +28,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('[TASK-RECOMMENDATION] 🧠 Analyse avec contexte et recherche fournisseurs');
+    console.log('[TASK-RECOMMENDATION] 🧠 Analyse enrichie avec recherche internet et templates email');
 
     // Récupérer le contexte des tâches existantes
     console.log('[TASK-RECOMMENDATION] 🗄️ Récupération contexte + tâches existantes');
@@ -48,17 +48,18 @@ serve(async (req) => {
 
     console.log('[TASK-RECOMMENDATION] ✅ Contexte récupéré:', { existingTodos: contextData.existingTodos.length });
 
-    // Recherche internet spécialisée pour fournisseurs
-    console.log('[TASK-RECOMMENDATION] 🌐 Recherche fournisseurs et contacts');
+    // Recherche internet enrichie (pas seulement pour fournisseurs)
+    console.log('[TASK-RECOMMENDATION] 🌐 Recherche internet enrichie');
     
-    let internetContext = { hasContent: false, content: '', providers: [] };
+    let internetContext = { hasContent: false, content: '', providers: [], enrichmentType: 'general' };
     try {
-      // Analyser si la tâche nécessite des fournisseurs/prestataires
+      // Analyser si la tâche nécessite des informations externes
       const taskLower = task.description.toLowerCase();
-      const needsProviders = taskLower.includes('prestataire') || 
+      const needsInternet = taskLower.includes('contacter') || 
+                           taskLower.includes('rechercher') ||
+                           taskLower.includes('prestataire') || 
                            taskLower.includes('entreprise') || 
                            taskLower.includes('fournisseur') ||
-                           taskLower.includes('contact') ||
                            taskLower.includes('régie') ||
                            taskLower.includes('installation') ||
                            taskLower.includes('matériel') ||
@@ -67,12 +68,26 @@ serve(async (req) => {
                            taskLower.includes('distributeur') ||
                            taskLower.includes('fontaine') ||
                            taskLower.includes('messagerie') ||
-                           taskLower.includes('sonnette');
+                           taskLower.includes('sonnette') ||
+                           taskLower.includes('information') ||
+                           taskLower.includes('tarif') ||
+                           taskLower.includes('prix') ||
+                           taskLower.includes('coordonnées') ||
+                           taskLower.includes('site web') ||
+                           taskLower.includes('email') ||
+                           taskLower.includes('téléphone');
 
-      if (needsProviders) {
+      if (needsInternet) {
         const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
         if (perplexityKey) {
-          const searchQuery = `${task.description} entreprises prestataires fournisseurs Genève Suisse avec coordonnées contacts adresses sites web téléphones emails`;
+          const enrichmentType = taskLower.includes('prestataire') || taskLower.includes('fournisseur') ? 'providers' : 'general';
+          
+          let searchQuery;
+          if (enrichmentType === 'providers') {
+            searchQuery = `${task.description} entreprises prestataires fournisseurs Genève Suisse avec coordonnées contacts adresses sites web téléphones emails`;
+          } else {
+            searchQuery = `${task.description} informations pratiques Genève Suisse coordonnées contacts procédures tarifs`;
+          }
           
           const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
@@ -81,18 +96,20 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'llama-3.1-sonar-small-128k-online',
+              model: 'llama-3.1-sonar-large-128k-online',
               messages: [
                 {
                   role: 'system',
-                  content: 'Tu es un assistant spécialisé dans la recherche de prestataires et fournisseurs en Suisse. Fournis des informations détaillées avec noms d\'entreprises, adresses complètes, numéros de téléphone, emails et sites web quand disponibles. Formate les informations de manière structurée.'
+                  content: enrichmentType === 'providers' 
+                    ? 'Tu es un assistant spécialisé dans la recherche de prestataires et fournisseurs en Suisse. Fournis des informations détaillées avec noms d\'entreprises, adresses complètes, numéros de téléphone, emails et sites web quand disponibles. Formate les informations de manière structurée.'
+                    : 'Tu es un assistant spécialisé pour aider avec des informations pratiques en Suisse. Fournis des informations utiles, contacts, procédures, tarifs et coordonnées quand disponibles. Sois précis et concis.'
                 },
                 {
                   role: 'user',
                   content: searchQuery
                 }
               ],
-              max_tokens: 800,
+              max_tokens: 1000,
               temperature: 0.2,
             }),
           });
@@ -108,7 +125,8 @@ serve(async (req) => {
             internetContext = {
               hasContent: true,
               content: content,
-              providers: providers
+              providers: providers,
+              enrichmentType: enrichmentType
             };
           }
         }
@@ -120,15 +138,16 @@ serve(async (req) => {
     console.log('[TASK-RECOMMENDATION] ✅ Internet:', { 
       hasContent: internetContext.hasContent, 
       contentLength: internetContext.content.length,
-      providersFound: internetContext.providers.length 
+      providersFound: internetContext.providers.length,
+      enrichmentType: internetContext.enrichmentType
     });
 
-    // Synthèse avec recommandations IA avancées
-    console.log('[TASK-RECOMMENDATION] ⚡ Synthèse contextuelle avec extraction contacts');
+    // Synthèse avec recommandations IA avancées et templates email
+    console.log('[TASK-RECOMMENDATION] ⚡ Synthèse contextuelle avec extraction contacts et emails');
 
     const systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet d'ophtalmologie à Genève, Suisse.
 
-MISSION : Analyser cette tâche et fournir des recommandations utiles avec contacts de fournisseurs SEULEMENT si tu peux ajouter une valeur significative.
+MISSION : Analyser cette tâche et fournir des recommandations utiles avec contacts de fournisseurs et templates d'email SEULEMENT si tu peux ajouter une valeur significative.
 
 CONTEXTE DISPONIBLE :
 - Tâche: ${task.description}
@@ -137,10 +156,10 @@ CONTEXTE DISPONIBLE :
 - Participants: ${participants?.map(p => p.name).join(', ') || 'Non spécifiés'}
 - Tâches existantes: ${contextData.existingTodos.length} tâches en cours
 
-${internetContext.hasContent ? `INFORMATIONS FOURNISSEURS TROUVÉES:
+${internetContext.hasContent ? `INFORMATIONS ENRICHIES TROUVÉES:
 ${internetContext.content}
 
-ENTREPRISES IDENTIFIÉES: ${internetContext.providers.join(', ')}` : ''}
+${internetContext.enrichmentType === 'providers' ? `ENTREPRISES IDENTIFIÉES: ${internetContext.providers.join(', ')}` : 'INFORMATIONS PRATIQUES ENRICHIES'}` : ''}
 
 RÈGLES DE RECOMMANDATION :
 1. Si la tâche est simple et ne nécessite pas de conseils → réponds avec hasRecommendation: false
@@ -148,8 +167,13 @@ RÈGLES DE RECOMMANDATION :
 3. Pour les contacts externes, extrais et structure les informations de contact trouvées
 4. Inclus toujours les coordonnées complètes : nom, adresse, téléphone, email, site web
 5. Pour tous les prix, utilise les CHF (francs suisses)
-6. Si email externe nécessaire, crée un brouillon professionnel
+6. **EMAILS PRÉ-RÉDIGÉS** : Si la tâche implique "contacter", "envoyer email", "demander informations", "demander devis" → crée un brouillon professionnel
 7. Assure-toi que les contacts sont réels et vérifiables
+
+DÉTECTION EMAIL OBLIGATOIRE :
+- Analyser si la tâche nécessite l'envoi d'un email (mots-clés : contacter, email, envoyer, demander, informer)
+- Si OUI → needsExternalEmail: true + emailDraft complet
+- Template email professionnel avec objet, salutation, corps, signature
 
 EXTRACTION DE CONTACTS :
 - Extrais les noms d'entreprises, adresses, téléphones, emails, sites web
@@ -162,7 +186,7 @@ RÉPONSE REQUISE (JSON uniquement) :
   "hasRecommendation": boolean,
   "recommendation": "texte de recommandation détaillé avec conseils pratiques ou null",
   "needsExternalEmail": boolean,
-  "emailDraft": "brouillon email professionnel si nécessaire ou null",
+  "emailDraft": "brouillon email complet avec objet et corps si nécessaire ou null",
   "contacts": [
     {
       "name": "Nom exact de l'entreprise",
@@ -172,7 +196,7 @@ RÉPONSE REQUISE (JSON uniquement) :
       "website": "Site web complet avec https:// si disponible"
     }
   ],
-  "contextAnalysis": "analyse du contexte utilisé",
+  "contextAnalysis": "analyse du contexte utilisé incluant internet",
   "duplicateTask": "avertissement si tâche similaire existe ou null",
   "estimatedCost": "estimation des coûts en CHF si pertinent ou null"
 }`;
@@ -187,10 +211,10 @@ RÉPONSE REQUISE (JSON uniquement) :
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analyse cette tâche et extrais tous les contacts utiles : "${task.description}"` }
+          { role: 'user', content: `Analyse cette tâche avec le contexte enrichi et génère email si nécessaire : "${task.description}"` }
         ],
         temperature: 0.7,
-        max_tokens: 1200,
+        max_tokens: 1500,
       }),
     });
 
@@ -215,25 +239,34 @@ RÉPONSE REQUISE (JSON uniquement) :
               : contact.website
           }));
         }
+
+        // Valider la génération d'email
+        if (recommendation.needsExternalEmail && !recommendation.emailDraft) {
+          console.log('[TASK-RECOMMENDATION] ⚠️ Email demandé mais pas généré, correction...');
+          recommendation.needsExternalEmail = false;
+        }
       } else {
-        recommendation = { hasRecommendation: false };
+        recommendation = { hasRecommendation: false, needsExternalEmail: false };
       }
     } catch (parseError) {
       console.error('[TASK-RECOMMENDATION] Erreur parsing JSON:', parseError);
-      recommendation = { hasRecommendation: false };
+      recommendation = { hasRecommendation: false, needsExternalEmail: false };
     }
 
-    console.log('[TASK-RECOMMENDATION] ✅ Recommandation générée:', recommendation.hasRecommendation);
-    if (recommendation.contacts) {
-      console.log('[TASK-RECOMMENDATION] 📋 Contacts trouvés:', recommendation.contacts.length);
-    }
+    console.log('[TASK-RECOMMENDATION] ✅ Recommandation générée:', {
+      hasRecommendation: recommendation.hasRecommendation,
+      hasEmail: recommendation.needsExternalEmail,
+      contacts: recommendation.contacts?.length || 0,
+      internetUsed: internetContext.hasContent
+    });
 
     return new Response(JSON.stringify({ 
       recommendation,
       contextUsed: {
         existingTodos: contextData.existingTodos.length,
         internetSearch: internetContext.hasContent,
-        providersFound: internetContext.providers.length
+        providersFound: internetContext.providers.length,
+        enrichmentType: internetContext.enrichmentType
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -243,7 +276,7 @@ RÉPONSE REQUISE (JSON uniquement) :
     console.error('[TASK-RECOMMENDATION] ❌ ERREUR:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      recommendation: { hasRecommendation: false }
+      recommendation: { hasRecommendation: false, needsExternalEmail: false }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
