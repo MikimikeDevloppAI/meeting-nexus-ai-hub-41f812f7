@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,9 +22,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface NewTodoForm {
   description: string;
+  participant_id?: string;
+}
+
+interface Participant {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export default function Todos() {
@@ -33,17 +42,34 @@ export default function Todos() {
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const { toast } = useToast();
   
   const form = useForm<NewTodoForm>({
     defaultValues: {
-      description: ""
+      description: "",
+      participant_id: undefined
     }
   });
 
   useEffect(() => {
     fetchTodos();
+    fetchParticipants();
   }, []);
+
+  const fetchParticipants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("participants")
+        .select("id, name, email")
+        .order("name");
+
+      if (error) throw error;
+      setParticipants(data || []);
+    } catch (error: any) {
+      console.error("Error fetching participants:", error);
+    }
+  };
 
   const fetchTodos = async () => {
     try {
@@ -156,6 +182,7 @@ export default function Todos() {
 
   const createNewTodo = async (data: NewTodoForm) => {
     try {
+      // Créer la tâche
       const { data: newTodo, error } = await supabase
         .from("todos")
         .insert([{ 
@@ -167,7 +194,23 @@ export default function Todos() {
         
       if (error) throw error;
       
-      setTodos([newTodo, ...todos]);
+      // Si un participant est sélectionné, l'ajouter à la tâche
+      if (data.participant_id) {
+        const { error: participantError } = await supabase
+          .from("todo_participants")
+          .insert({
+            todo_id: newTodo.id,
+            participant_id: data.participant_id
+          });
+          
+        if (participantError) {
+          console.error("Error assigning participant:", participantError);
+          // On continue même si l'attribution échoue
+        }
+      }
+      
+      // Recharger les tâches pour obtenir les participants
+      fetchTodos();
       setShowNewTodoDialog(false);
       form.reset();
       
@@ -381,7 +424,7 @@ export default function Todos() {
         </DialogContent>
       </Dialog>
       
-      {/* Dialog for creating new todo */}
+      {/* Dialog for creating new todo with participant selection */}
       <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -401,6 +444,34 @@ export default function Todos() {
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={form.control}
+                name="participant_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Participant assigné</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un participant (optionnel)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {participants.map((participant) => (
+                          <SelectItem key={participant.id} value={participant.id}>
+                            {participant.name} ({participant.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShowNewTodoDialog(false)}>
                   Annuler

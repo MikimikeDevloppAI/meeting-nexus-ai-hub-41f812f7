@@ -15,7 +15,8 @@ interface Comment {
   user_id: string;
   created_at: string;
   updated_at: string;
-  user_name?: string;  // Nouveau champ pour le nom de l'utilisateur
+  user_name?: string;
+  isEditing?: boolean;
 }
 
 interface TodoCommentsProps {
@@ -29,6 +30,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const [newComment, setNewComment] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editComment, setEditComment] = useState<{ id: string, text: string } | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -42,10 +44,10 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const fetchComments = async () => {
     setIsLoading(true);
     try {
-      // Récupérer les commentaires avec JOIN pour obtenir les noms d'utilisateurs
+      // Utiliser une jointure interne avec la table users (noter le ! pour forcer la jointure)
       const { data, error } = await supabase
         .from("todo_comments")
-        .select(`*, users:user_id (name)`)
+        .select(`*, users!user_id(name)`)
         .eq("todo_id", todoId)
         .order("created_at", { ascending: true });
 
@@ -119,7 +121,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
             comment: newComment.trim(),
           },
         ])
-        .select(`*, users:user_id (name)`)
+        .select(`*, users!user_id(name)`)
         .single();
 
       if (error) {
@@ -150,6 +152,47 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const startEditComment = (comment: Comment) => {
+    setEditComment({ id: comment.id, text: comment.comment });
+  };
+
+  const cancelEditComment = () => {
+    setEditComment(null);
+  };
+
+  const saveEditComment = async () => {
+    if (!editComment) return;
+    
+    try {
+      const { error } = await supabase
+        .from("todo_comments")
+        .update({ comment: editComment.text, updated_at: new Date().toISOString() })
+        .eq("id", editComment.id);
+
+      if (error) throw error;
+
+      setComments(comments.map(comment => 
+        comment.id === editComment.id 
+          ? { ...comment, comment: editComment.text, updated_at: new Date().toISOString() } 
+          : comment
+      ));
+      
+      setEditComment(null);
+      
+      toast({
+        title: "Commentaire modifié",
+        description: "Le commentaire a été modifié avec succès.",
+      });
+    } catch (error: any) {
+      console.error("Error editing comment:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier le commentaire",
+        variant: "destructive",
+      });
     }
   };
 
@@ -220,36 +263,58 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
               ) : comments.length > 0 ? (
                 comments.map((comment) => (
                   <div key={comment.id} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{comment.user_name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      {user?.id === comment.user_id && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
-                            aria-label="Modifier le commentaire"
-                          >
-                            <Pen className="h-4 w-4" />
+                    {editComment?.id === comment.id ? (
+                      <div className="space-y-2">
+                        <Textarea 
+                          value={editComment.text} 
+                          onChange={(e) => setEditComment({...editComment, text: e.target.value})} 
+                          className="w-full text-sm"
+                          rows={3}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={cancelEditComment}>
+                            Annuler
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="h-8 w-8 p-0 bg-transparent hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                          <Button size="sm" onClick={saveEditComment} disabled={!editComment.text.trim()}>
+                            Enregistrer
                           </Button>
                         </div>
-                      )}
-                    </div>
-                    <p className="text-sm">{comment.comment}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">{comment.user_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          {user?.id === comment.user_id && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                aria-label="Modifier le commentaire"
+                                onClick={() => startEditComment(comment)}
+                              >
+                                <Pen className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm">{comment.comment}</p>
+                      </>
+                    )}
                   </div>
                 ))
               ) : (
@@ -291,36 +356,58 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {comments.map((comment) => (
               <div key={comment.id} className="bg-gray-50 rounded p-2 text-sm">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-1">
-                    <User className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs font-medium">{comment.user_name}</span>
-                    <span className="text-xs text-gray-500 ml-1">
-                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                  {user?.id === comment.user_id && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-5 w-5 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
-                        aria-label="Modifier le commentaire"
-                      >
-                        <Pen className="h-3 w-3" />
+                {editComment?.id === comment.id ? (
+                  <div className="space-y-2">
+                    <Textarea 
+                      value={editComment.text} 
+                      onChange={(e) => setEditComment({...editComment, text: e.target.value})} 
+                      className="w-full text-xs min-h-[60px]"
+                      rows={2}
+                    />
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={cancelEditComment}>
+                        Annuler
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-5 w-5 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
-                        onClick={() => handleDeleteComment(comment.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
+                      <Button size="sm" className="h-6 text-xs" onClick={saveEditComment} disabled={!editComment.text.trim()}>
+                        Enregistrer
                       </Button>
                     </div>
-                  )}
-                </div>
-                <p className="text-xs mt-1">{comment.comment}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs font-medium">{comment.user_name}</span>
+                        <span className="text-xs text-gray-500 ml-1">
+                          {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      {user?.id === comment.user_id && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0"
+                            aria-label="Modifier le commentaire"
+                            onClick={() => startEditComment(comment)}
+                          >
+                            <Pen className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs mt-1">{comment.comment}</p>
+                  </>
+                )}
               </div>
             ))}
           </div>
