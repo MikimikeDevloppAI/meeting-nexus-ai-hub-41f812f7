@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -15,30 +14,36 @@ export class SynthesisAgent {
     analysis: any,
     taskContext: any
   ): Promise<string> {
-    console.log('[SYNTHESIS] 🧠 Synthèse SUPER-INTELLIGENTE OphtaCare');
+    console.log('[SYNTHESIS] 🏥 Synthèse INTELLIGENTE Cabinet Dr Tabibian');
 
     const contextSummary = this.buildIntelligentContextSummary(databaseContext, embeddingContext, internetContext, taskContext);
     const confidence = analysis.confidenceLevel || 0.7;
     
-    let systemPrompt = `Tu es l'assistant IA SUPER-INTELLIGENT OphtaCare du Dr Tabibian, cabinet d'ophtalmologie à Genève.
+    let systemPrompt = `Tu es l'assistant IA SUPER-INTELLIGENT du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
-MISSION INTELLIGENTE :
-- Fournir des réponses précises basées sur les DONNÉES RÉELLES du cabinet
-- Toujours contextualiser pour l'ophtalmologie genevoise (CHF, système suisse)
-- Être capable de répondre MÊME si les données sont limitées
-- Maintenir un niveau d'expertise médicale élevé
+MISSION CABINET MÉDICAL :
+- Assistant administratif et médical spécialisé en ophtalmologie
+- Priorité ABSOLUE : Recherche sémantique dans les données internes AVANT tout enrichissement
+- Accès complet aux transcripts de réunions, documents, tâches administratives
+- Compréhension intelligente des références temporelles (dernière réunion, réunion de juin, etc.)
+- Enrichissement internet seulement après recherche interne
 
-DONNÉES DISPONIBLES ACTUELLEMENT :
+CONTEXTE CABINET DR TABIBIAN :
 ${contextSummary}
 
 NIVEAU DE CONFIANCE : ${(confidence * 100).toFixed(0)}%
 
-RÈGLES DE RÉPONSE INTELLIGENTE :
-1. **PRIORITÉ AUX DONNÉES RÉELLES** - Utilise d'abord les données OphtaCare disponibles
-2. **RÉPONSES COMPLÈTES** - Fournis toujours une réponse utile, même avec données limitées  
-3. **CONTEXTE MÉDICAL** - Maintiens l'expertise ophtalmologique et le contexte genevois
-4. **TRANSPARENCE** - Indique clairement si tu utilises des données internes ou des recommandations générales
-5. **ACTIONS STRUCTURÉES** - Utilise la syntaxe [ACTION_TACHE:...] pour les tâches
+RÉFÉRENCES TEMPORELLES INTELLIGENTES :
+${analysis.temporalReference ? `- Référence détectée: ${analysis.temporalReference.type} ${analysis.temporalReference.value || ''}` : '- Aucune référence temporelle spécifique'}
+
+RÈGLES DE RÉPONSE CABINET MÉDICAL :
+1. **PRIORITÉ RECHERCHE SÉMANTIQUE** - Utilise d'abord les données internes trouvées
+2. **COMPRÉHENSION TEMPORELLE** - Identifie correctement les références aux réunions
+3. **RÉPONSES COMPLÈTES** - Fournis toujours une réponse utile, même avec données limitées  
+4. **CONTEXTE OPHTALMOLOGIE** - Maintiens l'expertise médicale et le contexte genevois
+5. **TRANSPARENCE SOURCES** - Indique clairement les sources utilisées (interne vs externe)
+6. **ACCÈS TRANSCRIPTS** - Fournis les transcripts si demandés explicitement
+7. **ACTIONS STRUCTURÉES** - Utilise la syntaxe [ACTION_TACHE:...] pour les tâches
 
 SYNTAXE ACTIONS TÂCHES :
 - [ACTION_TACHE:TYPE=create,description="Description précise",assigned_to="Nom personne"]
@@ -46,25 +51,41 @@ SYNTAXE ACTIONS TÂCHES :
 - [ACTION_TACHE:TYPE=complete,id="ID"]
 - [ACTION_TACHE:TYPE=delete,id="ID"]
 
-STYLE INTELLIGENT :
-- Professionnel mais accessible
-- Spécialisé ophtalmologie Genève
-- Utilise les émojis médicaux appropriés : 👁️ 🏥 📋 💊 🔍
-- Montre ta compréhension du contexte suisse`;
+STYLE CABINET MÉDICAL :
+- Professionnel et expert en ophtalmologie
+- Contextualisation genevoise (CHF, système suisse)
+- Émojis médicaux appropriés : 👁️ 🏥 📋 💊 🔍 📅
+- Démonstration de compréhension du contexte cabinet`;
 
-    // Enrichissement selon le type de requête
+    // Enrichissement selon le type de requête et contexte temporel
     if (analysis.queryType === 'meeting' && databaseContext.meetings?.length > 0) {
       systemPrompt += `\n\nCONTEXTE RÉUNIONS SPÉCIAL :
-- ${databaseContext.meetings.length} réunion(s) trouvée(s) dans les données
+- ${databaseContext.meetings.length} réunion(s) trouvée(s) dans les données cabinet
 - Utilise les informations réelles des transcripts pour répondre
-- Sois précis sur les dates et contenus mentionnés`;
+- Sois précis sur les dates et contenus mentionnés
+- Si transcript demandé explicitement, fournis-le intégralement`;
+    }
+
+    if (analysis.temporalReference?.needs_database_lookup) {
+      systemPrompt += `\n\nCONTEXTE TEMPOREL INTELLIGENT :
+- Référence temporelle détectée: ${analysis.temporalReference.type}
+- ${analysis.temporalReference.value ? `Valeur: ${analysis.temporalReference.value}` : ''}
+- Utilise les données trouvées pour cette période spécifique
+- Explique quelle réunion correspond à la demande`;
     }
 
     if (analysis.queryType === 'task') {
-      systemPrompt += `\n\nCONTEXTE TÂCHES SPÉCIAL :
-- L'utilisateur demande une gestion de tâches
+      systemPrompt += `\n\nCONTEXTE TÂCHES ADMINISTRATIVES :
+- L'utilisateur demande une gestion de tâches cabinet
 - Génère l'action appropriée avec la syntaxe [ACTION_TACHE:...]
 - Confirme l'action dans ta réponse`;
+    }
+
+    if (analysis.administrativeContext) {
+      systemPrompt += `\n\nCONTEXTE ADMINISTRATIF CABINET :
+- Focus sur la gestion administrative du cabinet Dr Tabibian
+- Utilise les données internes en priorité
+- Contextualise pour l'ophtalmologie genevoise`;
     }
 
     // Construction du contexte conversationnel intelligent
@@ -77,21 +98,23 @@ STYLE INTELLIGENT :
 
 ${conversationContext ? `CONTEXTE CONVERSATION :\n${conversationContext}\n` : ''}
 
-${dataContext ? `DONNÉES OPHTACARE DISPONIBLES :\n${dataContext}\n` : ''}
+${dataContext ? `DONNÉES CABINET DR TABIBIAN DISPONIBLES :\n${dataContext}\n` : ''}
 
 ${taskContext.hasTaskContext ? `
-TÂCHES EN COURS (${taskContext.currentTasks.length}) :
+TÂCHES CABINET EN COURS (${taskContext.currentTasks.length}) :
 ${taskContext.currentTasks.slice(0, 10).map(task => `- ${task.description} (${task.status}) ${task.assigned_to ? `- Assigné: ${task.assigned_to}` : ''}`).join('\n')}
 ` : ''}
 
-INSTRUCTIONS INTELLIGENTES :
+INSTRUCTIONS INTELLIGENTES CABINET :
 - Réponds directement et complètement à la question
-- Utilise PRIORITAIREMENT les données OphtaCare si disponibles
-- Si données limitées, fournis quand même une réponse utile avec recommandations générales
-- Maintiens le contexte ophtalmologique genevois
-- Sois précis sur les sources utilisées (données internes vs conseils généraux)
+- Utilise PRIORITAIREMENT les données internes du cabinet trouvées
+- Si données limitées, fournis quand même une réponse utile
+- Maintiens le contexte ophtalmologie cabinet Dr Tabibian Genève
+- Sois précis sur les sources utilisées (données cabinet vs informations générales)
+- Si transcript demandé, fournis-le intégralement
 - Génère les actions [ACTION_TACHE:...] si demandé
-- TOUJOURS donner une réponse, même si elle est partielle`;
+- TOUJOURS donner une réponse, même si elle est partielle
+- Démontre ta compréhension du contexte temporel si applicable`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -107,7 +130,7 @@ INSTRUCTIONS INTELLIGENTES :
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.7,
-          max_tokens: 1200, // Plus de tokens pour réponses complètes
+          max_tokens: 1500, // Plus de tokens pour réponses complètes avec transcripts
         }),
       });
 
@@ -115,9 +138,9 @@ INSTRUCTIONS INTELLIGENTES :
       let finalResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu traiter votre demande.';
 
       // Enrichissement intelligent de la réponse
-      finalResponse = this.enrichResponseWithContext(finalResponse, analysis, confidence, databaseContext, embeddingContext);
+      finalResponse = this.enrichResponseWithContext(finalResponse, analysis, confidence, databaseContext, embeddingContext, internetContext);
 
-      console.log('[SYNTHESIS] ✅ Réponse super-intelligente générée');
+      console.log('[SYNTHESIS] ✅ Réponse cabinet médical intelligente générée');
       return finalResponse;
 
     } catch (error) {
@@ -132,33 +155,33 @@ INSTRUCTIONS INTELLIGENTES :
     const parts = [];
 
     if (taskContext.hasTaskContext) {
-      parts.push(`📋 Tâches: ${taskContext.currentTasks.length} en cours`);
+      parts.push(`📋 Tâches cabinet: ${taskContext.currentTasks.length} en cours`);
     }
 
     if (databaseContext.meetings?.length > 0) {
-      parts.push(`🏥 Réunions: ${databaseContext.meetings.length} trouvées`);
+      parts.push(`🏥 Réunions cabinet: ${databaseContext.meetings.length} trouvées`);
     }
 
     if (databaseContext.documents?.length > 0) {
-      parts.push(`📁 Documents: ${databaseContext.documents.length} disponibles`);
+      parts.push(`📁 Documents cabinet: ${databaseContext.documents.length} disponibles`);
     }
 
     if (embeddingContext.hasRelevantContext) {
-      parts.push(`🎯 Données vectorielles: ${embeddingContext.chunks.length} éléments pertinents`);
+      parts.push(`🎯 Données sémantiques: ${embeddingContext.chunks.length} éléments pertinents`);
     }
 
     if (internetContext.hasContent) {
       parts.push(`🌐 Enrichissement: Informations complémentaires disponibles`);
     }
 
-    return parts.length > 0 ? parts.join(' | ') : 'Base de données OphtaCare disponible';
+    return parts.length > 0 ? parts.join(' | ') : 'Base de données cabinet Dr Tabibian disponible';
   }
 
   private buildConversationContext(conversationHistory: any[]): string {
     if (!conversationHistory || conversationHistory.length === 0) return '';
     
     const recentMessages = conversationHistory.slice(-6).map(msg => 
-      `${msg.isUser ? '👤 Patient/Équipe' : '🤖 OphtaCare'}: ${msg.content.substring(0, 150)}${msg.content.length > 150 ? '...' : ''}`
+      `${msg.isUser ? '👤 Cabinet/Équipe' : '🤖 Assistant Dr Tabibian'}: ${msg.content.substring(0, 150)}${msg.content.length > 150 ? '...' : ''}`
     );
     
     return recentMessages.join('\n');
@@ -167,20 +190,24 @@ INSTRUCTIONS INTELLIGENTES :
   private buildDataContext(databaseContext: any, embeddingContext: any, internetContext: any): string {
     const dataParts = [];
 
-    // Contexte des réunions avec détails
+    // Contexte des réunions avec détails temporels
     if (databaseContext.meetings?.length > 0) {
-      dataParts.push(`\n🏥 RÉUNIONS TROUVÉES (${databaseContext.meetings.length}) :`);
+      dataParts.push(`\n🏥 RÉUNIONS CABINET TROUVÉES (${databaseContext.meetings.length}) :`);
       databaseContext.meetings.slice(0, 3).forEach((meeting: any, i: number) => {
-        dataParts.push(`  ${i+1}. ${meeting.title} - ${meeting.created_at ? new Date(meeting.created_at).toLocaleDateString() : 'Date inconnue'}`);
+        const meetingDate = meeting.created_at ? new Date(meeting.created_at).toLocaleDateString('fr-FR') : 'Date inconnue';
+        dataParts.push(`  ${i+1}. ${meeting.title} - ${meetingDate}`);
         if (meeting.summary) {
           dataParts.push(`     Résumé: ${meeting.summary.substring(0, 200)}${meeting.summary.length > 200 ? '...' : ''}`);
+        }
+        if (meeting.transcript) {
+          dataParts.push(`     📝 Transcript disponible (${meeting.transcript.length} caractères)`);
         }
       });
     }
 
     // Contexte des chunks avec relevance
     if (embeddingContext.chunks?.length > 0) {
-      dataParts.push(`\n🎯 CONTENU PERTINENT (${embeddingContext.chunks.length} éléments) :`);
+      dataParts.push(`\n🎯 CONTENU SÉMANTIQUE PERTINENT (${embeddingContext.chunks.length} éléments) :`);
       embeddingContext.chunks.slice(0, 3).forEach((chunk: any, i: number) => {
         dataParts.push(`  ${i+1}. ${chunk.chunk_text?.substring(0, 150)}${chunk.chunk_text?.length > 150 ? '...' : ''}`);
         if (chunk.similarity) {
@@ -189,9 +216,9 @@ INSTRUCTIONS INTELLIGENTES :
       });
     }
 
-    // Contexte des documents
+    // Contexte des documents cabinet
     if (databaseContext.documents?.length > 0) {
-      dataParts.push(`\n📁 DOCUMENTS (${databaseContext.documents.length}) :`);
+      dataParts.push(`\n📁 DOCUMENTS CABINET (${databaseContext.documents.length}) :`);
       databaseContext.documents.slice(0, 2).forEach((doc: any, i: number) => {
         dataParts.push(`  ${i+1}. ${doc.ai_generated_name || doc.original_name}`);
         if (doc.ai_summary) {
@@ -200,10 +227,23 @@ INSTRUCTIONS INTELLIGENTES :
       });
     }
 
+    // Contexte enrichissement internet
+    if (internetContext.hasContent) {
+      dataParts.push(`\n🌐 ENRICHISSEMENT EXTERNE :`);
+      dataParts.push(`  Informations complémentaires trouvées pour le contexte cabinet`);
+    }
+
     return dataParts.join('\n');
   }
 
-  private enrichResponseWithContext(response: string, analysis: any, confidence: number, databaseContext: any, embeddingContext: any): string {
+  private enrichResponseWithContext(
+    response: string, 
+    analysis: any, 
+    confidence: number, 
+    databaseContext: any, 
+    embeddingContext: any, 
+    internetContext: any
+  ): string {
     let enrichedResponse = response;
 
     // Ajout d'indicateurs de confiance si nécessaire
@@ -213,11 +253,20 @@ INSTRUCTIONS INTELLIGENTES :
 
     // Ajout de contexte source si pertinent
     if (databaseContext.meetings?.length > 0 && analysis.queryType === 'meeting') {
-      enrichedResponse += `\n\n📊 *Basé sur ${databaseContext.meetings.length} réunion(s) de votre cabinet.*`;
+      enrichedResponse += `\n\n📊 *Basé sur ${databaseContext.meetings.length} réunion(s) de votre cabinet Dr Tabibian.*`;
     }
 
     if (embeddingContext.chunks?.length > 0) {
-      enrichedResponse += `\n\n🔍 *Information trouvée dans ${embeddingContext.chunks.length} élément(s) de vos données.*`;
+      enrichedResponse += `\n\n🔍 *Information trouvée dans ${embeddingContext.chunks.length} élément(s) de vos données cabinet.*`;
+    }
+
+    if (internetContext.hasContent) {
+      enrichedResponse += `\n\n🌐 *Enrichi avec des informations externes complémentaires.*`;
+    }
+
+    // Ajout contexte temporel si pertinent
+    if (analysis.temporalReference?.needs_database_lookup && databaseContext.meetings?.length > 0) {
+      enrichedResponse += `\n\n📅 *Réunion identifiée selon votre référence temporelle: ${analysis.temporalReference.type}.*`;
     }
 
     return enrichedResponse;
@@ -227,23 +276,24 @@ INSTRUCTIONS INTELLIGENTES :
     const hasData = databaseContext.meetings?.length > 0 || embeddingContext.chunks?.length > 0 || taskContext.hasTaskContext;
     
     if (hasData) {
-      return `🏥 Je rencontre un problème technique temporaire, mais je vois que vous avez des données dans votre cabinet OphtaCare à Genève. 
+      return `🏥 Je rencontre un problème technique temporaire, mais je vois que vous avez des données dans votre cabinet Dr Tabibian à Genève. 
 
 Concernant votre question "${originalQuery}", je peux vous confirmer que j'ai accès à :
-${databaseContext.meetings?.length > 0 ? `- ${databaseContext.meetings.length} réunion(s) récente(s)` : ''}
+${databaseContext.meetings?.length > 0 ? `- ${databaseContext.meetings.length} réunion(s) récente(s) avec transcripts` : ''}
 ${embeddingContext.chunks?.length > 0 ? `- ${embeddingContext.chunks.length} élément(s) de contenu pertinent` : ''}
-${taskContext.hasTaskContext ? `- ${taskContext.currentTasks.length} tâche(s) en cours` : ''}
+${taskContext.hasTaskContext ? `- ${taskContext.currentTasks.length} tâche(s) administratives en cours` : ''}
 
-Pourriez-vous reformuler votre question ou être plus spécifique ? Je suis là pour vous aider avec votre pratique ophtalmologique. 👁️`;
+Pourriez-vous reformuler votre question ou être plus spécifique ? Je suis là pour vous aider avec votre cabinet d'ophtalmologie. 👁️`;
     }
 
-    return `🏥 Je suis l'assistant OphtaCare du Dr Tabibian à Genève et je reste disponible pour vous aider malgré ce problème technique temporaire.
+    return `🏥 Je suis l'assistant du cabinet Dr Tabibian à Genève et je reste disponible pour vous aider malgré ce problème technique temporaire.
 
 Pour votre question "${originalQuery}", je peux vous assister avec :
-- 📋 Gestion des tâches et planning
-- 🔍 Recherche dans vos données de cabinet
-- 💊 Conseils en ophtalmologie
-- 📊 Organisation administrative
+- 📋 Gestion des tâches administratives et planning
+- 🔍 Recherche dans vos données de cabinet (réunions, transcripts)
+- 💊 Conseils en ophtalmologie et gestion cabinet
+- 📊 Organisation administrative cabinet médical
+- 📅 Accès aux transcripts de réunions (dernière réunion, réunion de juin, etc.)
 
 Pouvez-vous reformuler votre demande ou être plus précis sur ce que vous cherchez ? 👁️`;
   }

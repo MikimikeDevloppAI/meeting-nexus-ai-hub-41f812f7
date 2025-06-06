@@ -21,8 +21,8 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory, todoId, taskContext: inputTaskContext } = await req.json();
-    console.log(`[AI-AGENT-SUPER-INTELLIGENT] 🧠 TRAITEMENT INTELLIGENT ADAPTATIF: ${message.substring(0, 100)}...`);
-    console.log(`[AI-AGENT-SUPER-INTELLIGENT] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 🏥 TRAITEMENT ADMINISTRATIF OPHTALMOLOGIE: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -35,7 +35,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Initialisation des agents intelligents
+    // Initialisation des agents intelligents pour cabinet médical
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
@@ -43,21 +43,23 @@ serve(async (req) => {
     const taskAgent = new TaskAgent(supabase);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 🧠 PHASE 1: ANALYSE INTELLIGENTE APPROFONDIE
-    console.log('[AI-AGENT-SUPER-INTELLIGENT] 🧠 Phase 1: Analyse intelligente approfondie');
+    // 🧠 PHASE 1: ANALYSE INTELLIGENTE CABINET MÉDICAL
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente cabinet ophtalmologie');
     let analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
-    console.log('[AI-AGENT-SUPER-INTELLIGENT] 📊 Analyse initiale:', {
+    console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Analyse cabinet:', {
       queryType: analysis.queryType,
       priority: analysis.priority,
       confidence: analysis.confidenceLevel,
-      needsRefinement: analysis.needsIterativeRefinement
+      temporalRef: analysis.temporalReference?.type || 'none',
+      adminContext: analysis.administrativeContext,
+      internetAccess: analysis.requiresInternet
     });
 
     // 📋 PHASE TÂCHES : Traitement prioritaire si détecté
     let taskContextData = { currentTasks: [], hasTaskContext: false };
     
     if (analysis.requiresTasks) {
-      console.log('[AI-AGENT-SUPER-INTELLIGENT] 📋 Phase TÂCHES: Traitement prioritaire');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase TÂCHES: Traitement administratif prioritaire');
       taskContextData = await taskAgent.handleTaskRequest(message, analysis);
       
       // Si action pure sur tâches, réponse rapide optimisée
@@ -90,18 +92,18 @@ serve(async (req) => {
     let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 };
     let internetContext = { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
 
-    // 🗄️ PHASE 2: RECHERCHE DATABASE INTELLIGENTE (PRIORITÉ AUX DONNÉES)
+    // 🗄️ PHASE 2: RECHERCHE DATABASE INTELLIGENTE (PRIORITÉ RECHERCHE SÉMANTIQUE)
     if (analysis.requiresDatabase) {
-      console.log('[AI-AGENT-SUPER-INTELLIGENT] 🗄️ Phase 2: Recherche database intelligente (PRIORITAIRE)');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2: Recherche database avec contexte temporel');
       databaseContext = await databaseAgent.searchContext(analysis);
-      console.log(`[AI-AGENT-SUPER-INTELLIGENT] ✅ Database: ${databaseContext.meetings.length} réunions, ${databaseContext.documents.length} documents, ${databaseContext.todos.length} tâches`);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Database: ${databaseContext.meetings.length} réunions, ${databaseContext.documents.length} documents, ${databaseContext.todos.length} tâches`);
     }
 
-    // 🎯 PHASE 3: RECHERCHE VECTORIELLE APPROFONDIE (PRIORITÉ CONTENU)
+    // 🎯 PHASE 3: RECHERCHE VECTORIELLE SÉMANTIQUE APPROFONDIE
     if (analysis.requiresEmbeddings) {
-      console.log('[AI-AGENT-SUPER-INTELLIGENT] 🎯 Phase 3: Recherche vectorielle approfondie');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 3: Recherche sémantique vectorielle approfondie');
       embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds);
-      console.log(`[AI-AGENT-SUPER-INTELLIGENT] ✅ Embeddings: ${embeddingContext.chunks.length} chunks, ${embeddingContext.searchIterations} itérations`);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Embeddings: ${embeddingContext.chunks.length} chunks, ${embeddingContext.searchIterations} itérations`);
     }
 
     // 🔄 PHASE 4: ÉVALUATION ET AMÉLIORATION ITÉRATIVE
@@ -113,33 +115,39 @@ serve(async (req) => {
     };
 
     const feedback = await coordinator.provideFeedback(searchResults, message, analysis);
-    console.log(`[AI-AGENT-SUPER-INTELLIGENT] 📈 Feedback: succès=${feedback.success}, confiance=${feedback.confidenceScore}`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📈 Feedback: succès=${feedback.success}, confiance=${feedback.confidenceScore}, internet=${feedback.shouldTryInternet}`);
 
     // 🔄 RAFFINEMENT SI NÉCESSAIRE
     if (analysis.needsIterativeRefinement && !feedback.foundRelevant) {
-      console.log('[AI-AGENT-SUPER-INTELLIGENT] 🔄 Phase 4.1: Raffinement de l\'analyse');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔄 Phase 4.1: Raffinement de l\'analyse');
       analysis = await coordinator.refineAnalysisWithResults(analysis, searchResults, message);
       
       // Recherche vectorielle étendue si raffinement nécessaire
       if (!embeddingContext.hasRelevantContext && feedback.suggestedTerms?.length > 0) {
-        console.log('[AI-AGENT-SUPER-INTELLIGENT] 🎯 Phase 4.2: Recherche vectorielle étendue');
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 4.2: Recherche vectorielle étendue');
         const expandedContext = await embeddingsAgent.searchWithFallback(message, feedback.suggestedTerms, databaseContext.relevantIds);
         if (expandedContext.chunks.length > embeddingContext.chunks.length) {
           embeddingContext = expandedContext;
-          console.log(`[AI-AGENT-SUPER-INTELLIGENT] ✅ Recherche étendue: ${expandedContext.chunks.length} nouveaux chunks`);
+          console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Recherche étendue: ${expandedContext.chunks.length} nouveaux chunks`);
         }
       }
     }
 
-    // 🌐 PHASE 5: ENRICHISSEMENT INTERNET (SEULEMENT SI NÉCESSAIRE)
-    if (analysis.requiresInternet || (feedback.shouldTryInternet && !embeddingContext.hasRelevantContext)) {
-      console.log('[AI-AGENT-SUPER-INTELLIGENT] 🌐 Phase 5: Enrichissement internet contextuel');
-      internetContext = await internetAgent.searchInternet(message, analysis, true); // Mode intelligent activé
-      console.log(`[AI-AGENT-SUPER-INTELLIGENT] ✅ Internet: ${internetContext.hasContent ? 'Enrichissement trouvé' : 'Pas de contenu pertinent'}`);
+    // 🌐 PHASE 5: ENRICHISSEMENT INTERNET (TOUJOURS DISPONIBLE SI NÉCESSAIRE)
+    if (analysis.requiresInternet || feedback.shouldTryInternet) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 5: Enrichissement internet pour cabinet médical');
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 🔑 Perplexity API disponible: ${perplexityApiKey ? 'OUI' : 'NON'}`);
+      
+      if (perplexityApiKey) {
+        internetContext = await internetAgent.searchInternet(message, analysis, true);
+        console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Internet: ${internetContext.hasContent ? 'Enrichissement trouvé' : 'Pas de contenu pertinent'}`);
+      } else {
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Pas de clé Perplexity - enrichissement internet indisponible');
+      }
     }
 
-    // ⚡ PHASE 6: SYNTHÈSE FINALE SUPER-INTELLIGENTE
-    console.log('[AI-AGENT-SUPER-INTELLIGENT] ⚡ Phase 6: Synthèse finale super-intelligente');
+    // ⚡ PHASE 6: SYNTHÈSE FINALE INTELLIGENTE CABINET MÉDICAL
+    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale cabinet ophtalmologie Dr Tabibian');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
@@ -163,7 +171,10 @@ serve(async (req) => {
         priority: analysis.priority,
         requiresTasks: analysis.requiresTasks,
         confidence: analysis.confidenceLevel,
-        iterativeRefinement: analysis.needsIterativeRefinement
+        iterativeRefinement: analysis.needsIterativeRefinement,
+        temporalReference: analysis.temporalReference,
+        administrativeContext: analysis.administrativeContext,
+        internetAccess: analysis.requiresInternet
       },
       searchMetrics: {
         totalDataPoints: (databaseContext.meetings?.length || 0) + 
@@ -173,27 +184,29 @@ serve(async (req) => {
         searchIterations: embeddingContext.searchIterations,
         confidenceScore: feedback.confidenceScore,
         taskManagement: taskContextData.hasTaskContext,
-        intelligentProcessing: true
+        intelligentProcessing: true,
+        internetEnrichment: internetContext.hasContent,
+        cabinetMedicalContext: true
       }
     };
 
-    console.log(`[AI-AGENT-SUPER-INTELLIGENT] ✅ RÉPONSE SUPER-INTELLIGENTE générée (confiance: ${feedback.confidenceScore})`);
+    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE CABINET MÉDICAL générée (confiance: ${feedback.confidenceScore})`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[AI-AGENT-SUPER-INTELLIGENT] ❌ ERREUR:', error);
+    console.error('[AI-AGENT-CABINET-MEDICAL] ❌ ERREUR:', error);
     
     // Réponse de fallback intelligente même en cas d'erreur
     const fallbackResponse = {
-      response: "Je rencontre un problème technique temporaire, mais je reste disponible pour vous aider avec votre cabinet d'ophtalmologie à Genève. Pouvez-vous reformuler votre question ou être plus spécifique sur ce que vous cherchez ?",
+      response: "Je rencontre un problème technique temporaire, mais je reste disponible pour vous aider avec votre cabinet d'ophtalmologie Dr Tabibian à Genève. Je peux vous assister avec les réunions, transcripts, tâches administratives et recherches. Pouvez-vous reformuler votre question ?",
       sources: [],
       internetSources: [],
       hasTaskContext: false,
       contextFound: false,
-      analysis: { queryType: 'assistance', priority: 'database', error: true },
+      analysis: { queryType: 'assistance', priority: 'database', error: true, cabinetMedical: true },
       searchMetrics: { totalDataPoints: 0, error: error.message, intelligentFallback: true }
     };
     

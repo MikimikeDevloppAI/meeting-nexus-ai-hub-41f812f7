@@ -1,10 +1,9 @@
-
 export interface QueryAnalysis {
   requiresDatabase: boolean;
   requiresEmbeddings: boolean;
   requiresInternet: boolean;
   requiresTasks: boolean;
-  queryType: 'meeting' | 'document' | 'task' | 'general' | 'mixed' | 'assistance';
+  queryType: 'meeting' | 'document' | 'task' | 'general' | 'mixed' | 'assistance' | 'administrative';
   specificEntities: string[];
   timeContext?: string;
   priority: 'database' | 'embeddings' | 'internet' | 'tasks';
@@ -25,6 +24,12 @@ export interface QueryAnalysis {
   taskAction?: 'list' | 'create' | 'update' | 'complete';
   confidenceLevel: number;
   needsIterativeRefinement: boolean;
+  temporalReference?: {
+    type: 'recent' | 'specific_month' | 'last' | 'specific_date';
+    value?: string;
+    needs_database_lookup: boolean;
+  };
+  administrativeContext: boolean;
 }
 
 export interface SearchFeedback {
@@ -45,7 +50,7 @@ export class CoordinatorAgent {
   }
 
   async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
-    console.log('[COORDINATOR] 🧠 ANALYSE INTELLIGENTE APPROFONDIE:', message.substring(0, 100));
+    console.log('[COORDINATOR] 🧠 ANALYSE INTELLIGENTE CABINET OPHTALMOLOGIE:', message.substring(0, 100));
 
     // Détection prioritaire des tâches
     const isTaskRelated = this.quickTaskDetection(message);
@@ -55,45 +60,55 @@ export class CoordinatorAgent {
       return this.analyzeTaskQuery(message, conversationHistory);
     }
 
-    // Analyse intelligente renforcée pour tous les autres types
-    const analysisPrompt = `Tu es le coordinateur expert OphtaCare pour un cabinet d'ophtalmologie à Genève. Analyse INTELLIGEMMENT cette requête.
+    // Analyse intelligente renforcée pour cabinet médical
+    const analysisPrompt = `Tu es le coordinateur expert OphtaCare pour le cabinet d'ophtalmologie du Dr Tabibian à Genève. 
 
-QUESTION: "${message}"
+CONTEXTE MÉDICAL ADMINISTRATIF :
+- Cabinet spécialisé en ophtalmologie
+- Gestion administrative et médicale
+- Données internes : réunions, transcripts, documents, tâches
+- Base vectorielle pour recherche sémantique approfondie
+- Accès internet pour informations complémentaires
 
-CONTEXTE MÉDICAL SPÉCIALISÉ :
-- Cabinet Dr Tabibian, ophtalmologie Genève
-- Données: réunions, transcripts, documents, tâches
-- Base vectorielle disponible pour recherche approfondie
-- Internet pour conseils généraux
+QUESTION UTILISATEUR: "${message}"
 
-RÈGLES D'ANALYSE INTELLIGENTE :
-1. PRIORITÉ AUX DONNÉES INTERNES : Toujours chercher d'abord dans les meetings/transcripts
-2. Si demande "dernier meeting", "compte rendu", "résumé" → database + embeddings OBLIGATOIRE
-3. Si question spécifique patient/procédure → embeddings + database
-4. Si conseil général médical → internet après recherche interne
-5. Détection entités: noms patients, traitements, dates
+RÈGLES D'ANALYSE CABINET MÉDICAL :
+1. **PRIORITÉ RECHERCHE SÉMANTIQUE** : TOUJOURS chercher d'abord dans les données internes
+2. **DÉTECTION TEMPORELLE INTELLIGENTE** :
+   - "dernière réunion" = recherche meeting le plus récent par date
+   - "réunion de juin" = recherche meetings créés en juin
+   - "réunion du 31 mars" = recherche par date spécifique
+3. **RÉFÉRENCES CONTEXTUELLES** :
+   - Transcript demandé = requiresDatabase=true + requiresEmbeddings=true
+   - Questions administratives = requiresDatabase=true en priorité
+4. **ENRICHISSEMENT INTERNET** : Seulement après recherche interne si nécessaire
 
-DÉTECTION FINE :
-- "dernier meeting" = requiresDatabase=true, requiresEmbeddings=true, priority="database"
-- "compte rendu" = requiresDatabase=true, requiresEmbeddings=true, priority="database"  
-- Questions patients = requiresDatabase=true, requiresEmbeddings=true, priority="embeddings"
-- Conseils généraux = recherche interne PUIS internet si nécessaire
+DÉTECTION FINE TEMPORELLE :
+- "dernier/dernière" → temporalReference: type="last", needs_database_lookup=true
+- "juin/mars/avril" → temporalReference: type="specific_month", value="mois"
+- Dates spécifiques → temporalReference: type="specific_date", value="date"
 
-JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
+JSON OBLIGATOIRE - ANALYSE COMPLÈTE :
 {
   "requiresDatabase": boolean,
   "requiresEmbeddings": boolean, 
   "requiresInternet": boolean,
   "requiresTasks": boolean,
-  "queryType": "meeting|document|general|assistance",
+  "queryType": "meeting|document|general|assistance|administrative",
   "priority": "database|embeddings|internet",
   "searchTerms": ["termes", "clés", "extraits"],
   "synonyms": ["variantes", "synonymes"],
   "specificEntities": ["entités", "spécifiques"],
-  "timeContext": "récent|ancien|null",
+  "timeContext": "récent|ancien|spécifique|null",
+  "temporalReference": {
+    "type": "recent|specific_month|last|specific_date",
+    "value": "valeur si applicable",
+    "needs_database_lookup": boolean
+  },
   "iterativeSearch": boolean,
   "fuzzyMatching": boolean,
   "medicalContext": true,
+  "administrativeContext": boolean,
   "requiresClarification": false,
   "confidenceLevel": 0.0-1.0,
   "needsIterativeRefinement": boolean,
@@ -114,7 +129,7 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: analysisPrompt }],
           temperature: 0.1,
-          max_tokens: 600,
+          max_tokens: 800,
         }),
       });
 
@@ -131,12 +146,19 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
         analysis.specificEntities = analysis.specificEntities || [];
         analysis.confidenceLevel = analysis.confidenceLevel || 0.8;
         analysis.needsIterativeRefinement = analysis.needsIterativeRefinement || false;
+        analysis.administrativeContext = analysis.administrativeContext || true;
         
-        console.log('[COORDINATOR] ✅ Analyse intelligente complète:', {
+        // Forcer l'accès internet si pas de données internes pertinentes attendues
+        if (analysis.queryType === 'general' || analysis.queryType === 'assistance') {
+          analysis.requiresInternet = true;
+        }
+        
+        console.log('[COORDINATOR] ✅ Analyse cabinet médical complète:', {
           queryType: analysis.queryType,
           priority: analysis.priority,
           confidence: analysis.confidenceLevel,
-          searchTerms: analysis.searchTerms?.length || 0
+          temporalRef: analysis.temporalReference?.type || 'none',
+          adminContext: analysis.administrativeContext
         });
         
         return analysis;
@@ -195,6 +217,7 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
         target: message
       },
       medicalContext: true,
+      administrativeContext: true,
       requiresClarification: false,
       taskAction,
       confidenceLevel: 0.9,
@@ -205,15 +228,25 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
   private getIntelligentFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Détection intelligente pour meetings/comptes rendus
-    const isMeetingQuery = ['meeting', 'réunion', 'compte rendu', 'résumé', 'dernier', 'dernière'].some(term => lowerMessage.includes(term));
+    // Détection intelligente pour meetings/comptes rendus avec références temporelles
+    const isMeetingQuery = ['meeting', 'réunion', 'compte rendu', 'résumé', 'dernier', 'dernière', 'transcript'].some(term => lowerMessage.includes(term));
     const isInfoQuery = ['trouve', 'cherche', 'information', 'données', 'dit', 'parlé', 'patient'].some(term => lowerMessage.includes(term));
-    const needsInternet = ['conseil', 'recommandation', 'aide', 'comment', 'que faire', 'traitement général'].some(term => lowerMessage.includes(term));
+    const needsInternet = ['conseil', 'recommandation', 'aide', 'comment', 'que faire', 'traitement général', 'fournisseur'].some(term => lowerMessage.includes(term));
+    
+    // Détection temporelle
+    let temporalReference = null;
+    if (lowerMessage.includes('dernier') || lowerMessage.includes('dernière')) {
+      temporalReference = { type: 'last', needs_database_lookup: true };
+    } else if (lowerMessage.includes('juin')) {
+      temporalReference = { type: 'specific_month', value: 'juin', needs_database_lookup: true };
+    } else if (lowerMessage.includes('mars')) {
+      temporalReference = { type: 'specific_month', value: 'mars', needs_database_lookup: true };
+    }
 
     let priority: 'database' | 'embeddings' | 'internet' = 'database';
     let requiresDatabase = true;
     let requiresEmbeddings = true;
-    let requiresInternet = false;
+    let requiresInternet = needsInternet; // Toujours activer internet si nécessaire
 
     if (isMeetingQuery) {
       priority = 'database';
@@ -233,9 +266,10 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
       requiresEmbeddings,
       requiresInternet,
       requiresTasks: false,
-      queryType: isMeetingQuery ? 'meeting' : isInfoQuery ? 'general' : 'assistance',
+      queryType: isMeetingQuery ? 'meeting' : isInfoQuery ? 'administrative' : 'assistance',
       specificEntities: [],
-      timeContext: isMeetingQuery ? 'récent' : null,
+      timeContext: temporalReference ? (temporalReference.type === 'last' ? 'récent' : 'spécifique') : null,
+      temporalReference,
       priority,
       searchTerms: [message],
       synonyms: [],
@@ -246,6 +280,7 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
         target: message
       },
       medicalContext: true,
+      administrativeContext: true,
       requiresClarification: false,
       confidenceLevel: 0.7,
       needsIterativeRefinement: true
@@ -267,7 +302,8 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
     if (searchResults.documents?.length > 0) confidenceScore += 0.2;
     if (searchResults.todos?.length > 0) confidenceScore += 0.1;
     
-    const shouldTryInternet = !hasRelevantContent && analysis.queryType === 'assistance';
+    // Toujours essayer internet si pas de contenu interne ET si autorisé
+    const shouldTryInternet = !hasRelevantContent || analysis.requiresInternet;
     
     if (!hasRelevantContent) {
       return {
@@ -285,7 +321,7 @@ JSON OBLIGATOIRE - RÉPONSE COMPLÈTE :
       success: true,
       foundRelevant: true,
       needsExpansion: false,
-      shouldTryInternet: false,
+      shouldTryInternet: analysis.requiresInternet, // Respecter l'analyse initiale
       confidenceScore
     };
   }
