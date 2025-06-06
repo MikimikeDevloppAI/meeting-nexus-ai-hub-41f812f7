@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -215,7 +214,7 @@ export const TodoParticipantManager = ({
             onClick={() => setShowMultiSelect(true)}
             disabled={availableParticipants.length === 0}
           >
-            Sélection multiple
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
       ) : (
