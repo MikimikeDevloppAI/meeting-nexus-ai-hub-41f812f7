@@ -259,104 +259,99 @@ export class PowerPointProcessor implements DocumentProcessor {
 
   async extractText(fileData: Blob, apiKey: string): Promise<string> {
     console.log(`🔄 Processing PowerPoint (${fileData.size} bytes) with ConvertAPI...`);
+    console.log('📋 Using two-step conversion: PowerPoint -> PDF -> Text');
 
     const formData = new FormData();
     formData.append('File', fileData, 'presentation.pptx');
 
-    console.log('📤 Uploading PowerPoint to ConvertAPI...');
+    // STEP 1: Convert PowerPoint to PDF
+    console.log('📤 Step 1: Converting PowerPoint to PDF...');
 
-    const uploadController = new AbortController();
-    const uploadTimeout = setTimeout(() => uploadController.abort(), 45000);
+    const pdfController = new AbortController();
+    const pdfTimeout = setTimeout(() => pdfController.abort(), 60000);
 
     try {
-      const extractResponse = await fetch('https://v2.convertapi.com/convert/pptx/to/txt', {
+      const pdfResponse = await fetch('https://v2.convertapi.com/convert/pptx/to/pdf', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${apiKey}`,
         },
         body: formData,
-        signal: uploadController.signal
+        signal: pdfController.signal
       });
 
-      clearTimeout(uploadTimeout);
+      clearTimeout(pdfTimeout);
 
-      if (!extractResponse.ok) {
-        const errorText = await extractResponse.text();
-        console.error('❌ ConvertAPI PowerPoint error:', errorText);
-        throw new Error(`PowerPoint extraction failed: ${extractResponse.status} - ${errorText}`);
+      if (!pdfResponse.ok) {
+        const errorText = await pdfResponse.text();
+        console.error('❌ ConvertAPI PowerPoint to PDF error:', errorText);
+        throw new Error(`PowerPoint to PDF conversion failed: ${pdfResponse.status} - ${errorText}`);
       }
 
-      const extractData = await extractResponse.json();
-      console.log('📋 ConvertAPI response data:', JSON.stringify(extractData, null, 2));
+      const pdfData = await pdfResponse.json();
+      console.log('📋 PDF conversion response:', JSON.stringify(pdfData, null, 2));
       
-      if (!extractData.Files || extractData.Files.length === 0) {
-        console.error('❌ No files in ConvertAPI response:', extractData);
-        throw new Error('PowerPoint text extraction failed - no result files');
+      if (!pdfData.Files || pdfData.Files.length === 0) {
+        console.error('❌ No PDF files in ConvertAPI response:', pdfData);
+        throw new Error('PowerPoint to PDF conversion failed - no result files');
       }
 
-      const resultFile = extractData.Files[0];
+      const pdfFile = pdfData.Files[0];
       
-      let extractedText = '';
+      // Download the PDF file
+      let pdfBlob: Blob;
       
-      // Check if we have FileData (base64) or Url
-      if (resultFile.FileData) {
-        console.log('📥 Extracting text from base64 FileData...');
-        try {
-          // Decode base64 data
-          const base64Data = resultFile.FileData;
-          const binaryString = atob(base64Data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const decoder = new TextDecoder('utf-8');
-          extractedText = decoder.decode(bytes);
-          console.log(`✅ Text extracted from base64 (${extractedText.length} chars)`);
-        } catch (decodeError) {
-          console.error('❌ Failed to decode base64 FileData:', decodeError);
-          throw new Error('Failed to decode extracted text from base64');
+      if (pdfFile.FileData) {
+        console.log('📥 Getting PDF from base64 FileData...');
+        const base64Data = pdfFile.FileData;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
-      } else if (resultFile.Url) {
-        console.log(`📥 Downloading extracted text from URL: ${resultFile.Url}`);
+        pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+      } else if (pdfFile.Url) {
+        console.log(`📥 Downloading PDF from URL: ${pdfFile.Url}`);
         
         const downloadController = new AbortController();
         const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
         
         try {
-          const textResponse = await fetch(resultFile.Url, {
+          const pdfFileResponse = await fetch(pdfFile.Url, {
             signal: downloadController.signal
           });
           
           clearTimeout(downloadTimeout);
           
-          if (!textResponse.ok) {
-            throw new Error(`Failed to download extracted text: ${textResponse.status} ${textResponse.statusText}`);
+          if (!pdfFileResponse.ok) {
+            throw new Error(`Failed to download PDF: ${pdfFileResponse.status} ${pdfFileResponse.statusText}`);
           }
 
-          extractedText = await textResponse.text();
-          console.log(`✅ Text downloaded from URL (${extractedText.length} chars)`);
+          pdfBlob = await pdfFileResponse.blob();
+          console.log(`✅ PDF downloaded (${pdfBlob.size} bytes)`);
 
         } catch (downloadError) {
           clearTimeout(downloadTimeout);
           if (downloadError.name === 'AbortError') {
-            throw new Error('Text download timed out');
+            throw new Error('PDF download timed out');
           }
           throw downloadError;
         }
       } else {
-        console.error('❌ No FileData or URL in result file:', resultFile);
-        throw new Error('PowerPoint text extraction failed - no FileData or download URL in result');
+        console.error('❌ No FileData or URL in PDF result file:', pdfFile);
+        throw new Error('PowerPoint to PDF conversion failed - no FileData or download URL in result');
       }
 
-      if (!extractedText || extractedText.trim().length === 0) {
-        throw new Error('PowerPoint contains no extractable text');
-      }
+      // STEP 2: Convert PDF to Text using PDF processor
+      console.log('📤 Step 2: Converting PDF to text...');
+      const pdfProcessor = new PDFProcessor();
+      const extractedText = await pdfProcessor.extractText(pdfBlob, apiKey);
 
       console.log(`✅ PowerPoint text extracted successfully (${extractedText.length} chars)`);
       return extractedText;
 
     } catch (extractError) {
-      clearTimeout(uploadTimeout);
+      clearTimeout(pdfTimeout);
       if (extractError.name === 'AbortError') {
         throw new Error('PowerPoint text extraction timed out');
       }
