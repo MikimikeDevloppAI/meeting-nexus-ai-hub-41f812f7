@@ -52,6 +52,10 @@ export class SynthesisAgent {
       return response;
     }
 
+    // Analyse de l'historique pour détecter les réponses courtes à des questions
+    const lastAssistantMessage = this.getLastAssistantMessage(conversationHistory);
+    const isShortResponseToQuestion = this.isShortResponseToQuestion(message, lastAssistantMessage);
+
     // Reste de la logique de synthèse existante
     let synthesisType = 'database';
     
@@ -72,31 +76,42 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 💬 Phase 1: Réponse conversationnelle générale');
     }
 
-    // Construction du contexte pour l'IA
+    // Construction du contexte pour l'IA avec historique prioritaire
     let contextData = '';
     
-    // HISTORIQUE DE CONVERSATION AMÉLIORÉ - Section prioritaire
+    // HISTORIQUE DE CONVERSATION - Section PRIORITAIRE au début
     if (conversationHistory && conversationHistory.length > 0) {
-      contextData += `\n\n=== CONTEXTE CONVERSATIONNEL CRUCIAL ===\n`;
-      contextData += `INSTRUCTIONS: UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE, LES RÉFÉRENCES ET LA CONTINUITÉ DE LA CONVERSATION.\n`;
-      contextData += `Les messages récents te donnent le contexte nécessaire pour répondre de manière cohérente.\n\n`;
+      contextData += `\n\n🔥 === CONTEXTE CONVERSATIONNEL CRITIQUE - UTILISE ABSOLUMENT === 🔥\n`;
+      contextData += `INSTRUCTION IMPÉRATIVE: UTILISE CET HISTORIQUE POUR COMPRENDRE LE CONTEXTE ET LES RÉFÉRENCES.\n`;
+      contextData += `L'utilisateur peut faire référence à des éléments mentionnés précédemment - tu DOIS en tenir compte.\n\n`;
       
-      contextData += `DERNIERS ÉCHANGES DE LA CONVERSATION:\n`;
-      conversationHistory.slice(-6).forEach((msg: any, index: number) => {
+      // Formatage optimisé de l'historique
+      contextData += `CONVERSATION RÉCENTE (du plus ancien au plus récent):\n`;
+      const recentHistory = conversationHistory.slice(-6);
+      
+      recentHistory.forEach((msg: any, index: number) => {
         const role = msg.isUser ? '👤 UTILISATEUR' : '🤖 ASSISTANT';
         const timestamp = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { 
           hour: '2-digit', 
           minute: '2-digit' 
         });
-        contextData += `[${timestamp}] ${role}: ${msg.content.substring(0, 300)}${msg.content.length > 300 ? '...' : ''}\n\n`;
+        const content = msg.content.length > 300 ? msg.content.substring(0, 300) + '...' : msg.content;
+        contextData += `\n[${timestamp}] ${role}:\n"${content}"\n`;
       });
+
+      // Détection spéciale des réponses courtes
+      if (isShortResponseToQuestion) {
+        contextData += `\n🚨 ATTENTION CRITIQUE: L'utilisateur vient de donner une RÉPONSE COURTE ("${message}") à une question de l'assistant.\n`;
+        contextData += `DERNIÈRE QUESTION DE L'ASSISTANT: "${lastAssistantMessage}"\n`;
+        contextData += `INSTRUCTION: Traite "${message}" comme une RÉPONSE DIRECTE à cette question, pas comme une nouvelle demande indépendante.\n\n`;
+      }
       
-      contextData += `=== FIN CONTEXTE CONVERSATIONNEL ===\n\n`;
+      contextData += `\n=== FIN CONTEXTE CONVERSATIONNEL ===\n\n`;
     }
     
     // Ajouter le contexte des tâches si disponible
     if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
-      contextData += `\n\nTÂCHES EN COURS (${taskContext.currentTasks.length}):\n`;
+      contextData += `\nTÂCHES EN COURS (${taskContext.currentTasks.length}):\n`;
       taskContext.currentTasks.forEach((task: any, index: number) => {
         contextData += `${index + 1}. ${task.description} (ID: ${task.id}, Statut: ${task.status})\n`;
       });
@@ -105,7 +120,7 @@ export class SynthesisAgent {
     // Ajouter le contexte des embeddings si disponible
     if (embeddingContext.hasRelevantContext) {
       console.log('[SYNTHESIS] 🎯 Utilisation des données embeddings disponibles');
-      contextData += `\n\nCONTEXTE DOCUMENTAIRE CABINET (${embeddingContext.chunks.length} éléments):\n`;
+      contextData += `\nCONTEXTE DOCUMENTAIRE CABINET (${embeddingContext.chunks.length} éléments):\n`;
       embeddingContext.chunks.slice(0, 5).forEach((chunk: any, index: number) => {
         contextData += `${index + 1}. ${chunk.chunk_text.substring(0, 200)}...\n`;
       });
@@ -114,12 +129,12 @@ export class SynthesisAgent {
     // Ajouter le contexte internet si disponible
     if (internetContext.hasContent) {
       console.log('[SYNTHESIS] 🌐 Utilisation des données Internet disponibles');
-      contextData += `\n\nINFORMATIONS INTERNET ENRICHIES:\n${internetContext.content.substring(0, 1000)}...\n`;
+      contextData += `\nINFORMATIONS INTERNET ENRICHIES:\n${internetContext.content.substring(0, 1000)}...\n`;
     }
 
     // Ajouter le contexte de base de données
     if (databaseContext.meetings?.length > 0) {
-      contextData += `\n\nRÉUNIONS RÉCENTES (${databaseContext.meetings.length}):\n`;
+      contextData += `\nRÉUNIONS RÉCENTES (${databaseContext.meetings.length}):\n`;
       databaseContext.meetings.slice(0, 3).forEach((meeting: any, index: number) => {
         contextData += `${index + 1}. ${meeting.title} (${meeting.meeting_date})\n`;
       });
@@ -128,16 +143,27 @@ export class SynthesisAgent {
     // Construction du prompt pour l'IA avec emphasis sur l'historique
     const systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
 
-MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
+🔥 INSTRUCTION CRITIQUE N°1: UTILISE ABSOLUMENT L'HISTORIQUE DE CONVERSATION FOURNI pour maintenir la continuité et comprendre les références. 
+🔥 INSTRUCTION CRITIQUE N°2: Si l'utilisateur donne une réponse courte après que tu aies posé une question, traite cette réponse comme la réponse à ta question.
 
-⚠️ INSTRUCTION CRITIQUE: UTILISE ABSOLUMENT L'HISTORIQUE DE CONVERSATION FOURNI pour maintenir la continuité et comprendre les références. 
-L'utilisateur peut faire référence à des éléments mentionnés précédemment - tu DOIS en tenir compte.
+EXEMPLE CRUCIAL:
+- Si tu demandes "À qui assigner cette tâche ?" et que l'utilisateur répond "david", tu dois comprendre qu'il veut assigner la tâche à David Tabibian.
+- Si tu demandes une précision et que l'utilisateur donne juste un nom ou une réponse courte, c'est une réponse à ta question.
+
+MISSION: Fournir une assistance administrative et médicale experte avec un ton professionnel et bienveillant.
 
 CONTEXTE CABINET:
 - Cabinet d'ophtalmologie Dr David Tabibian
 - Situé à Genève, Suisse 
 - Spécialisé en ophtalmologie et chirurgie oculaire
 - Équipe administrative et médicale
+
+PARTICIPANTS DISPONIBLES POUR ASSIGNATION:
+- David Tabibian (ID: c04c6400-1025-4906-9823-30478123bd71)
+- Emilie (ID: 9b8b37f6-ee0c-4354-be18-6a0ca0930b12)
+- Leila (ID: 42445b1f-d701-4f30-b57c-48814b64a1df)
+- Parmice (ID: a0c5df24-45ba-49c8-bb5e-1a6e9fc7f49d)
+- Sybil (ID: 2fdb2b35-91ef-4966-93ec-9261172c31c1)
 
 CAPACITÉS PRINCIPALES:
 - Gestion administrative (rendez-vous, dossiers patients, facturation)
@@ -190,6 +216,32 @@ QUESTION/DEMANDE ACTUELLE: ${message}`;
 
     const aiData = await response.json();
     return aiData.choices[0].message.content;
+  }
+
+  private getLastAssistantMessage(conversationHistory: any[]): string {
+    if (!conversationHistory || conversationHistory.length === 0) return '';
+    
+    // Chercher le dernier message de l'assistant
+    for (let i = conversationHistory.length - 1; i >= 0; i--) {
+      const msg = conversationHistory[i];
+      if (!msg.isUser) {
+        return msg.content;
+      }
+    }
+    return '';
+  }
+
+  private isShortResponseToQuestion(currentMessage: string, lastAssistantMessage: string): boolean {
+    // Vérifier si le message actuel est court (moins de 20 caractères)
+    const isShort = currentMessage.trim().length < 20;
+    
+    // Vérifier si le dernier message de l'assistant contenait une question
+    const hasQuestion = lastAssistantMessage.includes('?') || 
+                       lastAssistantMessage.toLowerCase().includes('qui') ||
+                       lastAssistantMessage.toLowerCase().includes('comment') ||
+                       lastAssistantMessage.toLowerCase().includes('assigner');
+    
+    return isShort && hasQuestion;
   }
 
   private async getAssignedName(assignedId: string | null): Promise<string | null> {
