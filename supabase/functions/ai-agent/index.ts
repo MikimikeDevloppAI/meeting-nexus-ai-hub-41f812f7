@@ -6,7 +6,6 @@ import { CoordinatorAgent } from './agents/coordinator.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
 import { InternetAgent } from './agents/internet.ts';
-import { GalaxusAgent } from './agents/galaxus.ts';
 import { TaskAgent } from './agents/tasks.ts';
 import { SynthesisAgent } from './agents/synthesis.ts';
 
@@ -22,7 +21,7 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory, todoId, taskContext: inputTaskContext } = await req.json();
-    console.log(`[AI-AGENT-OPHTACARE] 🏥 TRAITEMENT INTELLIGENT avec gestion TÂCHES: ${message.substring(0, 100)}...`);
+    console.log(`[AI-AGENT-OPHTACARE] 🏥 TRAITEMENT INTELLIGENT: ${message.substring(0, 100)}...`);
     console.log(`[AI-AGENT-OPHTACARE] 💬 Historique: ${conversationHistory ? conversationHistory.length : 0} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -36,39 +35,35 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Initialisation des agents avec TASKS
+    // Initialisation des agents optimisés
     const coordinator = new CoordinatorAgent(openaiApiKey);
     const databaseAgent = new DatabaseAgent(supabase);
     const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
     const internetAgent = new InternetAgent(perplexityApiKey);
-    const galaxusAgent = new GalaxusAgent(perplexityApiKey);
     const taskAgent = new TaskAgent(supabase);
     const synthesisAgent = new SynthesisAgent(openaiApiKey);
 
-    // 🧠 PHASE 1: ANALYSE INTELLIGENTE avec détection spécialisée
-    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Analyse intelligente avec détection contexte');
+    // 🧠 PHASE 1: ANALYSE RAPIDE ET INTELLIGENTE
+    console.log('[AI-AGENT-OPHTACARE] 🧠 Phase 1: Analyse rapide');
     const analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
-    console.log('[AI-AGENT-OPHTACARE] 📊 Analyse intelligente:', {
+    console.log('[AI-AGENT-OPHTACARE] 📊 Analyse:', {
       queryType: analysis.queryType,
       priority: analysis.priority,
-      requiresTasks: analysis.requiresTasks,
-      requiresEmbeddings: analysis.requiresEmbeddings,
-      taskAction: analysis.taskAction
+      requiresTasks: analysis.requiresTasks
     });
 
     // 📋 PHASE TÂCHES : Traitement prioritaire si détecté
     let taskContextData = { currentTasks: [], hasTaskContext: false };
     
     if (analysis.requiresTasks) {
-      console.log('[AI-AGENT-OPHTACARE] 📋 Phase TÂCHES: Traitement spécialisé prioritaire');
+      console.log('[AI-AGENT-OPHTACARE] 📋 Phase TÂCHES: Traitement prioritaire');
       taskContextData = await taskAgent.handleTaskRequest(message, analysis);
       console.log('[AI-AGENT-OPHTACARE] ✅ Tâches:', {
         currentTasks: taskContextData.currentTasks.length,
-        taskCreated: taskContextData.taskCreated ? 'OUI' : 'NON',
-        taskAction: taskContextData.taskAction
+        taskCreated: taskContextData.taskCreated ? 'OUI' : 'NON'
       });
       
-      // Si c'est une action pure sur les tâches, on peut répondre directement
+      // Si c'est une action pure sur les tâches, réponse rapide
       if (analysis.taskAction === 'create' && taskContextData.taskCreated) {
         const quickResponse = await synthesisAgent.synthesizeResponse(
           message,
@@ -76,7 +71,6 @@ serve(async (req) => {
           { meetings: [], documents: [], todos: [], participants: [], relevantIds: { meetingIds: [], documentIds: [], todoIds: [], participantIds: [] } },
           { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 },
           { content: '', sources: [], hasContent: false, enrichmentType: 'none' },
-          { products: [], hasProducts: false, searchQuery: '', recommendations: '' },
           analysis,
           taskContextData
         );
@@ -94,46 +88,34 @@ serve(async (req) => {
       }
     }
 
-    // Continuer avec les autres phases seulement si nécessaire
+    // Contextes pour les autres agents (optimisés)
     let databaseContext = { meetings: [], documents: [], todos: [], participants: [], relevantIds: { meetingIds: [], documentIds: [], todoIds: [], participantIds: [] } };
     let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 };
     let internetContext = { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
-    let galaxusContext = { products: [], hasProducts: false, searchQuery: '', recommendations: '' };
 
-    // 🗄️ PHASE 2: Database (si nécessaire)
+    // 🗄️ PHASE 2: Database (seulement si nécessaire)
     if (analysis.requiresDatabase && analysis.priority !== 'tasks') {
       console.log('[AI-AGENT-OPHTACARE] 🗄️ Phase 2: Recherche database');
       databaseContext = await databaseAgent.searchContext(analysis);
       console.log(`[AI-AGENT-OPHTACARE] ✅ Database: ${databaseContext.meetings.length} réunions, ${databaseContext.documents.length} documents`);
     }
 
-    // 🎯 PHASE 3: Embeddings (si nécessaire)
+    // 🎯 PHASE 3: Embeddings (seulement si nécessaire)
     if (analysis.requiresEmbeddings && analysis.priority !== 'tasks') {
       console.log('[AI-AGENT-OPHTACARE] 🎯 Phase 3: Recherche vectorielle');
       embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds);
       console.log(`[AI-AGENT-OPHTACARE] ✅ Embeddings: ${embeddingContext.chunks.length} chunks`);
     }
 
-    // 🛒 PHASE 4: Galaxus (si nécessaire)
-    if (analysis.requiresInternet || analysis.priority === 'internet') {
-      console.log('[AI-AGENT-OPHTACARE] 🛒 Phase 4: Recherche produits');
-      galaxusContext = await galaxusAgent.searchProducts(message, analysis);
-      console.log(`[AI-AGENT-OPHTACARE] ✅ Galaxus: ${galaxusContext.products.length} produits`);
+    // 🌐 PHASE 4: Internet (très sélectif pour recommendations générales)
+    if (analysis.requiresInternet && !embeddingContext.hasRelevantContext && !taskContextData.hasTaskContext) {
+      console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 4: Recherche Internet');
+      internetContext = await internetAgent.searchInternet(message, analysis, false);
+      console.log(`[AI-AGENT-OPHTACARE] ✅ Internet: ${internetContext.hasContent ? 'Trouvé' : 'Non trouvé'}`);
     }
 
-    // 🌐 PHASE 5: Internet complémentaire (très sélectif)
-    const shouldUseInternet = analysis.requiresInternet && 
-                              !galaxusContext.hasProducts && 
-                              !embeddingContext.hasRelevantContext &&
-                              !taskContextData.hasTaskContext;
-    
-    if (shouldUseInternet) {
-      console.log('[AI-AGENT-OPHTACARE] 🌐 Phase 5: Internet complémentaire');
-      internetContext = await internetAgent.searchInternet(message, analysis, false, galaxusContext);
-    }
-
-    // ⚡ PHASE 6: SYNTHÈSE FINALE
-    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 6: Synthèse intelligente finale');
+    // ⚡ PHASE 5: SYNTHÈSE FINALE OPTIMISÉE
+    console.log('[AI-AGENT-OPHTACARE] ⚡ Phase 5: Synthèse finale');
     
     const finalResponse = await synthesisAgent.synthesizeResponse(
       message,
@@ -141,7 +123,6 @@ serve(async (req) => {
       databaseContext,
       embeddingContext,
       internetContext,
-      galaxusContext,
       analysis,
       taskContextData
     );
@@ -150,7 +131,6 @@ serve(async (req) => {
       response: finalResponse,
       sources: embeddingContext.sources,
       internetSources: internetContext.sources,
-      galaxusSources: galaxusContext.hasProducts ? [{ type: 'galaxus', source: 'Galaxus Products', query: galaxusContext.searchQuery }] : [],
       hasTaskContext: taskContextData.hasTaskContext,
       taskAction: taskContextData.taskAction,
       contextFound: embeddingContext.hasRelevantContext,
@@ -163,14 +143,12 @@ serve(async (req) => {
         totalDataPoints: (databaseContext.meetings?.length || 0) + 
                         (databaseContext.documents?.length || 0) + 
                         (embeddingContext.chunks?.length || 0) +
-                        (taskContextData.currentTasks?.length || 0) +
-                        (galaxusContext.products?.length || 0),
+                        (taskContextData.currentTasks?.length || 0),
         taskManagement: taskContextData.hasTaskContext
       }
     };
 
-    console.log(`[AI-AGENT-OPHTACARE] ✅ RÉPONSE INTELLIGENTE avec TÂCHES générée`);
-    console.log(`[AI-AGENT-OPHTACARE] 📈 MÉTRIQUES: Tâches=${taskContextData.currentTasks.length}, Priority=${analysis.priority}, Action=${taskContextData.taskAction || 'none'}`);
+    console.log(`[AI-AGENT-OPHTACARE] ✅ RÉPONSE OPTIMISÉE générée`);
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -180,7 +158,7 @@ serve(async (req) => {
     console.error('[AI-AGENT-OPHTACARE] ❌ ERREUR:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      context: 'AI Agent OphtaCare - Gestion intelligente avec tâches'
+      context: 'AI Agent OphtaCare - Optimisé'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

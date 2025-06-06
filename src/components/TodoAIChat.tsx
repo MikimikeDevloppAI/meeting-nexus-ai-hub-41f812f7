@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -243,7 +242,7 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
               </div>
               <div className="bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 shadow-sm">
                 <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                <span className="text-sm text-blue-700">Analyse OphtaCare en cours...</span>
+                <span className="text-sm text-blue-700">Analyse OphtaCare optimisée...</span>
               </div>
             </div>
           )}

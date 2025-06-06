@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,7 +123,7 @@ const Assistant = () => {
   const parseTaskAction = (content: string): TaskAction | null => {
     console.log('Parsing task action from content:', content);
     
-    // Improved regex to handle malformed syntax and line breaks
+    // Improved regex to handle the syntax properly
     const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,\]]+)(?:,\s*(.+?))?\]/s);
     if (!actionMatch) {
       console.log('No action match found');
@@ -140,10 +139,10 @@ const Assistant = () => {
     const data: TaskAction['data'] = {};
     
     if (paramsStr) {
-      // Clean the params string by removing CONTEXT_UTILISATEURS
-      paramsStr = paramsStr.replace(/\s*CONTEXT_UTILISATEURS:[^,}]*(?:,|$)/gi, '');
+      // Clean the params string by removing CONTEXT_PARTICIPANTS
+      paramsStr = paramsStr.replace(/\s*CONTEXT_PARTICIPANTS:[^,}]*(?:,|$)/gi, '');
       
-      // Handle both key="value" and key=value formats, including multi-line descriptions
+      // Handle both key="value" and key=value formats
       const paramRegex = /(\w+)=(?:"([^"]*)"|([^,\]]+))/g;
       let match;
       
@@ -153,21 +152,19 @@ const Assistant = () => {
         
         console.log(`Found param: ${key} = ${value}`);
         
-        // Clean up description by removing CONTEXT_UTILISATEURS and extra spaces
+        // Clean up description
         if (key === 'description') {
-          value = value.replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '').trim();
+          value = value.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
           value = value.replace(/\n+/g, ' ').trim();
         }
         
         // Handle assigned_to specially - try to find participant by name first
         if (key === 'assigned_to') {
-          // First try to find by participant name
           const participant = findParticipantByName(value);
           if (participant) {
             console.log(`Found participant for assignment: ${participant.name} (${participant.id})`);
             data[key as keyof TaskAction['data']] = participant.id;
           } else {
-            // Fallback to user search
             const lowerValue = value.toLowerCase();
             const user = users.find(u => 
               u.name.toLowerCase().includes(lowerValue) ||
@@ -407,7 +404,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Assistant intelligent spécialisé pour le cabinet OphtaCare
+          Assistant intelligent optimisé pour le cabinet OphtaCare
         </p>
       </div>
 
@@ -431,7 +428,7 @@ const Assistant = () => {
             </div>
           </div>
           <CardDescription>
-            Assistant intelligent spécialisé pour le cabinet OphtaCare
+            Assistant intelligent optimisé pour le cabinet OphtaCare
           </CardDescription>
         </CardHeader>
 
@@ -459,9 +456,12 @@ const Assistant = () => {
                         ? 'bg-primary text-primary-foreground' 
                         : 'bg-muted'
                     }`}>
-                      <div className="text-sm whitespace-pre-wrap">
-                        {message.content}
-                      </div>
+                      <div 
+                        className="text-sm whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ 
+                          __html: message.isUser ? message.content : renderMessageWithLinks(message.content)
+                        }}
+                      />
                       
                       {/* Task Action Buttons */}
                       {!message.isUser && message.taskAction && (
@@ -553,7 +553,7 @@ const Assistant = () => {
                   </div>
                   <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">L'assistant OphtaCare analyse...</span>
+                    <span className="text-sm">Assistant OphtaCare optimisé...</span>
                   </div>
                 </div>
               )}
