@@ -28,10 +28,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('[TASK-RECOMMENDATION] 🧠 Analyse enrichie avec recherche internet et templates email');
+    console.log('[TASK-RECOMMENDATION] 🧠 Analyse enrichie avec recherche embeddings, internet et templates email');
 
     // Récupérer le contexte des tâches existantes
-    console.log('[TASK-RECOMMENDATION] 🗄️ Récupération contexte + tâches existantes');
+    console.log('[TASK-RECOMMENDATION] 🗄️ Récupération contexte + tâches existantes + embeddings');
     
     const { data: existingTodos } = await supabase
       .from('todos')
@@ -39,16 +39,58 @@ serve(async (req) => {
       .in('status', ['pending', 'confirmed'])
       .limit(50);
 
-    console.log('[DATABASE] Récupération du contexte incluant tâches existantes');
-    console.log('[DATABASE]', existingTodos?.length || 0, 'tâches existantes trouvées');
+    // Recherche dans les embeddings pour contexte enrichi
+    console.log('[TASK-RECOMMENDATION] 🎯 Recherche embeddings contextuelle');
+    let embeddingContext = { chunks: [], hasContent: false };
+    
+    try {
+      // Générer embedding pour la tâche
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small',
+          input: task.description,
+        }),
+      });
+
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        const queryEmbedding = embeddingData.data[0].embedding;
+
+        // Rechercher dans les embeddings
+        const { data: chunks } = await supabase.rpc('search_document_embeddings', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.7,
+          match_count: 10
+        });
+
+        if (chunks && chunks.length > 0) {
+          embeddingContext = {
+            chunks: chunks,
+            hasContent: true
+          };
+          console.log(`[TASK-RECOMMENDATION] ✅ Embeddings: ${chunks.length} chunks trouvés`);
+        }
+      }
+    } catch (error) {
+      console.error('[TASK-RECOMMENDATION] Erreur recherche embeddings:', error);
+    }
 
     const contextData = {
-      existingTodos: existingTodos || []
+      existingTodos: existingTodos || [],
+      embeddings: embeddingContext
     };
 
-    console.log('[TASK-RECOMMENDATION] ✅ Contexte récupéré:', { existingTodos: contextData.existingTodos.length });
+    console.log('[TASK-RECOMMENDATION] ✅ Contexte récupéré:', { 
+      existingTodos: contextData.existingTodos.length,
+      embeddingChunks: embeddingContext.chunks.length 
+    });
 
-    // Recherche internet enrichie (pas seulement pour fournisseurs)
+    // Recherche internet enrichie (toujours évaluer si utile)
     console.log('[TASK-RECOMMENDATION] 🌐 Recherche internet enrichie');
     
     let internetContext = { hasContent: false, content: '', providers: [], enrichmentType: 'general' };
@@ -75,7 +117,12 @@ serve(async (req) => {
                            taskLower.includes('coordonnées') ||
                            taskLower.includes('site web') ||
                            taskLower.includes('email') ||
-                           taskLower.includes('téléphone');
+                           taskLower.includes('téléphone') ||
+                           taskLower.includes('acheter') ||
+                           taskLower.includes('choisir') ||
+                           taskLower.includes('comparer') ||
+                           taskLower.includes('option') ||
+                           taskLower.includes('solution');
 
       if (needsInternet) {
         const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -86,7 +133,7 @@ serve(async (req) => {
           if (enrichmentType === 'providers') {
             searchQuery = `${task.description} entreprises prestataires fournisseurs Genève Suisse avec coordonnées contacts adresses sites web téléphones emails`;
           } else {
-            searchQuery = `${task.description} informations pratiques Genève Suisse coordonnées contacts procédures tarifs`;
+            searchQuery = `${task.description} guide pratique conseils options Genève Suisse comment procéder étapes recommandées`;
           }
           
           const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -102,14 +149,14 @@ serve(async (req) => {
                   role: 'system',
                   content: enrichmentType === 'providers' 
                     ? 'Tu es un assistant spécialisé dans la recherche de prestataires et fournisseurs en Suisse. Fournis des informations détaillées avec noms d\'entreprises, adresses complètes, numéros de téléphone, emails et sites web quand disponibles. Formate les informations de manière structurée.'
-                    : 'Tu es un assistant spécialisé pour aider avec des informations pratiques en Suisse. Fournis des informations utiles, contacts, procédures, tarifs et coordonnées quand disponibles. Sois précis et concis.'
+                    : 'Tu es un expert qui aide avec des conseils pratiques en Suisse. Fournis des explications détaillées sur comment procéder, les différentes options disponibles, les avantages/inconvénients, les points d\'attention importants, et les étapes recommandées. Sois très utile et pratique.'
                 },
                 {
                   role: 'user',
                   content: searchQuery
                 }
               ],
-              max_tokens: 1000,
+              max_tokens: 1500,
               temperature: 0.2,
             }),
           });
@@ -147,7 +194,7 @@ serve(async (req) => {
 
     const systemPrompt = `Tu es un assistant IA spécialisé pour un cabinet d'ophtalmologie à Genève, Suisse.
 
-MISSION : Analyser cette tâche et fournir des recommandations utiles avec contacts de fournisseurs et templates d'email SEULEMENT si tu peux ajouter une valeur significative.
+MISSION : Analyser cette tâche et fournir des recommandations utiles avec PAR EXEMPLE explications techniques, CONTACT FOURNISSEUR, DIFFÉRENTES POSSIBILITÉS ET À QUOI FAIRE ATTENTION SEULEMENT si tu peux ajouter une valeur significative.
 
 CONTEXTE DISPONIBLE :
 - Tâche: ${task.description}
@@ -155,20 +202,38 @@ CONTEXTE DISPONIBLE :
 - Contexte réunion: ${meetingContext?.title || 'Cabinet ophtalmologie'}
 - Participants: ${participants?.map(p => p.name).join(', ') || 'Non spécifiés'}
 - Tâches existantes: ${contextData.existingTodos.length} tâches en cours
+- Données contextuelles cabinet: ${embeddingContext.chunks.length} éléments trouvés dans les archives
 
 ${internetContext.hasContent ? `INFORMATIONS ENRICHIES TROUVÉES:
 ${internetContext.content}
 
 ${internetContext.enrichmentType === 'providers' ? `ENTREPRISES IDENTIFIÉES: ${internetContext.providers.join(', ')}` : 'INFORMATIONS PRATIQUES ENRICHIES'}` : ''}
 
+${embeddingContext.hasContent ? `CONTEXTE HISTORIQUE CABINET:
+${embeddingContext.chunks.slice(0, 3).map(chunk => `- ${chunk.chunk_text.substring(0, 200)}...`).join('\n')}` : ''}
+
+OBJECTIF DES RECOMMANDATIONS :
+- Fournir des **idées utiles** pour accomplir la tâche plus efficacement
+- Expliquer **comment procéder** (étapes recommandées, méthode)
+- Souligner les **points importants** à ne pas négliger (contraintes, choix clés, erreurs à éviter)
+- Accélérer le **processus de décision** et **augmenter la productivité**
+- Si pertinent, proposer plusieurs options (ex: produits, services, méthodes) avec **avantages/inconvénients** pour aider à choisir
+
+EXEMPLES DE VALEUR AJOUTÉE :
+- Pour "acheter une fontaine à eau" → expliquer les 2 types (réseau vs bidons), avantages/inconvénients, critères de choix (espace, maintenance, hygiène, coût)
+- Pour "installer un système" → expliquer les étapes, ce qui peut mal se passer, comment s'y prendre
+- Pour "contacter un prestataire" → donner des conseils sur quoi demander, comment négocier, quels points vérifier
+
 RÈGLES DE RECOMMANDATION :
 1. Si la tâche est simple et ne nécessite pas de conseils → réponds avec hasRecommendation: false
-2. Pour les tâches complexes, fournis des recommandations pratiques détaillées
-3. Pour les contacts externes, extrais et structure les informations de contact trouvées
-4. Inclus toujours les coordonnées complètes : nom, adresse, téléphone, email, site web
-5. Pour tous les prix, utilise les CHF (francs suisses)
-6. **EMAILS PRÉ-RÉDIGÉS** : Si la tâche implique "contacter", "envoyer email", "demander informations", "demander devis" → crée un brouillon professionnel
-7. Assure-toi que les contacts sont réels et vérifiables
+2. Pour les tâches complexes, fournis des recommandations pratiques détaillées (procédé, critères de choix, comparatif…)
+3. UTILISE les données historiques du cabinet trouvées dans les embeddings pour contextualiser
+4. UTILISE les informations internet pour enrichir tes conseils avec des données récentes
+5. Pour les contacts externes, extrais et structure les informations de contact trouvées
+6. Inclus toujours les coordonnées complètes : nom, adresse, téléphone, email, site web
+7. Pour tous les prix, utilise les CHF (francs suisses)
+8. **EMAILS PRÉ-RÉDIGÉS** : Si la tâche implique "contacter", "envoyer email", "demander informations", "demander devis" → crée un brouillon professionnel
+9. Assure-toi que les contacts sont réels et vérifiables
 
 DÉTECTION EMAIL OBLIGATOIRE :
 - Analyser si la tâche nécessite l'envoi d'un email (mots-clés : contacter, email, envoyer, demander, informer)
@@ -196,7 +261,7 @@ RÉPONSE REQUISE (JSON uniquement) :
       "website": "Site web complet avec https:// si disponible"
     }
   ],
-  "contextAnalysis": "analyse du contexte utilisé incluant internet",
+  "contextAnalysis": "analyse du contexte utilisé incluant internet et données historiques cabinet",
   "duplicateTask": "avertissement si tâche similaire existe ou null",
   "estimatedCost": "estimation des coûts en CHF si pertinent ou null"
 }`;
@@ -211,10 +276,10 @@ RÉPONSE REQUISE (JSON uniquement) :
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analyse cette tâche avec le contexte enrichi et génère email si nécessaire : "${task.description}"` }
+          { role: 'user', content: `Analyse cette tâche avec tout le contexte enrichi (embeddings + internet) et génère email si nécessaire : "${task.description}"` }
         ],
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 2000,
       }),
     });
 
@@ -257,7 +322,8 @@ RÉPONSE REQUISE (JSON uniquement) :
       hasRecommendation: recommendation.hasRecommendation,
       hasEmail: recommendation.needsExternalEmail,
       contacts: recommendation.contacts?.length || 0,
-      internetUsed: internetContext.hasContent
+      internetUsed: internetContext.hasContent,
+      embeddingsUsed: embeddingContext.hasContent
     });
 
     return new Response(JSON.stringify({ 
@@ -266,7 +332,9 @@ RÉPONSE REQUISE (JSON uniquement) :
         existingTodos: contextData.existingTodos.length,
         internetSearch: internetContext.hasContent,
         providersFound: internetContext.providers.length,
-        enrichmentType: internetContext.enrichmentType
+        enrichmentType: internetContext.enrichmentType,
+        embeddingChunks: embeddingContext.chunks.length,
+        embeddingsUsed: embeddingContext.hasContent
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
