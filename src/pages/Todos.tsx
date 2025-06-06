@@ -43,13 +43,13 @@ export default function Todos() {
         throw error;
       }
 
-      // Convert any 'pending' status to 'confirmed'
+      // Convert any 'pending' status to 'confirmed' and filter to only 'confirmed' and 'completed'
       const updatedTodos = data?.map(todo => {
         if (todo.status === 'pending') {
           return { ...todo, status: 'confirmed' };
         }
         return todo;
-      }) || [];
+      }).filter(todo => todo.status === 'confirmed' || todo.status === 'completed') || [];
 
       console.log("Fetched todos:", updatedTodos);
       setTodos(updatedTodos as Todo[]);
@@ -125,7 +125,7 @@ export default function Todos() {
 
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
-      'pending': 'En cours', // Convert pending to "En cours" label
+      'pending': 'En cours',
       'confirmed': 'En cours',
       'completed': 'Terminée'
     };
@@ -144,7 +144,6 @@ export default function Todos() {
   const filteredTodos = statusFilter === "all" 
     ? todos 
     : todos.filter(todo => {
-        // Convert 'pending' to 'confirmed' for filtering purposes
         const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
         return effectiveStatus === statusFilter;
       });
@@ -204,9 +203,9 @@ export default function Todos() {
             <Card key={todo.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-4">
                 <div className="space-y-3">
-                  {/* Task header with edit button */}
+                  {/* Task header with edit and delete buttons - edit on left, delete on right */}
                   <div className="flex justify-between items-start">
-                    <div className="text-sm font-medium flex-grow">
+                    <div className="text-sm font-medium flex-grow mr-2">
                       <EditableContent
                         content={todo.description}
                         onSave={(newContent) => handleTodoSave(todo.id, newContent)}
@@ -214,7 +213,14 @@ export default function Todos() {
                         id={todo.id}
                       />
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                      >
+                        <Pen className="h-3 w-3" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

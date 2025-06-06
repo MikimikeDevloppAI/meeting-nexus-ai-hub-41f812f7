@@ -31,8 +31,12 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Add diagnostic logging for user auth state
   useEffect(() => {
-    // Load comments on component mount or when the todoId changes
+    console.log("TodoComments - Auth state:", { user, userExists: !!user, userId: user?.id });
+  }, [user]);
+
+  useEffect(() => {
     fetchComments();
   }, [todoId]);
 
@@ -62,15 +66,42 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const handleAddComment = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    console.log("handleAddComment triggered", { newComment: newComment.trim(), user });
+    console.log("handleAddComment triggered", { 
+      newComment: newComment.trim(), 
+      user,
+      userExists: !!user,
+      userId: user?.id,
+      trimmedLength: newComment.trim().length
+    });
     
-    if (!newComment.trim() || !user) {
-      console.log("Comment rejected - empty comment or no user");
+    if (!newComment.trim()) {
+      console.log("Comment rejected - empty comment");
+      toast({
+        title: "Erreur",
+        description: "Le commentaire ne peut pas être vide",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user) {
+      console.log("Comment rejected - no user authenticated");
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour ajouter un commentaire",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
+      console.log("Attempting to insert comment with:", {
+        todo_id: todoId,
+        user_id: user.id,
+        comment: newComment.trim()
+      });
+
       const { data, error } = await supabase
         .from("todo_comments")
         .insert([
@@ -83,8 +114,12 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
 
+      console.log("Comment inserted successfully:", data);
       setComments([...comments, data]);
       setNewComment("");
       toast({
@@ -95,7 +130,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       console.error("Error adding comment:", error);
       toast({
         title: "Erreur",
-        description: "Impossible d'ajouter le commentaire",
+        description: "Impossible d'ajouter le commentaire: " + (error.message || "Erreur inconnue"),
         variant: "destructive",
       });
     } finally {
@@ -133,6 +168,17 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       handleAddComment();
     }
   };
+
+  // Show auth warning if user is not authenticated
+  if (!user) {
+    return (
+      <div className="space-y-3 mt-2 border-t pt-2">
+        <div className="text-center py-4 text-muted-foreground">
+          <p className="text-sm">Connectez-vous pour voir et ajouter des commentaires</p>
+        </div>
+      </div>
+    );
+  }
 
   // For the modal view
   if (isOpen === false) return null;
