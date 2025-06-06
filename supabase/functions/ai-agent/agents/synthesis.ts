@@ -42,6 +42,16 @@ export class SynthesisAgent {
       return response;
     }
 
+    // Si tâche en attente d'assignation
+    if (taskContext.pendingTaskCreation?.waitingForAssignment) {
+      console.log('[SYNTHESIS] ⏳ Demande d\'assignation pour tâche');
+      let response = `Je vais créer une tâche pour "${taskContext.pendingTaskCreation.description}". \n\n`;
+      response += `À qui devrais-je assigner cette tâche ? Vous pouvez choisir parmi les participants suivants :\n`;
+      response += `• David Tabibian\n• Emilie\n• Leila\n• Parmice\n• Sybil\n\n`;
+      response += `Répondez simplement avec le nom de la personne.`;
+      return response;
+    }
+
     // Reste de la logique de synthèse existante
     let synthesisType = 'database';
     
@@ -64,6 +74,15 @@ export class SynthesisAgent {
 
     // Construction du contexte pour l'IA
     let contextData = '';
+    
+    // Ajouter l'historique de conversation récent
+    if (conversationHistory && conversationHistory.length > 0) {
+      contextData += `\n\nHISTORIQUE CONVERSATION RÉCENT:\n`;
+      conversationHistory.slice(-4).forEach((msg: any, index: number) => {
+        const role = msg.isUser ? 'Utilisateur' : 'Assistant';
+        contextData += `${role}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}\n`;
+      });
+    }
     
     // Ajouter le contexte des tâches si disponible
     if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
@@ -121,12 +140,14 @@ RÈGLES DE COMMUNICATION:
 - Toujours contextualiser par rapport au cabinet Dr Tabibian
 - Pour les prix, utiliser les CHF (francs suisses)
 - Mentionner les sources quand tu utilises des données spécifiques
+- MAINTENIR LE CONTEXTE CONVERSATIONNEL - utilise l'historique pour comprendre les références
 
 GESTION DES TÂCHES:
 - Quand on te demande de créer une tâche, utilise cette syntaxe à la fin de ta réponse:
   [ACTION_TACHE: TYPE=create, description="description de la tâche", assigned_to="id_participant"]
 - Pour les autres actions: TYPE=update|delete|complete avec les paramètres appropriés
 - Toujours confirmer la création/modification des tâches
+- Si pas d'assignation précisée, demander à qui assigner la tâche
 
 ${contextData ? `CONTEXTE DISPONIBLE:${contextData}` : ''}
 

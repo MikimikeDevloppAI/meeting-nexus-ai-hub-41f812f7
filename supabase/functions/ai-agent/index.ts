@@ -55,12 +55,12 @@ serve(async (req) => {
       internetAccess: analysis.requiresInternet
     });
 
-    // 📋 PHASE TÂCHES : Traitement prioritaire si détecté
+    // 📋 PHASE TÂCHES : Traitement prioritaire si détecté - PASSER L'HISTORIQUE
     let taskContextData = { currentTasks: [], hasTaskContext: false };
     
     if (analysis.requiresTasks) {
       console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase TÂCHES: Traitement administratif prioritaire');
-      taskContextData = await taskAgent.handleTaskRequest(message, analysis);
+      taskContextData = await taskAgent.handleTaskRequest(message, analysis, conversationHistory || []);
       
       // Si action pure sur tâches, réponse rapide optimisée
       if (analysis.taskAction === 'create' && taskContextData.taskCreated) {

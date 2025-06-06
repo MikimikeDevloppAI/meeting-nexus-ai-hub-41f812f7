@@ -4,6 +4,10 @@ export interface TaskContext {
   taskCreated?: any;
   hasTaskContext: boolean;
   taskAction?: 'list' | 'create' | 'update' | 'complete';
+  pendingTaskCreation?: {
+    description: string;
+    waitingForAssignment: boolean;
+  };
 }
 
 export class TaskAgent {
@@ -13,13 +17,13 @@ export class TaskAgent {
     this.supabase = supabase;
   }
 
-  async handleTaskRequest(message: string, analysis: any): Promise<TaskContext> {
+  async handleTaskRequest(message: string, analysis: any, conversationHistory: any[] = []): Promise<TaskContext> {
     console.log('[TASKS] 📋 Gestion spécialisée des tâches');
     
     const context: TaskContext = {
       currentTasks: [],
       hasTaskContext: false,
-      taskAction: this.detectTaskAction(message)
+      taskAction: this.detectTaskAction(message, conversationHistory)
     };
 
     // Récupérer toutes les tâches en cours avec descriptions courtes
@@ -42,35 +46,78 @@ export class TaskAgent {
       console.log(`[TASKS] ✅ ${allTasks.length} tâches en cours trouvées`);
     }
 
-    // Si demande de création de tâche
-    if (context.taskAction === 'create') {
+    // Vérifier si c'est une réponse à une demande d'assignation précédente
+    const isAssignmentResponse = this.checkForAssignmentResponse(message, conversationHistory);
+    
+    if (isAssignmentResponse) {
+      const previousTaskRequest = this.findPreviousTaskRequest(conversationHistory);
+      if (previousTaskRequest) {
+        console.log('[TASKS] ➕ Création tâche avec assignation depuis réponse utilisateur');
+        
+        const taskDescription = this.extractTaskDescription(previousTaskRequest);
+        const assignedTo = this.extractAssignedTo(message);
+        
+        if (taskDescription) {
+          const shortDescription = this.makeDescriptionConcise(taskDescription);
+          
+          const { data: newTask, error } = await this.supabase
+            .from('todos')
+            .insert([{
+              description: shortDescription,
+              status: 'confirmed',
+              assigned_to: assignedTo,
+              meeting_id: null
+            }])
+            .select()
+            .single();
+
+          if (!error && newTask) {
+            context.taskCreated = newTask;
+            context.currentTasks.unshift(newTask);
+            context.taskAction = 'create';
+            console.log('[TASKS] ✅ Tâche créée avec assignation:', newTask.id, 'assignée à:', assignedTo);
+          } else {
+            console.log('[TASKS] ❌ Erreur création tâche:', error);
+          }
+        }
+      }
+    }
+    // Si demande de création de tâche directe
+    else if (context.taskAction === 'create') {
       const taskDescription = this.extractTaskDescription(message);
       if (taskDescription) {
         console.log('[TASKS] ➕ Création d\'une nouvelle tâche:', taskDescription);
         
-        // Rendre la description plus concise
         const shortDescription = this.makeDescriptionConcise(taskDescription);
-        
-        // Extraire l'assignation depuis le message avec CONTEXT_PARTICIPANTS
         const assignedTo = this.extractAssignedTo(message);
         
-        const { data: newTask, error } = await this.supabase
-          .from('todos')
-          .insert([{
-            description: shortDescription,
-            status: 'confirmed',
-            assigned_to: assignedTo,
-            meeting_id: null // Tâche créée via assistant
-          }])
-          .select()
-          .single();
+        if (assignedTo) {
+          // Création directe avec assignation
+          const { data: newTask, error } = await this.supabase
+            .from('todos')
+            .insert([{
+              description: shortDescription,
+              status: 'confirmed',
+              assigned_to: assignedTo,
+              meeting_id: null
+            }])
+            .select()
+            .single();
 
-        if (!error && newTask) {
-          context.taskCreated = newTask;
-          context.currentTasks.unshift(newTask); // Ajouter en premier
-          console.log('[TASKS] ✅ Nouvelle tâche créée:', newTask.id, 'assignée à:', assignedTo);
+          if (!error && newTask) {
+            context.taskCreated = newTask;
+            context.currentTasks.unshift(newTask);
+            console.log('[TASKS] ✅ Nouvelle tâche créée:', newTask.id, 'assignée à:', assignedTo);
+          } else {
+            console.log('[TASKS] ❌ Erreur création tâche:', error);
+          }
         } else {
-          console.log('[TASKS] ❌ Erreur création tâche:', error);
+          // Pas d'assignation trouvée - demander à qui assigner
+          context.pendingTaskCreation = {
+            description: shortDescription,
+            waitingForAssignment: true
+          };
+          console.log('[TASKS] ⏳ Tâche en attente d\'assignation');
         }
       }
     }
@@ -78,46 +125,79 @@ export class TaskAgent {
     return context;
   }
 
+  private checkForAssignmentResponse(message: string, conversationHistory: any[]): boolean {
+    if (conversationHistory.length === 0) return false;
+    
+    // Chercher dans les 3 derniers messages de l'assistant
+    const recentAssistantMessages = conversationHistory
+      .filter(msg => !msg.isUser)
+      .slice(-3);
+    
+    const assignmentQuestion = recentAssistantMessages.some(msg => 
+      msg.content && (
+        msg.content.includes('qui devrais-je assigner') ||
+        msg.content.includes('À qui devrais-je assigner') ||
+        msg.content.includes('assigner cette tâche') ||
+        msg.content.includes('choisir parmi les participants')
+      )
+    );
+    
+    if (assignmentQuestion) {
+      // Vérifier si le message actuel ressemble à un nom de personne
+      const lowerMessage = message.toLowerCase().trim();
+      const commonNames = ['emilie', 'david', 'leila', 'parmice', 'sybil', 'tabibian'];
+      const isLikelyName = commonNames.some(name => lowerMessage.includes(name)) || 
+                          (lowerMessage.length < 50 && /^[a-zàâäéèêëïîôùûüÿç\s-]+$/i.test(lowerMessage));
+      
+      console.log('[TASKS] 🔍 Vérification réponse assignation:', { assignmentQuestion, isLikelyName, message });
+      return isLikelyName;
+    }
+    
+    return false;
+  }
+
+  private findPreviousTaskRequest(conversationHistory: any[]): string | null {
+    // Chercher le dernier message utilisateur qui demandait de créer une tâche
+    const userMessages = conversationHistory.filter(msg => msg.isUser);
+    
+    for (let i = userMessages.length - 1; i >= 0; i--) {
+      const msg = userMessages[i];
+      if (this.detectTaskAction(msg.content, []) === 'create') {
+        console.log('[TASKS] 🔍 Trouvé demande tâche précédente:', msg.content);
+        return msg.content;
+      }
+    }
+    
+    return null;
+  }
+
   private extractAssignedTo(message: string): string | null {
     // Extraire les participants du contexte
     const participantMatch = message.match(/CONTEXT_PARTICIPANTS:\s*([^}]+)/);
-    if (!participantMatch) return null;
+    const participantsStr = participantMatch ? participantMatch[1] : '';
     
-    const participantsStr = participantMatch[1];
     console.log('[TASKS] 🔍 Participants context:', participantsStr);
     
-    // Patterns pour détecter l'assignation
-    const assignmentPatterns = [
-      /pour\s+([A-Za-zÀ-ÿ\s]+?)(?:\s|,|$)/i,
-      /à\s+([A-Za-zÀ-ÿ\s]+?)(?:\s|,|$)/i,
-      /crée.*pour\s+([A-Za-zÀ-ÿ\s]+?)(?:\s|,|$)/i,
-      /([A-Za-zÀ-ÿ\s]+?)\s+(?:doit|devrait|va)/i,
-      /assigne.*à\s+([A-Za-zÀ-ÿ\s]+?)(?:\s|,|$)/i
-    ];
-
-    for (const pattern of assignmentPatterns) {
-      const match = message.match(pattern);
-      if (match && match[1]) {
-        const nameToFind = match[1].trim().toLowerCase();
-        console.log('[TASKS] 🎯 Nom recherché:', nameToFind);
-        
-        // Chercher le participant correspondant dans le contexte
-        const participantIdMatch = participantsStr.match(new RegExp(`([^,()]+)\\s*\\([^,()]*ID:\\s*([^,()]+)\\)`, 'gi'));
-        if (participantIdMatch) {
-          for (const participant of participantIdMatch) {
-            const idMatch = participant.match(/ID:\s*([^,()]+)\)/);
-            const nameMatch = participant.match(/^([^(]+)/);
+    // Si c'est juste un nom simple, chercher dans les participants
+    const cleanMessage = message.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '').trim().toLowerCase();
+    
+    if (participantsStr) {
+      // Patterns pour extraire ID depuis le contexte participants
+      const participantIdMatch = participantsStr.match(new RegExp(`([^,()]+)\\s*\\([^,()]*ID:\\s*([^,()]+)\\)`, 'gi'));
+      if (participantIdMatch) {
+        for (const participant of participantIdMatch) {
+          const idMatch = participant.match(/ID:\s*([^,()]+)\)/);
+          const nameMatch = participant.match(/^([^(]+)/);
+          
+          if (idMatch && nameMatch) {
+            const participantName = nameMatch[1].trim().toLowerCase();
+            const participantId = idMatch[1].trim();
             
-            if (idMatch && nameMatch) {
-              const participantName = nameMatch[1].trim().toLowerCase();
-              const participantId = idMatch[1].trim();
-              
-              console.log('[TASKS] 🔄 Comparaison:', participantName, 'avec', nameToFind);
-              
-              if (participantName.includes(nameToFind) || nameToFind.includes(participantName)) {
-                console.log('[TASKS] ✅ Participant trouvé:', participantId);
-                return participantId;
-              }
+            console.log('[TASKS] 🔄 Comparaison:', participantName, 'avec', cleanMessage);
+            
+            if (participantName.includes(cleanMessage) || cleanMessage.includes(participantName)) {
+              console.log('[TASKS] ✅ Participant trouvé:', participantId);
+              return participantId;
             }
           }
         }
@@ -128,12 +208,10 @@ export class TaskAgent {
   }
 
   private makeDescriptionConcise(description: string): string {
-    // Raccourcir les descriptions trop longues et nettoyer
     let cleaned = description.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
     cleaned = cleaned.replace(/\n+/g, ' ').trim();
     
     if (cleaned.length > 150) {
-      // Garder seulement la première phrase ou les 150 premiers caractères
       const firstSentence = cleaned.split('.')[0];
       if (firstSentence.length > 0 && firstSentence.length < 150) {
         return firstSentence.trim();
@@ -143,7 +221,7 @@ export class TaskAgent {
     return cleaned;
   }
 
-  private detectTaskAction(message: string): 'list' | 'create' | 'update' | 'complete' | undefined {
+  private detectTaskAction(message: string, conversationHistory: any[] = []): 'list' | 'create' | 'update' | 'complete' | undefined {
     const lowerMessage = message.toLowerCase();
     
     // Détection création - patterns plus spécifiques
@@ -184,19 +262,14 @@ export class TaskAgent {
       /crée une tâche[:\s]*(.+?)(?:pour\s+[A-Za-zÀ-ÿ\s]+)?(?:\s*CONTEXT_PARTICIPANTS|$)/i,
       /créé une action[:\s]*(.+?)(?:pour\s+[A-Za-zÀ-ÿ\s]+)?(?:\s*CONTEXT_PARTICIPANTS|$)/i,
       /créer une action[:\s]*(.+?)(?:pour\s+[A-Za-zÀ-ÿ\s]+)?(?:\s*CONTEXT_PARTICIPANTS|$)/i,
-      /crée une action[:\s]*(.+?)(?:pour\s+[A-Za-zÀ-ÿ\s]+)?(?:\s*CONTEXT_PARTICIPANTS|$)/i,
-      /(?:dis|dit).*?([A-Za-zÀ-ÿ\s]+)\s+(?:de|d')\s*(.+?)(?:\s*CONTEXT_PARTICIPANTS|$)/i
+      /crée une action[:\s]*(.+?)(?:pour\s+[A-Za-zÀ-ÿ\s]+)?(?:\s*CONTEXT_PARTICIPANTS|$)/i
     ];
 
     for (const pattern of patterns) {
       const match = message.match(pattern);
-      if (match) {
-        // Pour le dernier pattern, on prend le groupe 2, sinon le groupe 1
-        const description = pattern.toString().includes('dis.*?') ? match[2] : match[1];
-        if (description && description.trim().length > 3) {
-          console.log('[TASKS] 🎯 Description extraite:', description.trim());
-          return description.trim();
-        }
+      if (match && match[1] && match[1].trim().length > 3) {
+        console.log('[TASKS] 🎯 Description extraite:', match[1].trim());
+        return match[1].trim();
       }
     }
 
@@ -207,7 +280,6 @@ export class TaskAgent {
       if (index !== -1) {
         const afterKeyword = message.substring(index + keyword.length).trim();
         if (afterKeyword.length > 5) {
-          // Nettoyer et extraire jusqu'à "pour" ou "CONTEXT_PARTICIPANTS"
           const cleaned = afterKeyword.replace(/^[:\s]*/, '').split(/(?:pour\s+[A-Za-zÀ-ÿ\s]+|CONTEXT_PARTICIPANTS)/i)[0].trim();
           if (cleaned.length > 3) {
             console.log('[TASKS] 🎯 Description extraite (fallback):', cleaned);
