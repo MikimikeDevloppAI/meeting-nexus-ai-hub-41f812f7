@@ -286,6 +286,13 @@ export type Database = {
             referencedRelation: "todos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "todo_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       todo_participants: {

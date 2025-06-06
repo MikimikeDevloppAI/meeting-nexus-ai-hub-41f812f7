@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -43,18 +44,23 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
   const fetchComments = async () => {
     setIsLoading(true);
     try {
+      console.log("Fetching comments for todo:", todoId);
+      
       const { data, error } = await supabase
         .from("todo_comments")
         .select(`
           *,
-          users!user_id (
+          users!todo_comments_user_id_fkey (
             name
           )
         `)
         .eq("todo_id", todoId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching comments:", error);
+        throw error;
+      }
       
       const processedComments = data?.map(item => ({
         ...item,
@@ -62,12 +68,12 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       })) || [];
       
       setComments(processedComments);
-      console.log("Comments fetched:", processedComments);
+      console.log("Comments fetched successfully:", processedComments);
     } catch (error: any) {
       console.error("Error fetching comments:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger les commentaires",
+        description: "Impossible de charger les commentaires: " + (error.message || "Erreur inconnue"),
         variant: "destructive",
       });
     } finally {
@@ -125,7 +131,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
         ])
         .select(`
           *,
-          users!user_id (
+          users!todo_comments_user_id_fkey (
             name
           )
         `)
@@ -165,6 +171,16 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     e?.preventDefault();
     e?.stopPropagation();
     console.log("Starting edit for comment:", comment.id, "Current user:", user?.id, "Comment user:", comment.user_id);
+    
+    if (!user || user.id !== comment.user_id) {
+      toast({
+        title: "Erreur",
+        description: "Vous ne pouvez modifier que vos propres commentaires",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setEditComment({ id: comment.id, text: comment.comment });
   };
 
@@ -182,7 +198,8 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       const { error } = await supabase
         .from("todo_comments")
         .update({ comment: editComment.text, updated_at: new Date().toISOString() })
-        .eq("id", editComment.id);
+        .eq("id", editComment.id)
+        .eq("user_id", user?.id); // Vérification supplémentaire de sécurité
 
       if (error) throw error;
 
@@ -202,7 +219,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       console.error("Error editing comment:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de modifier le commentaire",
+        description: "Impossible de modifier le commentaire: " + (error.message || "Erreur inconnue"),
         variant: "destructive",
       });
     }
@@ -216,7 +233,8 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       const { error } = await supabase
         .from("todo_comments")
         .delete()
-        .eq("id", commentId);
+        .eq("id", commentId)
+        .eq("user_id", user?.id); // Vérification supplémentaire de sécurité
 
       if (error) throw error;
 
@@ -229,7 +247,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
       console.error("Error deleting comment:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer le commentaire",
+        description: "Impossible de supprimer le commentaire: " + (error.message || "Erreur inconnue"),
         variant: "destructive",
       });
     }
