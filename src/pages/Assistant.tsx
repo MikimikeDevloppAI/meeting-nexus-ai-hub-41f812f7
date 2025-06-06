@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -287,21 +288,22 @@ const Assistant = () => {
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
+    const currentMessage = inputMessage;
     setInputMessage("");
     setIsLoading(true);
 
     try {
-      // Get the last 10 messages for conversation history (excluding the current user message we just added)
-      const conversationHistory = updatedMessages
-        .slice(-11, -1) // Get last 10 messages (excluding the current one)
+      // Prendre les 10 derniers messages comme historique (avant d'ajouter le message actuel)
+      const conversationHistory = messages
+        .slice(-10)
         .map(msg => ({
           isUser: msg.isUser,
           content: msg.content,
           timestamp: msg.timestamp.toISOString()
         }));
 
-      // Include participants list in the context for the AI
-      const contextMessage = `${inputMessage}\n\nCONTEXT_PARTICIPANTS: ${participants.map(p => `${p.name} (${p.email}, ID: ${p.id})`).join(', ')}`;
+      // Inclure les participants dans le contexte pour l'AI
+      const contextMessage = `${currentMessage}\n\nCONTEXT_PARTICIPANTS: ${participants.map(p => `${p.name} (${p.email}, ID: ${p.id})`).join(', ')}`;
       
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
