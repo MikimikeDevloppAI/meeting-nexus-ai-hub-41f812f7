@@ -117,7 +117,7 @@ class InternetAgent {
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève.'
+              content: 'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève. Inclus toujours les coordonnées complètes (téléphone, email, site web) des entreprises mentionnées.'
             },
             {
               role: 'user',
@@ -152,29 +152,29 @@ class InternetAgent {
     
     if (lowerQuery.includes('email') || lowerQuery.includes('mail')) {
       if (lowerQuery.includes('infomaniak') || lowerQuery.includes('sécurité')) {
-        return `Infomaniak règles sécurité email configuration SMTP cabinet médical Suisse: ${query}`;
+        return `Infomaniak règles sécurité email configuration SMTP cabinet médical Suisse coordonnées complètes: ${query}`;
       }
-      return `Configuration email professionnel cabinet médical Suisse fournisseurs recommandés: ${query}`;
+      return `Configuration email professionnel cabinet médical Suisse fournisseurs recommandés coordonnées complètes: ${query}`;
     }
     
     if (lowerQuery.includes('matériel') || lowerQuery.includes('équipement')) {
-      return `Fournisseurs matériel médical ophtalmologie Genève Suisse prix: ${query}`;
+      return `Fournisseurs matériel médical ophtalmologie Genève Suisse prix coordonnées complètes: ${query}`;
     }
     
     if (lowerQuery.includes('site') || lowerQuery.includes('web')) {
-      return `Développeurs sites web cabinet médical Genève Suisse prix: ${query}`;
+      return `Développeurs sites web cabinet médical Genève Suisse prix coordonnées complètes: ${query}`;
     }
     
     if (lowerQuery.includes('formation')) {
-      return `Formation médicale ophtalmologie Suisse organismes certifiés: ${query}`;
+      return `Formation médicale ophtalmologie Suisse organismes certifiés coordonnées complètes: ${query}`;
     }
     
     if (lowerQuery.includes('service') || lowerQuery.includes('maintenance')) {
-      return `Services maintenance technique cabinet médical Genève prestataires: ${query}`;
+      return `Services maintenance technique cabinet médical Genève prestataires coordonnées complètes: ${query}`;
     }
     
     // General enhancement for Swiss medical practice context
-    return `Cabinet médical ophtalmologie Genève Suisse fournisseurs prestataires: ${query}`;
+    return `Cabinet médical ophtalmologie Genève Suisse fournisseurs prestataires coordonnées complètes: ${query}`;
   }
 }
 
@@ -284,18 +284,24 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
    - Procédures spécifiques utiles
    - Délais typiques
 
-3. **EMAIL EXTERNE UNIQUEMENT**: Si recommandé, l'email doit être pour un prestataire externe avec:
+3. **COORDONNÉES COMPLÈTES DES ENTREPRISES MENTIONNÉES**:
+   - Numéro de téléphone (format international +41...)
+   - Email de contact (contact@entreprise.ch)
+   - Site web formaté en markdown cliquable [entreprise](https://www.entreprise.ch)
+   - Adresse physique si pertinente
+
+4. **EMAIL EXTERNE UNIQUEMENT**: Si recommandé, l'email doit être pour un prestataire externe avec:
    - Présentation professionnelle du cabinet Dr Tabibian
    - Demande précise de devis/information
    - Mention du contexte ophtalmologique
    - Coordonnées Genève
 
-4. **SÉLECTIVITÉ**: Ne recommande que si tu peux apporter:
+5. **SÉLECTIVITÉ**: Ne recommande que si tu peux apporter:
    - Des fournisseurs précis avec comparaison claire
    - Des informations techniques utiles à l'action
    - Une vraie valeur ajoutée, concise et applicable
 
-5. **FORMAT JSON REQUIS**:
+6. **FORMAT JSON REQUIS**:
 {
   "hasRecommendation": [true/false],
   "recommendation": "[Recommandation avec fournisseurs ou infos techniques concrètes et prix CHF]",
@@ -303,15 +309,24 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
   "emailDraft": "[Email professionnel pour prestataire externe]",
   "externalProviders": ["Liste noms entreprises/fournisseurs spécifiques"],
   "estimatedCost": "[Coût en CHF avec fourchette]",
-  "specificInfo": "[Infos techniques spécifiques ex: protocole SMTP sécurisé, type de licence, contraintes réglementaires, etc.]"
+  "specificInfo": "[Infos techniques spécifiques ex: protocole SMTP sécurisé, type de licence, contraintes réglementaires, etc.]",
+  "contactInfo": [
+    {
+      "name": "Nom entreprise",
+      "phone": "Téléphone",
+      "email": "Email",
+      "website": "URL site web",
+      "address": "Adresse (optionnel)"
+    }
+  ]
 }
 
 **EXEMPLES DE BONNES RECOMMANDATIONS:**
-- "Configurer un service mail sécurisé avec SPF/DKIM, tarif environ 50-100 CHF/an"
-- "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure"
-- "Comparaison : MedWeb (intégration médicale, + spécialisé / - plus cher), SwissDigitalCare (bon support, + flexible / - moins orienté santé), budget 5000-15000 CHF"
+- "Configurer un service mail sécurisé avec SPF/DKIM, tarif environ 50-100 CHF/an" + coordonnées complètes
+- "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure" + téléphone et site
+- "Comparaison : MedWeb (+ spécialisé / - plus cher), SwissDigitalCare (+ flexible / - moins orienté santé), budget 5000-15000 CHF" + coordonnées des deux
 
-Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou informations techniques utiles.`;
+Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou informations techniques utiles, incluant systématiquement les coordonnées complètes des entreprises mentionnées.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -324,7 +339,7 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
         messages: [
           { 
             role: 'system', 
-            content: 'Tu es un expert en recommandations pour cabinet médical avec focus sur les fournisseurs suisses spécifiques. Réponds UNIQUEMENT en JSON valide.' 
+            content: 'Tu es un expert en recommandations pour cabinet médical avec focus sur les fournisseurs suisses spécifiques. Tu dois systématiquement inclure les coordonnées complètes (téléphone, email, site web cliquable) des entreprises mentionnées. Réponds UNIQUEMENT en JSON valide.' 
           },
           { role: 'user', content: taskRecommendationPrompt }
         ],
@@ -349,7 +364,8 @@ Analyse maintenant et fournis une recommandation JSON avec fournisseurs ou infor
     console.log('[TASK-RECOMMENDATION] ✅ RECOMMANDATION AVEC FOURNISSEURS:', {
       hasRecommendation: recommendationResult.hasRecommendation,
       providers: recommendationResult.externalProviders?.length || 0,
-      hasSpecificInfo: !!recommendationResult.specificInfo
+      hasSpecificInfo: !!recommendationResult.specificInfo,
+      contactInfo: recommendationResult.contactInfo?.length || 0
     });
 
     return new Response(JSON.stringify({

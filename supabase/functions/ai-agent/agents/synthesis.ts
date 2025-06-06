@@ -1,4 +1,3 @@
-
 export class SynthesisAgent {
   private openaiApiKey: string;
 
@@ -499,6 +498,11 @@ INSTRUCTIONS ULTRA-ENRICHIES :
 5. Proposer des actions complémentaires basées sur le contexte
 6. Garder un ton professionnel médical/administratif
 7. ${actionAnalysis.isAction ? 'INCLURE la syntaxe d\'action requise' : 'Répondre de manière informative'}
+8. IMPORTANT - POUR TOUTE SOCIÉTÉ MENTIONNÉE: 
+   - Toujours inclure numéro de téléphone (si trouvé)
+   - Toujours inclure email de contact (si trouvé)
+   - Toujours inclure site web sous forme de lien cliquable (format markdown [site](url))
+   - Présenter ces informations dans un format structuré et facilement repérable
 
 ${contextValidation.needsClarification ? 'Si le contexte reste insuffisant, demander des précisions spécifiques.' : ''}
 
@@ -540,7 +544,7 @@ ${contextData.hasInternetContext ? `
 ${(contextData.internetContent || '').substring(0, 300)}...
 ` : ''}
 
-Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible dans le contexte OphtaCare.`;
+Utilise TOUTES ces informations pour fournir la réponse la plus complète et précise possible dans le contexte OphtaCare. Pour toute société mentionnée, inclus ses coordonnées complètes (téléphone, email, site web cliquable).`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
