@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,7 @@ const Assistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare",
+      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare\n\nComment puis-je vous aider ?",
       isUser: false,
       timestamp: new Date(),
     }
@@ -99,7 +98,7 @@ const Assistant = () => {
     setMessages([
       {
         id: '1',
-        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare",
+        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare\n\nComment puis-je vous aider ?",
         isUser: false,
         timestamp: new Date(),
       }
