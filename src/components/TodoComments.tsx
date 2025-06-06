@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Send, Trash2, User } from "lucide-react";
+import { MessageCircle, Send, Trash2, User, Pen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Comment {
@@ -229,14 +229,24 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                         </span>
                       </div>
                       {user?.id === comment.user_id && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-800"
+                            aria-label="Modifier le commentaire"
+                          >
+                            <Pen className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <p className="text-sm">{comment.comment}</p>
@@ -290,14 +300,24 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                     </span>
                   </div>
                   {user?.id === comment.user_id && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800"
-                      onClick={() => handleDeleteComment(comment.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        aria-label="Modifier le commentaire"
+                      >
+                        <Pen className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        onClick={() => handleDeleteComment(comment.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   )}
                 </div>
                 <p className="text-xs mt-1">{comment.comment}</p>
