@@ -59,8 +59,15 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     }
   };
 
-  const handleAddComment = async () => {
-    if (!newComment.trim() || !user) return;
+  const handleAddComment = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    
+    console.log("handleAddComment triggered", { newComment: newComment.trim(), user });
+    
+    if (!newComment.trim() || !user) {
+      console.log("Comment rejected - empty comment or no user");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -120,6 +127,13 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
     }
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAddComment();
+    }
+  };
+
   // For the modal view
   if (isOpen === false) return null;
   
@@ -169,22 +183,23 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
               )}
             </div>
 
-            <div className="space-y-3">
+            <form onSubmit={handleAddComment} className="space-y-3">
               <Textarea
                 placeholder="Ajouter un commentaire..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                onKeyPress={handleKeyPress}
                 rows={3}
               />
               <Button
-                onClick={handleAddComment}
+                type="submit"
                 disabled={!newComment.trim() || isSubmitting}
                 className="w-full"
               >
                 <Send className="mr-2 h-4 w-4" />
                 {isSubmitting ? "Envoi..." : "Ajouter un commentaire"}
               </Button>
-            </div>
+            </form>
           </CardContent>
         </Card>
       </div>
@@ -222,23 +237,24 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
         </div>
       )}
 
-      <div className="flex gap-2">
+      <form onSubmit={handleAddComment} className="flex gap-2">
         <Textarea
           placeholder="Ajouter un commentaire..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
+          onKeyPress={handleKeyPress}
           rows={1}
-          className="text-xs min-h-[40px] py-1"
+          className="text-xs min-h-[40px] py-1 flex-1"
         />
         <Button
-          onClick={handleAddComment}
+          type="submit"
           disabled={!newComment.trim() || isSubmitting}
-          className="h-10"
+          className="h-10 px-3"
           size="sm"
         >
           <Send className="h-3 w-3" />
         </Button>
-      </div>
+      </form>
     </div>
   );
 };
