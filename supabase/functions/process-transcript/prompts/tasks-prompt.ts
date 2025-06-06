@@ -1,34 +1,36 @@
 
 export function createTasksPrompt(participantNames: string, cleanedTranscript: string): string {
-  return `Basé sur ce transcript de réunion, identifie TOUTES les tâches, actions et suivis mentionnés ou impliqués.
+  return `Basé sur ce transcript de réunion, identifie TOUTES les tâches, actions et suivis mentionnés ou impliqués, sans exception.
 
 Participants de la réunion : ${participantNames}
 
-**RÈGLES D'ASSIGNATION STRICTES:**
-- Assigne une tâche à un participant SEULEMENT si c'est explicitement mentionné ou clairement déductible du contexte
-- Utilise les noms EXACTS des participants tels qu'ils apparaissent dans la liste : ${participantNames}
-- Si aucune assignation claire n'est possible, laisse "assignedTo" à null
-- Pour l'assignation, utilise le nom complet du participant tel qu'il apparaît dans la liste
-- Exemples d'assignations valides : si les participants sont "Jean Dupont, Marie Martin", utilise exactement "Jean Dupont" ou "Marie Martin"
+**RÈGLES D'EXTRACTION EXHAUSTIVE:**
+- Extrais CHAQUE action, décision, tâche ou suivi mentionné dans le transcript
+- Inclus les actions implicites (ex: "on doit faire X" = tâche à créer)
+- Inclus les suivis (ex: "vérifier que Y fonctionne" = tâche de suivi)
+- Inclus les contacts à faire (ex: "contacter Z" = tâche de contact)
+- Inclus les demandes d'informations (ex: "demander des infos sur A" = tâche)
+- Ne rate AUCUNE action même si elle semble mineure
 
-**RÈGLES DE REGROUPEMENT POUR MINIMISER LES TÂCHES:**
-- REGROUPE les tâches similaires par sujet, fournisseur, ou domaine
-- Une seule tâche pour un même fournisseur (ex: "Contacter Infomaniak pour configuration email ET support technique")
-- Une seule tâche par domaine thématique (ex: "Organiser formation : réservation salle + matériel + participants")
-- Une seule tâche pour des actions liées au même projet (ex: "Site web : choisir prestataire + définir budget + planning")
-- Privilégier les tâches globales avec sous-actions plutôt que des tâches séparées
+**RÈGLES D'ASSIGNATION STRICTES:**
+- Assigne une tâche à un participant SEULEMENT si c'est explicitement mentionné ou clairement déductible
+- Utilise les noms EXACTS des participants : ${participantNames}
+- Si une personne dit "je vais faire X" ou "je peux m'occuper de Y" → assigne à cette personne
+- Si quelqu'un demande à une autre personne de faire quelque chose → assigne à la personne désignée
+- Recherche les variations de noms (prénom seul, nom seul, diminutifs)
+- Si aucune assignation claire, laisse "assignedTo" à null
 
 **RÈGLES DE CONTEXTE ET CLARTÉ:**
-- Inclus TOUJOURS assez de contexte pour que la tâche soit compréhensible sans relire le transcript
-- Mentionne les éléments clés : pourquoi, pour qui, quand (si mentionné), quel objectif
-- Reste concis mais informatif (évite les phrases trop longues)
+- Inclus TOUJOURS assez de contexte pour que la tâche soit compréhensible
+- Mentionne pourquoi, pour qui, quand (si mentionné), quel objectif
 - Inclus les détails importants mentionnés dans la discussion
+- Garde les tâches spécifiques et actionnables
 
-**EXEMPLES DE BON REGROUPEMENT AVEC ASSIGNATION:**
-- Au lieu de : "Contacter Infomaniak", "Configurer SMTP", "Tester email" 
-- Faire : { "description": "Configuration complète email professionnel Infomaniak : contacter commercial pour devis + configurer SMTP sur serveur + tester envoi emails patients", "assignedTo": "Jean Dupont" }
-- Au lieu de : "Réserver salle", "Commander matériel", "Inviter participants"
-- Faire : { "description": "Organisation formation staff ophtalmologie : réserver salle pour 15 personnes + commander matériel pédagogique + envoyer invitations avec programme", "assignedTo": "Marie Martin" }
+**EXEMPLES D'ASSIGNATION:**
+- "David, tu peux contacter le prestataire ?" → assignedTo: "David Tabibian"
+- "Émilie s'occupera des invitations" → assignedTo: "emilie" 
+- "Leïla va vérifier les emails" → assignedTo: "leila"
+- "Il faut quelqu'un pour..." → assignedTo: null
 
 Transcript :
 ${cleanedTranscript}
@@ -37,7 +39,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Description précise et contextuelle de la tâche REGROUPÉE avec toutes les sous-actions",
+      "description": "Description précise et contextuelle de la tâche avec tous les détails nécessaires",
       "assignedTo": "Nom exact du participant tel qu'il apparaît dans la liste ou null"
     }
   ]

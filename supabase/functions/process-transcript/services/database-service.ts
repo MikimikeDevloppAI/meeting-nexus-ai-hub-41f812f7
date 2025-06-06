@@ -72,38 +72,57 @@ export async function saveTask(supabaseClient: any, task: any, meetingId: string
   const availableParticipants = meetingParticipants?.map((mp: any) => mp.participants).filter(Boolean) || participants;
   console.log(`[SAVE_TASK] Meeting participants for assignment:`, availableParticipants.map(p => ({ id: p.id, name: p.name })));
 
-  // Logique d'assignation améliorée
+  // Logique d'assignation améliorée avec normalisation
   let assignedToId = null;
   if (task.assignedTo) {
     console.log(`[SAVE_TASK] Looking for participant: "${task.assignedTo}"`);
     
-    // 1. Correspondance exacte du nom
+    // Normaliser le nom recherché
+    const searchName = task.assignedTo.toLowerCase().trim();
+    
+    // 1. Correspondance exacte du nom (insensible à la casse)
     let assignedParticipant = availableParticipants.find((p: any) => 
-      p.name.toLowerCase().trim() === task.assignedTo.toLowerCase().trim()
+      p.name.toLowerCase().trim() === searchName
     );
     
-    // 2. Correspondance partielle (nom contient la chaîne)
+    // 2. Correspondance par prénom ou nom de famille
     if (!assignedParticipant) {
+      const searchWords = searchName.split(/\s+/).filter(word => word.length >= 2);
       assignedParticipant = availableParticipants.find((p: any) => {
-        const participantNameLower = p.name.toLowerCase();
-        const assignedToLower = task.assignedTo.toLowerCase();
-        
-        return (participantNameLower.includes(assignedToLower) && assignedToLower.length >= 3) ||
-               (assignedToLower.includes(participantNameLower) && participantNameLower.length >= 3);
+        const participantWords = p.name.toLowerCase().split(/\s+/).filter(word => word.length >= 2);
+        return searchWords.some(searchWord => 
+          participantWords.some(participantWord => {
+            // Correspondance exacte de mot
+            if (searchWord === participantWord) return true;
+            // Correspondance partielle pour les diminutifs (minimum 3 caractères)
+            if (searchWord.length >= 3 && participantWord.startsWith(searchWord)) return true;
+            if (participantWord.length >= 3 && searchWord.startsWith(participantWord)) return true;
+            return false;
+          })
+        );
       });
     }
     
-    // 3. Correspondance par mots (prénom ou nom de famille)
+    // 3. Correspondance avec variations communes
     if (!assignedParticipant) {
-      const assignedWords = task.assignedTo.toLowerCase().split(' ').filter(word => word.length >= 2);
-      assignedParticipant = availableParticipants.find((p: any) => {
-        const participantWords = p.name.toLowerCase().split(' ').filter(word => word.length >= 2);
-        return assignedWords.some(word => 
-          participantWords.some(pWord => 
-            pWord.includes(word) || word.includes(pWord)
-          )
-        );
-      });
+      const nameVariations: { [key: string]: string[] } = {
+        'émilie': ['emilie', 'emi'],
+        'emilie': ['émilie', 'emi'],
+        'leïla': ['leila', 'layla'],
+        'leila': ['leïla', 'layla'],
+        'david': ['dave', 'dav'],
+        'tabibian': ['tabi', 'tab']
+      };
+      
+      for (const [canonical, variations] of Object.entries(nameVariations)) {
+        if (searchName.includes(canonical) || variations.some(v => searchName.includes(v))) {
+          assignedParticipant = availableParticipants.find((p: any) => 
+            p.name.toLowerCase().includes(canonical) || 
+            variations.some(v => p.name.toLowerCase().includes(v))
+          );
+          if (assignedParticipant) break;
+        }
+      }
     }
     
     assignedToId = assignedParticipant?.id || null;
@@ -123,7 +142,8 @@ export async function saveTask(supabaseClient: any, task: any, meetingId: string
       description: task.description,
       meeting_id: meetingId,
       assigned_to: assignedToId,
-      status: 'pending'
+      status: 'pending',
+      ai_recommendation_generated: false
     })
     .select()
     .single();
