@@ -30,6 +30,8 @@ interface SimpleMeetingFormProps {
 }
 
 export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: SimpleMeetingFormProps) => {
+  console.log('[SimpleMeetingForm] Rendered with props:', { isSubmitting, isComplete });
+  
   const [title, setTitle] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -57,6 +59,7 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
         // Automatiquement sélectionner tous les participants
         const allParticipantIds = participantsList.map(p => p.id);
         setSelectedParticipantIds(allParticipantIds);
+        console.log('[SimpleMeetingForm] Auto-selected participants:', allParticipantIds);
       } catch (error: any) {
         console.error("Error fetching participants:", error);
         toast({
@@ -84,8 +87,17 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
   };
 
   const handleSubmit = () => {
+    console.log('[SimpleMeetingForm] handleSubmit called');
+    console.log('[SimpleMeetingForm] Form state:', { 
+      title: title?.trim() || 'EMPTY', 
+      hasAudio: !!(audioBlob || audioFile), 
+      participantCount: selectedParticipantIds.length,
+      isSubmitting 
+    });
+    
     // Basic validation
     if (!title?.trim()) {
+      console.log('[SimpleMeetingForm] Validation failed: no title');
       toast({
         title: "Titre requis",
         description: "Veuillez saisir un titre pour la réunion",
@@ -95,6 +107,7 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
     }
 
     if (selectedParticipantIds.length === 0) {
+      console.log('[SimpleMeetingForm] Validation failed: no participants');
       toast({
         title: "Participants requis",
         description: "Veuillez sélectionner au moins un participant",
@@ -104,6 +117,7 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
     }
 
     if (!audioBlob && !audioFile) {
+      console.log('[SimpleMeetingForm] Validation failed: no audio');
       toast({
         title: "Audio requis",
         description: "Veuillez enregistrer ou télécharger un fichier audio",
@@ -112,14 +126,30 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
       return;
     }
     
-    onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
+    console.log('[SimpleMeetingForm] Validation passed, calling onSubmit');
+    console.log('[SimpleMeetingForm] Calling onSubmit with:', {
+      title: title.trim(),
+      hasAudioBlob: !!audioBlob,
+      hasAudioFile: !!audioFile,
+      participantsCount: participants.length,
+      selectedParticipantsCount: selectedParticipantIds.length
+    });
+    
+    try {
+      onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
+      console.log('[SimpleMeetingForm] onSubmit called successfully');
+    } catch (error) {
+      console.error('[SimpleMeetingForm] Error calling onSubmit:', error);
+    }
   };
 
   // Show loading screen when submitting
   if (isSubmitting) {
+    console.log('[SimpleMeetingForm] Showing loading screen');
     return <SimpleLoadingScreen isComplete={isComplete} />;
   }
 
+  console.log('[SimpleMeetingForm] Rendering form');
   return (
     <Card className="p-6">
       <div className="space-y-6">
@@ -156,8 +186,9 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
         <Button
           onClick={handleSubmit}
           className="w-full"
+          disabled={isSubmitting}
         >
-          Soumettre la réunion
+          {isSubmitting ? "Traitement en cours..." : "Soumettre la réunion"}
         </Button>
       </div>
 

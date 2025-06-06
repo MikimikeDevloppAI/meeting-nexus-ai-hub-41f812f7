@@ -16,7 +16,7 @@ export const useSimpleMeetingCreation = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  console.log('[useSimpleMeetingCreation] Current user:', user);
+  console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
 
   const createMeeting = async (
     title: string,
@@ -26,9 +26,10 @@ export const useSimpleMeetingCreation = () => {
     selectedParticipantIds: string[]
   ) => {
     console.log('[useSimpleMeetingCreation] ========== STARTING MEETING CREATION ==========');
-    console.log('[useSimpleMeetingCreation] Input validation:', { 
+    console.log('[useSimpleMeetingCreation] Input received:', { 
       title: title?.trim() || 'EMPTY', 
-      hasAudio: !!(audioBlob || audioFile), 
+      hasAudioBlob: !!audioBlob,
+      hasAudioFile: !!audioFile,
       participantCount: selectedParticipantIds.length,
       userId: user?.id || 'NO USER'
     });
@@ -45,7 +46,11 @@ export const useSimpleMeetingCreation = () => {
     }
 
     console.log('[useSimpleMeetingCreation] Setting isSubmitting to true');
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current) {
+      console.log('[useSimpleMeetingCreation] Component unmounted, aborting');
+      return;
+    }
+    
     setIsSubmitting(true);
     setIsComplete(false);
 
@@ -65,6 +70,7 @@ export const useSimpleMeetingCreation = () => {
       
       // Add participants
       if (selectedParticipantIds.length > 0) {
+        console.log('[CREATE] Adding participants:', selectedParticipantIds);
         await MeetingService.addParticipants(meetingId, selectedParticipantIds);
         console.log('[CREATE] ✅ Participants added');
       }
@@ -77,7 +83,10 @@ export const useSimpleMeetingCreation = () => {
         const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
         console.log('[UPLOAD] ✅ Audio uploaded');
         
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current) {
+          console.log('[UPLOAD] Component unmounted during upload');
+          return;
+        }
         
         // Save audio URL
         await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
@@ -92,6 +101,11 @@ export const useSimpleMeetingCreation = () => {
         );
         
         console.log('[TRANSCRIBE] ✅ Transcription completed');
+        
+        if (!isMountedRef.current) {
+          console.log('[TRANSCRIBE] Component unmounted during transcription');
+          return;
+        }
         
         // Process with AI
         const selectedParticipants = participants.filter(p => 
@@ -111,6 +125,7 @@ export const useSimpleMeetingCreation = () => {
 
       // Mark as complete and redirect after short delay
       if (isMountedRef.current) {
+        console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
         
         toast({
@@ -121,6 +136,7 @@ export const useSimpleMeetingCreation = () => {
         // Redirect after showing completion state
         setTimeout(() => {
           if (isMountedRef.current && meetingId) {
+            console.log('[SUCCESS] Redirecting to meeting:', meetingId);
             navigate(`/meetings/${meetingId}`);
           }
         }, 2000);
@@ -146,6 +162,7 @@ export const useSimpleMeetingCreation = () => {
         }
       } else {
         // Complete failure
+        console.error('[ERROR] Complete failure - meeting not created');
         toast({
           title: "Erreur de création",
           description: error.message || "Veuillez réessayer",
@@ -161,6 +178,7 @@ export const useSimpleMeetingCreation = () => {
   };
 
   const resetMeetingCreation = () => {
+    console.log('[useSimpleMeetingCreation] resetMeetingCreation called, isSubmitting:', isSubmitting);
     if (!isSubmitting && isMountedRef.current) {
       setIsSubmitting(false);
       setIsComplete(false);
@@ -168,6 +186,7 @@ export const useSimpleMeetingCreation = () => {
   };
 
   const cleanupOnUnmount = () => {
+    console.log('[useSimpleMeetingCreation] cleanupOnUnmount called');
     isMountedRef.current = false;
   };
 
