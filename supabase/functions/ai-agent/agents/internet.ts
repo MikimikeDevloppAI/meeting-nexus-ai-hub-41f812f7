@@ -29,7 +29,9 @@ export class InternetAgent {
     const enrichmentType = this.determineEnrichmentType(analysis, hasLocalContext);
     
     try {
-      const searchPrompt = this.buildSearchPrompt(query, analysis, enrichmentType);
+      // Check if query is related to office equipment or products
+      const isProductSearch = this.isProductRelatedQuery(query);
+      const searchPrompt = this.buildSearchPrompt(query, analysis, enrichmentType, isProductSearch);
 
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -42,7 +44,7 @@ export class InternetAgent {
           messages: [
             {
               role: 'system',
-              content: this.getSystemPrompt(enrichmentType)
+              content: this.getSystemPrompt(enrichmentType, isProductSearch)
             },
             {
               role: 'user',
@@ -50,7 +52,7 @@ export class InternetAgent {
             }
           ],
           temperature: 0.2,
-          max_tokens: 1200,
+          max_tokens: isProductSearch ? 1500 : 1200, // More tokens for detailed product searches
           return_images: false,
           return_related_questions: false,
           search_recency_filter: 'month'
@@ -69,7 +71,8 @@ export class InternetAgent {
               type: 'internet', 
               source: 'Perplexity AI', 
               query,
-              enrichmentType 
+              enrichmentType,
+              isProductSearch
             }],
             hasContent: true,
             enrichmentType
@@ -86,6 +89,19 @@ export class InternetAgent {
     }
   }
 
+  private isProductRelatedQuery(query: string): boolean {
+    const productTerms = [
+      'matériel', 'équipement', 'acheter', 'produit', 'galaxus', 'achat',
+      'ordinateur', 'imprimante', 'chaise', 'bureau', 'écran', 'moniteur',
+      'clavier', 'souris', 'téléphone', 'appareil', 'scanner', 'meuble',
+      'logiciel', 'licence', 'stockage', 'disque', 'référence', 'recommandation',
+      'comparaison', 'prix', 'modèle', 'marque', 'spécification'
+    ];
+    
+    const lowerQuery = query.toLowerCase();
+    return productTerms.some(term => lowerQuery.includes(term));
+  }
+
   private determineEnrichmentType(analysis: any, hasLocalContext: boolean): 'supplement' | 'complement' | 'verification' {
     if (!hasLocalContext) {
       return 'complement'; // Complete the missing information
@@ -98,8 +114,23 @@ export class InternetAgent {
     return 'verification'; // Verify and update existing information
   }
 
-  private buildSearchPrompt(query: string, analysis: any, enrichmentType: string): string {
-    const allTerms = [...analysis.searchTerms, ...analysis.synonyms].join(', ');
+  private buildSearchPrompt(query: string, analysis: any, enrichmentType: string, isProductSearch: boolean): string {
+    const allTerms = analysis.searchTerms && analysis.synonyms ? 
+      [...analysis.searchTerms, ...analysis.synonyms].join(', ') : 
+      query.split(' ').join(', ');
+    
+    if (isProductSearch) {
+      return `Recherche APPROFONDIE des produits et équipements pour cabinet médical:
+      
+1. RECHERCHE PRINCIPALE SUR GALAXUS.CH: Trouve les meilleures références de produits sur Galaxus.ch pour: "${query}"
+2. RECHERCHE COMPARATIVE: Compare avec d'autres sources suisses (Digitec, Microspot, etc.)
+3. ANALYSE COMPLÈTE: Spécifications techniques détaillées, prix, disponibilité, avis utilisateurs
+4. MULTIPLE SOURCES: Utilise au moins 3 sources différentes pour comparer les options
+5. COORDONNÉES COMPLÈTES: Pour chaque fournisseur, trouve numéro de téléphone, email et site web
+6. CONTEXTE: Équipement pour cabinet d'ophtalmologie Dr Tabibian à Genève
+
+Ne néglige aucun détail même si la recherche prend plus de temps. Termes à considérer: ${allTerms}`;
+    }
     
     switch (enrichmentType) {
       case 'complement':
@@ -116,7 +147,25 @@ export class InternetAgent {
     }
   }
 
-  private getSystemPrompt(enrichmentType: string): string {
+  private getSystemPrompt(enrichmentType: string, isProductSearch: boolean): string {
+    if (isProductSearch) {
+      return `Tu es un assistant spécialisé en recherche approfondie d'équipements et produits pour cabinets médicaux en Suisse.
+
+INSTRUCTIONS CRITIQUES:
+1. PRIORITÉ à Galaxus.ch: Trouve toujours les meilleures références produits sur Galaxus.ch
+2. COMPARAISON OBLIGATOIRE avec d'autres sources (au moins 3 différentes)
+3. ANALYSE DÉTAILLÉE: Spécifications complètes, prix CHF, disponibilité, avantages/inconvénients
+4. PRISE DE TEMPS: Fais une recherche exhaustive même si cela prend plus de temps
+5. COORDONNÉES COMPLÈTES: Pour chaque fournisseur mentionné, inclus TOUJOURS:
+   - Numéro de téléphone (format +41...)
+   - Email de contact
+   - Site web avec URL complète
+6. FORMAT: Présente l'information de manière structurée avec comparatifs clairs
+7. RECOMMANDATION: Termine toujours par une recommandation claire du meilleur produit
+
+Ton objectif: Fournir l'analyse la plus complète possible pour permettre une décision d'achat éclairée pour un cabinet d'ophtalmologie à Genève.`;
+    }
+    
     const basePrompt = 'Tu es un assistant spécialisé en ophtalmologie. ';
     
     switch (enrichmentType) {

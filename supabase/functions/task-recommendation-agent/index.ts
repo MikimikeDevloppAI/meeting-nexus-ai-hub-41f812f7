@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -104,7 +103,8 @@ class InternetAgent {
 
     try {
       // Enhanced search with specific provider focus
-      const enhancedQuery = this.buildEnhancedQuery(query);
+      const isProductSearch = this.isProductRelatedQuery(query);
+      const enhancedQuery = this.buildEnhancedQuery(query, isProductSearch);
       
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -117,7 +117,9 @@ class InternetAgent {
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève. Inclus toujours les coordonnées complètes (téléphone, email, site web) des entreprises mentionnées.'
+              content: isProductSearch ? 
+                'Tu es un expert en recherche de produits pour cabinets médicaux suisses. Recherche TOUJOURS sur Galaxus.ch en priorité et inclus des comparaisons avec au moins 3 sources différentes. Pour chaque fournisseur, inclus systématiquement leurs coordonnées complètes (téléphone, email, site web). Prends le temps nécessaire pour une recherche approfondie.' : 
+                'Tu es un assistant spécialisé pour cabinet médical suisse. Recherche des informations spécifiques sur les fournisseurs, prix, et procédures en Suisse, particulièrement à Genève. Inclus toujours les coordonnées complètes (téléphone, email, site web) des entreprises mentionnées.'
             },
             {
               role: 'user',
@@ -125,7 +127,7 @@ class InternetAgent {
             }
           ],
           temperature: 0.2,
-          max_tokens: 1200,
+          max_tokens: isProductSearch ? 1500 : 1200, // More tokens for product searches
           search_recency_filter: 'month'
         }),
       });
@@ -146,9 +148,35 @@ class InternetAgent {
     return { content: '', hasContent: false, enrichmentType: 'supplement' };
   }
 
-  private buildEnhancedQuery(query: string): string {
+  private isProductRelatedQuery(query: string): boolean {
+    const productTerms = [
+      'matériel', 'équipement', 'acheter', 'produit', 'galaxus', 'achat',
+      'ordinateur', 'imprimante', 'chaise', 'bureau', 'écran', 'moniteur',
+      'clavier', 'souris', 'téléphone', 'appareil', 'scanner', 'meuble',
+      'logiciel', 'licence', 'stockage', 'disque', 'référence', 'recommandation',
+      'comparaison', 'prix', 'modèle', 'marque', 'spécification'
+    ];
+    
+    const lowerQuery = query.toLowerCase();
+    return productTerms.some(term => lowerQuery.includes(term));
+  }
+
+  private buildEnhancedQuery(query: string, isProductSearch: boolean): string {
     // Detect specific scenarios and enhance query accordingly
     const lowerQuery = query.toLowerCase();
+    
+    if (isProductSearch) {
+      return `RECHERCHE DE PRODUIT APPROFONDIE (prendre le temps nécessaire):
+      
+1. RECHERCHE GALAXUS.CH: Trouve les meilleures références sur Galaxus.ch pour "${query}"
+2. COMPARAISON AVEC 3+ SOURCES suisses différentes (Digitec, Microspot, autres sites spécialisés)
+3. CRITÈRES: qualité/prix, spécifications, avis, disponibilité, garantie
+4. PRIX EN CHF uniquement
+5. INCLURE COORDONNÉES COMPLÈTES pour chaque fournisseur (téléphone, email, site web)
+6. CONTEXTE: Cabinet d'ophtalmologie à Genève
+
+Ne néglige aucun détail, même si la recherche prend plus de temps.`;
+    }
     
     if (lowerQuery.includes('email') || lowerQuery.includes('mail')) {
       if (lowerQuery.includes('infomaniak') || lowerQuery.includes('sécurité')) {
@@ -238,8 +266,8 @@ serve(async (req) => {
       todos: databaseContext.todos.length
     });
 
-    // Enhanced Phase 4: Internet search with specific provider focus
-    console.log('[TASK-RECOMMENDATION] 🌐 Phase 4: Recherche internet fournisseurs spécifiques');
+    // Enhanced Phase 4: Internet search with specific product focus
+    console.log('[TASK-RECOMMENDATION] 🌐 Phase 4: Recherche internet approfondie');
     const internetAgent = new InternetAgent(perplexityApiKey);
     const internetContext = await internetAgent.searchInternet(
       task.description, 
@@ -249,7 +277,8 @@ serve(async (req) => {
 
     console.log('[TASK-RECOMMENDATION] ✅ Internet:', {
       hasContent: internetContext.hasContent,
-      contentLength: internetContext.content.length
+      contentLength: internetContext.content.length,
+      isProductSearch: internetAgent.isProductRelatedQuery ? internetAgent.isProductRelatedQuery(task.description) : false
     });
 
     // ⚡ PHASE 5: Enhanced synthesis with provider-specific recommendations
@@ -275,6 +304,7 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
 
 1. **RECOMMANDATIONS CONCRÈTES ET UTILES**:
    - Fournir des **fournisseurs spécifiques** suisses ou européens selon le besoin (services, matériel, support technique, etc.)
+   - Si produit/matériel: **PRIORITÉ À GALAXUS.CH** avec liens et références précises
    - Si aucun fournisseur pertinent, fournir des **informations techniques précises** (ex : protocoles de configuration, normes à respecter, détails techniques utiles)
    - Si un service est mentionné (ex. messagerie, site web, stockage, logiciels, etc.), proposer **plusieurs prestataires** avec **avantages et inconvénients résumés de chacun**
 
@@ -283,30 +313,33 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
    - Contacts/sites web si disponibles
    - Procédures spécifiques utiles
    - Délais typiques
+   - Pour produits: liens Galaxus.ch et autres sites, références et modèles précis
 
-3. **COORDONNÉES COMPLÈTES DES ENTREPRISES MENTIONNÉES**:
+3. **COORDONNÉES COMPLÈTES OBLIGATOIRES POUR TOUTES LES ENTREPRISES MENTIONNÉES**:
    - Numéro de téléphone (format international +41...)
    - Email de contact (contact@entreprise.ch)
    - Site web formaté en markdown cliquable [entreprise](https://www.entreprise.ch)
    - Adresse physique si pertinente
 
-4. **EMAIL EXTERNE UNIQUEMENT**: Si recommandé, l'email doit être pour un prestataire externe avec:
-   - Présentation professionnelle du cabinet Dr Tabibian
+4. **EMAIL EXTERNE - STYLE ASSISTANT ADMINISTRATIF**: Si recommandé, l'email doit être:
+   - Écrit comme par un assistant administratif (sans mentionner de titre)
+   - Style professionnel mais naturel
+   - Présentation du cabinet Dr Tabibian
    - Demande précise de devis/information
    - Mention du contexte ophtalmologique
-   - Coordonnées Genève
+   - Coordonnées du cabinet à Genève
 
-5. **SÉLECTIVITÉ**: Ne recommande que si tu peux apporter:
-   - Des fournisseurs précis avec comparaison claire
-   - Des informations techniques utiles à l'action
-   - Une vraie valeur ajoutée, concise et applicable
+5. **RECHERCHES APPROFONDIES**:
+   - Prends le temps nécessaire pour des recherches complètes
+   - Compare plusieurs sources (minimum 3 pour les produits)
+   - Pour le matériel, TOUJOURS chercher sur Galaxus.ch
 
 6. **FORMAT JSON REQUIS**:
 {
   "hasRecommendation": [true/false],
   "recommendation": "[Recommandation avec fournisseurs ou infos techniques concrètes et prix CHF]",
   "needsExternalEmail": [true/false],
-  "emailDraft": "[Email professionnel pour prestataire externe]",
+  "emailDraft": "[Email professionnel d'assistant administratif pour prestataire externe]",
   "externalProviders": ["Liste noms entreprises/fournisseurs spécifiques"],
   "estimatedCost": "[Coût en CHF avec fourchette]",
   "specificInfo": "[Infos techniques spécifiques ex: protocole SMTP sécurisé, type de licence, contraintes réglementaires, etc.]",
@@ -322,6 +355,7 @@ ${internetContext.content ? internetContext.content.substring(0, 1500) : 'Inform
 }
 
 **EXEMPLES DE BONNES RECOMMANDATIONS:**
+- "Pour ce moniteur médical, Galaxus.ch propose le modèle BenQ GW2780 à 199 CHF qui offre un bon rapport qualité/prix. Alternatives: modèle Philips sur Digitec (229 CHF), modèle Dell sur Microspot (249 CHF)" + coordonnées complètes
 - "Configurer un service mail sécurisé avec SPF/DKIM, tarif environ 50-100 CHF/an" + coordonnées complètes
 - "Fournisseur Haag-Streit (Berne) pour matériel ophtalmologique, devis sur mesure" + téléphone et site
 - "Comparaison : MedWeb (+ spécialisé / - plus cher), SwissDigitalCare (+ flexible / - moins orienté santé), budget 5000-15000 CHF" + coordonnées des deux
