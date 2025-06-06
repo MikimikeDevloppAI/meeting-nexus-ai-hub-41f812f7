@@ -102,13 +102,19 @@ serve(async (req) => {
       supabase
     ));
 
-    // Return immediate response
+    // Return immediate response with enhanced messaging for PowerPoint
+    let estimatedTime = '20-45 secondes selon la taille';
+    if (document.content_type === 'application/vnd.ms-powerpoint' || 
+        document.content_type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+      estimatedTime = '30-60 secondes pour les présentations PowerPoint';
+    }
+
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Traitement du document démarré avec ConvertAPI',
       textLength: text.length,
       fileType: document.content_type,
-      estimatedTime: '20-45 secondes selon la taille'
+      estimatedTime: estimatedTime
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

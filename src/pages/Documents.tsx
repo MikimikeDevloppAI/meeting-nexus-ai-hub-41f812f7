@@ -190,7 +190,14 @@ const Documents = () => {
       if (dbError) throw dbError;
 
       // Process with AI if it's a supported file type
-      if (['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
+      if ([
+        'application/pdf', 
+        'text/plain', 
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ].includes(file.type)) {
         await supabase.functions.invoke('process-document', {
           body: { documentId: document.id }
         });
