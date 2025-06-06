@@ -233,7 +233,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-800"
+                            className="h-8 w-8 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
                             aria-label="Modifier le commentaire"
                           >
                             <Pen className="h-4 w-4" />
@@ -242,7 +242,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                             size="sm"
                             variant="ghost"
                             onClick={() => handleDeleteComment(comment.id)}
-                            className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            className="h-8 w-8 p-0 bg-transparent hover:bg-destructive hover:text-destructive-foreground"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -304,7 +304,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        className="h-5 w-5 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
                         aria-label="Modifier le commentaire"
                       >
                         <Pen className="h-3 w-3" />
@@ -312,7 +312,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                        className="h-5 w-5 p-0 bg-transparent hover:bg-blue-100 hover:text-blue-800"
                         onClick={() => handleDeleteComment(comment.id)}
                       >
                         <Trash2 className="h-3 w-3" />

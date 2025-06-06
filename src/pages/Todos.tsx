@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +16,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
+
+interface NewTodoForm {
+  description: string;
+}
 
 export default function Todos() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -25,7 +32,14 @@ export default function Todos() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
+  const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
   const { toast } = useToast();
+  
+  const form = useForm<NewTodoForm>({
+    defaultValues: {
+      description: ""
+    }
+  });
 
   useEffect(() => {
     fetchTodos();
@@ -140,6 +154,37 @@ export default function Todos() {
     fetchTodos();
   };
 
+  const createNewTodo = async (data: NewTodoForm) => {
+    try {
+      const { data: newTodo, error } = await supabase
+        .from("todos")
+        .insert([{ 
+          description: data.description,
+          status: 'confirmed'
+        }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setTodos([newTodo, ...todos]);
+      setShowNewTodoDialog(false);
+      form.reset();
+      
+      toast({
+        title: "Tâche créée",
+        description: "La nouvelle tâche a été créée avec succès",
+      });
+    } catch (error: any) {
+      console.error("Error creating todo:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer la tâche",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -182,27 +227,38 @@ export default function Todos() {
           <h1 className="text-2xl font-bold">Mes Tâches</h1>
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+            >
+              Toutes
+            </Button>
+            <Button
+              variant={statusFilter === "confirmed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("confirmed")}
+            >
+              En cours
+            </Button>
+            <Button
+              variant={statusFilter === "completed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("completed")}
+            >
+              Terminées
+            </Button>
+          </div>
           <Button
-            variant={statusFilter === "all" ? "default" : "outline"}
+            onClick={() => setShowNewTodoDialog(true)}
+            variant="default"
             size="sm"
-            onClick={() => setStatusFilter("all")}
+            className="ml-4"
           >
-            Toutes
-          </Button>
-          <Button
-            variant={statusFilter === "confirmed" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("confirmed")}
-          >
-            En cours
-          </Button>
-          <Button
-            variant={statusFilter === "completed" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("completed")}
-          >
-            Terminées
+            <Plus className="h-4 w-4 mr-1" />
+            Nouvelle tâche
           </Button>
         </div>
       </div>
@@ -322,6 +378,37 @@ export default function Todos() {
               compact={false}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog for creating new todo */}
+      <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Créer une nouvelle tâche</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(createNewTodo)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Description de la tâche..." {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowNewTodoDialog(false)}>
+                  Annuler
+                </Button>
+                <Button type="submit">Créer</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
