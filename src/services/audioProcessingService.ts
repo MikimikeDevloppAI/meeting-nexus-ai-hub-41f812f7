@@ -3,132 +3,73 @@ import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } f
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
 
-// Helper function to chunk text for embeddings with improved preservation
-const chunkText = (text: string, maxChunkSize: number = 800, overlap: number = 100): string[] => {
+// Helper function to chunk text for embeddings with sentence boundaries and size constraints
+const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] => {
   if (!text || text.trim().length === 0) {
     return [];
   }
 
-  console.log(`[CHUNKING] Processing text of ${text.length} characters`);
+  console.log(`[CHUNKING] Processing text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
   
-  // Split by paragraphs first, then sentences
-  const paragraphs = text.split(/\n\s*\n/);
   const chunks: string[] = [];
-  let totalCharactersProcessed = 0;
   
-  for (const paragraph of paragraphs) {
-    if (paragraph.trim().length === 0) continue;
+  // Split by sentences using proper sentence endings
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    const trimmedSentence = sentence.trim();
+    if (!trimmedSentence) continue;
     
-    totalCharactersProcessed += paragraph.length;
+    const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + trimmedSentence;
     
-    // If paragraph is small enough, add it as a chunk (reduced threshold)
-    if (paragraph.length <= maxChunkSize) {
-      if (paragraph.trim().length >= 30) { // Reduced from 150 to 30
-        chunks.push(`[Segment ${chunks.length + 1}] ${paragraph.trim()}`);
-        console.log(`[CHUNKING] Added small paragraph chunk: ${paragraph.length} chars`);
-      } else {
-        // Preserve small paragraphs by combining with previous chunk if possible
-        if (chunks.length > 0 && chunks[chunks.length - 1].length + paragraph.length <= maxChunkSize) {
-          chunks[chunks.length - 1] += ` ${paragraph.trim()}`;
-          console.log(`[CHUNKING] Combined small paragraph with previous chunk`);
-        } else {
-          // Create a minimal chunk to not lose content
-          chunks.push(`[Mini-segment ${chunks.length + 1}] ${paragraph.trim()}`);
-          console.log(`[CHUNKING] Created mini-chunk to preserve content: ${paragraph.length} chars`);
-        }
-      }
-      continue;
-    }
-    
-    // Split large paragraphs by sentences with improved logic
-    const sentences = paragraph.split(/[.!?]+\s+/);
-    let currentChunk = '';
-    
-    for (let i = 0; i < sentences.length; i++) {
-      const sentence = sentences[i].trim();
-      if (!sentence) continue;
-      
-      // Add proper punctuation if missing
-      const punctuatedSentence = sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?') 
-        ? sentence 
-        : sentence + '.';
-      
-      // Check if adding this sentence would exceed the limit
-      const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + punctuatedSentence;
-      
-      if (potentialChunk.length > maxChunkSize && currentChunk.length > 0) {
-        // Save current chunk with reduced minimum threshold
-        if (currentChunk.trim().length >= 50) { // Reduced from 150 to 50
-          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-          console.log(`[CHUNKING] Added sentence-based chunk: ${currentChunk.length} chars`);
-        }
-        
-        // Start new chunk with smart overlap
-        const words = currentChunk.split(' ');
-        const overlapWords = words.slice(-Math.min(15, Math.floor(words.length / 3))); // More intelligent overlap
-        currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? ' ' : '') + punctuatedSentence;
-      } else {
-        currentChunk = potentialChunk;
-      }
-    }
-    
-    // Add the final chunk with reduced threshold
-    if (currentChunk.trim().length >= 30) { // Reduced from 150 to 30
+    // If adding this sentence would exceed max size and current chunk meets min size
+    if (potentialChunk.length > maxChunkSize && currentChunk.length >= minChunkSize) {
       chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-      console.log(`[CHUNKING] Added final chunk: ${currentChunk.length} chars`);
-    } else if (currentChunk.trim().length > 0) {
-      // Don't lose any content - create mini-chunk
-      chunks.push(`[Final-mini ${chunks.length + 1}] ${currentChunk.trim()}`);
-      console.log(`[CHUNKING] Created final mini-chunk: ${currentChunk.length} chars`);
+      console.log(`[CHUNKING] Created chunk ${chunks.length}: ${currentChunk.length} chars`);
+      currentChunk = trimmedSentence;
+    } else {
+      currentChunk = potentialChunk;
     }
   }
   
-  // Recovery phase: if we lost too much content, create additional chunks from remaining text
-  const processedLength = chunks.reduce((total, chunk) => {
-    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini) \d+\]\s*/, '');
-    return total + cleanChunk.length;
-  }, 0);
-  
-  const retentionRate = processedLength / text.length;
-  console.log(`[CHUNKING] Content retention rate: ${(retentionRate * 100).toFixed(1)}% (${processedLength}/${text.length} chars)`);
-  
-  if (retentionRate < 0.85) { // If we're losing more than 15% of content
-    console.log(`[CHUNKING] Low retention detected, attempting content recovery...`);
-    
-    // Find text portions that might have been missed
-    const allChunkText = chunks.join(' ').toLowerCase();
-    const originalWords = text.toLowerCase().split(/\s+/);
-    const missingWords = originalWords.filter(word => 
-      word.length > 3 && !allChunkText.includes(word)
-    );
-    
-    if (missingWords.length > 0) {
-      // Create recovery chunks from missing content
-      const recoveryText = missingWords.join(' ');
-      if (recoveryText.length >= 20) {
-        chunks.push(`[Recovery ${chunks.length + 1}] Content analysis: ${recoveryText.substring(0, 400)}`);
-        console.log(`[CHUNKING] Added recovery chunk with ${missingWords.length} missing words`);
+  // Handle the final chunk
+  if (currentChunk.trim().length >= minChunkSize) {
+    chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+    console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
+  } else if (currentChunk.trim().length > 0) {
+    // Try to merge with previous chunk if possible
+    if (chunks.length > 0) {
+      const lastChunk = chunks[chunks.length - 1];
+      const content = lastChunk.replace(/^\[Segment \d+\]\s*/, '');
+      const mergedContent = content + ' ' + currentChunk.trim();
+      
+      if (mergedContent.length <= maxChunkSize) {
+        chunks[chunks.length - 1] = `[Segment ${chunks.length}] ${mergedContent}`;
+        console.log(`[CHUNKING] Merged final chunk with previous: ${mergedContent.length} chars`);
+      } else {
+        // Keep as separate chunk even if small
+        chunks.push(`[Final-segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+        console.log(`[CHUNKING] Kept small final chunk: ${currentChunk.length} chars`);
       }
+    } else {
+      chunks.push(`[Single-segment] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Single chunk: ${currentChunk.length} chars`);
     }
   }
   
-  // Final filtering with much more lenient criteria
-  const finalChunks = chunks.filter(chunk => {
-    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini|Recovery) \d+\]\s*/, '');
-    return cleanChunk.length >= 20; // Very permissive minimum - reduced from 100 to 20
-  });
-  
-  console.log(`[CHUNKING] Final result: ${finalChunks.length} chunks from ${text.length} chars (${chunks.length} initial chunks)`);
-  
-  // Log chunk distribution for debugging
-  const chunkSizes = finalChunks.map(chunk => {
-    const cleanChunk = chunk.replace(/^\[(?:Segment|Part|Mini-segment|Final-mini|Recovery) \d+\]\s*/, '');
+  // Log final statistics
+  const chunkSizes = chunks.map(chunk => {
+    const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
     return cleanChunk.length;
   });
   
-  console.log(`[CHUNKING] Chunk size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length)}`);
+  const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
   
-  return finalChunks;
+  console.log(`[CHUNKING] Final result: ${chunks.length} chunks`);
+  console.log(`[CHUNKING] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
+  
+  return chunks;
 };
 
 // Function to generate embeddings using OpenAI

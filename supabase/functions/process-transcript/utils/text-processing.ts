@@ -30,151 +30,71 @@ export function formatDate(dateString: string): string {
   });
 }
 
-// Improved helper function to chunk text for embeddings with substantial content chunks
-export const chunkText = (text: string, targetChunkSize: number = 500, minChunkSize: number = 300, overlap: number = 50): string[] => {
+// Improved helper function to chunk text for embeddings with sentence boundaries
+export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] => {
   if (!text || text.trim().length === 0) {
     return [];
   }
 
-  console.log(`[CHUNKING-SUBSTANTIAL] Processing text of ${text.length} characters with target size ${targetChunkSize}`);
+  console.log(`[CHUNKING] Processing text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
   
-  // Split by paragraphs first for better semantic coherence
-  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
   const chunks: string[] = [];
-  let totalCharactersProcessed = 0;
   
-  for (const paragraph of paragraphs) {
-    if (paragraph.trim().length === 0) continue;
+  // Split by sentences using proper sentence endings
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    const trimmedSentence = sentence.trim();
+    if (!trimmedSentence) continue;
     
-    totalCharactersProcessed += paragraph.length;
+    const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + trimmedSentence;
     
-    // If paragraph is within target range, use it as a chunk
-    if (paragraph.length >= minChunkSize && paragraph.length <= targetChunkSize * 1.5) {
-      chunks.push(`[Segment ${chunks.length + 1}] ${paragraph.trim()}`);
-      console.log(`[CHUNKING-SUBSTANTIAL] Added substantial paragraph chunk: ${paragraph.length} chars`);
-      continue;
-    }
-    
-    // If paragraph is too small, try to combine with previous chunk
-    if (paragraph.length < minChunkSize && chunks.length > 0) {
-      const lastChunk = chunks[chunks.length - 1];
-      const combinedLength = lastChunk.length + paragraph.length + 1;
-      
-      if (combinedLength <= targetChunkSize * 1.5) {
-        chunks[chunks.length - 1] = `${lastChunk} ${paragraph.trim()}`;
-        console.log(`[CHUNKING-SUBSTANTIAL] Combined small paragraph with previous chunk: ${combinedLength} chars`);
-        continue;
-      }
-    }
-    
-    // Split large paragraphs by sentences but maintain substantial size
-    if (paragraph.length > targetChunkSize * 1.5) {
-      const sentences = paragraph.split(/[.!?]+\s+/).filter(s => s.trim().length > 0);
-      let currentChunk = '';
-      
-      for (let i = 0; i < sentences.length; i++) {
-        const sentence = sentences[i].trim();
-        if (!sentence) continue;
-        
-        // Add proper punctuation if missing
-        const punctuatedSentence = sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?') 
-          ? sentence 
-          : sentence + '.';
-        
-        const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + punctuatedSentence;
-        
-        // Check if we should finalize current chunk
-        const shouldFinalize = potentialChunk.length > targetChunkSize && currentChunk.length >= minChunkSize;
-        
-        if (shouldFinalize) {
-          // Save current substantial chunk
-          chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-          console.log(`[CHUNKING-SUBSTANTIAL] Added substantial sentence-based chunk: ${currentChunk.length} chars`);
-          
-          // Start new chunk with intelligent overlap
-          const words = currentChunk.split(' ');
-          const overlapWords = words.slice(-Math.min(10, Math.floor(words.length / 4)));
-          currentChunk = overlapWords.join(' ') + (overlapWords.length > 0 ? ' ' : '') + punctuatedSentence;
-        } else {
-          currentChunk = potentialChunk;
-        }
-      }
-      
-      // Add the final chunk if substantial enough
-      if (currentChunk.trim().length >= minChunkSize) {
-        chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-        console.log(`[CHUNKING-SUBSTANTIAL] Added final substantial chunk: ${currentChunk.length} chars`);
-      } else if (currentChunk.trim().length > 50 && chunks.length > 0) {
-        // Merge small final chunk with last chunk if possible
-        const lastChunk = chunks[chunks.length - 1];
-        const combinedLength = lastChunk.length + currentChunk.length + 1;
-        
-        if (combinedLength <= targetChunkSize * 2) {
-          chunks[chunks.length - 1] = `${lastChunk} ${currentChunk.trim()}`;
-          console.log(`[CHUNKING-SUBSTANTIAL] Merged final small chunk with previous: ${combinedLength} chars`);
-        } else {
-          chunks.push(`[Final-segment ${chunks.length + 1}] ${currentChunk.trim()}`);
-          console.log(`[CHUNKING-SUBSTANTIAL] Added final standalone chunk: ${currentChunk.length} chars`);
-        }
-      }
-      continue;
-    }
-    
-    // For medium paragraphs, add as is if substantial enough
-    if (paragraph.length >= minChunkSize) {
-      chunks.push(`[Segment ${chunks.length + 1}] ${paragraph.trim()}`);
-      console.log(`[CHUNKING-SUBSTANTIAL] Added medium paragraph chunk: ${paragraph.length} chars`);
+    // If adding this sentence would exceed max size and current chunk meets min size
+    if (potentialChunk.length > maxChunkSize && currentChunk.length >= minChunkSize) {
+      chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Created chunk ${chunks.length}: ${currentChunk.length} chars`);
+      currentChunk = trimmedSentence;
+    } else {
+      currentChunk = potentialChunk;
     }
   }
   
-  // Quality check: ensure all chunks meet minimum standards
-  const substantialChunks = chunks.filter(chunk => {
-    const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment) \d+\]\s*/, '');
-    return cleanChunk.length >= minChunkSize;
-  });
+  // Handle the final chunk
+  if (currentChunk.trim().length >= minChunkSize) {
+    chunks.push(`[Segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+    console.log(`[CHUNKING] Created final chunk: ${currentChunk.length} chars`);
+  } else if (currentChunk.trim().length > 0) {
+    // Try to merge with previous chunk if possible
+    if (chunks.length > 0) {
+      const lastChunk = chunks[chunks.length - 1];
+      const content = lastChunk.replace(/^\[Segment \d+\]\s*/, '');
+      const mergedContent = content + ' ' + currentChunk.trim();
+      
+      if (mergedContent.length <= maxChunkSize) {
+        chunks[chunks.length - 1] = `[Segment ${chunks.length}] ${mergedContent}`;
+        console.log(`[CHUNKING] Merged final chunk with previous: ${mergedContent.length} chars`);
+      } else {
+        // Keep as separate chunk even if small
+        chunks.push(`[Final-segment ${chunks.length + 1}] ${currentChunk.trim()}`);
+        console.log(`[CHUNKING] Kept small final chunk: ${currentChunk.length} chars`);
+      }
+    } else {
+      chunks.push(`[Single-segment] ${currentChunk.trim()}`);
+      console.log(`[CHUNKING] Single chunk: ${currentChunk.length} chars`);
+    }
+  }
   
-  // Calculate statistics
-  const chunkSizes = substantialChunks.map(chunk => {
-    const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment) \d+\]\s*/, '');
+  // Log final statistics
+  const chunkSizes = chunks.map(chunk => {
+    const cleanChunk = chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
     return cleanChunk.length;
   });
   
   const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
-  const retentionRate = substantialChunks.length > 0 ? 
-    chunkSizes.reduce((a,b) => a+b, 0) / text.length : 0;
   
-  console.log(`[CHUNKING-SUBSTANTIAL] Final result: ${substantialChunks.length} substantial chunks`);
-  console.log(`[CHUNKING-SUBSTANTIAL] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
-  console.log(`[CHUNKING-SUBSTANTIAL] Content retention: ${(retentionRate * 100).toFixed(1)}%`);
+  console.log(`[CHUNKING] Final result: ${chunks.length} chunks`);
+  console.log(`[CHUNKING] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
   
-  // If we have too few chunks or poor retention, create larger synthetic chunks
-  if (substantialChunks.length < 3 && text.length > 1000) {
-    console.log(`[CHUNKING-SUBSTANTIAL] Creating synthetic chunks for better coverage...`);
-    const syntheticChunks: string[] = [];
-    const words = text.split(/\s+/);
-    let currentWords: string[] = [];
-    
-    for (const word of words) {
-      currentWords.push(word);
-      const currentText = currentWords.join(' ');
-      
-      if (currentText.length >= targetChunkSize) {
-        syntheticChunks.push(`[Synthetic-segment ${syntheticChunks.length + 1}] ${currentText}`);
-        // Keep some overlap
-        currentWords = currentWords.slice(-overlap);
-      }
-    }
-    
-    // Add remaining words if substantial
-    if (currentWords.length > 0 && currentWords.join(' ').length >= minChunkSize) {
-      syntheticChunks.push(`[Synthetic-segment ${syntheticChunks.length + 1}] ${currentWords.join(' ')}`);
-    }
-    
-    if (syntheticChunks.length > substantialChunks.length) {
-      console.log(`[CHUNKING-SUBSTANTIAL] Using ${syntheticChunks.length} synthetic chunks instead`);
-      return syntheticChunks;
-    }
-  }
-  
-  return substantialChunks;
+  return chunks;
 };

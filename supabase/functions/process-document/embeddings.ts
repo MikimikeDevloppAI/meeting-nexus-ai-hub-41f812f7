@@ -1,5 +1,3 @@
-
-
 // Embeddings generation utilities
 
 export async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promise<number[][]> {
@@ -85,47 +83,66 @@ export async function generateEmbeddings(chunks: string[], openaiApiKey: string)
   return embeddings;
 }
 
-export function chunkText(text: string, maxChunkSize: number = 400): string[] {
+export function chunkText(text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] {
   if (!text || text.trim().length === 0) {
     console.log('⚠️ Empty text provided for chunking');
     return [];
   }
 
+  console.log(`📝 Chunking text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
+
   const chunks = [];
-  // Split by sentences first, then by paragraphs if sentences are too long
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  // Split by sentences using proper sentence endings
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
 
   for (const sentence of sentences) {
     const trimmedSentence = sentence.trim();
     if (trimmedSentence.length === 0) continue;
     
-    const potentialChunk = currentChunk + (currentChunk ? '. ' : '') + trimmedSentence;
+    const potentialChunk = currentChunk + (currentChunk ? ' ' : '') + trimmedSentence;
     
-    if (potentialChunk.length > maxChunkSize && currentChunk) {
-      // Save current chunk and start new one
+    // If adding this sentence would exceed max size and current chunk meets min size
+    if (potentialChunk.length > maxChunkSize && currentChunk.length >= minChunkSize) {
       chunks.push(currentChunk.trim());
+      console.log(`📝 Created chunk of ${currentChunk.length} characters`);
       currentChunk = trimmedSentence;
     } else {
       currentChunk = potentialChunk;
     }
   }
 
-  // Add the last chunk if it exists
-  if (currentChunk.trim()) {
+  // Add the last chunk if it meets minimum size requirement
+  if (currentChunk.trim().length >= minChunkSize) {
     chunks.push(currentChunk.trim());
-  }
-
-  // If no sentences were found, split by length
-  if (chunks.length === 0 && text.trim()) {
-    console.log('📝 No sentences found, splitting by character length...');
-    for (let i = 0; i < text.length; i += maxChunkSize) {
-      const chunk = text.substring(i, i + maxChunkSize).trim();
-      if (chunk) chunks.push(chunk);
+    console.log(`📝 Created final chunk of ${currentChunk.length} characters`);
+  } else if (currentChunk.trim().length > 0) {
+    // If the last chunk is too small, merge it with the previous chunk if possible
+    if (chunks.length > 0) {
+      const lastChunk = chunks[chunks.length - 1];
+      const mergedChunk = lastChunk + ' ' + currentChunk.trim();
+      if (mergedChunk.length <= maxChunkSize) {
+        chunks[chunks.length - 1] = mergedChunk;
+        console.log(`📝 Merged small final chunk with previous chunk (${mergedChunk.length} characters)`);
+      } else {
+        // If merging would exceed max size, keep as separate chunk even if small
+        chunks.push(currentChunk.trim());
+        console.log(`📝 Kept small final chunk separate (${currentChunk.length} characters)`);
+      }
+    } else {
+      chunks.push(currentChunk.trim());
+      console.log(`📝 Kept only chunk even if small (${currentChunk.length} characters)`);
     }
   }
 
-  console.log(`📝 Created ${chunks.length} text chunks`);
+  // Log statistics
+  const chunkSizes = chunks.map(chunk => chunk.length);
+  const avgSize = chunkSizes.length > 0 ? Math.round(chunkSizes.reduce((a,b) => a+b, 0) / chunkSizes.length) : 0;
+  
+  console.log(`📝 Created ${chunks.length} chunks`);
+  console.log(`📊 Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
+  
   return chunks;
 }
 
@@ -138,4 +155,3 @@ export function formatEmbeddingsForPostgres(embeddings: number[][]): string[] {
     return formatted;
   });
 }
-
