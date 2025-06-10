@@ -16,10 +16,11 @@ serve(async (req) => {
   try {
     const { meetingId, userMessage, conversationHistory } = await req.json();
     
-    console.log('[MEETING-ASSISTANT] 🤖 Traitement demande:', userMessage.substring(0, 100) + '...');
+    console.log('[MEETING-ASSISTANT] 🤖 Traitement demande:', userMessage);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
+      console.error('[MEETING-ASSISTANT] ❌ OpenAI API key non configurée');
       throw new Error('OpenAI API key not configured');
     }
 
@@ -36,7 +37,10 @@ serve(async (req) => {
       .eq('id', meetingId)
       .single();
 
-    if (meetingError) throw meetingError;
+    if (meetingError) {
+      console.error('[MEETING-ASSISTANT] ❌ Erreur récupération réunion:', meetingError);
+      throw meetingError;
+    }
 
     const { data: todos, error: todosError } = await supabase
       .from('todos')
@@ -53,14 +57,20 @@ serve(async (req) => {
       .eq('meeting_id', meetingId)
       .eq('status', 'confirmed');
 
-    if (todosError) throw todosError;
+    if (todosError) {
+      console.error('[MEETING-ASSISTANT] ❌ Erreur récupération todos:', todosError);
+      throw todosError;
+    }
 
     const { data: participants, error: participantsError } = await supabase
       .from('meeting_participants')
       .select('participants(*)')
       .eq('meeting_id', meetingId);
 
-    if (participantsError) throw participantsError;
+    if (participantsError) {
+      console.error('[MEETING-ASSISTANT] ❌ Erreur récupération participants:', participantsError);
+      throw participantsError;
+    }
 
     // Construire le contexte pour l'IA
     const meetingContext = {
@@ -79,9 +89,9 @@ serve(async (req) => {
       }))
     };
 
-    console.log('[MEETING-ASSISTANT] 🧠 Analyse avec GPT-4...');
+    console.log('[MEETING-ASSISTANT] 🧠 Préparation prompt pour GPT-4...');
 
-    const systemPrompt = `Tu es l'assistant IA intelligent du cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans la gestion des réunions.
+    const systemPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans la gestion des réunions.
 
 CONTEXTE RÉUNION ACTUELLE :
 Titre: ${meetingContext.title}
@@ -100,8 +110,8 @@ ${i+1}. [ID: ${todo.id}] ${todo.description}
    - Commentaires: ${todo.comments}
 `).join('')}
 
-TRANSCRIPT COMPLET :
-${meetingContext.transcript}
+TRANSCRIPT (extrait) :
+${meetingContext.transcript.substring(0, 2000)}...
 
 HISTORIQUE CONVERSATION :
 ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
@@ -121,20 +131,18 @@ INSTRUCTIONS :
 4. Sois précis sur les IDs des tâches à modifier
 5. Adapte ton ton professionnel au contexte médical
 
-Réponds UNIQUEMENT en JSON avec cette structure :
+Réponds UNIQUEMENT en JSON avec cette structure exacte :
 {
   "response": "ta réponse conversationnelle à l'utilisateur",
   "actions": [
     {
-      "type": "create_todo" | "update_todo" | "delete_todo" | "update_summary" | "create_recommendation" | "update_recommendation",
-      "data": {
-        // données spécifiques selon le type d'action
-      },
+      "type": "create_todo | update_todo | delete_todo | update_summary | create_recommendation | update_recommendation",
+      "data": {},
       "explanation": "pourquoi cette action"
     }
   ],
-  "needsConfirmation": boolean,
-  "confirmationMessage": "message de confirmation si nécessaire"
+  "needsConfirmation": false,
+  "confirmationMessage": ""
 }`;
 
     const messages = [
@@ -142,6 +150,8 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       ...conversationHistory,
       { role: 'user', content: userMessage }
     ];
+
+    console.log('[MEETING-ASSISTANT] 🧠 Appel OpenAI API...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -157,27 +167,39 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       }),
     });
 
-    const aiData = await response.json();
-    let aiResponse;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[MEETING-ASSISTANT] ❌ Erreur OpenAI API:', errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
 
+    const aiData = await response.json();
+    console.log('[MEETING-ASSISTANT] ✅ Réponse OpenAI reçue');
+
+    let aiResponse;
     try {
       const aiContent = aiData.choices[0].message.content;
+      console.log('[MEETING-ASSISTANT] 📝 Contenu brut:', aiContent.substring(0, 200) + '...');
+      
+      // Extraire le JSON de la réponse
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         aiResponse = JSON.parse(jsonMatch[0]);
+        console.log('[MEETING-ASSISTANT] ✅ JSON parsé avec succès');
       } else {
+        console.error('[MEETING-ASSISTANT] ❌ Aucun JSON trouvé dans la réponse');
         throw new Error('Format JSON invalide');
       }
     } catch (parseError) {
-      console.error('[MEETING-ASSISTANT] Erreur parsing:', parseError);
+      console.error('[MEETING-ASSISTANT] ❌ Erreur parsing JSON:', parseError);
       aiResponse = {
-        response: "Je ne peux pas traiter votre demande pour le moment. Pouvez-vous la reformuler ?",
+        response: "Je comprends votre demande, mais j'ai un problème technique. Pouvez-vous la reformuler ?",
         actions: [],
         needsConfirmation: false
       };
     }
 
-    console.log('[MEETING-ASSISTANT] ✅ Réponse générée:', {
+    console.log('[MEETING-ASSISTANT] ✅ Réponse finale:', {
       actionsCount: aiResponse.actions?.length || 0,
       needsConfirmation: aiResponse.needsConfirmation
     });
@@ -186,7 +208,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       response: aiResponse.response,
       actions: aiResponse.actions || [],
       needsConfirmation: aiResponse.needsConfirmation || false,
-      confirmationMessage: aiResponse.confirmationMessage,
+      confirmationMessage: aiResponse.confirmationMessage || "",
       meetingContext: {
         todosCount: meetingContext.todos.length,
         hasTranscript: !!meetingContext.transcript,
@@ -197,10 +219,10 @@ Réponds UNIQUEMENT en JSON avec cette structure :
     });
 
   } catch (error) {
-    console.error('[MEETING-ASSISTANT] ❌ ERREUR:', error);
+    console.error('[MEETING-ASSISTANT] ❌ ERREUR GLOBALE:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      response: "Une erreur s'est produite. Veuillez réessayer.",
+      response: "Une erreur s'est produite. Veuillez réessayer dans quelques instants.",
       actions: []
     }), {
       status: 500,

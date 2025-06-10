@@ -47,70 +47,94 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
 
   const executeActions = async (actions: AssistantAction[]) => {
     try {
+      console.log('🔧 Exécution de', actions.length, 'action(s)...');
+      
       for (const action of actions) {
-        console.log('Exécution action:', action.type, action.data);
+        console.log('⚡ Exécution action:', action.type, action.data);
         
         switch (action.type) {
           case 'create_todo':
-            await supabase
+            const { data: newTodo, error: createError } = await supabase
               .from('todos')
               .insert({
                 meeting_id: meetingId,
                 description: action.data.description,
                 status: 'confirmed'
-              });
+              })
+              .select()
+              .single();
+            
+            if (createError) throw createError;
+            console.log('✅ Tâche créée:', newTodo?.id);
             break;
             
           case 'update_todo':
-            await supabase
+            const { error: updateError } = await supabase
               .from('todos')
               .update({ description: action.data.description })
               .eq('id', action.data.id);
+            
+            if (updateError) throw updateError;
+            console.log('✅ Tâche mise à jour:', action.data.id);
             break;
             
           case 'delete_todo':
-            await supabase
+            const { error: deleteError } = await supabase
               .from('todos')
               .delete()
               .eq('id', action.data.id);
+            
+            if (deleteError) throw deleteError;
+            console.log('✅ Tâche supprimée:', action.data.id);
             break;
             
           case 'update_summary':
-            await supabase
+            const { error: summaryError } = await supabase
               .from('meetings')
               .update({ summary: action.data.summary })
               .eq('id', meetingId);
+            
+            if (summaryError) throw summaryError;
+            console.log('✅ Résumé mis à jour');
             break;
             
           case 'create_recommendation':
-            await supabase
+            const { error: createRecError } = await supabase
               .from('todo_ai_recommendations')
               .insert({
                 todo_id: action.data.todo_id,
                 recommendation_text: action.data.recommendation,
                 email_draft: action.data.email_draft
               });
+            
+            if (createRecError) throw createRecError;
+            console.log('✅ Recommandation créée pour tâche:', action.data.todo_id);
             break;
             
           case 'update_recommendation':
-            await supabase
+            const { error: updateRecError } = await supabase
               .from('todo_ai_recommendations')
               .update({
                 recommendation_text: action.data.recommendation,
                 email_draft: action.data.email_draft
               })
               .eq('todo_id', action.data.todo_id);
+            
+            if (updateRecError) throw updateRecError;
+            console.log('✅ Recommandation mise à jour pour tâche:', action.data.todo_id);
             break;
         }
       }
       
+      console.log('🎉 Toutes les actions exécutées avec succès');
       onDataUpdate?.();
+      
       toast({
         title: "Actions exécutées",
         description: `${actions.length} action(s) appliquée(s) avec succès`,
       });
     } catch (error) {
-      console.error('Erreur exécution actions:', error);
+      console.error('❌ Erreur exécution actions:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'exécuter certaines actions",
@@ -129,10 +153,13 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
 
     try {
+      console.log('📤 Envoi message à l\'assistant:', currentInput);
+      
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
         content: msg.content
@@ -141,32 +168,53 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       const { data, error } = await supabase.functions.invoke('meeting-assistant-agent', {
         body: {
           meetingId,
-          userMessage: inputValue,
+          userMessage: currentInput,
           conversationHistory
         }
       });
 
-      if (error) throw error;
+      console.log('📥 Réponse reçue:', data);
+
+      if (error) {
+        console.error('❌ Erreur function invoke:', error);
+        throw error;
+      }
+
+      if (!data || !data.response) {
+        console.error('❌ Réponse vide ou invalide:', data);
+        throw new Error('Réponse vide de l\'assistant');
+      }
 
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.response,
         timestamp: new Date(),
-        actions: data.actions
+        actions: data.actions || []
       };
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      if (data.needsConfirmation) {
+      if (data.needsConfirmation && data.actions && data.actions.length > 0) {
+        console.log('⚠️ Confirmation requise pour', data.actions.length, 'action(s)');
         setPendingActions(data.actions);
-        setConfirmationMessage(data.confirmationMessage);
+        setConfirmationMessage(data.confirmationMessage || "Voulez-vous appliquer ces actions ?");
         setShowConfirmation(true);
       } else if (data.actions && data.actions.length > 0) {
+        console.log('⚡ Exécution immédiate de', data.actions.length, 'action(s)');
         await executeActions(data.actions);
       }
 
     } catch (error) {
-      console.error('Erreur assistant:', error);
+      console.error('❌ Erreur assistant:', error);
+      
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer votre demande ?",
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
       toast({
         title: "Erreur",
         description: "Impossible de communiquer avec l'assistant",
