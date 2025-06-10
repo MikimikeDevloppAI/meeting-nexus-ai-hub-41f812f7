@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Send, Loader2 } from "lucide-react";
+import { FileText, Send, Loader2, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -23,6 +23,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const { toast } = useToast();
 
   const sendMessage = async () => {
@@ -36,19 +37,39 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
 
     setInputValue("");
     setIsLoading(true);
+    setIsTyping(true);
     setMessages(prev => [...prev, userMessage]);
+
+    // Animation de typing
+    const typingMessage: Message = {
+      role: 'assistant',
+      content: "L'assistant réfléchit...",
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, typingMessage]);
 
     try {
       console.log('📤 Envoi demande résumé:', inputValue);
       
-      const { data, error } = await supabase.functions.invoke('summary-chat', {
+      // Timeout côté client de 12s
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout client (12s)')), 12000)
+      );
+
+      const requestPromise = supabase.functions.invoke('summary-chat', {
         body: {
           meetingId,
           userMessage: inputValue
         }
       });
 
+      const { data, error } = await Promise.race([requestPromise, timeoutPromise]) as any;
+
       console.log('📥 Réponse reçue:', data);
+
+      // Retirer le message de typing
+      setMessages(prev => prev.slice(0, -1));
+      setIsTyping(false);
 
       if (error) {
         throw new Error(`Erreur: ${error.message}`);
@@ -79,6 +100,10 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
     } catch (error: any) {
       console.error('❌ Erreur:', error);
       
+      // Retirer le message de typing en cas d'erreur
+      setMessages(prev => prev.slice(0, -1));
+      setIsTyping(false);
+      
       const errorMessage: Message = {
         role: 'assistant',
         content: `❌ ${error.message}`,
@@ -95,6 +120,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
 
     } finally {
       setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -111,6 +137,16 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
         <CardTitle className="flex items-center gap-2 text-sm">
           <FileText className="h-4 w-4 text-blue-600" />
           Assistant Résumé
+          {isTyping && (
+            <div className="flex items-center gap-1 ml-2">
+              <Bot className="h-3 w-3 text-blue-500 animate-pulse" />
+              <div className="flex gap-1">
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       
@@ -133,7 +169,9 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
                 <div className={`rounded-lg p-2 max-w-[80%] text-xs ${
                   message.role === 'user' 
                     ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-100 text-gray-900'
+                    : message.content.includes('réfléchit') 
+                      ? 'bg-yellow-100 text-yellow-800 animate-pulse'
+                      : 'bg-gray-100 text-gray-900'
                 }`}>
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   <div className="text-xs opacity-70 mt-1">
@@ -161,6 +199,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
             onClick={sendMessage} 
             disabled={isLoading || !inputValue.trim()}
             size="sm"
+            className={isLoading ? 'animate-pulse' : ''}
           >
             {isLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
