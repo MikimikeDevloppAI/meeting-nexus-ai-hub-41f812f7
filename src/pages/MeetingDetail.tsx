@@ -141,47 +141,43 @@ export default function MeetingDetail() {
         </CardContent>
       </Card>
 
-      {/* Summary with Chat */}
+      {/* Summary with Chat Above */}
       {summary && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card data-updated>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Résumé de la réunion
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    Mis à jour automatiquement
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EditableContent
-                  content={summary}
-                  onSave={handleSummarySave}
-                  type="summary"
-                  id={meeting.id}
-                />
-              </CardContent>
-            </Card>
-          </div>
+        <div className="space-y-4">
+          {/* Chat Résumé au-dessus */}
+          <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
           
-          <div>
-            <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
-          </div>
+          {/* Résumé */}
+          <Card data-updated>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Résumé de la réunion
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  Mis à jour automatiquement
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EditableContent
+                content={summary}
+                onSave={handleSummarySave}
+                type="summary"
+                id={meeting.id}
+              />
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Todos with Chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <div data-updated>
-            <MeetingTodos meetingId={meeting.id} />
-          </div>
-        </div>
+      {/* Todos with Chat Above */}
+      <div className="space-y-4">
+        {/* Chat Todos au-dessus */}
+        <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
         
-        <div>
-          <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
+        {/* Liste des Todos */}
+        <div data-updated>
+          <MeetingTodos meetingId={meeting.id} />
         </div>
       </div>
 

@@ -29,7 +29,7 @@ serve(async (req) => {
 
     // Récupérer todos existants avec timeout
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout')), 3000)
+      setTimeout(() => reject(new Error('Database timeout')), 5000)
     );
 
     const todosPromise = supabase
@@ -88,13 +88,14 @@ Réponds en JSON:
     });
 
     const openAITimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout')), 8000)
+      setTimeout(() => reject(new Error('OpenAI timeout')), 15000)
     );
 
     const response = await Promise.race([openAIPromise, openAITimeout]) as Response;
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const aiData = await response.json();

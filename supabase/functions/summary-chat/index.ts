@@ -27,9 +27,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer réunion avec timeout
+    // Récupérer réunion avec timeout plus court
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout')), 3000)
+      setTimeout(() => reject(new Error('Database timeout')), 5000)
     );
 
     const meetingPromise = supabase
@@ -54,7 +54,7 @@ RÉSUMÉ ACTUEL:
 ${meeting.summary || 'Aucun résumé existant'}
 
 TRANSCRIPT (pour contexte):
-${meeting.transcript ? meeting.transcript.substring(0, 4000) + '...' : 'Pas de transcript'}
+${meeting.transcript ? meeting.transcript.substring(0, 3000) + '...' : 'Pas de transcript'}
 
 INSTRUCTION: Modifie le résumé selon la demande: "${userMessage}"
 
@@ -79,18 +79,19 @@ Réponds en JSON:
           { role: 'user', content: userMessage }
         ],
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 800,
       }),
     });
 
     const openAITimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout')), 8000)
+      setTimeout(() => reject(new Error('OpenAI timeout')), 15000)
     );
 
     const response = await Promise.race([openAIPromise, openAITimeout]) as Response;
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const aiData = await response.json();
