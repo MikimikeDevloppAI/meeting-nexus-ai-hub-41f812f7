@@ -36,7 +36,6 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -68,15 +67,13 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     }
     setIsLoading(true);
 
-    // Ajouter le message utilisateur
     setMessages(prev => [...prev, userMessage]);
 
-    // Créer un message de traitement
     const processingMessageId = generateMessageId();
     const processingMessage: Message = {
       id: processingMessageId,
       role: 'assistant',
-      content: "🧠 Analyse de votre demande en cours...",
+      content: "⚡ Traitement rapide en cours...",
       timestamp: new Date(),
       status: 'processing'
     };
@@ -84,19 +81,18 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     setMessages(prev => [...prev, processingMessage]);
 
     try {
-      console.log('📤 Envoi à simple-assistant:', messageToSend);
+      console.log('📤 Envoi demande:', messageToSend);
       
-      const conversationHistory = messages.slice(-8).map(msg => ({
+      const conversationHistory = messages.slice(-4).map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Timeout côté client plus court
+      // Timeout côté client très court
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout: La demande prend trop de temps (15s)')), 15000)
+        setTimeout(() => reject(new Error('La demande prend trop de temps (10s)')), 10000)
       );
 
-      // Appeler le nouvel agent simplifié
       const requestPromise = supabase.functions.invoke('meeting-assistant-simple', {
         body: {
           meetingId,
@@ -107,28 +103,27 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
 
       const { data, error } = await Promise.race([requestPromise, timeoutPromise]) as any;
 
-      console.log('📥 Réponse assistant simple:', data);
+      console.log('📥 Réponse reçue:', data);
 
       if (error) {
-        throw new Error(`Erreur fonction: ${error.message}`);
+        throw new Error(`Erreur: ${error.message}`);
       }
 
       if (!data) {
-        throw new Error('Réponse vide de l\'assistant');
+        throw new Error('Réponse vide');
       }
 
-      // Vérifier si c'est une erreur déguisée
       if (data.success === false) {
-        throw new Error(data.error || 'Erreur inconnue de l\'assistant');
+        throw new Error(data.error || 'Erreur inconnue');
       }
 
-      // Mettre à jour le message de traitement avec la vraie réponse
+      // Mise à jour avec la vraie réponse
       setMessages(prev => {
         return prev.map(msg => {
           if (msg.id === processingMessageId) {
             return {
               ...msg,
-              content: data.response || "Réponse reçue mais vide",
+              content: data.response || "Réponse reçue",
               actions: data.actions || [],
               status: 'completed' as const
             };
@@ -137,37 +132,29 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
         });
       });
 
-      // Déclencher la mise à jour des données si des actions ont été exécutées
+      // Déclencher mise à jour si actions réussies
       const hasSuccessfulActions = data.actions?.some((action: AssistantAction) => action.success);
 
       if (hasSuccessfulActions) {
-        console.log('🔄 Mise à jour des données après actions réussies');
+        console.log('🔄 Mise à jour des données');
         onDataUpdate?.();
         
         toast({
-          title: "Actions exécutées",
-          description: `${data.actions.filter((a: AssistantAction) => a.success).length} action(s) réalisée(s) avec succès`,
+          title: "✅ Actions réalisées",
+          description: `${data.actions.filter((a: AssistantAction) => a.success).length} action(s) exécutée(s)`,
         });
       }
 
-      // Reset retry count on success
-      setRetryCount(0);
-
     } catch (error) {
-      console.error('❌ Erreur assistant simple:', error);
+      console.error('❌ Erreur:', error);
       
-      // Remplacer le message de traitement par un message d'erreur
       setMessages(prev => {
         return prev.map(msg => {
           if (msg.id === processingMessageId) {
-            let errorMessage = `❌ Erreur: ${error.message}`;
+            let errorMessage = `❌ ${error.message}`;
             
-            if (error.message.includes('timeout') || error.message.includes('Timeout')) {
-              errorMessage += '\n\n💡 Suggestion: Essayez une demande plus simple ou réessayez dans quelques instants.';
-            } else if (error.message.includes('OpenAI')) {
-              errorMessage += '\n\n💡 Suggestion: Le service IA est temporairement indisponible. Réessayez dans quelques minutes.';
-            } else if (retryCount < 2) {
-              errorMessage += '\n\n💡 Vous pouvez cliquer sur "Réessayer" pour tenter à nouveau.';
+            if (error.message.includes('temps') || error.message.includes('timeout')) {
+              errorMessage += '\n\n💡 Le service est temporairement lent. Reformulez plus simplement ou réessayez.';
             }
             
             return {
@@ -181,12 +168,11 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       });
       
       toast({
-        title: "Erreur",
-        description: error.message,
+        title: "⚠️ Erreur temporaire",
+        description: "Service lent. Reformulez ou réessayez.",
         variant: "destructive",
       });
 
-      setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -224,37 +210,34 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-600" />
-          Assistant IA Simplifié
+          Assistant IA Rapide
           <Badge variant="outline" className="ml-auto">
             {messages.filter(m => m.role === 'user').length} échange{messages.filter(m => m.role === 'user').length > 1 ? 's' : ''}
           </Badge>
-          {retryCount > 0 && (
-            <Button
-              onClick={retryLastMessage}
-              size="sm"
-              variant="outline"
-              className="ml-2"
-              disabled={isLoading}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Réessayer
-            </Button>
-          )}
+          <Button
+            onClick={retryLastMessage}
+            size="sm"
+            variant="outline"
+            className="ml-2"
+            disabled={isLoading || messages.filter(m => m.role === 'user').length === 0}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Réessayer
+          </Button>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col gap-3 p-4">
-        {/* Zone de messages */}
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {messages.length === 0 && (
-              <div className="text-center py-8 text-gray-500 animate-fade-in">
+              <div className="text-center py-8 text-gray-500">
                 <Bot className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-sm">
-                  Bonjour ! Je peux vous aider avec les tâches, le résumé et les recommandations de cette réunion.
+                  Assistant IA optimisé pour des réponses rapides.
                 </p>
                 <p className="text-xs mt-2">
-                  Exemple : "Ajoute une tâche pour...", "Modifie le résumé pour inclure...", "Crée une recommandation pour..."
+                  Exemples simples : "Ajoute une tâche...", "Modifie le résumé...", "Supprime la tâche..."
                 </p>
               </div>
             )}
@@ -262,7 +245,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 animate-fade-in ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex gap-2 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className="flex-shrink-0">
@@ -283,10 +266,9 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
                   }`}>
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     
-                    {/* Affichage des actions exécutées */}
                     {message.actions && message.actions.length > 0 && message.status !== 'processing' && (
                       <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                        <p className="text-xs font-medium">Actions exécutées :</p>
+                        <p className="text-xs font-medium">Actions :</p>
                         {message.actions.map((action, idx) => (
                           <div key={idx} className="flex items-center gap-2 text-xs">
                             {action.success ? (
@@ -319,13 +301,12 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
           </div>
         </ScrollArea>
 
-        {/* Zone de saisie */}
         <div className="flex gap-2">
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isLoading ? "L'assistant traite votre demande..." : "Tapez votre message... (Entrée pour envoyer)"}
+            placeholder={isLoading ? "Traitement en cours..." : "Demande simple et précise..."}
             disabled={isLoading}
             className="flex-1"
           />
