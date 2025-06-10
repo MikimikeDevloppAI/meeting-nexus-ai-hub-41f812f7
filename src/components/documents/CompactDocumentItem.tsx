@@ -1,8 +1,9 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch } from "lucide-react";
+import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X } from "lucide-react";
 import { useState } from "react";
+import { CompactDocumentChat } from "./CompactDocumentChat";
 
 interface CompactDocumentItemProps {
   document: {
@@ -122,79 +123,87 @@ export const CompactDocumentItem = ({
       {/* Modal pour les détails */}
       {showDetails && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">
-                  {document.ai_generated_name || document.original_name}
-                </h2>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowDetails(false)}
-                >
-                  Fermer
-                </Button>
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex">
+            {/* Partie gauche - Détails du document */}
+            <div className="flex-1 flex flex-col">
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">
+                    {document.ai_generated_name || document.original_name}
+                  </h2>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowDetails(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Nom original: {document.original_name}
+                  </p>
+                )}
               </div>
               
-              {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Nom original: {document.original_name}
-                </p>
-              )}
+              <div className="p-6 flex-1 overflow-y-auto space-y-4">
+                {/* Résumé */}
+                {document.ai_summary && (
+                  <div>
+                    <h4 className="font-medium mb-2">Résumé</h4>
+                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
+                      {document.ai_summary}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Catégorisation complète */}
+                {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Catégorisation complète</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {document.taxonomy.category && (
+                        <Badge variant="secondary">
+                          {document.taxonomy.category}
+                        </Badge>
+                      )}
+                      {document.taxonomy.subcategory && (
+                        <Badge variant="outline">
+                          {document.taxonomy.subcategory}
+                        </Badge>
+                      )}
+                      {document.taxonomy.documentType && (
+                        <Badge variant="outline">
+                          {document.taxonomy.documentType}
+                        </Badge>
+                      )}
+                      {document.taxonomy.keywords?.map((keyword: string, index: number) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Texte extrait */}
+                {document.extracted_text && (
+                  <div>
+                    <h4 className="font-medium mb-2">
+                      Texte extrait ({document.extracted_text.length.toLocaleString()} caractères)
+                    </h4>
+                    <div className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded max-h-60 overflow-y-auto">
+                      {document.extracted_text}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
-              {/* Résumé */}
-              {document.ai_summary && (
-                <div>
-                  <h4 className="font-medium mb-2">Résumé</h4>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
-                    {document.ai_summary}
-                  </p>
-                </div>
-              )}
-              
-              {/* Catégorisation complète */}
-              {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Catégorisation complète</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {document.taxonomy.category && (
-                      <Badge variant="secondary">
-                        {document.taxonomy.category}
-                      </Badge>
-                    )}
-                    {document.taxonomy.subcategory && (
-                      <Badge variant="outline">
-                        {document.taxonomy.subcategory}
-                      </Badge>
-                    )}
-                    {document.taxonomy.documentType && (
-                      <Badge variant="outline">
-                        {document.taxonomy.documentType}
-                      </Badge>
-                    )}
-                    {document.taxonomy.keywords?.map((keyword: string, index: number) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {keyword}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Texte extrait */}
-              {document.extracted_text && (
-                <div>
-                  <h4 className="font-medium mb-2">
-                    Texte extrait ({document.extracted_text.length.toLocaleString()} caractères)
-                  </h4>
-                  <div className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded max-h-60 overflow-y-auto">
-                    {document.extracted_text}
-                  </div>
-                </div>
-              )}
+            {/* Partie droite - Chat avec le document */}
+            <div className="w-96 border-l bg-gray-50">
+              <CompactDocumentChat document={document} />
             </div>
           </div>
         </div>
