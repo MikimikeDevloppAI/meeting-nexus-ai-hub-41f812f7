@@ -1,16 +1,14 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Trash2, Download, Eye, Loader2, CheckCircle, FileSearch } from "lucide-react";
+import { FileText, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
-import { ProcessingResults } from "@/components/documents/ProcessingResults";
-import { CompactDocumentChat } from "@/components/documents/CompactDocumentChat";
+import { CompactDocumentItem } from "@/components/documents/CompactDocumentItem";
 
 interface UploadedDocument {
   id: string;
@@ -36,7 +34,6 @@ interface SearchFilters {
 }
 
 const Documents = () => {
-  const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -93,12 +90,6 @@ const Documents = () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient, toast]);
-
-  // Get the first processed document for default chat
-  const defaultChatDocument = useMemo(() => {
-    if (!documents) return null;
-    return documents.find(doc => doc.processed && doc.extracted_text) || null;
-  }, [documents]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -286,17 +277,6 @@ const Documents = () => {
     }
   };
 
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return 'N/A';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(2)} MB`;
-  };
-
-  const formatTextLength = (text: string | null) => {
-    if (!text) return 'N/A';
-    return `${text.length.toLocaleString()} caractères`;
-  };
-
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -362,7 +342,7 @@ const Documents = () => {
       )}
 
       {/* Documents List */}
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
           <CardTitle>
             Documents Uploadés 
@@ -373,7 +353,7 @@ const Documents = () => {
             )}
           </CardTitle>
           <CardDescription>
-            Liste de vos documents avec traitement automatique par IA et texte extrait.
+            Cliquez sur un document pour voir le résumé détaillé.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -392,120 +372,21 @@ const Documents = () => {
             </div>
           ) : (
             <ScrollArea className="h-[600px]">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredDocuments.map((document) => (
-                  <div
+                  <CompactDocumentItem
                     key={document.id}
-                    className="border rounded-lg p-4 space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="h-4 w-4" />
-                          <h3 className="font-medium">
-                            {document.ai_generated_name || document.original_name}
-                          </h3>
-                          {document.processed ? (
-                            <Badge variant="default" className="bg-green-500">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Traité
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-blue-500 text-white">
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              En traitement...
-                            </Badge>
-                          )}
-                          {document.extracted_text && (
-                            <Badge variant="outline" className="bg-purple-50">
-                              <FileSearch className="h-3 w-3 mr-1" />
-                              Texte extrait
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Nom original: {document.original_name}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {document.extracted_text && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedDocument(document)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadDocument(document)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteMutation.mutate(document)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <ProcessingResults document={document} />
-                    
-                    {/* Compact Document Chat */}
-                    {document.processed && document.extracted_text && (
-                      <CompactDocumentChat document={document} />
-                    )}
-                    
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{formatFileSize(document.file_size)}</span>
-                      <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
-                      {document.content_type && <span>{document.content_type}</span>}
-                      {document.extracted_text && <span>{formatTextLength(document.extracted_text)}</span>}
-                    </div>
-                  </div>
+                    document={document}
+                    onDownload={() => downloadDocument(document)}
+                    onDelete={() => deleteMutation.mutate(document)}
+                    isDeleting={deleteMutation.isPending}
+                  />
                 ))}
               </div>
             </ScrollArea>
           )}
         </CardContent>
       </Card>
-
-      {/* Text Preview Dialog */}
-      {selectedDocument && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl max-h-[80vh] overflow-hidden">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Texte extrait - {selectedDocument.ai_generated_name || selectedDocument.original_name}</span>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setSelectedDocument(null)}
-                >
-                  Fermer
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[60vh]">
-                <div className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded">
-                  {selectedDocument.extracted_text || 'Aucun texte extrait disponible'}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 };
