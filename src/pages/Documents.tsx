@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { CompactDocumentItem } from "@/components/documents/CompactDocumentItem";
+import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAssistant";
 
 interface UploadedDocument {
   id: string;
@@ -285,6 +286,9 @@ const Documents = () => {
           Téléchargez et gérez vos documents avec traitement automatique par IA et extraction de texte.
         </p>
       </div>
+
+      {/* Assistant de recherche */}
+      <DocumentSearchAssistant />
 
       {/* Upload Section */}
       <Card className="mb-6">

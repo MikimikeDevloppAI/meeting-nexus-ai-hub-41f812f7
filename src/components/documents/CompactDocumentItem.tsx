@@ -123,22 +123,23 @@ export const CompactDocumentItem = ({
       {/* Modal pour les détails */}
       {showDetails && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex relative">
+            {/* Bouton de fermeture en haut à droite */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDetails(false)}
+              className="absolute top-4 right-4 z-10"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
             {/* Partie gauche - Détails du document */}
             <div className="flex-1 flex flex-col">
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">
-                    {document.ai_generated_name || document.original_name}
-                  </h2>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setShowDetails(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="p-6 border-b pr-16">
+                <h2 className="text-lg font-semibold">
+                  {document.ai_generated_name || document.original_name}
+                </h2>
                 
                 {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
                   <p className="text-sm text-muted-foreground mt-1">
