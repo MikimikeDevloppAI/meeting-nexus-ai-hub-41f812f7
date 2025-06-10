@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,8 +50,18 @@ export default function MeetingDetail() {
   };
 
   const handleDataUpdate = () => {
+    console.log('🔄 Déclenchement mise à jour des données');
     setRefreshKey(prev => prev + 1);
     refetch();
+    
+    // Ajouter une animation visuelle pour indiquer la mise à jour
+    const elements = document.querySelectorAll('[data-updated]');
+    elements.forEach(el => {
+      el.classList.add('animate-pulse');
+      setTimeout(() => {
+        el.classList.remove('animate-pulse');
+      }, 1000);
+    });
   };
 
   if (isLoading) {
@@ -83,7 +92,7 @@ export default function MeetingDetail() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Meeting Header */}
-      <Card>
+      <Card data-updated>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -135,11 +144,14 @@ export default function MeetingDetail() {
 
       {/* Summary */}
       {summary && (
-        <Card>
+        <Card data-updated>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               Résumé de la réunion
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Mis à jour automatiquement
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -154,7 +166,9 @@ export default function MeetingDetail() {
       )}
 
       {/* Todos */}
-      <MeetingTodos meetingId={meeting.id} />
+      <div data-updated>
+        <MeetingTodos meetingId={meeting.id} />
+      </div>
 
       {/* Transcript */}
       {meeting.transcript && (
