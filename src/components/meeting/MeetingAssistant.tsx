@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -194,10 +193,10 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     setInputValue("");
     setIsLoading(true);
 
-    // Ajouter le message utilisateur d'abord
+    // Ajouter le message utilisateur
     setMessages(prev => [...prev, userMessage]);
 
-    // Ajouter un message de traitement avec ID unique
+    // Créer un message de traitement avec ID unique
     const processingMessageId = generateMessageId();
     const processingMessage: Message = {
       id: processingMessageId,
@@ -211,11 +210,14 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
 
     try {
       console.log('📤 Envoi message à l\'assistant:', currentInput);
+      console.log('🆔 ID du message de traitement:', processingMessageId);
       
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
+
+      console.log('📋 Historique conversation:', conversationHistory.length, 'messages');
 
       const { data, error } = await supabase.functions.invoke('meeting-assistant-agent', {
         body: {
@@ -225,33 +227,46 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
         }
       });
 
-      console.log('📥 Réponse reçue:', data);
+      console.log('📥 Réponse brute reçue:', data);
+      console.log('❌ Erreur éventuelle:', error);
 
       if (error) {
         console.error('❌ Erreur function invoke:', error);
         throw error;
       }
 
-      if (!data || !data.response) {
-        console.error('❌ Réponse vide ou invalide:', data);
+      if (!data) {
+        console.error('❌ Réponse vide');
         throw new Error('Réponse vide de l\'assistant');
       }
 
-      // Remplacer le message de traitement par la vraie réponse
+      console.log('✅ Données validées:', {
+        hasResponse: !!data.response,
+        responseLength: data.response?.length || 0,
+        actionsCount: data.actions?.length || 0,
+        needsConfirmation: data.needsConfirmation
+      });
+
+      // Mettre à jour le message de traitement avec la vraie réponse
       setMessages(prev => {
-        return prev.map(msg => {
+        console.log('🔄 Mise à jour du message:', processingMessageId);
+        const updatedMessages = prev.map(msg => {
           if (msg.id === processingMessageId) {
+            console.log('✏️ Remplacement du message de traitement');
             return {
               ...msg,
-              content: data.response,
+              content: data.response || "Réponse reçue mais vide",
               actions: data.actions || [],
-              status: 'completed'
+              status: 'completed' as const
             };
           }
           return msg;
         });
+        console.log('📊 Messages après mise à jour:', updatedMessages.length);
+        return updatedMessages;
       });
 
+      // Gérer les actions si nécessaire
       if (data.needsConfirmation && data.actions && data.actions.length > 0) {
         console.log('⚠️ Confirmation requise pour', data.actions.length, 'action(s)');
         setPendingActions(data.actions);
@@ -263,7 +278,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       }
 
     } catch (error) {
-      console.error('❌ Erreur assistant:', error);
+      console.error('❌ Erreur complète assistant:', error);
       
       // Remplacer le message de traitement par un message d'erreur
       setMessages(prev => {
@@ -272,7 +287,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             return {
               ...msg,
               content: "❌ Désolé, je rencontre un problème technique. Pouvez-vous réessayer votre demande ?",
-              status: 'error'
+              status: 'error' as const
             };
           }
           return msg;
@@ -286,6 +301,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       });
     } finally {
       setIsLoading(false);
+      console.log('🏁 Traitement terminé');
     }
   };
 

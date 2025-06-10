@@ -17,6 +17,7 @@ serve(async (req) => {
     const { meetingId, userMessage, conversationHistory } = await req.json();
     
     console.log('[MEETING-ASSISTANT] 🤖 Traitement demande:', userMessage);
+    console.log('[MEETING-ASSISTANT] 🆔 Meeting ID:', meetingId);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -42,6 +43,8 @@ serve(async (req) => {
       throw meetingError;
     }
 
+    console.log('[MEETING-ASSISTANT] ✅ Réunion trouvée:', meeting.title);
+
     const { data: todos, error: todosError } = await supabase
       .from('todos')
       .select(`
@@ -62,6 +65,8 @@ serve(async (req) => {
       throw todosError;
     }
 
+    console.log('[MEETING-ASSISTANT] ✅ Todos trouvées:', todos.length);
+
     const { data: participants, error: participantsError } = await supabase
       .from('meeting_participants')
       .select('participants(*)')
@@ -71,6 +76,8 @@ serve(async (req) => {
       console.error('[MEETING-ASSISTANT] ❌ Erreur récupération participants:', participantsError);
       throw participantsError;
     }
+
+    console.log('[MEETING-ASSISTANT] ✅ Participants trouvés:', participants.length);
 
     // Construire le contexte pour l'IA
     const meetingContext = {
@@ -159,6 +166,7 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
     ];
 
     console.log('[MEETING-ASSISTANT] 🧠 Appel OpenAI API...');
+    console.log('[MEETING-ASSISTANT] 📊 Messages à envoyer:', messages.length);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -174,19 +182,22 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
       }),
     });
 
+    console.log('[MEETING-ASSISTANT] 📡 Statut réponse OpenAI:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[MEETING-ASSISTANT] ❌ Erreur OpenAI API:', errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const aiData = await response.json();
     console.log('[MEETING-ASSISTANT] ✅ Réponse OpenAI reçue');
+    console.log('[MEETING-ASSISTANT] 📋 Choix disponibles:', aiData.choices?.length || 0);
 
     let aiResponse;
     try {
       const aiContent = aiData.choices[0].message.content;
-      console.log('[MEETING-ASSISTANT] 📝 Contenu brut:', aiContent.substring(0, 300) + '...');
+      console.log('[MEETING-ASSISTANT] 📝 Contenu brut (premiers 300 chars):', aiContent.substring(0, 300) + '...');
       
       // Extraire le JSON de la réponse
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
@@ -196,10 +207,12 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
         
         // Validation de la réponse
         if (!aiResponse.response) {
+          console.error('[MEETING-ASSISTANT] ❌ Réponse manquante dans la structure JSON');
           throw new Error('Réponse manquante dans la structure JSON');
         }
         
         if (!Array.isArray(aiResponse.actions)) {
+          console.log('[MEETING-ASSISTANT] ⚠️ Actions non définies, initialisation tableau vide');
           aiResponse.actions = [];
         }
         
@@ -207,17 +220,19 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
         
       } else {
         console.error('[MEETING-ASSISTANT] ❌ Aucun JSON trouvé dans la réponse');
+        console.log('[MEETING-ASSISTANT] 📄 Contenu complet:', aiContent);
         // Fallback: traiter comme réponse conversationnelle simple
         aiResponse = {
-          response: aiContent.trim(),
+          response: aiContent.trim() || "Je comprends votre demande, mais j'ai rencontré un problème technique. Pouvez-vous la reformuler plus précisément ?",
           actions: [],
           needsConfirmation: false
         };
       }
     } catch (parseError) {
       console.error('[MEETING-ASSISTANT] ❌ Erreur parsing JSON:', parseError);
+      console.log('[MEETING-ASSISTANT] 📄 Contenu qui a causé l\'erreur:', aiData.choices[0]?.message?.content || 'Aucun contenu');
       aiResponse = {
-        response: "Je comprends votre demande, mais j'ai rencontré un problème technique. Pouvez-vous la reformuler plus précisément ? Par exemple : 'Ajoute une tâche pour...' ou 'Modifie le résumé pour inclure...'",
+        response: "Je comprends votre demande, mais j'ai rencontré un problème technique lors du traitement. Pouvez-vous reformuler votre demande de manière plus précise ? Par exemple : 'Ajoute une tâche pour...' ou 'Modifie le résumé pour inclure...'",
         actions: [],
         needsConfirmation: false
       };
@@ -225,12 +240,12 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
 
     console.log('[MEETING-ASSISTANT] ✅ Réponse finale préparée:', {
       hasResponse: !!aiResponse.response,
+      responseLength: aiResponse.response?.length || 0,
       actionsCount: aiResponse.actions?.length || 0,
       needsConfirmation: aiResponse.needsConfirmation,
-      responseLength: aiResponse.response?.length || 0
     });
 
-    return new Response(JSON.stringify({
+    const finalResponse = {
       response: aiResponse.response,
       actions: aiResponse.actions || [],
       needsConfirmation: aiResponse.needsConfirmation || false,
@@ -240,17 +255,27 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
         hasTranscript: !!meetingContext.transcript,
         hasSummary: !!meetingContext.summary
       }
-    }), {
+    };
+
+    console.log('[MEETING-ASSISTANT] 🚀 Envoi réponse finale');
+
+    return new Response(JSON.stringify(finalResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('[MEETING-ASSISTANT] ❌ ERREUR GLOBALE:', error);
-    return new Response(JSON.stringify({ 
+    console.error('[MEETING-ASSISTANT] 📍 Stack trace:', error.stack);
+    
+    const errorResponse = { 
       error: error.message,
-      response: "Une erreur s'est produite lors du traitement de votre demande. Veuillez réessayer dans quelques instants. Si le problème persiste, reformulez votre demande de manière plus précise.",
+      response: "Une erreur s'est produite lors du traitement de votre demande. Détails de l'erreur: " + error.message + ". Veuillez réessayer dans quelques instants.",
       actions: []
-    }), {
+    };
+    
+    console.log('[MEETING-ASSISTANT] 📤 Envoi réponse d\'erreur:', errorResponse);
+    
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
