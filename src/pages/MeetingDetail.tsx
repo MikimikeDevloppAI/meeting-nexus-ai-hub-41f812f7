@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, FileText } from "lucide-react";
 import { MeetingTodos } from "@/components/MeetingTodos";
 import { EditableContent } from "@/components/EditableContent";
+import { MeetingAssistant } from "@/components/meeting/MeetingAssistant";
 import { useState } from "react";
 
 interface Participant {
@@ -18,9 +19,10 @@ interface Participant {
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const [summary, setSummary] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: meeting, isLoading, error } = useQuery({
-    queryKey: ["meeting", id],
+  const { data: meeting, isLoading, error, refetch } = useQuery({
+    queryKey: ["meeting", id, refreshKey],
     queryFn: async () => {
       if (!id) throw new Error("Meeting ID is required");
       
@@ -46,6 +48,11 @@ export default function MeetingDetail() {
 
   const handleSummarySave = (newSummary: string) => {
     setSummary(newSummary);
+  };
+
+  const handleDataUpdate = () => {
+    setRefreshKey(prev => prev + 1);
+    refetch();
   };
 
   if (isLoading) {
@@ -122,6 +129,9 @@ export default function MeetingDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Assistant IA */}
+      <MeetingAssistant meetingId={meeting.id} onDataUpdate={handleDataUpdate} />
 
       {/* Summary */}
       {summary && (
