@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, CheckCircle, AlertCircle, User, Loader2, Clock, CheckCheck, Brain, ListTodo, FileText, Lightbulb } from "lucide-react";
+import { Bot, Send, CheckCircle, AlertCircle, User, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -16,7 +16,6 @@ interface Message {
   actions?: AssistantAction[];
   status?: 'processing' | 'completed' | 'error';
   id: string;
-  agentResults?: AgentResult[];
 }
 
 interface AssistantAction {
@@ -25,14 +24,6 @@ interface AssistantAction {
   explanation: string;
   success?: boolean;
   result?: string;
-  error?: string;
-}
-
-interface AgentResult {
-  agent: string;
-  success: boolean;
-  actions: AssistantAction[];
-  summary: string;
   error?: string;
 }
 
@@ -45,6 +36,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -60,44 +52,20 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     return Date.now().toString() + Math.random().toString(36).substr(2, 9);
   };
 
-  const getAgentIcon = (agentType: string) => {
-    switch (agentType) {
-      case 'todo':
-        return <ListTodo className="h-4 w-4 text-blue-600" />;
-      case 'summary':
-        return <FileText className="h-4 w-4 text-green-600" />;
-      case 'recommendations':
-        return <Lightbulb className="h-4 w-4 text-yellow-600" />;
-      default:
-        return <Brain className="h-4 w-4 text-purple-600" />;
-    }
-  };
-
-  const getAgentLabel = (agentType: string) => {
-    switch (agentType) {
-      case 'todo':
-        return 'Tâches';
-      case 'summary':
-        return 'Résumé';
-      case 'recommendations':
-        return 'Recommandations';
-      default:
-        return 'Agent';
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const sendMessage = async (retryMessage?: string) => {
+    const messageToSend = retryMessage || inputValue;
+    if (!messageToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: generateMessageId(),
       role: 'user',
-      content: inputValue,
+      content: messageToSend,
       timestamp: new Date()
     };
 
-    const currentInput = inputValue;
-    setInputValue("");
+    if (!retryMessage) {
+      setInputValue("");
+    }
     setIsLoading(true);
 
     // Ajouter le message utilisateur
@@ -116,30 +84,37 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     setMessages(prev => [...prev, processingMessage]);
 
     try {
-      console.log('📤 Envoi à coordinator-agent:', currentInput);
+      console.log('📤 Envoi à simple-assistant:', messageToSend);
       
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Appeler le coordinateur au lieu de l'ancien agent
-      const { data, error } = await supabase.functions.invoke('meeting-coordinator-agent', {
+      // Timeout côté client pour éviter les blocages
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: La demande prend trop de temps')), 20000)
+      );
+
+      // Appeler le nouvel agent simplifié
+      const requestPromise = supabase.functions.invoke('meeting-assistant-simple', {
         body: {
           meetingId,
-          userMessage: currentInput,
+          userMessage: messageToSend,
           conversationHistory
         }
       });
 
-      console.log('📥 Réponse coordinateur:', data);
+      const { data, error } = await Promise.race([requestPromise, timeoutPromise]) as any;
+
+      console.log('📥 Réponse assistant simple:', data);
 
       if (error) {
         throw error;
       }
 
       if (!data) {
-        throw new Error('Réponse vide du coordinateur');
+        throw new Error('Réponse vide de l\'assistant');
       }
 
       // Mettre à jour le message de traitement avec la vraie réponse
@@ -150,7 +125,6 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
               ...msg,
               content: data.response || "Réponse reçue mais vide",
               actions: data.actions || [],
-              agentResults: data.agentResults || [],
               status: 'completed' as const
             };
           }
@@ -159,9 +133,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       });
 
       // Déclencher la mise à jour des données si des actions ont été exécutées
-      const hasSuccessfulActions = data.agentResults?.some((result: AgentResult) => 
-        result.success && result.actions?.some(action => action.success)
-      );
+      const hasSuccessfulActions = data.actions?.some((action: AssistantAction) => action.success);
 
       if (hasSuccessfulActions) {
         console.log('🔄 Mise à jour des données après actions réussies');
@@ -169,12 +141,15 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
         
         toast({
           title: "Actions exécutées",
-          description: `Les modifications ont été appliquées avec succès`,
+          description: `${data.actions.filter((a: AssistantAction) => a.success).length} action(s) réalisée(s) avec succès`,
         });
       }
 
+      // Reset retry count on success
+      setRetryCount(0);
+
     } catch (error) {
-      console.error('❌ Erreur coordinateur:', error);
+      console.error('❌ Erreur assistant simple:', error);
       
       // Remplacer le message de traitement par un message d'erreur
       setMessages(prev => {
@@ -182,7 +157,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
           if (msg.id === processingMessageId) {
             return {
               ...msg,
-              content: "❌ Désolé, je rencontre un problème technique. Pouvez-vous réessayer votre demande ?",
+              content: `❌ Erreur: ${error.message}. ${retryCount < 2 ? 'Vous pouvez réessayer.' : 'Veuillez rafraîchir la page si le problème persiste.'}`,
               status: 'error' as const
             };
           }
@@ -192,9 +167,11 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       
       toast({
         title: "Erreur",
-        description: "Impossible de communiquer avec l'assistant",
+        description: error.message,
         variant: "destructive",
       });
+
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -212,11 +189,18 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       case 'processing':
         return <Loader2 className="h-3 w-3 animate-spin text-blue-600" />;
       case 'completed':
-        return <CheckCheck className="h-3 w-3 text-green-600" />;
+        return <CheckCircle className="h-3 w-3 text-green-600" />;
       case 'error':
         return <AlertCircle className="h-3 w-3 text-red-600" />;
       default:
         return null;
+    }
+  };
+
+  const retryLastMessage = () => {
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (lastUserMessage) {
+      sendMessage(lastUserMessage.content);
     }
   };
 
@@ -225,10 +209,22 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-600" />
-          Assistant IA Multi-Agents
+          Assistant IA Simplifié
           <Badge variant="outline" className="ml-auto">
             {messages.filter(m => m.role === 'user').length} échange{messages.filter(m => m.role === 'user').length > 1 ? 's' : ''}
           </Badge>
+          {retryCount > 0 && (
+            <Button
+              onClick={retryLastMessage}
+              size="sm"
+              variant="outline"
+              className="ml-2"
+              disabled={isLoading}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Réessayer
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       
@@ -245,20 +241,6 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
                 <p className="text-xs mt-2">
                   Exemple : "Ajoute une tâche pour...", "Modifie le résumé pour inclure...", "Crée une recommandation pour..."
                 </p>
-                <div className="flex items-center justify-center gap-4 mt-4">
-                  <div className="flex items-center gap-1 text-xs">
-                    {getAgentIcon('todo')}
-                    <span>Tâches</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {getAgentIcon('summary')}
-                    <span>Résumé</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {getAgentIcon('recommendations')}
-                    <span>Recommandations</span>
-                  </div>
-                </div>
               </div>
             )}
             
@@ -286,21 +268,19 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
                   }`}>
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     
-                    {/* Affichage des résultats par agent */}
-                    {message.agentResults && message.agentResults.length > 0 && message.status !== 'processing' && (
+                    {/* Affichage des actions exécutées */}
+                    {message.actions && message.actions.length > 0 && message.status !== 'processing' && (
                       <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                        <p className="text-xs font-medium">Agents utilisés :</p>
-                        {message.agentResults.map((result, idx) => (
+                        <p className="text-xs font-medium">Actions exécutées :</p>
+                        {message.actions.map((action, idx) => (
                           <div key={idx} className="flex items-center gap-2 text-xs">
-                            {getAgentIcon(result.agent)}
-                            <span className="font-medium">{getAgentLabel(result.agent)}</span>
-                            {result.success ? (
+                            {action.success ? (
                               <CheckCircle className="h-3 w-3 text-green-600" />
                             ) : (
                               <AlertCircle className="h-3 w-3 text-red-600" />
                             )}
                             <span className="text-gray-600">
-                              {result.actions?.length || 0} action(s)
+                              {action.explanation}
                             </span>
                           </div>
                         ))}
@@ -330,12 +310,12 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isLoading ? "L'assistant analyse votre demande..." : "Tapez votre message... (Entrée pour envoyer)"}
+            placeholder={isLoading ? "L'assistant traite votre demande..." : "Tapez votre message... (Entrée pour envoyer)"}
             disabled={isLoading}
             className="flex-1"
           />
           <Button 
-            onClick={sendMessage} 
+            onClick={() => sendMessage()} 
             disabled={isLoading || !inputValue.trim()}
             size="icon"
           >
