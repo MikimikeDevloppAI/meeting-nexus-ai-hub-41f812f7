@@ -29,7 +29,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer le contexte complet de la réunion avec timeout
+    // Récupérer le contexte complet de la réunion avec timeout réduit
     console.log('[SIMPLE-ASSISTANT] 📋 Récupération contexte réunion...');
     
     const meetingPromise = supabase
@@ -58,9 +58,9 @@ serve(async (req) => {
       .select('participants(*)')
       .eq('meeting_id', meetingId);
 
-    // Exécuter toutes les requêtes en parallèle avec timeout
+    // Exécuter toutes les requêtes en parallèle avec timeout réduit
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout')), 5000)
+      setTimeout(() => reject(new Error('Database timeout - requêtes trop lentes')), 3000)
     );
 
     const [meetingResult, todosResult, participantsResult] = await Promise.race([
@@ -69,13 +69,13 @@ serve(async (req) => {
     ]) as any;
 
     if (meetingResult.error) {
-      throw meetingResult.error;
+      throw new Error(`Erreur récupération réunion: ${meetingResult.error.message}`);
     }
     if (todosResult.error) {
-      throw todosResult.error;
+      throw new Error(`Erreur récupération tâches: ${todosResult.error.message}`);
     }
     if (participantsResult.error) {
-      throw participantsResult.error;
+      throw new Error(`Erreur récupération participants: ${participantsResult.error.message}`);
     }
 
     const meeting = meetingResult.data;
@@ -88,14 +88,14 @@ serve(async (req) => {
       participants: participants.length
     });
 
-    // Construire le contexte pour l'IA
+    // Construire le contexte pour l'IA - version simplifiée
     const meetingContext = {
       title: meeting.title,
       date: meeting.created_at,
       summary: meeting.summary || 'Pas de résumé disponible',
-      transcript: meeting.transcript || 'Pas de transcript disponible',
+      transcript: meeting.transcript ? meeting.transcript.substring(0, 1500) + '...' : 'Pas de transcript disponible',
       participants: participants.map(p => p.participants.name).join(', '),
-      todos: todos.map(todo => ({
+      todos: todos.slice(0, 10).map(todo => ({
         id: todo.id,
         description: todo.description,
         assignedTo: todo.todo_participants?.map(tp => tp.participants.name).join(', ') || 'Non assigné',
@@ -127,7 +127,7 @@ ${i+1}. [ID: ${todo.id}] ${todo.description}
 `).join('')}
 
 TRANSCRIPT (extrait) :
-${meetingContext.transcript.substring(0, 2000)}...
+${meetingContext.transcript}
 
 CAPACITÉS :
 - Modifier/créer/supprimer des tâches
@@ -164,40 +164,58 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...conversationHistory,
+      ...conversationHistory.slice(-5), // Limiter l'historique
       { role: 'user', content: userMessage }
     ];
 
     console.log('[SIMPLE-ASSISTANT] 🧠 Appel OpenAI API...');
 
-    // Appel OpenAI avec timeout
-    const openAITimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout')), 15000)
-    );
+    // Appel OpenAI avec timeout réduit et retry
+    let response;
+    let retryCount = 0;
+    const maxRetries = 2;
 
-    const openAIPromise = fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-        temperature: 0.7,
-        max_tokens: 1500,
-      }),
-    });
+    while (retryCount <= maxRetries) {
+      try {
+        const openAITimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenAI timeout - réponse trop lente')), 10000)
+        );
 
-    const response = await Promise.race([openAIPromise, openAITimeoutPromise]) as Response;
+        const openAIPromise = fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages,
+            temperature: 0.3,
+            max_tokens: 1000,
+          }),
+        });
+
+        response = await Promise.race([openAIPromise, openAITimeoutPromise]) as Response;
+        
+        if (response.ok) {
+          break; // Succès, sortir de la boucle
+        } else {
+          throw new Error(`OpenAI API error: ${response.status}`);
+        }
+      } catch (error) {
+        retryCount++;
+        console.log(`[SIMPLE-ASSISTANT] ⚠️ Tentative ${retryCount}/${maxRetries + 1} échouée:`, error.message);
+        
+        if (retryCount > maxRetries) {
+          throw new Error(`OpenAI API indisponible après ${maxRetries + 1} tentatives: ${error.message}`);
+        }
+        
+        // Attendre avant de réessayer
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     console.log('[SIMPLE-ASSISTANT] 📡 Statut réponse OpenAI:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[SIMPLE-ASSISTANT] ❌ Erreur OpenAI API:', errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
 
     const aiData = await response.json();
     console.log('[SIMPLE-ASSISTANT] ✅ Réponse OpenAI reçue');
@@ -224,7 +242,7 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
       } else {
         console.error('[SIMPLE-ASSISTANT] ❌ Aucun JSON trouvé dans la réponse');
         aiResponse = {
-          response: "Je comprends votre demande, mais j'ai rencontré un problème technique. Pouvez-vous la reformuler ?",
+          response: "Je comprends votre demande, mais j'ai rencontré un problème technique. Pouvez-vous la reformuler de manière plus précise ?",
           actions: [],
           needsConfirmation: false
         };
@@ -238,7 +256,7 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
       };
     }
 
-    // Exécuter les actions
+    // Exécuter les actions avec gestion d'erreur améliorée
     const executedActions = [];
     
     for (const action of aiResponse.actions || []) {
@@ -392,13 +410,13 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
     
     const errorResponse = { 
       error: error.message,
-      response: "Une erreur s'est produite lors du traitement de votre demande. Détails: " + error.message,
+      response: `Une erreur s'est produite: ${error.message}. Veuillez réessayer ou reformuler votre demande.`,
       actions: [],
       success: false
     };
     
     return new Response(JSON.stringify(errorResponse), {
-      status: 500,
+      status: 200, // Retourner 200 pour éviter les erreurs côté client
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -86,14 +86,14 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     try {
       console.log('📤 Envoi à simple-assistant:', messageToSend);
       
-      const conversationHistory = messages.map(msg => ({
+      const conversationHistory = messages.slice(-8).map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Timeout côté client pour éviter les blocages
+      // Timeout côté client plus court
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout: La demande prend trop de temps')), 20000)
+        setTimeout(() => reject(new Error('Timeout: La demande prend trop de temps (15s)')), 15000)
       );
 
       // Appeler le nouvel agent simplifié
@@ -110,11 +110,16 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       console.log('📥 Réponse assistant simple:', data);
 
       if (error) {
-        throw error;
+        throw new Error(`Erreur fonction: ${error.message}`);
       }
 
       if (!data) {
         throw new Error('Réponse vide de l\'assistant');
+      }
+
+      // Vérifier si c'est une erreur déguisée
+      if (data.success === false) {
+        throw new Error(data.error || 'Erreur inconnue de l\'assistant');
       }
 
       // Mettre à jour le message de traitement avec la vraie réponse
@@ -155,9 +160,19 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       setMessages(prev => {
         return prev.map(msg => {
           if (msg.id === processingMessageId) {
+            let errorMessage = `❌ Erreur: ${error.message}`;
+            
+            if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+              errorMessage += '\n\n💡 Suggestion: Essayez une demande plus simple ou réessayez dans quelques instants.';
+            } else if (error.message.includes('OpenAI')) {
+              errorMessage += '\n\n💡 Suggestion: Le service IA est temporairement indisponible. Réessayez dans quelques minutes.';
+            } else if (retryCount < 2) {
+              errorMessage += '\n\n💡 Vous pouvez cliquer sur "Réessayer" pour tenter à nouveau.';
+            }
+            
             return {
               ...msg,
-              content: `❌ Erreur: ${error.message}. ${retryCount < 2 ? 'Vous pouvez réessayer.' : 'Veuillez rafraîchir la page si le problème persiste.'}`,
+              content: errorMessage,
               status: 'error' as const
             };
           }
