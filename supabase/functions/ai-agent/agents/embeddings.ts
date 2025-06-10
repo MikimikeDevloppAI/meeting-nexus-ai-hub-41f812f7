@@ -21,6 +21,7 @@ export class EmbeddingsAgent {
       }).join('\n');
       
       enrichedQuery = `${message}\n\nCONTEXTE CONVERSATION RÉCENTE:\n${recentHistory}`;
+      console.log('[EMBEDDINGS] ✅ Historique intégré:', conversationHistory.length, 'messages');
     }
 
     // Contexte des participants
@@ -90,21 +91,27 @@ export class EmbeddingsAgent {
       });
     }
 
+    // Enrichir les sources avec les informations nécessaires pour le frontend
+    const enrichedSources = allChunks.map(chunk => ({
+      id: chunk.id,
+      type: 'embedding',
+      content: chunk.chunk_text,
+      chunk_text: chunk.chunk_text,
+      similarity: chunk.similarity,
+      document_id: chunk.document_id,
+      meeting_id: chunk.meeting_id,
+      chunk_index: chunk.chunk_index
+    }));
+
     return {
       chunks: allChunks,
-      sources: allChunks.map(chunk => ({
-        id: chunk.id,
-        type: 'embedding',
-        content: chunk.chunk_text,
-        similarity: chunk.similarity,
-        document_id: chunk.document_id,
-        meeting_id: chunk.meeting_id
-      })),
+      sources: enrichedSources,
       hasRelevantContext: allChunks.length > 0 && allChunks[0]?.similarity > 0.15,
       searchIterations,
       finalSearchTerms: [message],
       fuzzyResults: [],
-      expansionLevel
+      expansionLevel,
+      conversationHistoryUsed: conversationHistory.length
     };
   }
 

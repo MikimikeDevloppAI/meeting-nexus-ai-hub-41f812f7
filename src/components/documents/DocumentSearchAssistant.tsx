@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Loader2, FileText, Search } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, FileText, Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,34 @@ export const DocumentSearchAssistant = () => {
     scrollToBottom();
   }, [messages]);
 
+  const clearChat = () => {
+    setMessages([]);
+    toast({
+      title: "Chat effacé",
+      description: "L'historique de la conversation a été supprimé.",
+    });
+  };
+
+  const getDocumentName = async (documentId: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .from('uploaded_documents')
+        .select('ai_generated_name, original_name')
+        .eq('id', documentId)
+        .single();
+
+      if (error) {
+        console.error('Erreur récupération nom document:', error);
+        return 'Document inconnu';
+      }
+
+      return data.ai_generated_name || data.original_name || 'Document sans nom';
+    } catch (error) {
+      console.error('Erreur récupération nom document:', error);
+      return 'Document inconnu';
+    }
+  };
+
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -53,13 +81,23 @@ export const DocumentSearchAssistant = () => {
     setIsLoading(true);
 
     try {
-      // Utiliser l'agent AI avec recherche dans les embeddings
+      // Préparer l'historique de conversation pour l'agent AI
+      const conversationHistory = messages.map(msg => ({
+        content: msg.content,
+        isUser: msg.isUser,
+        timestamp: msg.timestamp.toISOString()
+      }));
+
+      console.log('[SEARCH_ASSISTANT] Envoi historique:', conversationHistory.length, 'messages');
+
+      // Utiliser l'agent AI avec recherche dans les embeddings et historique
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: inputMessage,
           context: {
             searchDocuments: true,
-            useEmbeddings: true
+            useEmbeddings: true,
+            conversationHistory: conversationHistory
           }
         }
       });
@@ -69,12 +107,34 @@ export const DocumentSearchAssistant = () => {
         throw error;
       }
 
+      // Enrichir les sources avec les noms des documents
+      let enrichedSources = [];
+      if (data.sources && data.sources.length > 0) {
+        enrichedSources = await Promise.all(
+          data.sources.map(async (source: any) => {
+            let documentName = 'Document inconnu';
+            
+            if (source.document_id) {
+              documentName = await getDocumentName(source.document_id);
+            }
+
+            return {
+              documentId: source.document_id || source.id,
+              documentName: documentName,
+              relevantText: source.content || source.chunk_text || '',
+              similarity: source.similarity || 0,
+              chunkIndex: source.chunkIndex || source.chunk_index
+            };
+          })
+        );
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents.",
         isUser: false,
         timestamp: new Date(),
-        sources: data.sources || []
+        sources: enrichedSources
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -110,10 +170,23 @@ export const DocumentSearchAssistant = () => {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Search className="h-5 w-5" />
-          Assistant de Recherche dans les Documents
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            <CardTitle>Assistant de Recherche dans les Documents</CardTitle>
+          </div>
+          {messages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearChat}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Effacer
+            </Button>
+          )}
+        </div>
         <CardDescription>
           Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les sources exactes utilisées.
         </CardDescription>
