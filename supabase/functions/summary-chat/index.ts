@@ -37,7 +37,7 @@ serve(async (req) => {
 
     // Récupérer réunion avec timeout optimisé
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout (4s)')), 4000)
+      setTimeout(() => reject(new Error('Database timeout (5s)')), 5000)
     );
 
     const meetingPromise = supabase
@@ -59,10 +59,37 @@ serve(async (req) => {
       transcriptLength: meeting.transcript?.length || 0
     });
 
-    // Préparer le transcript complet (jusqu'à 4200 caractères)
-    const fullTranscript = meeting.transcript ? 
-      meeting.transcript.substring(0, 4200) + (meeting.transcript.length > 4200 ? '...' : '') : 
-      'Pas de transcript disponible';
+    // Optimiser le transcript - prendre seulement les éléments clés
+    let contextTranscript = '';
+    if (meeting.transcript) {
+      // Prendre le début et la fin + chercher des mots clés liés à la demande
+      const transcriptStart = meeting.transcript.substring(0, 1500);
+      const transcriptEnd = meeting.transcript.substring(meeting.transcript.length - 1000);
+      
+      // Chercher des passages pertinents liés au message utilisateur
+      const keywords = userMessage.toLowerCase().split(' ').filter(word => word.length > 3);
+      const relevantParts = [];
+      
+      for (const keyword of keywords.slice(0, 3)) { // Max 3 mots-clés
+        const index = meeting.transcript.toLowerCase().indexOf(keyword);
+        if (index !== -1) {
+          const start = Math.max(0, index - 200);
+          const end = Math.min(meeting.transcript.length, index + 300);
+          relevantParts.push(meeting.transcript.substring(start, end));
+        }
+      }
+      
+      contextTranscript = `DÉBUT: ${transcriptStart}\n\nPASSAGES PERTINENTS: ${relevantParts.join('\n...\n')}\n\nFIN: ${transcriptEnd}`;
+      
+      // Limiter à 2500 caractères maximum
+      if (contextTranscript.length > 2500) {
+        contextTranscript = contextTranscript.substring(0, 2500) + '...';
+      }
+    } else {
+      contextTranscript = 'Pas de transcript disponible';
+    }
+
+    console.log('[SUMMARY-CHAT] 📝 Transcript optimisé:', contextTranscript.length, 'caractères');
 
     const systemPrompt = `Tu es un assistant spécialisé dans la modification de résumés de réunions médicales OphtaCare.
 
@@ -71,22 +98,20 @@ RÉUNION: "${meeting.title}"
 RÉSUMÉ ACTUEL:
 ${meeting.summary || 'Aucun résumé existant'}
 
-TRANSCRIPT COMPLET (pour contexte):
-${fullTranscript}
+TRANSCRIPT (EXTRAITS PERTINENTS):
+${contextTranscript}
 
-INSTRUCTION UTILISATEUR: "${userMessage}"
+DEMANDE: "${userMessage}"
 
-Tu dois modifier le résumé selon cette demande. Utilise le transcript comme source principale d'information.
+Tu dois modifier le résumé selon cette demande en utilisant les informations du transcript.
 
-IMPORTANT: Réponds UNIQUEMENT en JSON valide avec cette structure exacte:
+IMPORTANT: Réponds UNIQUEMENT en JSON valide:
 {
-  "new_summary": "le nouveau résumé complet et détaillé",
+  "new_summary": "le nouveau résumé complet",
   "explanation": "explication courte de ce qui a été modifié"
-}
+}`;
 
-Assure-toi que le JSON soit valide et bien formaté.`;
-
-    console.log('[SUMMARY-CHAT] 🧠 Appel OpenAI (timeout 10s)...');
+    console.log('[SUMMARY-CHAT] 🧠 Appel OpenAI (timeout 15s)...');
 
     const openAIPromise = fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -101,12 +126,12 @@ Assure-toi que le JSON soit valide et bien formaté.`;
           { role: 'user', content: userMessage }
         ],
         temperature: 0.2,
-        max_tokens: 600,
+        max_tokens: 500, // Réduire les tokens pour éviter les timeouts
       }),
     });
 
     const openAITimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout (10s)')), 10000)
+      setTimeout(() => reject(new Error('OpenAI timeout (15s)')), 15000)
     );
 
     const response = await Promise.race([openAIPromise, openAITimeout]) as Response;
