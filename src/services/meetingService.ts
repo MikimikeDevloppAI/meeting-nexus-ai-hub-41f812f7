@@ -120,28 +120,66 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
           }
         }
 
-        // Generate AI recommendation in the background
+        // Generate AI recommendation using the unified agent
         try {
-          const response = await fetch('/functions/v1/enhanced-todo-recommendations', {
+          const response = await fetch('/functions/v1/task-recommendation-agent', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
             },
             body: JSON.stringify({
-              todoId: todoData.id,
-              description: task.trim(),
-              meetingContext: `Meeting ID: ${meetingId}`,
-              meetingId: meetingId,
-              participantList: allParticipants.map(p => p.name).join(', ')
+              task: { description: task.trim() },
+              transcript: '',
+              meetingContext: {
+                title: `Meeting ID: ${meetingId}`,
+                participants: allParticipants.map(p => p.name).join(', ')
+              },
+              participants: allParticipants
             }),
           });
           
           if (!response.ok) {
             console.error('AI recommendation request failed:', await response.text());
+          } else {
+            const result = await response.json();
+            const rec = result?.recommendation;
+            
+            if (rec && (rec.hasRecommendation || rec.needsEmail)) {
+              // Add comment if there's a recommendation
+              if (rec.hasRecommendation && rec.recommendation) {
+                await supabase
+                  .from('todo_comments')
+                  .insert({
+                    todo_id: todoData.id,
+                    user_id: '00000000-0000-0000-0000-000000000000',
+                    comment: `💡 **Recommandation IA :** ${rec.recommendation}`
+                  });
+              }
+              
+              // Save recommendation data
+              await supabase
+                .from('todo_ai_recommendations')
+                .insert({
+                  todo_id: todoData.id,
+                  recommendation_text: rec.recommendation || 'Voir email pré-rédigé',
+                  email_draft: rec.needsEmail ? rec.emailDraft : null
+                });
+            }
+            
+            // Mark as processed
+            await supabase
+              .from('todos')
+              .update({ ai_recommendation_generated: true })
+              .eq('id', todoData.id);
           }
         } catch (error) {
           console.error('Error generating AI recommendation:', error);
+          // Mark as processed even on error
+          await supabase
+            .from('todos')
+            .update({ ai_recommendation_generated: true })
+            .eq('id', todoData.id);
         }
       }
     } catch (error) {

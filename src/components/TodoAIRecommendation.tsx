@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, ExternalLink } from "lucide-react";
+import { Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, ExternalLink, Target, Lightbulb, Users } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TodoAIRecommendationProps {
@@ -26,6 +26,7 @@ interface AIRecommendation {
   created_at: string;
   contacts?: ContactInfo[];
   estimated_cost?: string;
+  recommendation_type?: 'action_plan' | 'ai_assistance' | 'contacts';
 }
 
 export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
@@ -50,6 +51,21 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
         }
 
         if (data) {
+          // Détecter le type de recommandation basé sur le contenu
+          let recommendation_type = null;
+          if (data.recommendation_text) {
+            const text = data.recommendation_text.toLowerCase();
+            if (text.includes('plan d\'action') || text.includes('étapes')) {
+              recommendation_type = 'action_plan';
+            } else if (text.includes('assistance ia') || text.includes('comment l\'ia')) {
+              recommendation_type = 'ai_assistance';
+            } else if (text.includes('contact') || text.includes('fournisseur')) {
+              recommendation_type = 'contacts';
+            }
+          }
+          
+          data.recommendation_type = recommendation_type;
+          
           // Parser les contacts depuis la recommandation si disponibles
           try {
             const contactPattern = /\*\*Contact(?:s)?\*\*:?\s*([\s\S]*?)(?:\n\n|\*\*|$)/i;
@@ -66,14 +82,12 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
               for (const line of lines) {
                 const trimmedLine = line.trim();
                 
-                // Détecter le nom de l'entreprise (ligne sans ":" généralement)
                 if (!trimmedLine.includes(':') && trimmedLine.length > 3 && !currentContact.name) {
                   if (Object.keys(currentContact).length > 1) {
                     parsedContacts.push(currentContact as ContactInfo);
                   }
                   currentContact = { name: trimmedLine };
                 } else {
-                  // Détecter les différents types d'informations
                   const phoneMatch = trimmedLine.match(/(?:Tél|Phone|Téléphone)?\s*:?\s*(\+?\d[\d\s\-\.]{8,})/i);
                   const emailMatch = trimmedLine.match(/(?:E-?mail|Courriel)?\s*:?\s*([\w\.-]+@[\w\.-]+\.\w+)/i);
                   const websiteMatch = trimmedLine.match(/(?:Site|Web|URL)?\s*:?\s*((?:https?:\/\/)?[\w\.-]+\.[a-z]{2,})/i);
@@ -118,7 +132,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <Bot className="h-4 w-4 animate-pulse" />
-        <span>Chargement des recommandations...</span>
+        <span>Analyse intelligente...</span>
       </div>
     );
   }
@@ -128,6 +142,25 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   }
 
   const hasContactInfo = recommendation.contacts && recommendation.contacts.length > 0;
+  const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
+
+  const getRecommendationIcon = () => {
+    switch (recommendation.recommendation_type) {
+      case 'action_plan': return <Target className="h-4 w-4 text-blue-600" />;
+      case 'ai_assistance': return <Lightbulb className="h-4 w-4 text-purple-600" />;
+      case 'contacts': return <Users className="h-4 w-4 text-green-600" />;
+      default: return <Bot className="h-4 w-4 text-blue-600" />;
+    }
+  };
+
+  const getRecommendationLabel = () => {
+    switch (recommendation.recommendation_type) {
+      case 'action_plan': return 'Plan d\'Action';
+      case 'ai_assistance': return 'Assistance IA';
+      case 'contacts': return 'Contacts & Fournisseurs';
+      default: return 'Recommandation IA';
+    }
+  };
 
   return (
     <div className="mt-3">
@@ -139,15 +172,15 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
             className="w-full justify-between bg-blue-50 border-blue-200 hover:bg-blue-100"
           >
             <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-blue-600" />
+              {getRecommendationIcon()}
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Recommandation IA
+                {getRecommendationLabel()}
               </Badge>
               {recommendation.email_draft && (
                 <Mail className="h-3 w-3 text-blue-600" />
               )}
               {hasContactInfo && (
-                <Phone className="h-3 w-3 text-blue-600" />
+                <Phone className="h-3 w-3 text-green-600" />
               )}
             </div>
             {isOpen ? (
@@ -162,23 +195,25 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
           <Card className="mt-2 border-blue-200">
             <CardContent className="p-4">
               <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Bot className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-700">
-                      {recommendation.recommendation_text}
-                    </p>
-                    {recommendation.estimated_cost && (
-                      <div className="mt-2 text-sm font-medium text-green-700">
-                        💰 Coût estimé : {recommendation.estimated_cost}
-                      </div>
-                    )}
+                {hasRecommendation && (
+                  <div className="flex items-start gap-3">
+                    {getRecommendationIcon()}
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-700">
+                        {recommendation.recommendation_text}
+                      </p>
+                      {recommendation.estimated_cost && (
+                        <div className="mt-2 text-sm font-medium text-green-700">
+                          💰 Coût estimé : {recommendation.estimated_cost}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Section contacts fournisseurs */}
                 {hasContactInfo && (
-                  <div className="border-t pt-3">
+                  <div className={hasRecommendation ? "border-t pt-3" : ""}>
                     <Collapsible open={showContacts} onOpenChange={setShowContacts}>
                       <CollapsibleTrigger asChild>
                         <Button
@@ -188,7 +223,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                         >
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4" />
-                            <span>Contacts fournisseurs ({recommendation.contacts.length})</span>
+                            <span>Contacts trouvés ({recommendation.contacts.length})</span>
                           </div>
                           {showContacts ? (
                             <ChevronUp className="h-4 w-4" />
@@ -276,7 +311,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
                 {/* Section email pré-rédigé */}
                 {recommendation.email_draft && (
-                  <div className="border-t pt-3">
+                  <div className={(hasRecommendation || hasContactInfo) ? "border-t pt-3" : ""}>
                     <Collapsible open={showEmailDraft} onOpenChange={setShowEmailDraft}>
                       <CollapsibleTrigger asChild>
                         <Button
