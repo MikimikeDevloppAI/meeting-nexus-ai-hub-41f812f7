@@ -1,3 +1,4 @@
+
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, FileText } from "lucide-react";
 import { MeetingTodos } from "@/components/MeetingTodos";
 import { EditableContent } from "@/components/EditableContent";
-import { MeetingAssistant } from "@/components/meeting/MeetingAssistant";
+import { SummaryChat } from "@/components/meeting/SummaryChat";
+import { TodosChat } from "@/components/meeting/TodosChat";
 import { useState } from "react";
 
 interface Participant {
@@ -139,35 +141,48 @@ export default function MeetingDetail() {
         </CardContent>
       </Card>
 
-      {/* Assistant IA */}
-      <MeetingAssistant meetingId={meeting.id} onDataUpdate={handleDataUpdate} />
-
-      {/* Summary */}
+      {/* Summary with Chat */}
       {summary && (
-        <Card data-updated>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Résumé de la réunion
-              <Badge variant="secondary" className="ml-auto text-xs">
-                Mis à jour automatiquement
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EditableContent
-              content={summary}
-              onSave={handleSummarySave}
-              type="summary"
-              id={meeting.id}
-            />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Card data-updated>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Résumé de la réunion
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    Mis à jour automatiquement
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EditableContent
+                  content={summary}
+                  onSave={handleSummarySave}
+                  type="summary"
+                  id={meeting.id}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div>
+            <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
+          </div>
+        </div>
       )}
 
-      {/* Todos */}
-      <div data-updated>
-        <MeetingTodos meetingId={meeting.id} />
+      {/* Todos with Chat */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div data-updated>
+            <MeetingTodos meetingId={meeting.id} />
+          </div>
+        </div>
+        
+        <div>
+          <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
+        </div>
       </div>
 
       {/* Transcript */}

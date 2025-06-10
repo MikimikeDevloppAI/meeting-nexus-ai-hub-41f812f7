@@ -8,8 +8,8 @@ import { CheckCircle, Trash2, Pen, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
-import { TodoAIChat } from "@/components/TodoAIChat";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
+import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
 import { useForm } from "react-hook-form";
@@ -349,8 +349,12 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                 {/* AI Recommendation - displayed prominently */}
                 <TodoAIRecommendation todoId={todo.id} />
 
-                {/* AI Chat for this todo */}
-                <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
+                {/* Todo Assistant - New component */}
+                <TodoAssistant 
+                  todoId={todo.id} 
+                  todoDescription={todo.description}
+                  onUpdate={fetchTodos}
+                />
 
                 {/* Comments section */}
                 <TodoComments todoId={todo.id} />
@@ -379,7 +383,6 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         </DialogContent>
       </Dialog>
       
-      {/* Dialog for creating new todo with participant selection */}
       <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
