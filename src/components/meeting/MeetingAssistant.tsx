@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, CheckCircle, AlertCircle, User, Loader2 } from "lucide-react";
+import { Bot, Send, CheckCircle, AlertCircle, User, Loader2, Clock, CheckCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -14,6 +14,7 @@ interface Message {
   content: string;
   timestamp: Date;
   actions?: AssistantAction[];
+  status?: 'processing' | 'completed' | 'error';
 }
 
 interface AssistantAction {
@@ -34,6 +35,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
   const [pendingActions, setPendingActions] = useState<AssistantAction[]>([]);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationMessage, setConfirmationMessage] = useState("");
+  const [processingMessageId, setProcessingMessageId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -45,9 +47,17 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     scrollToBottom();
   }, [messages]);
 
+  const updateMessageStatus = (messageIndex: number, status: 'processing' | 'completed' | 'error') => {
+    setMessages(prev => prev.map((msg, idx) => 
+      idx === messageIndex ? { ...msg, status } : msg
+    ));
+  };
+
   const executeActions = async (actions: AssistantAction[]) => {
     try {
       console.log('🔧 Exécution de', actions.length, 'action(s)...');
+      
+      const results: string[] = [];
       
       for (const action of actions) {
         console.log('⚡ Exécution action:', action.type, action.data);
@@ -66,6 +76,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (createError) throw createError;
             console.log('✅ Tâche créée:', newTodo?.id);
+            results.push(`✅ Tâche créée: "${action.data.description}"`);
             break;
             
           case 'update_todo':
@@ -76,6 +87,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (updateError) throw updateError;
             console.log('✅ Tâche mise à jour:', action.data.id);
+            results.push(`✅ Tâche mise à jour: "${action.data.description}"`);
             break;
             
           case 'delete_todo':
@@ -86,6 +98,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (deleteError) throw deleteError;
             console.log('✅ Tâche supprimée:', action.data.id);
+            results.push(`✅ Tâche supprimée`);
             break;
             
           case 'update_summary':
@@ -96,6 +109,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (summaryError) throw summaryError;
             console.log('✅ Résumé mis à jour');
+            results.push(`✅ Résumé de la réunion mis à jour`);
             break;
             
           case 'create_recommendation':
@@ -109,6 +123,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (createRecError) throw createRecError;
             console.log('✅ Recommandation créée pour tâche:', action.data.todo_id);
+            results.push(`✅ Recommandation créée pour la tâche`);
             break;
             
           case 'update_recommendation':
@@ -122,6 +137,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             
             if (updateRecError) throw updateRecError;
             console.log('✅ Recommandation mise à jour pour tâche:', action.data.todo_id);
+            results.push(`✅ Recommandation mise à jour pour la tâche`);
             break;
         }
       }
@@ -129,12 +145,33 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       console.log('🎉 Toutes les actions exécutées avec succès');
       onDataUpdate?.();
       
+      // Ajouter un message de compte-rendu
+      const reportMessage: Message = {
+        role: 'assistant',
+        content: `🎉 **Actions terminées avec succès !**\n\n${results.join('\n')}\n\nLes modifications ont été appliquées et sont maintenant visibles dans l'interface.`,
+        timestamp: new Date(),
+        status: 'completed'
+      };
+      
+      setMessages(prev => [...prev, reportMessage]);
+      
       toast({
         title: "Actions exécutées",
         description: `${actions.length} action(s) appliquée(s) avec succès`,
       });
     } catch (error) {
       console.error('❌ Erreur exécution actions:', error);
+      
+      // Ajouter un message d'erreur
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `❌ **Erreur lors de l'exécution des actions**\n\nUne erreur s'est produite: ${error.message}\n\nVeuillez réessayer votre demande.`,
+        timestamp: new Date(),
+        status: 'error'
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
       toast({
         title: "Erreur",
         description: "Impossible d'exécuter certaines actions",
@@ -156,6 +193,18 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
+
+    // Ajouter un message de traitement
+    const processingMessage: Message = {
+      role: 'assistant',
+      content: "🤔 Je traite votre demande...",
+      timestamp: new Date(),
+      status: 'processing'
+    };
+    
+    setMessages(prev => [...prev, processingMessage]);
+    const currentMessageIndex = messages.length + 1; // +1 car on vient d'ajouter le message utilisateur
+    setProcessingMessageId(currentMessageIndex);
 
     try {
       console.log('📤 Envoi message à l\'assistant:', currentInput);
@@ -185,14 +234,18 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
         throw new Error('Réponse vide de l\'assistant');
       }
 
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date(),
-        actions: data.actions || []
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      // Remplacer le message de traitement par la vraie réponse
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages[currentMessageIndex] = {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date(),
+          actions: data.actions || [],
+          status: 'completed'
+        };
+        return newMessages;
+      });
 
       if (data.needsConfirmation && data.actions && data.actions.length > 0) {
         console.log('⚠️ Confirmation requise pour', data.actions.length, 'action(s)');
@@ -207,13 +260,17 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     } catch (error) {
       console.error('❌ Erreur assistant:', error);
       
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer votre demande ?",
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+      // Remplacer le message de traitement par un message d'erreur
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages[currentMessageIndex] = {
+          role: 'assistant',
+          content: "❌ Désolé, je rencontre un problème technique. Pouvez-vous réessayer votre demande ?",
+          timestamp: new Date(),
+          status: 'error'
+        };
+        return newMessages;
+      });
       
       toast({
         title: "Erreur",
@@ -222,6 +279,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
       });
     } finally {
       setIsLoading(false);
+      setProcessingMessageId(null);
     }
   };
 
@@ -239,6 +297,19 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
     }
   };
 
+  const getStatusIcon = (status?: string) => {
+    switch (status) {
+      case 'processing':
+        return <Loader2 className="h-3 w-3 animate-spin text-blue-600" />;
+      case 'completed':
+        return <CheckCheck className="h-3 w-3 text-green-600" />;
+      case 'error':
+        return <AlertCircle className="h-3 w-3 text-red-600" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <Card className="h-[600px] flex flex-col">
       <CardHeader className="pb-3">
@@ -246,7 +317,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
           <Bot className="h-5 w-5 text-blue-600" />
           Assistant de réunion IA
           <Badge variant="outline" className="ml-auto">
-            {messages.length} échange{messages.length > 1 ? 's' : ''}
+            {messages.filter(m => m.role === 'user').length} échange{messages.filter(m => m.role === 'user').length > 1 ? 's' : ''}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -256,7 +327,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {messages.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 animate-fade-in">
                 <Bot className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-sm">
                   Bonjour ! Je peux vous aider à modifier les tâches, recommandations et résumé de cette réunion.
@@ -270,7 +341,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3 animate-fade-in ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex gap-2 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div className="flex-shrink-0">
@@ -283,10 +354,14 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
                   <div className={`rounded-lg p-3 ${
                     message.role === 'user' 
                       ? 'bg-blue-600 text-white' 
+                      : message.status === 'error'
+                      ? 'bg-red-50 text-red-900 border border-red-200'
+                      : message.status === 'processing'
+                      ? 'bg-blue-50 text-blue-900 border border-blue-200'
                       : 'bg-gray-100 text-gray-900'
                   }`}>
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    {message.actions && message.actions.length > 0 && (
+                    {message.actions && message.actions.length > 0 && message.status !== 'processing' && (
                       <div className="mt-2 pt-2 border-t border-gray-200">
                         <p className="text-xs font-medium mb-1">Actions proposées :</p>
                         {message.actions.map((action, idx) => (
@@ -297,11 +372,14 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
                         ))}
                       </div>
                     )}
-                    <div className="text-xs mt-2 opacity-70">
-                      {message.timestamp.toLocaleTimeString('fr-FR', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="text-xs opacity-70">
+                        {message.timestamp.toLocaleTimeString('fr-FR', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                      {getStatusIcon(message.status)}
                     </div>
                   </div>
                 </div>
@@ -313,7 +391,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
 
         {/* Confirmation d'actions */}
         {showConfirmation && (
-          <Card className="border-orange-200 bg-orange-50">
+          <Card className="border-orange-200 bg-orange-50 animate-scale-in">
             <CardContent className="p-3">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -340,7 +418,7 @@ export const MeetingAssistant = ({ meetingId, onDataUpdate }: MeetingAssistantPr
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Tapez votre message... (Entrée pour envoyer)"
+            placeholder={isLoading ? "L'assistant traite votre demande..." : "Tapez votre message... (Entrée pour envoyer)"}
             disabled={isLoading}
             className="flex-1"
           />

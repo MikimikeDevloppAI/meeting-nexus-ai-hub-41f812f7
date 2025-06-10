@@ -124,21 +124,28 @@ CAPACITÉS :
 - Créer des emails pré-rédigés
 - Analyser le contexte complet pour des suggestions pertinentes
 
-INSTRUCTIONS :
+INSTRUCTIONS IMPORTANTES :
 1. Comprends la demande de l'utilisateur dans le contexte de cette réunion
 2. Propose des actions concrètes (créer, modifier, supprimer)
 3. Justifie tes propositions avec le contexte disponible
 4. Sois précis sur les IDs des tâches à modifier
 5. Adapte ton ton professionnel au contexte médical
+6. TOUJOURS fournir un retour détaillé sur les actions que tu vas effectuer
+7. Explique clairement ce qui va être modifié/créé/supprimé
+
+IMPORTANT: Tu dois TOUJOURS répondre de manière conversationnelle ET proposer des actions concrètes.
+- Ne dis jamais "Je ne peux pas" - propose plutôt des alternatives
+- Sois proactif dans tes suggestions
+- Fournis des explications claires sur ce que tu vas faire
 
 Réponds UNIQUEMENT en JSON avec cette structure exacte :
 {
-  "response": "ta réponse conversationnelle à l'utilisateur",
+  "response": "ta réponse conversationnelle détaillée à l'utilisateur, expliquant ce que tu vas faire et pourquoi",
   "actions": [
     {
       "type": "create_todo | update_todo | delete_todo | update_summary | create_recommendation | update_recommendation",
       "data": {},
-      "explanation": "pourquoi cette action"
+      "explanation": "explication détaillée de cette action spécifique"
     }
   ],
   "needsConfirmation": false,
@@ -179,29 +186,48 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
     let aiResponse;
     try {
       const aiContent = aiData.choices[0].message.content;
-      console.log('[MEETING-ASSISTANT] 📝 Contenu brut:', aiContent.substring(0, 200) + '...');
+      console.log('[MEETING-ASSISTANT] 📝 Contenu brut:', aiContent.substring(0, 300) + '...');
       
       // Extraire le JSON de la réponse
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         aiResponse = JSON.parse(jsonMatch[0]);
         console.log('[MEETING-ASSISTANT] ✅ JSON parsé avec succès');
+        
+        // Validation de la réponse
+        if (!aiResponse.response) {
+          throw new Error('Réponse manquante dans la structure JSON');
+        }
+        
+        if (!Array.isArray(aiResponse.actions)) {
+          aiResponse.actions = [];
+        }
+        
+        console.log('[MEETING-ASSISTANT] 📊 Actions détectées:', aiResponse.actions.length);
+        
       } else {
         console.error('[MEETING-ASSISTANT] ❌ Aucun JSON trouvé dans la réponse');
-        throw new Error('Format JSON invalide');
+        // Fallback: traiter comme réponse conversationnelle simple
+        aiResponse = {
+          response: aiContent.trim(),
+          actions: [],
+          needsConfirmation: false
+        };
       }
     } catch (parseError) {
       console.error('[MEETING-ASSISTANT] ❌ Erreur parsing JSON:', parseError);
       aiResponse = {
-        response: "Je comprends votre demande, mais j'ai un problème technique. Pouvez-vous la reformuler ?",
+        response: "Je comprends votre demande, mais j'ai rencontré un problème technique. Pouvez-vous la reformuler plus précisément ? Par exemple : 'Ajoute une tâche pour...' ou 'Modifie le résumé pour inclure...'",
         actions: [],
         needsConfirmation: false
       };
     }
 
-    console.log('[MEETING-ASSISTANT] ✅ Réponse finale:', {
+    console.log('[MEETING-ASSISTANT] ✅ Réponse finale préparée:', {
+      hasResponse: !!aiResponse.response,
       actionsCount: aiResponse.actions?.length || 0,
-      needsConfirmation: aiResponse.needsConfirmation
+      needsConfirmation: aiResponse.needsConfirmation,
+      responseLength: aiResponse.response?.length || 0
     });
 
     return new Response(JSON.stringify({
@@ -222,7 +248,7 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
     console.error('[MEETING-ASSISTANT] ❌ ERREUR GLOBALE:', error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      response: "Une erreur s'est produite. Veuillez réessayer dans quelques instants.",
+      response: "Une erreur s'est produite lors du traitement de votre demande. Veuillez réessayer dans quelques instants. Si le problème persiste, reformulez votre demande de manière plus précise.",
       actions: []
     }), {
       status: 500,
