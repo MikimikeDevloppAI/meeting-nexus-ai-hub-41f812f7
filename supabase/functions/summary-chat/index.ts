@@ -20,7 +20,7 @@ serve(async (req) => {
     
     console.log('[SUMMARY-CHAT] 📝 Demande reçue:', {
       meetingId,
-      userMessage: userMessage?.substring(0, 100) + '...'
+      userMessage: userMessage?.substring(0, 50) + '...'
     });
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -35,18 +35,11 @@ serve(async (req) => {
 
     console.log('[SUMMARY-CHAT] 🔍 Récupération réunion...');
 
-    // Récupérer réunion avec timeout optimisé
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout (5s)')), 5000)
-    );
-
-    const meetingPromise = supabase
+    const { data: meeting, error } = await supabase
       .from('meetings')
       .select('title, summary, transcript')
       .eq('id', meetingId)
       .single();
-
-    const { data: meeting, error } = await Promise.race([meetingPromise, timeoutPromise]) as any;
 
     if (error) {
       console.error('[SUMMARY-CHAT] ❌ Erreur DB:', error);
@@ -59,61 +52,53 @@ serve(async (req) => {
       transcriptLength: meeting.transcript?.length || 0
     });
 
-    // Optimiser le transcript - prendre seulement les éléments clés
-    let contextTranscript = '';
+    // Extraire seulement les parties essentielles du transcript
+    let contextInfo = '';
     if (meeting.transcript) {
-      // Prendre le début et la fin + chercher des mots clés liés à la demande
-      const transcriptStart = meeting.transcript.substring(0, 1500);
-      const transcriptEnd = meeting.transcript.substring(meeting.transcript.length - 1000);
+      // Prendre seulement le début (500 chars) et chercher les mots-clés de la demande
+      const transcriptStart = meeting.transcript.substring(0, 500);
       
-      // Chercher des passages pertinents liés au message utilisateur
-      const keywords = userMessage.toLowerCase().split(' ').filter(word => word.length > 3);
-      const relevantParts = [];
+      // Chercher 1 passage pertinent maximum
+      const keywords = userMessage.toLowerCase().split(' ').filter(word => word.length > 4);
+      let relevantPart = '';
       
-      for (const keyword of keywords.slice(0, 3)) { // Max 3 mots-clés
+      if (keywords.length > 0) {
+        const keyword = keywords[0];
         const index = meeting.transcript.toLowerCase().indexOf(keyword);
         if (index !== -1) {
-          const start = Math.max(0, index - 200);
-          const end = Math.min(meeting.transcript.length, index + 300);
-          relevantParts.push(meeting.transcript.substring(start, end));
+          const start = Math.max(0, index - 100);
+          const end = Math.min(meeting.transcript.length, index + 200);
+          relevantPart = meeting.transcript.substring(start, end);
         }
       }
       
-      contextTranscript = `DÉBUT: ${transcriptStart}\n\nPASSAGES PERTINENTS: ${relevantParts.join('\n...\n')}\n\nFIN: ${transcriptEnd}`;
+      contextInfo = transcriptStart + (relevantPart ? `\n\nPASSAGE PERTINENT: ${relevantPart}` : '');
       
-      // Limiter à 2500 caractères maximum
-      if (contextTranscript.length > 2500) {
-        contextTranscript = contextTranscript.substring(0, 2500) + '...';
+      // Limiter strictement à 800 caractères
+      if (contextInfo.length > 800) {
+        contextInfo = contextInfo.substring(0, 800) + '...';
       }
-    } else {
-      contextTranscript = 'Pas de transcript disponible';
     }
 
-    console.log('[SUMMARY-CHAT] 📝 Transcript optimisé:', contextTranscript.length, 'caractères');
+    console.log('[SUMMARY-CHAT] 📝 Context réduit:', contextInfo.length, 'caractères');
 
-    const systemPrompt = `Tu es un assistant spécialisé dans la modification de résumés de réunions médicales OphtaCare.
-
-RÉUNION: "${meeting.title}"
+    // Prompt beaucoup plus court et simple
+    const systemPrompt = `Modifie ce résumé de réunion médicale selon la demande.
 
 RÉSUMÉ ACTUEL:
-${meeting.summary || 'Aucun résumé existant'}
+${meeting.summary || 'Aucun résumé'}
 
-TRANSCRIPT (EXTRAITS PERTINENTS):
-${contextTranscript}
+CONTEXTE:
+${contextInfo || 'Pas de contexte'}
 
-DEMANDE: "${userMessage}"
+DEMANDE: ${userMessage}
 
-Tu dois modifier le résumé selon cette demande en utilisant les informations du transcript.
+Réponds en JSON:
+{"new_summary":"résumé modifié","explanation":"ce qui a changé"}`;
 
-IMPORTANT: Réponds UNIQUEMENT en JSON valide:
-{
-  "new_summary": "le nouveau résumé complet",
-  "explanation": "explication courte de ce qui a été modifié"
-}`;
+    console.log('[SUMMARY-CHAT] 🧠 Appel OpenAI...');
 
-    console.log('[SUMMARY-CHAT] 🧠 Appel OpenAI (timeout 15s)...');
-
-    const openAIPromise = fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
@@ -122,24 +107,17 @@ IMPORTANT: Réponds UNIQUEMENT en JSON valide:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
+          { role: 'system', content: systemPrompt }
         ],
-        temperature: 0.2,
-        max_tokens: 500, // Réduire les tokens pour éviter les timeouts
+        temperature: 0.1,
+        max_tokens: 300,
       }),
     });
-
-    const openAITimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout (15s)')), 15000)
-    );
-
-    const response = await Promise.race([openAIPromise, openAITimeout]) as Response;
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[SUMMARY-CHAT] ❌ Erreur OpenAI:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      throw new Error(`OpenAI error: ${response.status}`);
     }
 
     const aiData = await response.json();
@@ -148,55 +126,48 @@ IMPORTANT: Réponds UNIQUEMENT en JSON valide:
     let aiResponse;
     try {
       const aiContent = aiData.choices[0].message.content;
-      console.log('[SUMMARY-CHAT] 🔍 Contenu brut:', aiContent.substring(0, 200));
+      console.log('[SUMMARY-CHAT] 🔍 Contenu:', aiContent.substring(0, 100));
       
+      // Parser le JSON plus robuste
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-      
       if (jsonMatch) {
         aiResponse = JSON.parse(jsonMatch[0]);
-        console.log('[SUMMARY-CHAT] ✅ JSON parsé avec succès');
       } else {
-        throw new Error('Aucun JSON trouvé dans la réponse');
+        throw new Error('Pas de JSON trouvé');
       }
     } catch (parseError) {
-      console.error('[SUMMARY-CHAT] ❌ Erreur parsing JSON:', parseError);
+      console.error('[SUMMARY-CHAT] ❌ Erreur parsing:', parseError);
       aiResponse = {
         new_summary: meeting.summary || "",
-        explanation: "Erreur lors du traitement de la demande."
+        explanation: "Erreur lors du traitement."
       };
     }
 
-    // Mettre à jour le résumé dans la base
+    // Mettre à jour le résumé
     console.log('[SUMMARY-CHAT] 💾 Mise à jour résumé...');
     
-    try {
-      const { error: updateError } = await supabase
-        .from('meetings')
-        .update({ summary: aiResponse.new_summary })
-        .eq('id', meetingId);
-      
-      if (updateError) {
-        console.error('[SUMMARY-CHAT] ❌ Erreur update:', updateError);
-        throw updateError;
-      }
-      
-      console.log('[SUMMARY-CHAT] ✅ Résumé mis à jour avec succès');
-      
-      return new Response(JSON.stringify({
-        success: true,
-        explanation: aiResponse.explanation,
-        response: aiResponse.explanation
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-      
-    } catch (error) {
-      console.error('[SUMMARY-CHAT] ❌ Erreur mise à jour DB:', error);
-      throw error;
+    const { error: updateError } = await supabase
+      .from('meetings')
+      .update({ summary: aiResponse.new_summary })
+      .eq('id', meetingId);
+    
+    if (updateError) {
+      console.error('[SUMMARY-CHAT] ❌ Erreur update:', updateError);
+      throw updateError;
     }
+    
+    console.log('[SUMMARY-CHAT] ✅ Résumé mis à jour');
+    
+    return new Response(JSON.stringify({
+      success: true,
+      explanation: aiResponse.explanation,
+      response: aiResponse.explanation
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    console.error('[SUMMARY-CHAT] ❌ ERREUR GLOBALE:', error);
+    console.error('[SUMMARY-CHAT] ❌ ERREUR:', error);
     
     return new Response(JSON.stringify({ 
       error: error.message,
