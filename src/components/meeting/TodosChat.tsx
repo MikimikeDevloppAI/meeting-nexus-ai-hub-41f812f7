@@ -106,11 +106,11 @@ export const TodosChat = ({ meetingId, onTodosUpdate }: TodosChatProps) => {
   };
 
   return (
-    <Card className="h-[400px] flex flex-col">
+    <Card className="h-[300px] flex flex-col border-dashed border-green-200">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm">
           <CheckSquare className="h-4 w-4 text-green-600" />
-          Chat Tâches
+          Assistant Tâches
         </CardTitle>
       </CardHeader>
       

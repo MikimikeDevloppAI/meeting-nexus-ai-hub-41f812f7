@@ -141,45 +141,49 @@ export default function MeetingDetail() {
         </CardContent>
       </Card>
 
-      {/* Summary with Chat Above */}
+      {/* Summary with Chat Inside */}
       {summary && (
-        <div className="space-y-4">
-          {/* Chat Résumé au-dessus */}
-          <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
-          
-          {/* Résumé */}
-          <Card data-updated>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Résumé de la réunion
-                <Badge variant="secondary" className="ml-auto text-xs">
-                  Mis à jour automatiquement
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EditableContent
-                content={summary}
-                onSave={handleSummarySave}
-                type="summary"
-                id={meeting.id}
-              />
-            </CardContent>
-          </Card>
-        </div>
+        <Card data-updated>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Résumé de la réunion
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Mis à jour automatiquement
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Chat Résumé à l'intérieur */}
+            <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
+            
+            {/* Résumé */}
+            <EditableContent
+              content={summary}
+              onSave={handleSummarySave}
+              type="summary"
+              id={meeting.id}
+            />
+          </CardContent>
+        </Card>
       )}
 
-      {/* Todos with Chat Above */}
-      <div className="space-y-4">
-        {/* Chat Todos au-dessus */}
-        <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
-        
-        {/* Liste des Todos */}
-        <div data-updated>
+      {/* Todos with Chat Inside */}
+      <Card data-updated>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Tâches de la réunion
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Chat Todos à l'intérieur */}
+          <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
+          
+          {/* Liste des Todos */}
           <MeetingTodos meetingId={meeting.id} />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Transcript */}
       {meeting.transcript && (
