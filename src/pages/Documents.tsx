@@ -6,27 +6,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
+import { useNavigate } from "react-router-dom";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { CompactDocumentItem } from "@/components/documents/CompactDocumentItem";
 import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAssistant";
 import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
-
-interface UploadedDocument {
-  id: string;
-  original_name: string;
-  ai_generated_name: string | null;
-  file_path: string;
-  file_size: number | null;
-  content_type: string | null;
-  taxonomy: any;
-  ai_summary: string | null;
-  processed: boolean;
-  created_at: string;
-  created_by: string;
-  extracted_text: string | null;
-}
+import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
+import { UnifiedDocumentItem } from "@/types/unified-document";
 
 interface SearchFilters {
   query: string;
@@ -41,45 +29,30 @@ const Documents = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  // Fetch documents with automatic refetch for processing documents
-  const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('uploaded_documents')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as UploadedDocument[];
-    },
-    refetchInterval: (query) => {
-      // Refetch every 3 seconds if there are documents being processed
-      const hasProcessingDocs = query.state.data?.some(doc => !doc.processed);
-      return hasProcessingDocs ? 3000 : false;
-    }
-  });
+  // Utiliser le nouveau hook pour les données unifiées
+  const { documents, isLoading, refetch } = useUnifiedDocuments();
 
-  // Listen for real-time updates on document processing
+  // Écouter les mises à jour en temps réel pour les deux tables
   useEffect(() => {
-    console.log('Setting up real-time subscription for documents...');
+    console.log('Setting up real-time subscription for unified documents...');
     
-    const channel = supabase
+    const documentsChannel = supabase
       .channel('documents-updates')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'uploaded_documents'
         },
         (payload) => {
           console.log('Document updated via real-time:', payload);
-          queryClient.invalidateQueries({ queryKey: ['documents'] });
+          refetch();
           
           // Show toast when a document is processed
-          if (payload.new.processed && !payload.old.processed) {
+          if (payload.eventType === 'UPDATE' && payload.new.processed && !payload.old?.processed) {
             toast({
               title: "Document traité",
               description: `${payload.new.ai_generated_name || payload.new.original_name} a été traité avec succès`,
@@ -89,11 +62,36 @@ const Documents = () => {
       )
       .subscribe();
 
+    const meetingsChannel = supabase
+      .channel('meetings-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meetings'
+        },
+        (payload) => {
+          console.log('Meeting updated via real-time:', payload);
+          refetch();
+          
+          // Show toast when a meeting is processed
+          if (payload.eventType === 'UPDATE' && payload.new.transcript && !payload.old?.transcript) {
+            toast({
+              title: "Meeting traité",
+              description: `${payload.new.title} a été traité avec succès`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      console.log('Cleaning up real-time subscription...');
-      supabase.removeChannel(channel);
+      console.log('Cleaning up real-time subscriptions...');
+      supabase.removeChannel(documentsChannel);
+      supabase.removeChannel(meetingsChannel);
     };
-  }, [queryClient, toast]);
+  }, [refetch, toast]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -107,7 +105,8 @@ const Documents = () => {
           doc.original_name,
           doc.ai_generated_name,
           doc.ai_summary,
-          doc.extracted_text
+          doc.extracted_text,
+          doc.participants?.map(p => p.name).join(' ')
         ].filter(Boolean).join(' ').toLowerCase();
         
         if (!searchableText.includes(query)) return false;
@@ -216,7 +215,7 @@ const Documents = () => {
       return document;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      refetch();
       toast({
         title: "Document uploadé",
         description: "Le traitement du document a démarré.",
@@ -231,13 +230,19 @@ const Documents = () => {
     }
   });
 
-  // Delete mutation
+  // Delete mutation - seulement pour les documents
   const deleteMutation = useMutation({
-    mutationFn: async (document: UploadedDocument) => {
+    mutationFn: async (document: UnifiedDocumentItem) => {
+      if (document.type === 'meeting') {
+        throw new Error('Impossible de supprimer un meeting depuis cette page');
+      }
+
       // Delete from storage
-      await supabase.storage
-        .from('documents')
-        .remove([document.file_path]);
+      if (document.file_path) {
+        await supabase.storage
+          .from('documents')
+          .remove([document.file_path]);
+      }
 
       // Delete from database
       const { error } = await supabase
@@ -248,7 +253,7 @@ const Documents = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      refetch();
       toast({
         title: "Document supprimé",
         description: "Le document a été supprimé avec succès.",
@@ -276,11 +281,17 @@ const Documents = () => {
     }
   });
 
-  const downloadDocument = async (document: UploadedDocument) => {
+  const handleDownload = async (document: UnifiedDocumentItem) => {
+    if (document.type === 'meeting') {
+      // Rediriger vers la page du meeting
+      navigate(`/meetings/${document.meeting_id}`);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.storage
         .from('documents')
-        .download(document.file_path);
+        .download(document.file_path!);
 
       if (error) throw error;
 
@@ -300,15 +311,15 @@ const Documents = () => {
   };
 
   const handleDocumentUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: ['documents'] });
+    refetch();
   };
 
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Gestion des Documents</h1>
+        <h1 className="text-2xl font-bold">Gestion des Documents & Meetings</h1>
         <p className="text-muted-foreground">
-          Téléchargez et gérez vos documents avec traitement automatique par IA et extraction de texte.
+          Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
       </div>
 
@@ -385,15 +396,15 @@ const Documents = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            Documents Uploadés 
+            Documents & Meetings 
             {filteredDocuments.length !== documents?.length && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({filteredDocuments.length} sur {documents?.length} documents)
+                ({filteredDocuments.length} sur {documents?.length} éléments)
               </span>
             )}
           </CardTitle>
           <CardDescription>
-            Cliquez sur un document pour voir le résumé détaillé et modifier ses métadonnées.
+            Vue unifiée de vos documents uploadés et meetings transcrits. Cliquez sur un élément pour voir le détail.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -404,20 +415,20 @@ const Documents = () => {
             </div>
           ) : !documents || documents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucun document uploadé pour le moment
+              Aucun document ou meeting pour le moment
             </div>
           ) : filteredDocuments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucun document ne correspond à votre recherche
+              Aucun élément ne correspond à votre recherche
             </div>
           ) : (
             <ScrollArea className="h-[600px]">
               <div className="space-y-3">
                 {filteredDocuments.map((document) => (
                   <CompactDocumentItem
-                    key={document.id}
+                    key={`${document.type}-${document.id}`}
                     document={document}
-                    onDownload={() => downloadDocument(document)}
+                    onDownload={() => handleDownload(document)}
                     onDelete={() => deleteMutation.mutate(document)}
                     isDeleting={deleteMutation.isPending}
                     onUpdate={handleDocumentUpdate}

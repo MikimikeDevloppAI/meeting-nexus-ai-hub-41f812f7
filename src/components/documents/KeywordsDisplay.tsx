@@ -22,24 +22,41 @@ export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsD
     "Contrat", 
     "Information médicale", 
     "Fiche Technique Materiel", 
-    "Contact"
+    "Contact",
+    "Meeting"
   ];
 
   const fetchCategories = async () => {
     try {
-      const { data: documents, error } = await supabase
+      // Récupérer les catégories des documents uploadés
+      const { data: documents, error: docsError } = await supabase
         .from('uploaded_documents')
         .select('taxonomy')
         .not('taxonomy', 'is', null);
 
-      if (error) throw error;
+      if (docsError) throw docsError;
+
+      // Récupérer les meetings avec transcript (ils auront automatiquement la catégorie "Meeting")
+      const { data: meetings, error: meetingsError } = await supabase
+        .from('meetings')
+        .select('id')
+        .not('transcript', 'is', null);
+
+      if (meetingsError) throw meetingsError;
 
       const categoriesSet = new Set<string>();
+      
+      // Ajouter les catégories des documents
       documents?.forEach(doc => {
         if (doc.taxonomy?.category) {
           categoriesSet.add(doc.taxonomy.category);
         }
       });
+
+      // Ajouter "Meeting" s'il y a des meetings avec transcript
+      if (meetings && meetings.length > 0) {
+        categoriesSet.add("Meeting");
+      }
 
       const sortedCategories = Array.from(categoriesSet).sort();
       setCategories(sortedCategories);
@@ -95,7 +112,9 @@ export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsD
             <Badge
               key={index}
               variant={selectedCategory === category ? "default" : "secondary"}
-              className="cursor-pointer hover:bg-primary hover:text-primary-foreground flex items-center gap-1"
+              className={`cursor-pointer hover:bg-primary hover:text-primary-foreground flex items-center gap-1 ${
+                category === "Meeting" ? "bg-blue-100 text-blue-800 hover:bg-blue-500 hover:text-white" : ""
+              }`}
               onClick={() => onCategoryClick?.(category)}
             >
               {category}
