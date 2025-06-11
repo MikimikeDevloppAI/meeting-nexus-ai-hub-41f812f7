@@ -1,7 +1,6 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,241 +14,181 @@ serve(async (req) => {
 
   try {
     const { task, transcript, meetingContext, participants } = await req.json();
-    
-    console.log('[TASK-RECOMMENDATION] 📋 Analyse intelligente:', task.description.substring(0, 100) + '...');
-    
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
+    console.log('[TASK-AGENT] 🎯 Analyse intelligente:', task.description.substring(0, 50));
+
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Prompt optimisé pour des recommandations précises
+    const prompt = `Tu es un agent IA spécialisé dans l'assistance administrative pour un cabinet d'ophtalmologie à Genève dirigé par le Dr Tabibian.
 
-    // Récupérer le contexte enrichi si nécessaire
-    let embeddingContext = { chunks: [], hasContent: false };
-    let internetContext = { hasContent: false, content: '', providers: [] };
+TÂCHE À ANALYSER: "${task.description}"
 
-    // Analyser si la tâche nécessite un contexte enrichi
-    const taskLower = task.description.toLowerCase();
-    const needsContext = taskLower.includes('choisir') || 
-                        taskLower.includes('comparer') ||
-                        taskLower.includes('système') ||
-                        taskLower.includes('installation') ||
-                        taskLower.includes('matériel') ||
-                        taskLower.includes('fournisseur') ||
-                        taskLower.includes('prestataire') ||
-                        taskLower.includes('devis') ||
-                        taskLower.includes('rechercher') ||
-                        taskLower.includes('trouver');
+CONTEXTE RÉUNION:
+- Titre: ${meetingContext.title}
+- Date: ${meetingContext.date}
+- Participants: ${meetingContext.participants}
 
-    if (needsContext) {
-      console.log('[TASK-RECOMMENDATION] 🔍 Recherche de contexte enrichi...');
-      
-      // Recherche dans les embeddings
-      try {
-        const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'text-embedding-3-small',
-            input: task.description,
-          }),
-        });
+PARTICIPANTS DISPONIBLES: ${participants.map(p => p.name).join(', ')}
 
-        if (embeddingResponse.ok) {
-          const embeddingData = await embeddingResponse.json();
-          const queryEmbedding = embeddingData.data[0].embedding;
+INSTRUCTIONS STRICTES:
+1. Détermine si cette tâche nécessite une recommandation IA
+2. Si OUI, choisis le type le plus adapté parmi: "action_plan", "contacts_providers", "ai_assistance"
+3. Si la tâche implique contacter quelqu'un d'EXTERNE au cabinet, génère un email professionnel
 
-          const { data: chunks } = await supabase.rpc('search_document_embeddings', {
-            query_embedding: queryEmbedding,
-            match_threshold: 0.7,
-            match_count: 5
-          });
+IMPORTANT pour les emails externes:
+- Format professionnel et poli
+- Contexte médical ophtalmologique
+- Signature du Dr Tabibian
+- Formatage propre avec retours à la ligne appropriés
+- Pas de caractères spéciaux qui cassent le formatage
 
-          if (chunks && chunks.length > 0) {
-            embeddingContext = { chunks, hasContent: true };
-          }
-        }
-      } catch (error) {
-        console.error('[TASK-RECOMMENDATION] Erreur embeddings:', error);
-      }
-
-      // Recherche internet si pertinent
-      const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-      if (perplexityKey && (taskLower.includes('fournisseur') || taskLower.includes('prestataire') || taskLower.includes('contact'))) {
-        try {
-          const searchQuery = `${task.description} entreprises prestataires Genève Suisse coordonnées contacts`;
-          
-          const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${perplexityKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'llama-3.1-sonar-large-128k-online',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'Trouve des entreprises et prestataires en Suisse avec leurs coordonnées complètes (nom, adresse, téléphone, email, site web).'
-                },
-                {
-                  role: 'user',
-                  content: searchQuery
-                }
-              ],
-              max_tokens: 1000,
-              temperature: 0.2,
-            }),
-          });
-
-          if (perplexityResponse.ok) {
-            const perplexityData = await perplexityResponse.json();
-            const content = perplexityData.choices[0]?.message?.content || '';
-            
-            if (content) {
-              internetContext = { hasContent: true, content, providers: [] };
-            }
-          }
-        } catch (error) {
-          console.error('[TASK-RECOMMENDATION] Erreur internet:', error);
-        }
-      }
-    }
-
-    console.log('[TASK-RECOMMENDATION] 🤖 Analyse IA avec logique intelligente...');
-
-    const systemPrompt = `Tu es l'assistant IA spécialisé du cabinet d'ophtalmologie Dr Tabibian à Genève, Suisse.
-
-MISSION CRITIQUE : Analyser cette tâche et SEULEMENT fournir des recommandations si elles apportent une VRAIE valeur ajoutée.
-
-TÂCHE À ANALYSER : "${task.description}"
-
-CONTEXTE CABINET :
-- Cabinet d'ophtalmologie Dr David Tabibian, Genève, Suisse
-- Participants disponibles : ${participants?.map(p => p.name).join(', ') || 'Non spécifiés'}
-
-${embeddingContext.hasContent ? `CONTEXTE HISTORIQUE CABINET :
-${embeddingContext.chunks.slice(0, 3).map(chunk => `- ${chunk.chunk_text.substring(0, 150)}...`).join('\n')}` : ''}
-
-${internetContext.hasContent ? `INFORMATIONS INTERNET TROUVÉES :
-${internetContext.content}` : ''}
-
-RÈGLES STRICTES POUR LES RECOMMANDATIONS :
-
-1. NE RECOMMANDE PAS si la tâche est simple et claire comme :
-   - "Appeler Dr. Martin"
-   - "Envoyer le rapport à X"
-   - "Programmer une réunion"
-   - "Vérifier les stocks"
-
-2. RECOMMANDE SEULEMENT pour les cas COMPLEXES nécessitant :
-   - PLAN D'ACTION : tâches impliquant plusieurs étapes, choix techniques, comparaisons
-   - ORIENTATION IA : comment l'IA peut concrètement aider pour cette tâche
-   - CONTACTS/FOURNISSEURS : coordonnées pertinentes avec informations complètes
-
-3. GÉNÉRATION EMAIL INTELLIGENTE :
-   - Génère un email DÈS QUE la tâche implique une COMMUNICATION (contacter, informer, demander, envoyer, communiquer, répondre, etc.)
-   - ADAPTE automatiquement le style :
-     * EXTERNE (prestataires, fournisseurs, clients) : ton professionnel, détails techniques, demande formelle
-     * INTERNE (équipe, collègues) : ton direct, instructions claires, délais précis
-   - Inclus l'objet, le corps complet et la signature appropriée
-
-4. EXTRACTION CONTACTS :
-   - SEULEMENT utiliser les coordonnées trouvées via internet
-   - JAMAIS inventer de coordonnées
-   - Format : nom, adresse complète, téléphone, email, site web
-
-5. TOUJOURS utiliser CHF pour les prix
-
-RÉPONSE REQUISE (JSON uniquement) :
+RETOURNE UNIQUEMENT ce JSON exact:
 {
   "hasRecommendation": boolean,
-  "recommendation": "recommandation détaillée avec plan d'action OU orientation IA OU null",
-  "recommendationType": "action_plan" | "ai_assistance" | "contacts" | null,
+  "recommendationType": "action_plan|contacts_providers|ai_assistance|null",
+  "recommendation": "text détaillé ou null",
+  "estimatedCost": "montant estimé ou null",
+  "contacts": [{"name": "string", "phone": "string", "email": "string", "website": "string", "address": "string"}],
   "needsEmail": boolean,
-  "emailDraft": "email complet avec objet et corps si nécessaire ou null",
-  "emailType": "external" | "internal" | null,
-  "contacts": [
-    {
-      "name": "Nom entreprise",
-      "address": "Adresse complète",
-      "phone": "Téléphone",
-      "email": "Email",
-      "website": "Site web"
-    }
-  ],
-  "estimatedCost": "coût en CHF si pertinent ou null"
+  "emailDraft": "email formaté proprement ou null"
 }`;
 
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI...');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${openaiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analyse cette tâche avec logique intelligente : "${task.description}"` }
+          {
+            role: 'system',
+            content: `Tu es un assistant spécialisé pour cabinet médical. Pour les emails externes, utilise ce format:
+
+Objet: [Objet clair et professionnel]
+
+Madame, Monsieur,
+
+[Corps de l'email avec paragraphes bien séparés]
+
+Je vous remercie par avance pour votre réponse.
+
+Cordialement,
+
+Dr. Tabibian
+Cabinet d'Ophtalmologie
+Genève
+Tél: [à compléter]
+Email: [à compléter]
+
+IMPORTANT: Utilise des \\n pour les retours à la ligne, pas de caractères spéciaux.`
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
         ],
-        temperature: 0.7,
+        temperature: 0.3,
         max_tokens: 1500,
       }),
     });
 
-    const aiData = await response.json();
-    let recommendation;
-
-    try {
-      const aiContent = aiData.choices[0].message.content;
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        recommendation = JSON.parse(jsonMatch[0]);
-        
-        // Nettoyer et valider les contacts
-        if (recommendation.contacts) {
-          recommendation.contacts = recommendation.contacts.filter(contact => 
-            contact.name && contact.name.length > 2
-          );
-        }
-      } else {
-        recommendation = { hasRecommendation: false, needsEmail: false };
-      }
-    } catch (parseError) {
-      console.error('[TASK-RECOMMENDATION] Erreur parsing JSON:', parseError);
-      recommendation = { hasRecommendation: false, needsEmail: false };
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    console.log('[TASK-RECOMMENDATION] ✅ Analyse terminée:', {
-      hasRecommendation: recommendation.hasRecommendation,
-      needsEmail: recommendation.needsEmail,
-      recommendationType: recommendation.recommendationType,
-      emailType: recommendation.emailType,
-      contacts: recommendation.contacts?.length || 0
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
+
+    console.log('[TASK-AGENT] ✅ Réponse OpenAI reçue');
+
+    // Parsing JSON robuste
+    let recommendation;
+    try {
+      // Nettoyer le contenu
+      let cleanContent = content;
+      
+      // Retirer les blocs markdown
+      cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Chercher le JSON
+      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+      
+      recommendation = JSON.parse(cleanContent);
+      
+      // Valider la structure
+      if (typeof recommendation.hasRecommendation !== 'boolean') {
+        throw new Error('Structure invalide');
+      }
+
+      // Nettoyer et formater l'email si présent
+      if (recommendation.needsEmail && recommendation.emailDraft) {
+        // S'assurer que l'email est bien formaté
+        let emailContent = recommendation.emailDraft;
+        
+        // Remplacer les \\n par de vrais retours à la ligne
+        emailContent = emailContent.replace(/\\n/g, '\n');
+        
+        // S'assurer qu'il y a des retours à la ligne entre les sections
+        emailContent = emailContent.replace(/([.!?])\s*([A-Z][a-z])/g, '$1\n\n$2');
+        
+        // Nettoyer les espaces multiples
+        emailContent = emailContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+        
+        recommendation.emailDraft = emailContent.trim();
+      }
+      
+    } catch (parseError) {
+      console.error('[TASK-AGENT] ❌ Erreur parsing:', parseError);
+      
+      // Retour par défaut en cas d'erreur
+      recommendation = {
+        hasRecommendation: false,
+        recommendationType: null,
+        recommendation: null,
+        estimatedCost: null,
+        contacts: [],
+        needsEmail: false,
+        emailDraft: null
+      };
+    }
+
+    console.log('[TASK-AGENT] ✅ Recommandation générée:', {
+      hasRec: recommendation.hasRecommendation,
+      type: recommendation.recommendationType,
+      needsEmail: recommendation.needsEmail
     });
 
-    return new Response(JSON.stringify({ 
-      recommendation,
-      contextUsed: {
-        embeddingChunks: embeddingContext.chunks.length,
-        internetSearch: internetContext.hasContent
-      }
+    return new Response(JSON.stringify({
+      success: true,
+      recommendation
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[TASK-RECOMMENDATION] ❌ ERREUR:', error);
-    return new Response(JSON.stringify({ 
+    console.error('[TASK-AGENT] ❌ Erreur:', error);
+    return new Response(JSON.stringify({
+      success: false,
       error: error.message,
-      recommendation: { hasRecommendation: false, needsEmail: false }
+      recommendation: {
+        hasRecommendation: false,
+        recommendationType: null,
+        recommendation: null,
+        estimatedCost: null,
+        contacts: [],
+        needsEmail: false,
+        emailDraft: null
+      }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
