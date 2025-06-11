@@ -20,7 +20,7 @@ export class EmbeddingsAgent {
     // 🎯 Phase 1: Recherche principale avec query enrichie
     console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale enrichie');
     const embedding = await this.getEmbedding(enrichedQuery);
-    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.08); // Seuil optimisé
+    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.05); // Seuil réduit pour document search
     allChunks = phase1Results;
     searchIterations++;
     console.log(`[EMBEDDINGS] ✅ Phase 1: ${phase1Results.length} chunks trouvés`);
@@ -32,7 +32,7 @@ export class EmbeddingsAgent {
       
       for (const term of expandedTerms) {
         const termEmbedding = await this.getEmbedding(term);
-        const termResults = await this.performSearch(term, termEmbedding, 0.05);
+        const termResults = await this.performSearch(term, termEmbedding, 0.03); // Seuil encore plus bas
         allChunks = this.mergeUniqueChunks(allChunks, termResults);
         searchIterations++;
         console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.length} chunks pour "${term}"`);
@@ -48,7 +48,7 @@ export class EmbeddingsAgent {
       
       for (const contextQuery of contextualQueries) {
         const contextEmbedding = await this.getEmbedding(contextQuery);
-        const contextResults = await this.performSearch(contextQuery, contextEmbedding, 0.03);
+        const contextResults = await this.performSearch(contextQuery, contextEmbedding, 0.01); // Seuil très bas
         allChunks = this.mergeUniqueChunks(allChunks, contextResults);
         searchIterations++;
         console.log(`[EMBEDDINGS] ✅ Phase 3: ${contextResults.length} chunks pour contexte`);
@@ -61,7 +61,7 @@ export class EmbeddingsAgent {
     if (allChunks.length < 2) {
       console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fallback ultime');
       const simpleEmbedding = await this.getEmbedding(message);
-      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.01);
+      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.005); // Seuil minimal
       allChunks = this.mergeUniqueChunks(allChunks, fallbackResults);
       searchIterations++;
       console.log(`[EMBEDDINGS] ✅ Phase 4: ${fallbackResults.length} chunks en fallback`);
@@ -82,17 +82,8 @@ export class EmbeddingsAgent {
       console.log('[EMBEDDINGS] ⚠️ AUCUN RÉSULTAT - Recherche dans documents vides ou problème embeddings');
     }
 
-    // Enrichir les sources avec les informations nécessaires
-    const enrichedSources = allChunks.map(chunk => ({
-      id: chunk.id,
-      type: 'embedding',
-      content: chunk.chunk_text,
-      chunk_text: chunk.chunk_text,
-      similarity: chunk.similarity,
-      document_id: chunk.document_id,
-      meeting_id: chunk.meeting_id,
-      chunk_index: chunk.chunk_index
-    }));
+    // Enrichir les sources avec les informations nécessaires depuis la table documents
+    const enrichedSources = await this.enrichSourcesWithDocumentNames(allChunks);
 
     return {
       chunks: allChunks,
@@ -104,6 +95,50 @@ export class EmbeddingsAgent {
       conversationHistoryUsed: conversationHistory.length,
       expansionLevel: searchIterations
     };
+  }
+
+  private async enrichSourcesWithDocumentNames(chunks: any[]): Promise<any[]> {
+    const enrichedSources = [];
+    
+    for (const chunk of chunks) {
+      let documentName = 'Document inconnu';
+      
+      if (chunk.document_id) {
+        try {
+          console.log(`[EMBEDDINGS] 📄 Récupération nom document ID: ${chunk.document_id}`);
+          
+          // Récupérer le nom du document depuis la table documents
+          const { data, error } = await this.supabase
+            .from('documents')
+            .select('title')
+            .eq('id', chunk.document_id)
+            .single();
+
+          if (error) {
+            console.error('[EMBEDDINGS] ❌ Erreur récupération document:', error);
+          } else if (data && data.title) {
+            documentName = data.title;
+            console.log(`[EMBEDDINGS] ✅ Nom document trouvé: ${documentName}`);
+          }
+        } catch (error) {
+          console.error('[EMBEDDINGS] ❌ Erreur récupération nom document:', error);
+        }
+      }
+
+      enrichedSources.push({
+        id: chunk.id,
+        type: 'embedding',
+        content: chunk.chunk_text,
+        chunk_text: chunk.chunk_text,
+        similarity: chunk.similarity,
+        document_id: chunk.document_id,
+        document_name: documentName,
+        meeting_id: chunk.meeting_id,
+        chunk_index: chunk.chunk_index
+      });
+    }
+
+    return enrichedSources;
   }
 
   private buildEnrichedQuery(message: string, conversationHistory: any[] = []): string {

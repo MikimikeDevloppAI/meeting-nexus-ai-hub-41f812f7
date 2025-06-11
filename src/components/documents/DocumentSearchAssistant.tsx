@@ -46,26 +46,6 @@ export const DocumentSearchAssistant = () => {
     });
   };
 
-  const getDocumentName = async (documentId: string): Promise<string> => {
-    try {
-      const { data, error } = await supabase
-        .from('uploaded_documents')
-        .select('ai_generated_name, original_name')
-        .eq('id', documentId)
-        .single();
-
-      if (error) {
-        console.error('Erreur récupération nom document:', error);
-        return 'Document inconnu';
-      }
-
-      return data.ai_generated_name || data.original_name || 'Document sans nom';
-    } catch (error) {
-      console.error('Erreur récupération nom document:', error);
-      return 'Document inconnu';
-    }
-  };
-
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -88,22 +68,27 @@ export const DocumentSearchAssistant = () => {
         timestamp: msg.timestamp.toISOString()
       }));
 
-      console.log('[DOCUMENT_SEARCH] Envoi requête avec priorité embeddings:', inputMessage);
+      console.log('[DOCUMENT_SEARCH] Envoi requête UNIQUEMENT recherche vectorielle:', inputMessage);
       console.log('[DOCUMENT_SEARCH] Historique:', conversationHistory.length, 'messages');
 
-      // Utiliser l'agent AI avec recherche vectorielle prioritaire
+      // Utiliser l'agent AI avec recherche vectorielle UNIQUEMENT
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: inputMessage,
           context: {
-            // Force la priorité sur la recherche vectorielle
+            // Force STRICTEMENT la recherche vectorielle uniquement
             forceEmbeddingsPriority: true,
+            documentSearchMode: true,
             searchDocuments: true,
             useEmbeddings: true,
+            // Désactiver complètement les autres sources
+            useDatabase: false,
+            useTasks: false,
+            useInternet: false,
             conversationHistory: conversationHistory,
-            // Configuration spécifique pour recherche documents
-            documentSearchMode: true,
-            minSimilarityThreshold: 0.1
+            // Configuration spécifique pour recherche documents avec seuils bas
+            minSimilarityThreshold: 0.005,
+            vectorSearchOnly: true
           }
         }
       });
@@ -115,27 +100,17 @@ export const DocumentSearchAssistant = () => {
 
       console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
 
-      // Enrichir les sources avec les noms des documents
+      // Traiter les sources qui viennent maintenant directement enrichies
       let enrichedSources = [];
       if (data.sources && data.sources.length > 0) {
-        console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources');
-        enrichedSources = await Promise.all(
-          data.sources.map(async (source: any) => {
-            let documentName = 'Document inconnu';
-            
-            if (source.document_id) {
-              documentName = await getDocumentName(source.document_id);
-            }
-
-            return {
-              documentId: source.document_id || source.id,
-              documentName: documentName,
-              relevantText: source.content || source.chunk_text || '',
-              similarity: source.similarity || 0,
-              chunkIndex: source.chunkIndex || source.chunk_index
-            };
-          })
-        );
+        console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
+        enrichedSources = data.sources.map((source: any) => ({
+          documentId: source.document_id || source.id,
+          documentName: source.document_name || 'Document inconnu',
+          relevantText: source.content || source.chunk_text || '',
+          similarity: source.similarity || 0,
+          chunkIndex: source.chunkIndex || source.chunk_index
+        }));
       } else {
         console.log('[DOCUMENT_SEARCH] Aucune source trouvée');
       }
@@ -151,7 +126,7 @@ export const DocumentSearchAssistant = () => {
       setMessages(prev => [...prev, aiMessage]);
 
       // Afficher les résultats dans la console pour debug
-      console.log('[DOCUMENT_SEARCH] Sources enrichies:', enrichedSources);
+      console.log('[DOCUMENT_SEARCH] Sources enrichies finales:', enrichedSources);
 
     } catch (error: any) {
       console.error('[DOCUMENT_SEARCH] Error sending message:', error);
@@ -216,7 +191,7 @@ export const DocumentSearchAssistant = () => {
                 </div>
                 <p className="mb-2">Posez une question pour rechercher dans vos documents</p>
                 <p className="text-xs">
-                  Exemples : "Quels sont les contrats de 2024 ?" ou "Trouve-moi des informations sur les budgets"
+                  Exemples : "Que fait Émilie le jeudi ?" ou "Trouve-moi des informations sur les budgets"
                 </p>
               </div>
             ) : (
@@ -293,7 +268,7 @@ export const DocumentSearchAssistant = () => {
                     </div>
                     <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Recherche vectorielle dans les documents...</span>
+                      <span className="text-sm">Recherche vectorielle uniquement dans les documents...</span>
                     </div>
                   </div>
                 )}
@@ -325,7 +300,7 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              🔍 Recherche vectorielle optimisée avec traçabilité des sources
+              🔍 Recherche vectorielle UNIQUEMENT avec noms de documents depuis table 'documents'
             </div>
           </div>
         </div>

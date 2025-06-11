@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
@@ -48,9 +47,9 @@ serve(async (req) => {
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
 
-    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents
-    if (context.documentSearchMode || context.forceEmbeddingsPriority) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS DÉTECTÉ - Priorité embeddings forcée');
+    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle
+    if (context.documentSearchMode || context.forceEmbeddingsPriority || context.vectorSearchOnly) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE UNIQUEMENT - Bypass complet des autres agents');
       
       const embeddingsResult = await embeddings.searchEmbeddings(message, {
         priority: 'embeddings',
@@ -62,21 +61,43 @@ serve(async (req) => {
         confidence: 0.9
       }, [], conversationHistory);
 
-      console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Résultats embeddings:', embeddingsResult.chunks?.length || 0, 'chunks trouvés');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Résultats embeddings uniquement:', embeddingsResult.chunks?.length || 0, 'chunks trouvés');
 
-      // Réponse directe basée sur les embeddings
+      // Générer une réponse directe en utilisant OpenAI avec température 0.3
       let response = '';
       
       if (embeddingsResult.hasRelevantContext && embeddingsResult.chunks.length > 0) {
-        response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents qui répondent à votre question.`;
-        
-        // Ajouter un aperçu du contenu trouvé
-        const topChunks = embeddingsResult.chunks.slice(0, 3);
-        response += '\n\nVoici les informations les plus pertinentes :\n';
-        topChunks.forEach((chunk, index) => {
-          const preview = chunk.chunk_text.substring(0, 150) + (chunk.chunk_text.length > 150 ? '...' : '');
-          response += `\n${index + 1}. ${preview}`;
+        // Construire le contexte pour OpenAI
+        const contextText = embeddingsResult.chunks.slice(0, 5).map((chunk, index) => {
+          return `Document: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
+        }).join('\n\n---\n\n');
+
+        const prompt = `Basé uniquement sur les informations suivantes trouvées dans les documents, réponds à la question: "${message}"
+
+CONTEXTE DES DOCUMENTS:
+${contextText}
+
+Réponds de manière naturelle et précise en utilisant uniquement les informations des documents fournis. Si les informations ne sont pas suffisantes, dis-le clairement.`;
+
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+          }),
         });
+
+        if (openaiResponse.ok) {
+          const data = await openaiResponse.json();
+          response = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
+        } else {
+          response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents.`;
+        }
       } else {
         response = 'Je n\'ai pas trouvé d\'informations pertinentes dans vos documents pour cette requête. Essayez de reformuler votre question ou vérifiez que les documents contiennent les informations recherchées.';
       }
