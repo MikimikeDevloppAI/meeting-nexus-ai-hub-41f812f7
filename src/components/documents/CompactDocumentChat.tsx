@@ -62,9 +62,18 @@ export const CompactDocumentChat = ({ document }: CompactDocumentChatProps) => {
       
       if (document.type === 'meeting') {
         // Pour les meetings, utiliser directement OpenAI avec le transcript
-        const { data, error } = await supabase.functions.invoke('ai-agent', {
-          body: { 
-            message: `CONTEXTE MEETING : "${document.ai_generated_name || document.original_name}"
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `Tu es un assistant IA spécialisé dans l'analyse du meeting "${document.ai_generated_name || document.original_name}".
 
 RÉSUMÉ DU MEETING :
 ${document.ai_summary || 'Pas de résumé disponible'}
@@ -72,15 +81,26 @@ ${document.ai_summary || 'Pas de résumé disponible'}
 TRANSCRIPT COMPLET :
 ${document.extracted_text || 'Pas de transcript disponible'}
 
-QUESTION UTILISATEUR :
-${currentMessage}
-
-Tu es un assistant IA spécialisé dans l'analyse de ce meeting. Réponds uniquement aux questions concernant ce meeting en utilisant les informations du résumé et du transcript fournis. Si l'information n'est pas dans le meeting, dis-le clairement.`
-          }
+Tu dois répondre uniquement aux questions concernant ce meeting en utilisant les informations du résumé et du transcript fournis. Si l'information n'est pas dans le meeting, dis-le clairement. Réponds en français de manière naturelle et précise.`
+              },
+              {
+                role: 'user',
+                content: currentMessage
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 1000
+          }),
         });
 
-        if (error) throw error;
-        response = data;
+        if (!openaiResponse.ok) {
+          throw new Error(`Erreur OpenAI: ${openaiResponse.status}`);
+        }
+
+        const data = await openaiResponse.json();
+        response = {
+          response: data.choices[0]?.message?.content || "Désolé, je n'ai pas pu traiter votre demande."
+        };
       } else {
         // Pour les documents, utiliser la fonction document-chat existante
         const { data, error } = await supabase.functions.invoke('document-chat', {
