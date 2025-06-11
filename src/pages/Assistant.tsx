@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import EditableTaskValidationDialog from "@/components/EditableTaskValidationDialog";
 import { renderMessageWithLinks } from "@/utils/linkRenderer";
+import { useChatHistory } from "@/hooks/useChatHistory";
 
 interface TaskAction {
   type: 'create' | 'update' | 'delete' | 'complete';
@@ -36,14 +36,7 @@ interface Message {
 }
 
 const Assistant = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare\n\nComment puis-je vous aider ?",
-      isUser: false,
-      timestamp: new Date(),
-    }
-  ]);
+  const { messages, setMessages, addMessage, clearHistory } = useChatHistory();
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingTaskAction, setPendingTaskAction] = useState<TaskAction | null>(null);
@@ -96,14 +89,7 @@ const Assistant = () => {
   };
 
   const clearChatHistory = () => {
-    setMessages([
-      {
-        id: '1',
-        content: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare\n\nComment puis-je vous aider ?",
-        isUser: false,
-        timestamp: new Date(),
-      }
-    ]);
+    clearHistory();
     
     toast({
       title: "Historique effacé",
@@ -286,15 +272,13 @@ const Assistant = () => {
       timestamp: new Date(),
     };
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    addMessage(userMessage);
     const currentMessage = inputMessage;
     setInputMessage("");
     setIsLoading(true);
 
     try {
-      // Prendre les 10 derniers messages COMPLETS (utilisateur ET assistant) comme historique
-      // Ceci garantit que l'agent a accès à tout le contexte de conversation
+      // Prendre les 10 derniers messages COMPLETS pour l'historique
       const conversationHistory = messages
         .slice(-10)
         .map(msg => ({
@@ -303,7 +287,7 @@ const Assistant = () => {
           timestamp: msg.timestamp.toISOString()
         }));
 
-      console.log('[ASSISTANT] 📜 Envoi de l\'historique COMPLET:', {
+      console.log('[ASSISTANT] 📜 Envoi de l\'historique persisté:', {
         messageCount: conversationHistory.length,
         currentMessage: currentMessage.substring(0, 50) + '...',
         fullHistory: conversationHistory.map(m => ({
@@ -318,7 +302,11 @@ const Assistant = () => {
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: contextMessage,
-          conversationHistory: conversationHistory
+          conversationHistory: conversationHistory,
+          context: {
+            searchDocuments: true,
+            useEmbeddings: true
+          }
         }
       });
 
@@ -332,7 +320,7 @@ const Assistant = () => {
       // Parse task action from response
       const taskAction = parseTaskAction(data.response);
       
-      // Clean the response content by removing the action syntax and CONTEXT_PARTICIPANTS
+      // Clean the response content
       let cleanContent = data.response;
       if (taskAction) {
         cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
@@ -351,7 +339,7 @@ const Assistant = () => {
         taskAction: taskAction,
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      addMessage(aiMessage);
 
       // If there's a task action, show validation dialog
       if (taskAction) {
@@ -375,7 +363,7 @@ const Assistant = () => {
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -417,7 +405,7 @@ const Assistant = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
         <p className="text-muted-foreground">
-          Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire, consultation internet et recommandations intelligentes pour le cabinet OphtaCare
+          Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire améliorée et historique persistant
         </p>
       </div>
 
@@ -441,7 +429,7 @@ const Assistant = () => {
             </div>
           </div>
           <CardDescription>
-            Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire, consultation internet et recommandations intelligentes pour le cabinet OphtaCare
+            Assistant IA avec historique persistant et recherche vectorielle améliorée dans vos documents
           </CardDescription>
         </CardHeader>
 
