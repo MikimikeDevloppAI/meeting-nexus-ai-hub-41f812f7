@@ -360,12 +360,168 @@ export class PowerPointProcessor implements DocumentProcessor {
   }
 }
 
+export class ExcelProcessor implements DocumentProcessor {
+  canProcess(contentType: string): boolean {
+    return contentType === 'application/vnd.ms-excel' || 
+           contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
+
+  async extractText(fileData: Blob, apiKey: string): Promise<string> {
+    console.log(`🔄 Processing Excel (${fileData.size} bytes) with ConvertAPI...`);
+
+    const formData = new FormData();
+    formData.append('File', fileData, 'spreadsheet.xlsx');
+
+    console.log('📤 Uploading Excel to ConvertAPI for CSV conversion...');
+
+    const uploadController = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 45000);
+
+    try {
+      const extractResponse = await fetch('https://v2.convertapi.com/convert/xlsx/to/csv', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+        signal: uploadController.signal
+      });
+
+      clearTimeout(uploadTimeout);
+
+      if (!extractResponse.ok) {
+        const errorText = await extractResponse.text();
+        console.error('❌ ConvertAPI Excel error:', errorText);
+        throw new Error(`Excel extraction failed: ${extractResponse.status} - ${errorText}`);
+      }
+
+      const extractData = await extractResponse.json();
+      console.log('📋 ConvertAPI response data:', JSON.stringify(extractData, null, 2));
+      
+      if (!extractData.Files || extractData.Files.length === 0) {
+        console.error('❌ No files in ConvertAPI response:', extractData);
+        throw new Error('Excel text extraction failed - no result files');
+      }
+
+      const resultFile = extractData.Files[0];
+      
+      let extractedText = '';
+      
+      // Check if we have FileData (base64) or Url
+      if (resultFile.FileData) {
+        console.log('📥 Extracting CSV from base64 FileData...');
+        try {
+          // Decode base64 data
+          const base64Data = resultFile.FileData;
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const decoder = new TextDecoder('utf-8');
+          extractedText = decoder.decode(bytes);
+          console.log(`✅ CSV extracted from base64 (${extractedText.length} chars)`);
+        } catch (decodeError) {
+          console.error('❌ Failed to decode base64 FileData:', decodeError);
+          throw new Error('Failed to decode extracted CSV from base64');
+        }
+      } else if (resultFile.Url) {
+        console.log(`📥 Downloading extracted CSV from URL: ${resultFile.Url}`);
+        
+        const downloadController = new AbortController();
+        const downloadTimeout = setTimeout(() => downloadController.abort(), 30000);
+        
+        try {
+          const textResponse = await fetch(resultFile.Url, {
+            signal: downloadController.signal
+          });
+          
+          clearTimeout(downloadTimeout);
+          
+          if (!textResponse.ok) {
+            throw new Error(`Failed to download extracted CSV: ${textResponse.status} ${textResponse.statusText}`);
+          }
+
+          extractedText = await textResponse.text();
+          console.log(`✅ CSV downloaded from URL (${extractedText.length} chars)`);
+
+        } catch (downloadError) {
+          clearTimeout(downloadTimeout);
+          if (downloadError.name === 'AbortError') {
+            throw new Error('CSV download timed out');
+          }
+          throw downloadError;
+        }
+      } else {
+        console.error('❌ No FileData or URL in result file:', resultFile);
+        throw new Error('Excel text extraction failed - no FileData or download URL in result');
+      }
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        throw new Error('Excel file contains no extractable data');
+      }
+
+      // Format CSV data into a more readable structure
+      const formattedText = this.formatCsvData(extractedText);
+      console.log(`✅ Excel data formatted successfully (${formattedText.length} chars)`);
+      return formattedText;
+
+    } catch (extractError) {
+      clearTimeout(uploadTimeout);
+      if (extractError.name === 'AbortError') {
+        throw new Error('Excel text extraction timed out');
+      }
+      throw extractError;
+    }
+  }
+
+  private formatCsvData(csvText: string): string {
+    const lines = csvText.split('\n');
+    let formattedText = 'DONNÉES EXCEL EXTRAITES:\n\n';
+    
+    // Detect if first row might be headers
+    const firstRow = lines[0];
+    const hasHeaders = firstRow && firstRow.split(',').some(cell => 
+      isNaN(Number(cell.replace(/[",]/g, '')))
+    );
+    
+    if (hasHeaders) {
+      formattedText += 'COLONNES:\n';
+      const headers = firstRow.split(',').map(h => h.replace(/[",]/g, '').trim());
+      formattedText += headers.join(' | ') + '\n\n';
+      
+      formattedText += 'DONNÉES:\n';
+      lines.slice(1, Math.min(51, lines.length)).forEach((line, index) => {
+        if (line.trim()) {
+          const cells = line.split(',').map(c => c.replace(/[",]/g, '').trim());
+          formattedText += `Ligne ${index + 1}: ${cells.join(' | ')}\n`;
+        }
+      });
+    } else {
+      formattedText += 'CONTENU TABULAIRE:\n';
+      lines.slice(0, Math.min(50, lines.length)).forEach((line, index) => {
+        if (line.trim()) {
+          const cells = line.split(',').map(c => c.replace(/[",]/g, '').trim());
+          formattedText += `${cells.join(' | ')}\n`;
+        }
+      });
+    }
+    
+    if (lines.length > 50) {
+      formattedText += `\n... (${lines.length - 50} lignes supplémentaires)`;
+    }
+    
+    return formattedText;
+  }
+}
+
 export class DocumentProcessorFactory {
   private processors: DocumentProcessor[] = [
     new PDFProcessor(),
     new TextProcessor(),
     new WordProcessor(),
-    new PowerPointProcessor()
+    new PowerPointProcessor(),
+    new ExcelProcessor()
   ];
 
   getProcessor(contentType: string): DocumentProcessor | null {
@@ -379,7 +535,9 @@ export class DocumentProcessorFactory {
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
   }
 }

@@ -204,7 +204,9 @@ const Documents = () => {
         'application/msword', 
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       ].includes(file.type)) {
         await supabase.functions.invoke('process-document', {
           body: { documentId: document.id }
@@ -268,7 +270,9 @@ const Documents = () => {
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx']
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     }
   });
 
@@ -319,7 +323,7 @@ const Documents = () => {
             Télécharger des Documents
           </CardTitle>
           <CardDescription>
-            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX) pour un traitement automatique avec extraction de texte complète.
+            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX, PPT, PPTX, XLS, XLSX) pour un traitement automatique avec extraction de texte complète.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -343,6 +347,9 @@ const Documents = () => {
                 </p>
                 <p className="text-muted-foreground">
                   ou cliquez pour sélectionner des fichiers
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Supports: PDF, Word, PowerPoint, Excel, Texte
                 </p>
               </div>
             )}

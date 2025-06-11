@@ -22,6 +22,10 @@ export async function generateDocumentAnalysis(
   // Récupérer les mots-clés existants du système pour éviter les synonymes
   const existingKeywords = await getExistingKeywords();
   
+  // Détecter si c'est un fichier Excel pour adapter le prompt
+  const isExcelFile = document.content_type === 'application/vnd.ms-excel' || 
+                     document.content_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -33,15 +37,26 @@ export async function generateDocumentAnalysis(
       messages: [
         {
           role: 'system',
-          content: `Tu es un expert en analyse de documents médicaux et administratifs. 
+          content: `Tu es un expert en analyse de documents médicaux et administratifs${isExcelFile ? ', avec une spécialisation dans l\'analyse de données Excel et tableaux' : ''}. 
 
 CATÉGORIES OBLIGATOIRES - Tu DOIS choisir parmi ces catégories uniquement :
-- "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs
-- "Marketing" : UNIQUEMENT contenu marketing spécifique du cabinet du Dr Tabibian (contenu site web, publicités réseaux sociaux, brochures promotionnelles du cabinet, matériel publicitaire du cabinet)
-- "Contrat" : Contrats, accords, conventions, documents juridiques
-- "Information médicale" : Comptes-rendus médicaux, prescriptions, résultats d'examens, dossiers patients
-- "Fiche Technique Materiel" : Spécifications techniques, manuels d'utilisation, fiches produits
-- "Contact" : Listes de contacts, annuaires, informations de contact
+- "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs${isExcelFile ? ', budgets, plannings, rapports de gestion, données administratives en tableau' : ''}
+- "Marketing" : UNIQUEMENT contenu marketing spécifique du cabinet du Dr Tabibian (contenu site web, publicités réseaux sociaux, brochures promotionnelles du cabinet, matériel publicitaire du cabinet)${isExcelFile ? ', données de campagnes marketing, analyses de performance marketing du cabinet' : ''}
+- "Contrat" : Contrats, accords, conventions, documents juridiques${isExcelFile ? ', tableaux de tarifs, conditions contractuelles sous forme tabulaire' : ''}
+- "Information médicale" : Comptes-rendus médicaux, prescriptions, résultats d'examens, dossiers patients${isExcelFile ? ', données patients en tableau, statistiques médicales, plannings de consultation' : ''}
+- "Fiche Technique Materiel" : Spécifications techniques, manuels d'utilisation, fiches produits${isExcelFile ? ', inventaires d\'équipements, tableaux de spécifications techniques' : ''}
+- "Contact" : Listes de contacts, annuaires, informations de contact${isExcelFile ? ', listes de contacts patients, annuaires de fournisseurs, répertoires professionnels' : ''}
+
+${isExcelFile ? `
+ANALYSE SPÉCIALE POUR LES FICHIERS EXCEL :
+- Identifie le type de données : listes de contacts, budgets, plannings, inventaires, statistiques
+- Détermine si c'est un tableau de suivi (patients, matériel, contacts)
+- Regarde les en-têtes de colonnes pour comprendre la structure
+- Privilégie "Contact" pour les listes de personnes/entreprises
+- Privilégie "Administratif" pour les budgets, plannings, données de gestion
+- Privilégie "Information médicale" pour les données patients ou statistiques médicales
+- Privilégie "Fiche Technique Materiel" pour les inventaires d'équipements
+` : ''}
 
 ATTENTION SPÉCIALE POUR LA CATÉGORIE "Marketing" :
 - N'utilise "Marketing" QUE si le document concerne spécifiquement le marketing du cabinet du Dr Tabibian
@@ -54,19 +69,20 @@ IMPORTANT pour les mots-clés :
 - RÉUTILISE ces mots-clés existants quand ils correspondent au document
 - Ne crée de NOUVEAUX mots-clés que si aucun existant ne convient
 - Évite les synonymes (ex: si "chirurgie" existe, n'utilise pas "opération")
-- Privilégie les termes précis et médicaux
-- Évite les termes génériques ("document", "fichier", "information")
+- Privilégie les termes précis et médicaux${isExcelFile ? ' ou techniques pour les tableaux' : ''}
+- Évite les termes génériques ("document", "fichier", "information"${isExcelFile ? ', "tableau", "données"' : ''})
 - Maximum 4 mots-clés par document
+${isExcelFile ? '- Pour Excel : utilise des mots-clés spécifiques au contenu (ex: "planning", "budget", "inventaire", "contacts")' : ''}
 
 Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "suggestedName": "nom descriptif et professionnel du document",
-  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal",
+  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal${isExcelFile ? ' et la structure des données' : ''}",
   "taxonomy": {
     "category": "UNE DES 6 CATÉGORIES OBLIGATOIRES CI-DESSUS",
     "subcategory": "sous-catégorie spécifique",
     "keywords": ["mot-clé1", "mot-clé2", "mot-clé3", "mot-clé4"],
-    "documentType": "type précis du document"
+    "documentType": "type précis du document${isExcelFile ? ' (ex: tableau Excel, base de données, planning)' : ''}"
   }
 }`
         },
@@ -75,10 +91,12 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
           content: `Analysez ce document:
 
 Nom du fichier: ${document.original_name}
-Type de fichier: ${document.content_type}
+Type de fichier: ${document.content_type}${isExcelFile ? ' (Fichier Excel - données tabulaires)' : ''}
 
 Contenu du document:
 ${text.substring(0, 4000)}${text.length > 4000 ? '...' : ''}
+
+${isExcelFile ? 'ATTENTION: Ce fichier Excel contient des données structurées en tableau. Analyse le contenu pour déterminer s\'il s\'agit de contacts, planning, budget, inventaire, etc.' : ''}
 
 Retournez UNIQUEMENT le JSON de l'analyse.`
         }
@@ -163,14 +181,17 @@ async function getExistingKeywords(): Promise<string[]> {
 }
 
 export function createFallbackAnalysis(document: any): DocumentAnalysis {
+  const isExcelFile = document.content_type === 'application/vnd.ms-excel' || 
+                     document.content_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  
   return {
     suggestedName: document.original_name.replace(/\.[^/.]+$/, ""),
-    summary: "Document traité automatiquement - analyse détaillée non disponible",
+    summary: `Document ${isExcelFile ? 'Excel ' : ''}traité automatiquement - analyse détaillée non disponible`,
     taxonomy: {
       category: "Administratif",
-      subcategory: "Document général",
-      keywords: ["document"],
-      documentType: "Fichier uploadé"
+      subcategory: isExcelFile ? "Données tabulaires" : "Document général",
+      keywords: [isExcelFile ? "tableau" : "document"],
+      documentType: isExcelFile ? "Fichier Excel" : "Fichier uploadé"
     }
   };
 }

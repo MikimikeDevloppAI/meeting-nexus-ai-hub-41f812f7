@@ -102,11 +102,14 @@ serve(async (req) => {
       supabase
     ));
 
-    // Return immediate response with enhanced messaging for PowerPoint
+    // Return immediate response with enhanced messaging for different file types
     let estimatedTime = '20-45 secondes selon la taille';
     if (document.content_type === 'application/vnd.ms-powerpoint' || 
         document.content_type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
       estimatedTime = '30-60 secondes pour les présentations PowerPoint';
+    } else if (document.content_type === 'application/vnd.ms-excel' ||
+               document.content_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      estimatedTime = '25-50 secondes pour les fichiers Excel';
     }
 
     return new Response(JSON.stringify({ 
