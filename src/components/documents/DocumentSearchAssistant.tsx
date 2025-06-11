@@ -9,18 +9,19 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
+interface DocumentSource {
+  documentId: string;
+  documentName: string;
+  maxSimilarity: number;
+  chunksCount: number;
+}
+
 interface Message {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
-  sources?: Array<{
-    documentId: string;
-    documentName: string;
-    relevantText: string;
-    similarity: number;
-    chunkIndex?: number;
-  }>;
+  sources?: DocumentSource[];
 }
 
 export const DocumentSearchAssistant = () => {
@@ -101,12 +102,12 @@ export const DocumentSearchAssistant = () => {
       console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
 
       // Traiter les sources et grouper par document unique
-      let uniqueDocuments = [];
+      let uniqueDocuments: DocumentSource[] = [];
       if (data.sources && data.sources.length > 0) {
         console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
         
         // Grouper les sources par document_id pour éviter les doublons
-        const documentsMap = new Map();
+        const documentsMap = new Map<string, DocumentSource>();
         
         data.sources.forEach((source: any) => {
           const docId = source.document_id || source.id;
@@ -121,7 +122,7 @@ export const DocumentSearchAssistant = () => {
             });
           } else {
             // Mettre à jour avec la meilleure similarité et compter les chunks
-            const existing = documentsMap.get(docId);
+            const existing = documentsMap.get(docId)!;
             existing.maxSimilarity = Math.max(existing.maxSimilarity, source.similarity || 0);
             existing.chunksCount += 1;
           }
@@ -240,7 +241,7 @@ export const DocumentSearchAssistant = () => {
                       </div>
                     </div>
 
-                    {/* Documents sources utilisés (sans mention des chunks) */}
+                    {/* Documents sources utilisés */}
                     {!message.isUser && message.sources && message.sources.length > 0 && (
                       <div className="ml-11 space-y-3">
                         <div className="text-sm text-muted-foreground font-medium flex items-center gap-2">
