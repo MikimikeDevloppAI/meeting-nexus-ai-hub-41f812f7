@@ -1,4 +1,3 @@
-
 export class EmbeddingsAgent {
   private openaiApiKey: string;
   private supabase: any;
@@ -9,58 +8,63 @@ export class EmbeddingsAgent {
   }
 
   async searchEmbeddings(message: string, analysis: any, relevantIds: any, conversationHistory: any[] = []): Promise<any> {
-    console.log('[EMBEDDINGS] 🔍 RECHERCHE VECTORIELLE AMÉLIORÉE pour:', message.substring(0, 100));
+    console.log('[EMBEDDINGS] 🔍 RECHERCHE VECTORIELLE OPTIMISÉE pour:', message.substring(0, 100));
     
-    // Construire le contexte enrichi avec l'historique
-    let enrichedQuery = message;
-    
-    // Ajouter l'historique récent pour le contexte
-    if (conversationHistory && conversationHistory.length > 0) {
-      const recentHistory = conversationHistory.slice(-3).map((msg: any) => {
-        const role = msg.isUser ? 'Utilisateur' : 'Assistant';
-        return `${role}: ${msg.content.substring(0, 150)}`;
-      }).join('\n');
-      
-      enrichedQuery = `${message}\n\nCONTEXTE CONVERSATION RÉCENTE:\n${recentHistory}`;
-      console.log('[EMBEDDINGS] ✅ Historique intégré:', conversationHistory.length, 'messages');
-    }
+    // Construire le contexte enrichi avec l'historique et termes spécialisés
+    let enrichedQuery = this.buildEnrichedQuery(message, conversationHistory);
 
     let allChunks: any[] = [];
     let searchIterations = 0;
-    const maxIterations = 3;
+    const maxIterations = 4;
 
-    // 🎯 Phase 1: Recherche principale avec seuil plus permissif
-    console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale');
+    // 🎯 Phase 1: Recherche principale avec query enrichie
+    console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale enrichie');
     const embedding = await this.getEmbedding(enrichedQuery);
-    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.05); // Seuil très bas
+    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.08); // Seuil optimisé
     allChunks = phase1Results;
     searchIterations++;
-    console.log(`[EMBEDDINGS] ✅ Phase 1: ${phase1Results.length} chunks trouvés (seuil 0.05)`);
+    console.log(`[EMBEDDINGS] ✅ Phase 1: ${phase1Results.length} chunks trouvés`);
 
-    // 🔄 Phase 2: Recherche avec termes individuels si peu de résultats
-    if (allChunks.length < 3) {
-      console.log('[EMBEDDINGS] 🔄 Phase 2: Recherche avec termes individuels');
-      const searchTerms = this.extractSearchTerms(message);
+    // 🔄 Phase 2: Recherche avec termes individuels et synonymes
+    if (allChunks.length < 5) {
+      console.log('[EMBEDDINGS] 🔄 Phase 2: Recherche avec termes étendus');
+      const expandedTerms = this.extractExpandedSearchTerms(message);
       
-      for (const term of searchTerms) {
+      for (const term of expandedTerms) {
         const termEmbedding = await this.getEmbedding(term);
-        const termResults = await this.performSearch(term, termEmbedding, 0.03); // Seuil encore plus bas
+        const termResults = await this.performSearch(term, termEmbedding, 0.05);
         allChunks = this.mergeUniqueChunks(allChunks, termResults);
         searchIterations++;
         console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.length} chunks pour "${term}"`);
+        
+        if (allChunks.length >= 10) break;
+      }
+    }
+
+    // 🔄 Phase 3: Recherche contextuelle large
+    if (allChunks.length < 3) {
+      console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche contextuelle large');
+      const contextualQueries = this.generateContextualQueries(message);
+      
+      for (const contextQuery of contextualQueries) {
+        const contextEmbedding = await this.getEmbedding(contextQuery);
+        const contextResults = await this.performSearch(contextQuery, contextEmbedding, 0.03);
+        allChunks = this.mergeUniqueChunks(allChunks, contextResults);
+        searchIterations++;
+        console.log(`[EMBEDDINGS] ✅ Phase 3: ${contextResults.length} chunks pour contexte`);
         
         if (allChunks.length >= 8) break;
       }
     }
 
-    // 🔄 Phase 3: Recherche de fallback avec query simple
+    // 🔄 Phase 4: Recherche de fallback ultime
     if (allChunks.length < 2) {
-      console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche de fallback');
+      console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fallback ultime');
       const simpleEmbedding = await this.getEmbedding(message);
-      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.01); // Seuil minimal
+      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.01);
       allChunks = this.mergeUniqueChunks(allChunks, fallbackResults);
       searchIterations++;
-      console.log(`[EMBEDDINGS] ✅ Phase 3: ${fallbackResults.length} chunks en fallback`);
+      console.log(`[EMBEDDINGS] ✅ Phase 4: ${fallbackResults.length} chunks en fallback`);
     }
 
     console.log(`[EMBEDDINGS] ✅ RECHERCHE TERMINÉE: ${searchIterations} itérations, ${allChunks.length} chunks trouvés`);
@@ -68,14 +72,14 @@ export class EmbeddingsAgent {
     // Tri final par score de similarité
     allChunks.sort((a, b) => b.similarity - a.similarity);
     
-    // Log des meilleurs résultats
+    // Log détaillé des meilleurs résultats
     if (allChunks.length > 0) {
-      console.log('[EMBEDDINGS] 📊 TOP 3 RÉSULTATS:');
-      allChunks.slice(0, 3).forEach((chunk, index) => {
-        console.log(`  ${index + 1}. Similarité: ${chunk.similarity.toFixed(3)}, Texte: "${chunk.chunk_text.substring(0, 100)}..."`);
+      console.log('[EMBEDDINGS] 📊 TOP 5 RÉSULTATS:');
+      allChunks.slice(0, 5).forEach((chunk, index) => {
+        console.log(`  ${index + 1}. Similarité: ${chunk.similarity.toFixed(3)}, Doc: ${chunk.document_id}, Texte: "${chunk.chunk_text.substring(0, 100)}..."`);
       });
     } else {
-      console.log('[EMBEDDINGS] ⚠️ AUCUN RÉSULTAT TROUVÉ - Problème possible avec les embeddings');
+      console.log('[EMBEDDINGS] ⚠️ AUCUN RÉSULTAT - Recherche dans documents vides ou problème embeddings');
     }
 
     // Enrichir les sources avec les informations nécessaires
@@ -95,10 +99,105 @@ export class EmbeddingsAgent {
       sources: enrichedSources,
       hasRelevantContext: allChunks.length > 0,
       searchIterations,
-      finalSearchTerms: [message],
+      finalSearchTerms: [enrichedQuery],
       fuzzyResults: [],
-      conversationHistoryUsed: conversationHistory.length
+      conversationHistoryUsed: conversationHistory.length,
+      expansionLevel: searchIterations
     };
+  }
+
+  private buildEnrichedQuery(message: string, conversationHistory: any[] = []): string {
+    let enrichedQuery = message;
+    
+    // Ajouter l'historique récent pour le contexte
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-2).map((msg: any) => {
+        const role = msg.isUser ? 'Utilisateur' : 'Assistant';
+        return `${role}: ${msg.content.substring(0, 100)}`;
+      }).join('\n');
+      
+      enrichedQuery = `${message}\n\nCONTEXTE CONVERSATION:\n${recentHistory}`;
+    }
+
+    // Ajouter des termes médicaux/ophtalmologie si pertinent
+    const medicalTerms = this.addMedicalContext(message);
+    if (medicalTerms) {
+      enrichedQuery += `\n\nCONTEXTE MÉDICAL: ${medicalTerms}`;
+    }
+
+    return enrichedQuery;
+  }
+
+  private addMedicalContext(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('emilie') || lowerMessage.includes('tâche') || lowerMessage.includes('jeudi')) {
+      return 'ophtalmologie cabinet médical planning tâches Emilie Dr Tabibian Genève consultation patient';
+    }
+    
+    if (lowerMessage.includes('planning') || lowerMessage.includes('rendez-vous')) {
+      return 'planning consultation patient ophtalmologie cabinet médical';
+    }
+    
+    return null;
+  }
+
+  private generateContextualQueries(message: string): string[] {
+    const queries = [];
+    const lowerMessage = message.toLowerCase();
+    
+    // Générer des requêtes contextuelles basées sur le message
+    if (lowerMessage.includes('emilie')) {
+      queries.push('Emilie tâches planning');
+      queries.push('responsabilités Emilie cabinet');
+      queries.push('planning Emilie ophtalmologie');
+    }
+    
+    if (lowerMessage.includes('jeudi')) {
+      queries.push('planning jeudi cabinet');
+      queries.push('tâches hebdomadaires jeudi');
+      queries.push('organisation jeudi consultation');
+    }
+    
+    if (lowerMessage.includes('tous les')) {
+      queries.push('tâches récurrentes planning');
+      queries.push('organisation hebdomadaire cabinet');
+    }
+    
+    // Ajouter des requêtes générales si pas de contexte spécifique
+    if (queries.length === 0) {
+      queries.push('planning cabinet ophtalmologie');
+      queries.push('organisation tâches équipe');
+    }
+    
+    return queries.slice(0, 3); // Limiter à 3 requêtes max
+  }
+
+  private extractExpandedSearchTerms(message: string): string[] {
+    const words = message.toLowerCase()
+      .split(/\s+/)
+      .filter(word => 
+        word.length > 2 && 
+        !['dans', 'avec', 'pour', 'sans', 'vers', 'chez', 'sous', 'sur', 'par', 'très', 'bien', 'tout', 'cette', 'peut', 'faire', 'que', 'est', 'elle', 'doit'].includes(word)
+      );
+    
+    // Ajouter des synonymes et termes liés
+    const expandedTerms = [...words];
+    
+    if (words.includes('emilie')) {
+      expandedTerms.push('émilie', 'assistante', 'secrétaire', 'équipe');
+    }
+    
+    if (words.includes('jeudi')) {
+      expandedTerms.push('thursday', 'planning', 'hebdomadaire');
+    }
+    
+    if (words.includes('tâches') || words.includes('faire')) {
+      expandedTerms.push('responsabilités', 'travail', 'activités', 'mission');
+    }
+    
+    // Retourner les termes les plus significatifs
+    return [...new Set(expandedTerms)].slice(0, 5);
   }
 
   private async getEmbedding(text: string): Promise<number[]> {
@@ -165,17 +264,5 @@ export class EmbeddingsAgent {
     const existingIds = new Set(existing.map(chunk => chunk.id));
     const uniqueNew = newChunks.filter(chunk => !existingIds.has(chunk.id));
     return [...existing, ...uniqueNew];
-  }
-
-  private extractSearchTerms(message: string): string[] {
-    const words = message.toLowerCase()
-      .split(/\s+/)
-      .filter(word => 
-        word.length > 3 && 
-        !['dans', 'avec', 'pour', 'sans', 'vers', 'chez', 'sous', 'sur', 'par', 'très', 'bien', 'tout', 'cette', 'peut', 'faire'].includes(word)
-      );
-    
-    // Retourner les 3 mots les plus significatifs
-    return words.slice(0, 3);
   }
 }
