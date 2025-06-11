@@ -1,258 +1,182 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { CoordinatorAgent } from './agents/coordinator.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
-import { InternetAgent } from './agents/internet.ts';
 import { TaskAgent } from './agents/tasks.ts';
-import { SynthesisAgent } from './agents/synthesis.ts';
+import { CoordinatorAgent } from './agents/coordinator.ts';
+// import { InternetAgent } from './agents/internet.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const apiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+if (!apiKey || !supabaseUrl || !supabaseKey) {
+  console.error('Missing required environment variables');
+  Deno.exit(1);
+}
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { message, conversationHistory, todoId, taskContext: inputTaskContext } = await req.json();
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 🏥 TRAITEMENT OPTIMISÉ OPHTALMOLOGIE: ${message.substring(0, 100)}...`);
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 💬 Historique reçu: ${conversationHistory ? conversationHistory.length : 0} messages`);
-    
-    // Log de l'historique complet pour debug avec formatage amélioré
-    if (conversationHistory && conversationHistory.length > 0) {
-      console.log(`[AI-AGENT-CABINET-MEDICAL] 📜 HISTORIQUE DÉTAILLÉ (${conversationHistory.length} messages) :`);
-      conversationHistory.forEach((msg: any, index: number) => {
-        const role = msg.isUser ? '👤 USER' : '🤖 ASSISTANT';
-        const timestamp = new Date(msg.timestamp).toLocaleString('fr-FR');
-        const preview = msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '');
-        console.log(`  ${index + 1}. [${timestamp}] ${role}: "${preview}"`);
-      });
-      
-      // Log spécial pour analyser les réponses courtes
-      if (message.trim().length < 20 && conversationHistory.length > 0) {
-        const lastAssistantMsg = conversationHistory.slice().reverse().find((msg: any) => !msg.isUser);
-        if (lastAssistantMsg) {
-          console.log(`[AI-AGENT-CABINET-MEDICAL] 🔍 DÉTECTION RÉPONSE COURTE POTENTIELLE:`);
-          console.log(`  Message utilisateur: "${message}"`);
-          console.log(`  Dernière question assistant: "${lastAssistantMsg.content.substring(0, 150)}..."`);
-        }
-      }
-    } else {
-      console.log(`[AI-AGENT-CABINET-MEDICAL] ⚠️ AUCUN HISTORIQUE TRANSMIS !`);
-    }
-    
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
-    
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
+    const { message, context = {} } = await req.json();
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Initialize agents
+    const database = new DatabaseAgent(supabaseClient);
+    const embeddings = new EmbeddingsAgent(apiKey, supabaseClient);
+    const taskAgent = new TaskAgent(supabaseClient);
+    const coordinator = new CoordinatorAgent();
+    // const internet = new InternetAgent(apiKey);
 
-    // Initialisation des agents intelligents pour cabinet médical
-    const coordinator = new CoordinatorAgent(openaiApiKey);
-    const databaseAgent = new DatabaseAgent(supabase);
-    const embeddingsAgent = new EmbeddingsAgent(openaiApiKey, supabase);
-    const internetAgent = new InternetAgent(perplexityApiKey);
-    const taskAgent = new TaskAgent(supabase);
-    const synthesisAgent = new SynthesisAgent(openaiApiKey);
+    // Extract conversation history from context
+    const conversationHistory = context.conversationHistory || [];
 
-    // 🧠 PHASE 1: ANALYSE INTELLIGENTE OPTIMISÉE - avec historique enrichi transmis explicitement
+    // Enrich message with conversation history
+    const enrichedMessage = `${message}\n\n${conversationHistory.slice(-3).map((msg: any) => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}`;
+
+    console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
+    console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
+
     console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente avec historique transmis au coordinateur');
-    let analysis = await coordinator.analyzeQuery(message, conversationHistory || []);
-    console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Analyse optimisée:', {
+    const analysis = await coordinator.analyzeQuery(enrichedMessage, conversationHistory);
+    
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Analyse optimisée: ${JSON.stringify({
       queryType: analysis.queryType,
       priority: analysis.priority,
-      confidence: analysis.confidenceLevel,
-      temporalRef: analysis.temporalReference?.type || 'none',
-      isSimple: analysis.isSimpleRequest,
-      embeddings: analysis.requiresEmbeddings,
-      database: analysis.requiresDatabase,
-      tasks: analysis.requiresTasks,
-      internet: analysis.requiresInternet,
-      historyLength: conversationHistory ? conversationHistory.length : 0
-    });
+      confidence: analysis.confidence,
+      temporalRef: analysis.temporalRef,
+      isSimple: analysis.queryType === 'simple',
+      embeddings: analysis.embeddings,
+      database: analysis.database,
+      tasks: analysis.tasks,
+      internet: analysis.internet,
+      historyLength: conversationHistory.length
+    })}`);
 
-    // 📋 PHASE TÂCHES : COURT-CIRCUIT IMMÉDIAT pour les tâches simples avec historique
-    let taskContextData = { currentTasks: [], hasTaskContext: false };
-    
-    if (analysis.requiresTasks && analysis.isSimpleRequest) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT TÂCHES: traitement direct avec historique transmis');
-      taskContextData = await taskAgent.handleTaskRequest(message, analysis, conversationHistory || []);
+    let embeddingsResult = { chunks: [], sources: [], hasRelevantContext: false };
+    let taskContext = { currentTasks: [], hasTaskContext: false };
+    let databaseContext = { meetings: [], documents: [], participants: [], todos: [] };
+
+    // 🎯 TRAITEMENT SPÉCIAL: Recherche vectorielle + tâches prioritaire
+    if (analysis.priority === 'embeddings_and_tasks') {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase spéciale: RECHERCHE VECTORIELLE + TÂCHES COMBINÉE');
       
-      // Réponse ultra-rapide pour les actions pures sur tâches
-      if (taskContextData.taskCreated || analysis.taskAction === 'list') {
-        const quickResponse = await synthesisAgent.synthesizeResponse(
-          message,
-          conversationHistory || [],
-          { meetings: [], documents: [], todos: [], participants: [], relevantIds: { meetingIds: [], documentIds: [], todoIds: [], participantIds: [] } },
-          { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 },
-          { content: '', sources: [], hasContent: false, enrichmentType: 'none' },
-          analysis,
-          taskContextData
-        );
+      // Phase 1: Recherche vectorielle en premier
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 1a: Recherche vectorielle prioritaire');
+      embeddingsResult = await embeddings.searchEmbeddings(message, analysis, [], conversationHistory);
+      
+      // Phase 1: Recherche tâches spécialisée
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 1b: Recherche tâches spécialisée');
+      taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
+      
+      // Phase 2: Recherche database complémentaire
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2: Recherche database complémentaire');
+      databaseContext = await database.searchContext(enrichedMessage);
+    }
+    // Traitement existant pour les autres priorités
+    else if (analysis.priority === 'direct') {
+      console.log('[AI-AGENT-CABINET-MEDICAL] ✨ Phase Direct: Réponse directe sans recherche');
+      return new Response(
+        JSON.stringify({ response: 'Bonjour ! Comment puis-je vous aider ?' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    else {
+      // Phase 2: Recherche embeddings si nécessaire
+      if (analysis.embeddings) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2: Recherche embeddings');
+        embeddingsResult = await embeddings.searchEmbeddings(message, analysis, [], conversationHistory);
+      }
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE ULTRA-RAPIDE TÂCHES générée avec historique transmis');
-        return new Response(JSON.stringify({
-          response: quickResponse,
-          sources: [],
-          hasTaskContext: true,
-          taskAction: taskContextData.taskAction,
-          analysis: { queryType: analysis.queryType, priority: analysis.priority, optimized: true },
-          searchMetrics: { totalDataPoints: taskContextData.currentTasks.length, shortCircuit: 'tasks', processingTime: 'ultra-fast' }
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Phase 3: Recherche database complémentaire
+      if (analysis.database) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 3: Recherche database complémentaire');
+        databaseContext = await database.searchContext(enrichedMessage);
+      }
+
+      // Phase 4: Gestion spécialisée des tâches
+      if (analysis.tasks) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 4: Gestion tâches spécialisée');
+        taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
+      }
+
+      // Phase 5: Recherche internet si nécessaire
+      if (analysis.internet) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 5: Recherche internet');
+        // const internetResults = await internet.searchInternet(message);
+        // console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Résultats Internet:', internetResults.length, 'sources');
       }
     }
 
-    // Contextes intelligents pour les recherches nécessaires uniquement
-    let databaseContext = { meetings: [], documents: [], todos: [], participants: [], relevantIds: { meetingIds: [], documentIds: [], todoIds: [], participantIds: [] } };
-    let embeddingContext = { chunks: [], sources: [], hasRelevantContext: false, searchIterations: 0, finalSearchTerms: [], fuzzyResults: [], expansionLevel: 0 };
-    let internetContext = { content: '', sources: [], hasContent: false, enrichmentType: 'none' };
+    // Feedback loop
+    console.log('[AI-AGENT-CABINET-MEDICAL] 👍 Analyse feedback (TODO)');
 
-    // 🎯 PHASE 2: RECHERCHE VECTORIELLE PRIORITAIRE (OPTIMISÉE) - avec historique enrichi et passé
-    if (analysis.requiresEmbeddings) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase 2: Recherche vectorielle PRIORITAIRE avec historique transmis');
-      embeddingContext = await embeddingsAgent.searchEmbeddings(message, analysis, databaseContext.relevantIds, conversationHistory || []);
-      console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Embeddings: ${embeddingContext.chunks.length} chunks trouvés avec historique`);
-      
-      // COURT-CIRCUIT si recherche vectorielle réussie avec haute confiance
-      if (embeddingContext.hasRelevantContext && embeddingContext.chunks.length >= 3 && !analysis.requiresDatabase) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ COURT-CIRCUIT VECTORIEL: résultats suffisants trouvés avec historique transmis');
-        
-        const quickResponse = await synthesisAgent.synthesizeResponse(
-          message,
-          conversationHistory || [],
-          databaseContext,
-          embeddingContext,
-          internetContext,
-          analysis,
-          taskContextData
-        );
+    // Synthèse et réponse
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Synthèse réponse...');
+    let combinedSources = [
+      ...embeddingsResult.sources || [],
+    ];
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ RÉPONSE RAPIDE VECTORIELLE générée avec historique transmis explicitement');
-        return new Response(JSON.stringify({
-          response: quickResponse,
-          sources: embeddingContext.sources,
-          contextFound: true,
-          analysis: { queryType: analysis.queryType, priority: analysis.priority, optimized: true },
-          searchMetrics: { totalDataPoints: embeddingContext.chunks.length, shortCircuit: 'embeddings', processingTime: 'fast' }
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    // Ajouter les participants au contexte pour les assigner aux tâches
+    let contextParticipants = '';
+    if (databaseContext.participants && databaseContext.participants.length > 0) {
+      contextParticipants = `CONTEXT_PARTICIPANTS: ${databaseContext.participants.map(p => `${p.name} (${p.email} ID: ${p.id})`).join(', ')}`;
     }
 
-    // 🗄️ PHASE 3: RECHERCHE DATABASE (seulement si nécessaire)
-    if (analysis.requiresDatabase) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 3: Recherche database complémentaire');
-      databaseContext = await databaseAgent.searchContext(analysis);
-      console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Database: ${databaseContext.meetings.length} réunions, ${databaseContext.documents.length} documents`);
+    // Construire la réponse
+    let response = 'Voici les informations que j\'ai trouvées :\n\n';
+
+    if (embeddingsResult.hasRelevantContext) {
+      response += '🔍 Contexte pertinent trouvé dans vos documents.\n';
     }
 
-    // 🔄 PHASE 4: ÉVALUATION RAPIDE ET DÉCISION
-    const searchResults = {
-      meetings: databaseContext.meetings,
-      documents: databaseContext.documents,
-      chunks: embeddingContext.chunks,
-      todos: databaseContext.todos
-    };
-
-    const feedback = await coordinator.provideFeedback(searchResults, message, analysis);
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 📈 Feedback: succès=${feedback.success}, confiance=${feedback.confidenceScore}, internet=${feedback.shouldTryInternet}`);
-
-    // 🌐 PHASE 5: ENRICHISSEMENT INTERNET (seulement si vraiment nécessaire)
-    if (analysis.requiresInternet || (feedback.shouldTryInternet && !feedback.foundRelevant)) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 5: Enrichissement internet ciblé');
-      
-      if (perplexityApiKey) {
-        internetContext = await internetAgent.searchInternet(message, analysis, true);
-        console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ Internet: ${internetContext.hasContent ? 'Enrichissement trouvé' : 'Pas de contenu pertinent'}`);
-      } else {
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Pas de clé Perplexity - enrichissement internet indisponible');
-      }
+    if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
+      response += '✅ Tâches correspondantes trouvées :\n';
+      taskContext.currentTasks.forEach((task: any) => {
+        response += `- ${task.description} (ID: ${task.id})\n`;
+      });
     }
 
-    // ⚡ PHASE 6: SYNTHÈSE FINALE OPTIMISÉE - avec historique transmis explicitement au début du prompt
-    console.log('[AI-AGENT-CABINET-MEDICAL] ⚡ Phase 6: Synthèse finale avec historique transmis au début du prompt système');
-    
-    const finalResponse = await synthesisAgent.synthesizeResponse(
-      message,
-      conversationHistory || [],
-      databaseContext,
-      embeddingContext,
-      internetContext,
-      analysis,
-      taskContextData
+    if (databaseContext.meetings && databaseContext.meetings.length > 0) {
+      response += '📅 Réunions correspondantes trouvées :\n';
+      databaseContext.meetings.forEach((meeting: any) => {
+        response += `- ${meeting.name} (ID: ${meeting.id})\n`;
+      });
+    }
+
+    if (taskContext.pendingTaskCreation && taskContext.pendingTaskCreation.waitingForAssignment) {
+      response = `D'accord, je vais créer la tâche "${taskContext.pendingTaskCreation.description}". À qui devrais-je assigner cette tâche ? ${contextParticipants}`;
+    } else if (taskContext.taskCreated) {
+      response = `Parfait ! J'ai créé la tâche "${taskContext.taskCreated.description}".`;
+    } else if (response === 'Voici les informations que j\'ai trouvées :\n\n') {
+      response = 'Désolé, je n\'ai pas trouvé d\'informations pertinentes.';
+    }
+
+    // Ajouter le contexte des participants à la réponse
+    response += `\n${contextParticipants}`;
+
+    console.log('[AI-AGENT-CABINET-MEDICAL] ✅ Réponse synthétisée:', response.substring(0, 200));
+
+    return new Response(
+      JSON.stringify({ 
+        response,
+        sources: combinedSources,
+        taskContext,
+        databaseContext,
+        analysis
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-    const responseData = {
-      response: finalResponse,
-      sources: embeddingContext.sources,
-      internetSources: internetContext.sources,
-      hasTaskContext: taskContextData.hasTaskContext,
-      taskAction: taskContextData.taskAction,
-      contextFound: embeddingContext.hasRelevantContext || databaseContext.meetings.length > 0,
-      analysis: {
-        queryType: analysis.queryType,
-        priority: analysis.priority,
-        requiresTasks: analysis.requiresTasks,
-        confidence: analysis.confidenceLevel,
-        isSimpleRequest: analysis.isSimpleRequest,
-        temporalReference: analysis.temporalReference,
-        administrativeContext: analysis.administrativeContext,
-        internetAccess: analysis.requiresInternet,
-        optimizedProcessing: true,
-        conversationAware: conversationHistory ? conversationHistory.length > 0 : false,
-        historyEnhanced: true
-      },
-      searchMetrics: {
-        totalDataPoints: (databaseContext.meetings?.length || 0) + 
-                        (databaseContext.documents?.length || 0) + 
-                        (embeddingContext.chunks?.length || 0) +
-                        (taskContextData.currentTasks?.length || 0),
-        searchIterations: embeddingContext.searchIterations,
-        confidenceScore: feedback.confidenceScore,
-        taskManagement: taskContextData.hasTaskContext,
-        intelligentProcessing: true,
-        internetEnrichment: internetContext.hasContent,
-        optimizedRouting: true,
-        processingTime: 'optimized',
-        conversationHistoryUsed: conversationHistory ? conversationHistory.length : 0,
-        historyContextIntegration: true
-      }
-    };
-
-    console.log(`[AI-AGENT-CABINET-MEDICAL] ✅ RÉPONSE FINALE générée avec historique transmis explicitement (confiance: ${feedback.confidenceScore}, historique: ${conversationHistory ? conversationHistory.length : 0} messages)`);
-
-    return new Response(JSON.stringify(responseData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
   } catch (error) {
-    console.error('[AI-AGENT-CABINET-MEDICAL] ❌ ERREUR:', error);
-    
-    // Réponse de fallback intelligente même en cas d'erreur
-    const fallbackResponse = {
-      response: "Je rencontre un problème technique temporaire, mais je reste disponible pour vous aider avec votre cabinet d'ophtalmologie Dr Tabibian à Genève. Je peux vous assister avec les réunions, transcripts, tâches administratives et recherches. Pouvez-vous reformuler votre question ?",
-      sources: [],
-      internetSources: [],
-      hasTaskContext: false,
-      contextFound: false,
-      analysis: { queryType: 'assistance', priority: 'database', error: true, cabinetMedical: true, optimized: false },
-      searchMetrics: { totalDataPoints: 0, error: error.message, intelligentFallback: true }
-    };
-    
-    return new Response(JSON.stringify(fallbackResponse), {
+    console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur principale:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

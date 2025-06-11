@@ -1,4 +1,3 @@
-
 export interface QueryAnalysis {
   requiresDatabase: boolean;
   requiresEmbeddings: boolean;
@@ -51,30 +50,103 @@ export class CoordinatorAgent {
     this.openaiApiKey = openaiApiKey;
   }
 
-  async analyzeQuery(message: string, conversationHistory: any[]): Promise<QueryAnalysis> {
-    console.log('[COORDINATOR] 🧠 ANALYSE INTELLIGENTE CABINET OPHTALMOLOGIE:', message.substring(0, 100));
-
-    // Détection prioritaire et intelligente des actions simples
-    const taskDetection = this.quickTaskDetection(message);
-    if (taskDetection.isTask) {
-      console.log('[COORDINATOR] 📋 Contexte TÂCHES détecté - traitement prioritaire SANS autres recherches');
-      return this.createTaskOnlyAnalysis(message, conversationHistory, taskDetection.action);
+  async analyzeQuery(message: string, conversationHistory: any[] = []): Promise<any> {
+    console.log('[COORDINATOR] 🧠 ANALYSE INTELLIGENTE CABINET OPHTALMOLOGIE:', message);
+    
+    const lowerMessage = message.toLowerCase();
+    
+    // 🎯 DÉTECTION PRIORITAIRE: Questions sur tâches récurrentes/personnes spécifiques
+    const isRecurringTaskQuery = this.isRecurringPersonTaskQuery(message);
+    if (isRecurringTaskQuery) {
+      console.log('[COORDINATOR] 🔍 Analyse requête récurrente:', { hasRecurring: true, hasPerson: true, hasTask: true });
+      return {
+        queryType: 'recurring_tasks',
+        priority: 'embeddings_and_tasks', // Nouvelle priorité combinée
+        confidence: 0.9,
+        temporalRef: this.extractTemporalReference(message),
+        embeddings: true,
+        database: true,
+        tasks: true,
+        internet: false,
+        person: this.extractPersonFromQuery(message),
+        timeframe: this.extractTimeframe(message)
+      };
     }
 
-    const transcriptDetection = this.quickTranscriptDetection(message);
-    if (transcriptDetection.isTranscript) {
-      console.log('[COORDINATOR] 📄 Demande TRANSCRIPT détectée - recherche database directe UNIQUEMENT');
-      return this.createTranscriptOnlyAnalysis(message, transcriptDetection);
-    }
-
-    const summaryDetection = this.quickSummaryDetection(message);
-    if (summaryDetection.isSummary) {
-      console.log('[COORDINATOR] 📋 Demande RÉSUMÉ détectée - recherche database directe UNIQUEMENT');
-      return this.createSummaryOnlyAnalysis(message, summaryDetection);
+    // Analyse existante pour les autres types de requêtes
+    if (this.isSimpleQuery(message)) {
+      return {
+        queryType: 'simple',
+        priority: 'direct',
+        confidence: 0.9,
+        embeddings: false,
+        database: false,
+        tasks: false,
+        internet: false
+      };
     }
 
     // Pour les autres demandes, analyser intelligemment
     return this.performIntelligentAnalysis(message, conversationHistory);
+  }
+
+  private isRecurringPersonTaskQuery(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    
+    // Patterns spécifiques pour tâches récurrentes avec personne
+    const recurringPatterns = [
+      'tous les', 'chaque', 'toutes les', 'régulièrement',
+      'hebdomadaire', 'quotidien', 'mensuel', 'habituellement'
+    ];
+    
+    const personPatterns = [
+      'emilie', 'émilie', 'david', 'leila', 'parmice', 'sybil', 'tabibian'
+    ];
+    
+    const taskPatterns = [
+      'doit faire', 'fait', 'tâches', 'responsabilités', 'travail',
+      'planning', 'programme', 'activités', 'mission'
+    ];
+    
+    const hasRecurring = recurringPatterns.some(pattern => lowerMessage.includes(pattern));
+    const hasPerson = personPatterns.some(pattern => lowerMessage.includes(pattern));
+    const hasTask = taskPatterns.some(pattern => lowerMessage.includes(pattern));
+    
+    console.log('[COORDINATOR] 🔍 Analyse requête récurrente:', { hasRecurring, hasPerson, hasTask });
+    
+    return hasRecurring && hasPerson && hasTask;
+  }
+
+  private extractPersonFromQuery(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    const persons = ['emilie', 'émilie', 'david', 'leila', 'parmice', 'sybil', 'tabibian'];
+    
+    for (const person of persons) {
+      if (lowerMessage.includes(person)) {
+        return person;
+      }
+    }
+    return null;
+  }
+
+  private extractTimeframe(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    const timeframes = {
+      'lundi': 'monday',
+      'mardi': 'tuesday',
+      'mercredi': 'wednesday',
+      'jeudi': 'thursday',
+      'vendredi': 'friday',
+      'samedi': 'saturday',
+      'dimanche': 'sunday'
+    };
+    
+    for (const [french, english] of Object.entries(timeframes)) {
+      if (lowerMessage.includes(french)) {
+        return english;
+      }
+    }
+    return null;
   }
 
   private quickTaskDetection(message: string): { isTask: boolean; action: 'list' | 'create' | 'update' | 'complete' } {
@@ -367,7 +439,7 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
   private getOptimizedFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Détection intelligente priorité vectorielle
+    // Détection intelligente prioritaire vectorielle
     const isSemanticQuery = ['trouve', 'cherche', 'information', 'dit', 'parlé', 'contenu', 'sujet'].some(term => lowerMessage.includes(term));
     const isMeetingQuery = ['meeting', 'réunion', 'compte rendu', 'résumé'].some(term => lowerMessage.includes(term));
     const needsInternet = ['conseil', 'recommandation', 'aide', 'comment', 'que faire', 'traitement général'].some(term => lowerMessage.includes(term));
@@ -485,5 +557,79 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
     }
     
     return originalAnalysis;
+  }
+
+  private isSimpleQuery(message: string): boolean {
+    const simplePatterns = [
+      /^(bonjour|salut|hello|hi)$/i,
+      /^(merci|thanks)$/i,
+      /^(au revoir|bye)$/i
+    ];
+    
+    return simplePatterns.some(pattern => pattern.test(message.trim()));
+  }
+
+  private detectQueryType(message: string): string {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('tâche') || lowerMessage.includes('todo')) {
+      return 'task';
+    }
+    if (lowerMessage.includes('réunion') || lowerMessage.includes('meeting')) {
+      return 'meeting';
+    }
+    if (lowerMessage.includes('document') || lowerMessage.includes('fichier')) {
+      return 'document';
+    }
+    
+    return 'administrative';
+  }
+
+  private determinePriority(message: string, queryType: string): string {
+    if (queryType === 'task') return 'tasks';
+    if (queryType === 'document') return 'embeddings';
+    return 'database';
+  }
+
+  private calculateConfidence(message: string, queryType: string): number {
+    return 0.8; // Confiance par défaut
+  }
+
+  private extractTemporalReference(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('dernier') || lowerMessage.includes('dernière')) {
+      return 'last';
+    }
+    if (lowerMessage.includes('prochain') || lowerMessage.includes('prochaine')) {
+      return 'next';
+    }
+    if (lowerMessage.includes('aujourd\'hui')) {
+      return 'today';
+    }
+    
+    return null;
+  }
+
+  private shouldUseEmbeddings(message: string, queryType: string): boolean {
+    return queryType === 'document' || 
+           message.toLowerCase().includes('document') ||
+           message.toLowerCase().includes('recherche');
+  }
+
+  private shouldUseDatabase(message: string, queryType: string): boolean {
+    return queryType !== 'simple';
+  }
+
+  private shouldUseTasks(message: string, queryType: string): boolean {
+    return queryType === 'task' || 
+           message.toLowerCase().includes('tâche') ||
+           message.toLowerCase().includes('todo');
+  }
+
+  private shouldUseInternet(message: string, queryType: string): boolean {
+    return message.toLowerCase().includes('actualité') ||
+           message.toLowerCase().includes('news') ||
+           message.toLowerCase().includes('internet');
   }
 }
