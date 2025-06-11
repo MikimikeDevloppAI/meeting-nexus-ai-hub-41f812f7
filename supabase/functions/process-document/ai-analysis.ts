@@ -37,11 +37,17 @@ export async function generateDocumentAnalysis(
 
 CATÉGORIES OBLIGATOIRES - Tu DOIS choisir parmi ces catégories uniquement :
 - "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs
-- "Marketing" : Brochures, publicités, présentations commerciales, matériel promotionnel
+- "Marketing" : UNIQUEMENT contenu marketing spécifique du cabinet du Dr Tabibian (contenu site web, publicités réseaux sociaux, brochures promotionnelles du cabinet, matériel publicitaire du cabinet)
 - "Contrat" : Contrats, accords, conventions, documents juridiques
 - "Information médicale" : Comptes-rendus médicaux, prescriptions, résultats d'examens, dossiers patients
 - "Fiche Technique Materiel" : Spécifications techniques, manuels d'utilisation, fiches produits
 - "Contact" : Listes de contacts, annuaires, informations de contact
+
+ATTENTION SPÉCIALE POUR LA CATÉGORIE "Marketing" :
+- N'utilise "Marketing" QUE si le document concerne spécifiquement le marketing du cabinet du Dr Tabibian
+- Exemples VALIDES pour "Marketing" : contenu pour le site web du cabinet, publicités pour les réseaux sociaux du cabinet, brochures promotionnelles du cabinet
+- Exemples INVALIDES pour "Marketing" : brochures commerciales de fournisseurs, publicités de laboratoires, matériel promotionnel d'autres entreprises
+- En cas de doute, privilégie "Administratif" ou "Information médicale"
 
 IMPORTANT pour les mots-clés :
 - Voici les mots-clés déjà utilisés dans le système : ${existingKeywords.join(', ')}
