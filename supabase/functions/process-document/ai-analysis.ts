@@ -19,6 +19,9 @@ export async function generateDocumentAnalysis(
 ): Promise<DocumentAnalysis> {
   console.log('🤖 Calling OpenAI for document analysis...');
   
+  // Récupérer les mots-clés existants du système pour éviter les synonymes
+  const existingKeywords = await getExistingKeywords();
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -30,7 +33,18 @@ export async function generateDocumentAnalysis(
       messages: [
         {
           role: 'system',
-          content: `Tu es un expert en analyse de documents. Analysez ce document et retournez UNIQUEMENT un JSON valide avec cette structure exacte (pas de texte avant ou après le JSON):
+          content: `Tu es un expert en analyse de documents médicaux. 
+
+IMPORTANT pour les mots-clés :
+- Voici les mots-clés déjà utilisés dans le système : ${existingKeywords.join(', ')}
+- RÉUTILISE ces mots-clés existants quand ils correspondent au document
+- Ne crée de NOUVEAUX mots-clés que si aucun existant ne convient
+- Évite les synonymes (ex: si "chirurgie" existe, n'utilise pas "opération")
+- Privilégie les termes précis et médicaux
+- Évite les termes génériques ("document", "fichier", "information")
+- Maximum 4 mots-clés par document
+
+Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "suggestedName": "nom descriptif et professionnel du document",
   "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal",
@@ -86,6 +100,36 @@ Retournez UNIQUEMENT le JSON de l'analyse.`
   } catch (e) {
     console.error('AI response parsing failed:', e, 'Content:', content);
     throw new Error('AI response parsing failed');
+  }
+}
+
+async function getExistingKeywords(): Promise<string[]> {
+  try {
+    // Cette fonction sera appelée dans le contexte de l'edge function
+    // où nous avons accès au client Supabase
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.49.4');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { data: documents } = await supabase
+      .from('uploaded_documents')
+      .select('taxonomy')
+      .not('taxonomy', 'is', null);
+
+    const keywordsSet = new Set<string>();
+    documents?.forEach(doc => {
+      if (doc.taxonomy?.keywords) {
+        doc.taxonomy.keywords.forEach((keyword: string) => {
+          keywordsSet.add(keyword);
+        });
+      }
+    });
+
+    return Array.from(keywordsSet).sort();
+  } catch (error) {
+    console.error('Error fetching existing keywords:', error);
+    return [];
   }
 }
 

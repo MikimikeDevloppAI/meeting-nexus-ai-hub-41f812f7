@@ -10,6 +10,7 @@ import { useDropzone } from "react-dropzone";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { CompactDocumentItem } from "@/components/documents/CompactDocumentItem";
 import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAssistant";
+import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 
 interface UploadedDocument {
   id: string;
@@ -351,6 +352,18 @@ const Documents = () => {
         <DocumentSearch 
           onSearch={setSearchFilters}
           documents={documents}
+        />
+      )}
+
+      {/* Affichage des mots-clés disponibles */}
+      {documents && documents.length > 0 && (
+        <KeywordsDisplay 
+          onKeywordClick={(keyword) => {
+            setSearchFilters(prev => ({
+              ...prev,
+              query: keyword
+            }));
+          }}
         />
       )}
 
