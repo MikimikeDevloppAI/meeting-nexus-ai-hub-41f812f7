@@ -157,7 +157,16 @@ const Documents = () => {
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const fileId = crypto.randomUUID();
-      const filePath = `${fileId}-${file.name}`;
+      
+      // Nettoyer le nom de fichier pour éviter les caractères spéciaux
+      const cleanFileName = file.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+        .replace(/[^a-zA-Z0-9.-]/g, '_') // Remplacer les caractères spéciaux par _
+        .replace(/_{2,}/g, '_') // Éviter les underscores multiples
+        .toLowerCase();
+      
+      const filePath = `${fileId}-${cleanFileName}`;
       
       // Upload to storage
       const { error: uploadError } = await supabase.storage
