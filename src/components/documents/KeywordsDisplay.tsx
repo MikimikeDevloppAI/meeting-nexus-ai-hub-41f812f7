@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, Filter, X } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface KeywordsDisplayProps {
@@ -15,7 +14,6 @@ interface KeywordsDisplayProps {
 export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsDisplayProps) => {
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNormalizing, setIsNormalizing] = useState(false);
   const { toast } = useToast();
 
   const validCategories = [
@@ -57,32 +55,6 @@ export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsD
     }
   };
 
-  const normalizeAllKeywords = async () => {
-    setIsNormalizing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('normalize-keywords');
-      
-      if (error) throw error;
-
-      toast({
-        title: "Normalisation terminée",
-        description: `${data.processedDocuments} documents mis à jour avec des mots-clés normalisés`,
-      });
-
-      // Recharger les catégories après normalisation
-      await fetchCategories();
-    } catch (error: any) {
-      console.error('Error normalizing keywords:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de normaliser les mots-clés",
-        variant: "destructive",
-      });
-    } finally {
-      setIsNormalizing(false);
-    }
-  };
-
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -102,24 +74,9 @@ export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsD
   return (
     <Card className="mb-6">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            <CardTitle>Filtrer par catégorie</CardTitle>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={normalizeAllKeywords}
-            disabled={isNormalizing}
-          >
-            {isNormalizing ? (
-              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-1" />
-            )}
-            Normaliser les mots-clés
-          </Button>
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5" />
+          <CardTitle>Filtrer par catégorie</CardTitle>
         </div>
       </CardHeader>
       <CardContent>

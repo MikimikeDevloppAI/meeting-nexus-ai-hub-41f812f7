@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -294,6 +295,10 @@ const Documents = () => {
     }
   };
 
+  const handleDocumentUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ['documents'] });
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
@@ -361,7 +366,7 @@ const Documents = () => {
         />
       )}
 
-      {/* Filtre par catégories (remplace l'affichage des mots-clés) */}
+      {/* Filtre par catégories */}
       {documents && documents.length > 0 && (
         <KeywordsDisplay 
           onCategoryClick={setSelectedCategory}
@@ -381,7 +386,7 @@ const Documents = () => {
             )}
           </CardTitle>
           <CardDescription>
-            Cliquez sur un document pour voir le résumé détaillé.
+            Cliquez sur un document pour voir le résumé détaillé et modifier ses métadonnées.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -408,6 +413,7 @@ const Documents = () => {
                     onDownload={() => downloadDocument(document)}
                     onDelete={() => deleteMutation.mutate(document)}
                     isDeleting={deleteMutation.isPending}
+                    onUpdate={handleDocumentUpdate}
                   />
                 ))}
               </div>

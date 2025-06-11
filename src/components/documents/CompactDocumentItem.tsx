@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X } from "lucide-react";
 import { useState } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
+import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
 
 interface CompactDocumentItemProps {
   document: {
@@ -23,13 +24,15 @@ interface CompactDocumentItemProps {
   onDownload: () => void;
   onDelete: () => void;
   isDeleting: boolean;
+  onUpdate?: () => void;
 }
 
 export const CompactDocumentItem = ({ 
   document, 
   onDownload, 
   onDelete, 
-  isDeleting 
+  isDeleting,
+  onUpdate 
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -37,6 +40,12 @@ export const CompactDocumentItem = ({
     if (!bytes) return 'N/A';
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(2)} MB`;
+  };
+
+  const handleMetadataUpdate = () => {
+    if (onUpdate) {
+      onUpdate();
+    }
   };
 
   return (
@@ -159,34 +168,14 @@ export const CompactDocumentItem = ({
                   </div>
                 )}
                 
-                {/* Catégorisation complète */}
-                {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">Catégorisation complète</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {document.taxonomy.category && (
-                        <Badge variant="secondary">
-                          {document.taxonomy.category}
-                        </Badge>
-                      )}
-                      {document.taxonomy.subcategory && (
-                        <Badge variant="outline">
-                          {document.taxonomy.subcategory}
-                        </Badge>
-                      )}
-                      {document.taxonomy.documentType && (
-                        <Badge variant="outline">
-                          {document.taxonomy.documentType}
-                        </Badge>
-                      )}
-                      {document.taxonomy.keywords?.map((keyword: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Éditeur de métadonnées */}
+                <div>
+                  <h4 className="font-medium mb-2">Catégorisation</h4>
+                  <DocumentMetadataEditor 
+                    document={document}
+                    onUpdate={handleMetadataUpdate}
+                  />
+                </div>
                 
                 {/* Texte extrait */}
                 {document.extracted_text && (
