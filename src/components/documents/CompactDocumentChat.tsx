@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,21 +60,15 @@ export const CompactDocumentChat = ({ document }: CompactDocumentChatProps) => {
       let response;
       
       if (document.type === 'meeting') {
-        // Pour les meetings, utiliser la fonction ai-agent avec le contexte du meeting
+        // Pour les meetings, forcer le mode recherche documentaire vectorielle uniquement
         const { data, error } = await supabase.functions.invoke('ai-agent', {
           body: { 
-            message: `CONTEXTE MEETING : "${document.ai_generated_name || document.original_name}"
-
-RÉSUMÉ DU MEETING :
-${document.ai_summary || 'Pas de résumé disponible'}
-
-TRANSCRIPT COMPLET :
-${document.extracted_text || 'Pas de transcript disponible'}
-
-QUESTION UTILISATEUR :
-${currentMessage}
-
-Tu es un assistant IA spécialisé dans l'analyse de ce meeting. Réponds uniquement aux questions concernant ce meeting en utilisant les informations du résumé et du transcript fournis. Si l'information n'est pas dans le meeting, dis-le clairement. Réponds en français de manière naturelle et précise.`
+            message: currentMessage,
+            context: {
+              documentSearchMode: true,
+              forceEmbeddingsPriority: true,
+              vectorSearchOnly: true
+            }
           }
         });
 
