@@ -7,6 +7,7 @@ import { createTasksPrompt } from './prompts/tasks-prompt.ts'
 import { callOpenAI } from './services/openai-service.ts'
 import { 
   createSupabaseClient, 
+  saveRawTranscript,
   saveTranscript, 
   saveSummary, 
   getMeetingData, 
@@ -39,6 +40,7 @@ serve(async (req) => {
     }
 
     console.log('🎬 Processing transcript for meeting:', meetingId)
+    console.log('📏 Original transcript length from AssemblyAI:', transcript.length, 'characters')
     console.log('👥 Participants:', participants?.map((p: any) => p.name).join(', '))
 
     const supabaseClient = createSupabaseClient()
@@ -55,18 +57,32 @@ serve(async (req) => {
     
     console.log('📋 Meeting details:', { meetingName, meetingDate, participantNames })
 
-    // Clean transcript
+    // IMPORTANT: Save the raw transcript from AssemblyAI FIRST
+    console.log('💾 Saving raw transcript from AssemblyAI...')
+    await saveRawTranscript(supabaseClient, meetingId, transcript)
+    console.log('✅ Raw transcript saved successfully')
+
+    // Clean transcript with strict instructions to preserve ALL content
+    console.log('🧹 Starting OpenAI transcript cleaning with strict preservation instructions...')
     const transcriptPrompt = createTranscriptPrompt(participantNames, transcript)
-    const cleanedTranscript = await callOpenAI(transcriptPrompt, openAIKey)
+    const cleanedTranscript = await callOpenAI(transcriptPrompt, openAIKey, 0.1) // Lower temperature for more consistent output
 
     if (!cleanedTranscript) {
       throw new Error('No transcript returned from OpenAI')
+    }
+
+    console.log('📏 Cleaned transcript length:', cleanedTranscript.length, 'characters')
+    console.log('📊 Length comparison: Original:', transcript.length, '→ Cleaned:', cleanedTranscript.length)
+    
+    if (cleanedTranscript.length < transcript.length * 0.8) {
+      console.warn('⚠️ WARNING: Cleaned transcript is significantly shorter than original! Possible content loss.')
     }
 
     console.log('✨ Cleaned transcript generated successfully')
     await saveTranscript(supabaseClient, meetingId, cleanedTranscript)
 
     // Process document and embeddings in parallel with AI processing
+    // Use the CLEANED transcript for vectorization as requested
     const documentProcessingPromise = handleDocumentProcessing(
       supabaseClient, 
       meetingId, 
@@ -146,6 +162,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         processedTranscript: cleanedTranscript,
+        rawTranscriptLength: transcript.length,
+        cleanedTranscriptLength: cleanedTranscript.length,
         summary: summaryResult,
         tasks: savedTasks,
         embeddingsCount: documentData.chunksCount,

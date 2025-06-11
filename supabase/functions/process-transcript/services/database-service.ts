@@ -8,6 +8,18 @@ export function createSupabaseClient() {
   );
 }
 
+export async function saveRawTranscript(supabaseClient: any, meetingId: string, rawTranscript: string) {
+  const { error } = await supabaseClient
+    .from('meetings')
+    .update({ raw_transcript: rawTranscript })
+    .eq('id', meetingId);
+
+  if (error) {
+    console.error('Error saving raw transcript:', error);
+    throw error;
+  }
+}
+
 export async function saveTranscript(supabaseClient: any, meetingId: string, transcript: string) {
   const { error } = await supabaseClient
     .from('meetings')

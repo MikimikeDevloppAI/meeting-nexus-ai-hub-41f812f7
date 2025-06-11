@@ -129,6 +129,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          raw_transcript: string | null
           summary: string | null
           title: string
           transcript: string | null
@@ -138,6 +139,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          raw_transcript?: string | null
           summary?: string | null
           title: string
           transcript?: string | null
@@ -147,6 +149,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          raw_transcript?: string | null
           summary?: string | null
           title?: string
           transcript?: string | null
