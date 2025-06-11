@@ -8,14 +8,14 @@ export async function processAIRecommendations(
   participantNames: string,
   participants: any[]
 ) {
-  console.log('🤖 Génération recommandations IA avec agent unique intelligent...');
+  console.log('🤖 Génération recommandations IA intelligentes...');
   console.log(`📋 Traitement de ${savedTasks.length} tâches`);
   
   for (const task of savedTasks) {
     try {
       console.log(`🎯 Analyse intelligente pour: ${task.description.substring(0, 50)}...`);
       
-      // Appel direct à l'agent unique intelligent
+      // Appel à l'agent intelligent amélioré
       const { data: recommendationResult, error: recommendationError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
         body: {
           task: { description: task.description },
@@ -43,15 +43,26 @@ export async function processAIRecommendations(
       const rec = recommendationResult?.recommendation;
       
       if (rec && (rec.hasRecommendation || rec.needsEmail)) {
-        console.log(`✅ Traitement pour tâche: ${task.description.substring(0, 50)}...`);
+        console.log(`✅ Recommandation intelligente pour: ${task.description.substring(0, 50)}...`);
+        console.log(`🎯 Type: ${rec.recommendationType}, Valeur ajoutée: ${rec.valueAddedReason || 'Non spécifiée'}`);
         
-        // Construire le commentaire avec les informations pertinentes
+        // Construire le commentaire avec les informations améliorées
         let comment = '';
         
         if (rec.hasRecommendation && rec.recommendation) {
-          comment += `💡 **${rec.recommendationType === 'action_plan' ? 'Plan d\'Action' : 
-                                rec.recommendationType === 'ai_assistance' ? 'Assistance IA' : 
-                                'Contacts & Fournisseurs'} :**\n\n${rec.recommendation}`;
+          const typeLabels = {
+            'supplier_tips': '🏥 Conseils Fournisseur',
+            'research_guide': '🔍 Guide de Recherche', 
+            'action_plan': '⚙️ Plan d\'Action',
+            'internal_communication': '📧 Communication Interne'
+          };
+          
+          const typeLabel = typeLabels[rec.recommendationType] || '💡 Recommandation IA';
+          comment += `${typeLabel} :\n\n${rec.recommendation}`;
+          
+          if (rec.valueAddedReason) {
+            comment += `\n\n✨ **Valeur ajoutée :** ${rec.valueAddedReason}`;
+          }
         }
         
         if (rec.estimatedCost) {
@@ -59,13 +70,13 @@ export async function processAIRecommendations(
         }
         
         if (rec.contacts?.length > 0) {
-          comment += `\n\n📞 **Contacts identifiés :**`;
+          comment += `\n\n📞 **Contacts spécialisés :**`;
           rec.contacts.forEach((contact: any) => {
             comment += `\n• **${contact.name}**`;
-            if (contact.phone) comment += `\n  Tél: ${contact.phone}`;
-            if (contact.email) comment += `\n  Email: ${contact.email}`;
-            if (contact.website) comment += `\n  Web: ${contact.website}`;
-            if (contact.address) comment += `\n  Adresse: ${contact.address}`;
+            if (contact.phone) comment += `\n  📞 ${contact.phone}`;
+            if (contact.email) comment += `\n  ✉️ ${contact.email}`;
+            if (contact.website) comment += `\n  🌐 ${contact.website}`;
+            if (contact.address) comment += `\n  📍 ${contact.address}`;
           });
         }
 
@@ -80,10 +91,10 @@ export async function processAIRecommendations(
             });
         }
 
-        // Sauvegarder la recommandation
+        // Sauvegarder la recommandation avec le nouveau champ valueAddedReason
         const recommendationData: any = {
           todo_id: task.id,
-          recommendation_text: rec.recommendation || 'Aucune recommandation spécifique, voir email pré-rédigé.',
+          recommendation_text: rec.recommendation || 'Voir email pré-rédigé ou conseils spécialisés.',
           email_draft: rec.needsEmail ? rec.emailDraft : null
         };
 
@@ -91,9 +102,9 @@ export async function processAIRecommendations(
           .from('todo_ai_recommendations')
           .insert(recommendationData);
         
-        console.log(`✅ ${rec.hasRecommendation ? 'Recommandation' : ''} ${rec.needsEmail ? 'Email' : ''} ajouté(e)`);
+        console.log(`✅ Recommandation intelligente sauvegardée: ${rec.recommendationType}`);
       } else {
-        console.log(`ℹ️ Aucune recommandation nécessaire pour: ${task.description.substring(0, 50)}...`);
+        console.log(`ℹ️ Aucune recommandation pertinente pour: ${task.description.substring(0, 50)}... (pas de valeur ajoutée)`);
       }
 
       // Marquer que la recommandation IA a été générée
@@ -113,5 +124,5 @@ export async function processAIRecommendations(
     }
   }
   
-  console.log(`🏁 Traitement recommandations terminé pour ${savedTasks.length} tâches`);
+  console.log(`🏁 Traitement recommandations intelligentes terminé pour ${savedTasks.length} tâches`);
 }
