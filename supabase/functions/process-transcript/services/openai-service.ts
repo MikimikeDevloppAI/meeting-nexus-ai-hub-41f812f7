@@ -10,6 +10,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature,
+      max_tokens: 16384,
     }),
   });
 
