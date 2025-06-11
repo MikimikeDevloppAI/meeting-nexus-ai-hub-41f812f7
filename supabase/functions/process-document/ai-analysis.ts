@@ -33,7 +33,15 @@ export async function generateDocumentAnalysis(
       messages: [
         {
           role: 'system',
-          content: `Tu es un expert en analyse de documents médicaux. 
+          content: `Tu es un expert en analyse de documents médicaux et administratifs. 
+
+CATÉGORIES OBLIGATOIRES - Tu DOIS choisir parmi ces catégories uniquement :
+- "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs
+- "Marketing" : Brochures, publicités, présentations commerciales, matériel promotionnel
+- "Contrat" : Contrats, accords, conventions, documents juridiques
+- "Information médicale" : Comptes-rendus médicaux, prescriptions, résultats d'examens, dossiers patients
+- "Fiche Technique Materiel" : Spécifications techniques, manuels d'utilisation, fiches produits
+- "Contact" : Listes de contacts, annuaires, informations de contact
 
 IMPORTANT pour les mots-clés :
 - Voici les mots-clés déjà utilisés dans le système : ${existingKeywords.join(', ')}
@@ -49,7 +57,7 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   "suggestedName": "nom descriptif et professionnel du document",
   "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal",
   "taxonomy": {
-    "category": "catégorie principale du document",
+    "category": "UNE DES 6 CATÉGORIES OBLIGATOIRES CI-DESSUS",
     "subcategory": "sous-catégorie spécifique",
     "keywords": ["mot-clé1", "mot-clé2", "mot-clé3", "mot-clé4"],
     "documentType": "type précis du document"
@@ -95,6 +103,21 @@ Retournez UNIQUEMENT le JSON de l'analyse.`
       throw new Error('Invalid AI response structure');
     }
     
+    // Vérifier que la catégorie est valide
+    const validCategories = [
+      "Administratif", 
+      "Marketing", 
+      "Contrat", 
+      "Information médicale", 
+      "Fiche Technique Materiel", 
+      "Contact"
+    ];
+    
+    if (!validCategories.includes(parsed.taxonomy.category)) {
+      console.warn(`Catégorie invalide détectée: ${parsed.taxonomy.category}, utilisation de "Administratif" par défaut`);
+      parsed.taxonomy.category = "Administratif";
+    }
+    
     console.log('✅ AI analysis completed successfully');
     return parsed;
   } catch (e) {
@@ -138,9 +161,9 @@ export function createFallbackAnalysis(document: any): DocumentAnalysis {
     suggestedName: document.original_name.replace(/\.[^/.]+$/, ""),
     summary: "Document traité automatiquement - analyse détaillée non disponible",
     taxonomy: {
-      category: "Document",
-      subcategory: "Fichier",
-      keywords: ["document", "fichier"],
+      category: "Administratif",
+      subcategory: "Document général",
+      keywords: ["document"],
       documentType: "Fichier uploadé"
     }
   };

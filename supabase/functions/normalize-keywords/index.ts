@@ -24,7 +24,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer tous les mots-clés existants des documents
+    // Récupérer tous les documents existants
     const { data: documents, error: fetchError } = await supabase
       .from('uploaded_documents')
       .select('id, taxonomy, ai_generated_name, original_name')
@@ -50,20 +50,43 @@ serve(async (req) => {
     
     console.log(`🎯 Created normalized dictionary with ${Object.keys(normalizedDictionary).length} canonical terms`);
 
-    // Retraiter tous les documents avec le nouveau dictionnaire
+    // Définir les catégories valides
+    const validCategories = [
+      "Administratif", 
+      "Marketing", 
+      "Contrat", 
+      "Information médicale", 
+      "Fiche Technique Materiel", 
+      "Contact"
+    ];
+
+    // Retraiter tous les documents avec le nouveau dictionnaire et les catégories
     let processedCount = 0;
     
     for (const document of documents || []) {
-      if (document.taxonomy?.keywords) {
-        const normalizedKeywords = normalizeKeywords(document.taxonomy.keywords, normalizedDictionary);
-        
-        // Mettre à jour uniquement si les mots-clés ont changé
-        if (JSON.stringify(normalizedKeywords.sort()) !== JSON.stringify(document.taxonomy.keywords.sort())) {
-          const updatedTaxonomy = {
-            ...document.taxonomy,
-            keywords: normalizedKeywords
-          };
+      if (document.taxonomy) {
+        let updated = false;
+        const updatedTaxonomy = { ...document.taxonomy };
 
+        // Normaliser les mots-clés
+        if (document.taxonomy.keywords) {
+          const normalizedKeywords = normalizeKeywords(document.taxonomy.keywords, normalizedDictionary);
+          
+          if (JSON.stringify(normalizedKeywords.sort()) !== JSON.stringify(document.taxonomy.keywords.sort())) {
+            updatedTaxonomy.keywords = normalizedKeywords;
+            updated = true;
+          }
+        }
+
+        // Vérifier et corriger la catégorie si nécessaire
+        if (!validCategories.includes(document.taxonomy.category)) {
+          console.log(`📝 Updating invalid category "${document.taxonomy.category}" to "Administratif" for: ${document.ai_generated_name || document.original_name}`);
+          updatedTaxonomy.category = "Administratif";
+          updated = true;
+        }
+
+        // Mettre à jour uniquement si des changements ont été effectués
+        if (updated) {
           const { error: updateError } = await supabase
             .from('uploaded_documents')
             .update({ taxonomy: updatedTaxonomy })
@@ -73,7 +96,7 @@ serve(async (req) => {
             console.error(`❌ Error updating document ${document.id}:`, updateError);
           } else {
             processedCount++;
-            console.log(`✅ Updated keywords for: ${document.ai_generated_name || document.original_name}`);
+            console.log(`✅ Updated document: ${document.ai_generated_name || document.original_name}`);
           }
         }
       }
@@ -84,7 +107,8 @@ serve(async (req) => {
       processedDocuments: processedCount,
       totalDocuments: documents?.length || 0,
       dictionarySize: Object.keys(normalizedDictionary).length,
-      message: `Processed ${processedCount} documents with normalized keywords`
+      categoriesNormalized: true,
+      message: `Processed ${processedCount} documents with normalized keywords and categories`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -111,6 +135,7 @@ RÈGLES STRICTES :
 3. Privilégie les termes médicaux/techniques précis
 4. Garde uniquement les mots-clés utiles pour la recherche documentaire
 5. Utilise la forme singulier et française
+6. Harmonise avec les catégories : Administratif, Marketing, Contrat, Information médicale, Fiche Technique Materiel, Contact
 
 Retourne UNIQUEMENT un JSON avec cette structure :
 {
