@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { DatabaseAgent } from './agents/database.ts';
@@ -31,7 +32,7 @@ serve(async (req) => {
     const database = new DatabaseAgent(supabaseClient);
     const embeddings = new EmbeddingsAgent(apiKey, supabaseClient);
     const taskAgent = new TaskAgent(supabaseClient);
-    const coordinator = new CoordinatorAgent();
+    const coordinator = new CoordinatorAgent(apiKey);
     // const internet = new InternetAgent(apiKey);
 
     // Extract conversation history from context
@@ -42,6 +43,50 @@ serve(async (req) => {
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
+
+    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents
+    if (context.documentSearchMode || context.forceEmbeddingsPriority) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS DÉTECTÉ - Priorité embeddings forcée');
+      
+      const embeddingsResult = await embeddings.searchEmbeddings(message, {
+        priority: 'embeddings',
+        embeddings: true,
+        database: false,
+        tasks: false,
+        internet: false,
+        queryType: 'document',
+        confidence: 0.9
+      }, [], conversationHistory);
+
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Résultats embeddings:', embeddingsResult.chunks?.length || 0, 'chunks trouvés');
+
+      // Réponse directe basée sur les embeddings
+      let response = '';
+      
+      if (embeddingsResult.hasRelevantContext && embeddingsResult.chunks.length > 0) {
+        response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents qui répondent à votre question.`;
+        
+        // Ajouter un aperçu du contenu trouvé
+        const topChunks = embeddingsResult.chunks.slice(0, 3);
+        response += '\n\nVoici les informations les plus pertinentes :\n';
+        topChunks.forEach((chunk, index) => {
+          const preview = chunk.chunk_text.substring(0, 150) + (chunk.chunk_text.length > 150 ? '...' : '');
+          response += `\n${index + 1}. ${preview}`;
+        });
+      } else {
+        response = 'Je n\'ai pas trouvé d\'informations pertinentes dans vos documents pour cette requête. Essayez de reformuler votre question ou vérifiez que les documents contiennent les informations recherchées.';
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          response,
+          sources: embeddingsResult.sources || [],
+          hasRelevantContext: embeddingsResult.hasRelevantContext,
+          searchIterations: embeddingsResult.searchIterations || 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente avec historique transmis au coordinateur');
     const analysis = await coordinator.analyzeQuery(enrichedMessage, conversationHistory);
