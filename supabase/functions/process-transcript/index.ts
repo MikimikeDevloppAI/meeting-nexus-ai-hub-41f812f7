@@ -57,32 +57,48 @@ serve(async (req) => {
     
     console.log('📋 Meeting details:', { meetingName, meetingDate, participantNames })
 
-    // IMPORTANT: Save the raw transcript from AssemblyAI FIRST
-    console.log('💾 Saving raw transcript from AssemblyAI...')
+    // ÉTAPE 1: Sauvegarder le transcript brut UNIQUEMENT dans raw_transcript
+    console.log('💾 Saving raw transcript from AssemblyAI in raw_transcript column only...')
     await saveRawTranscript(supabaseClient, meetingId, transcript)
-    console.log('✅ Raw transcript saved successfully')
+    console.log('✅ Raw transcript saved successfully in raw_transcript column')
 
-    // Clean transcript with strict instructions to preserve ALL content
-    console.log('🧹 Starting OpenAI transcript cleaning with strict preservation instructions...')
+    // ÉTAPE 2: Nettoyer le transcript avec OpenAI
+    console.log('🧹 Starting OpenAI transcript cleaning...')
     const transcriptPrompt = createTranscriptPrompt(participantNames, transcript)
-    const cleanedTranscript = await callOpenAI(transcriptPrompt, openAIKey, 0.1) // Lower temperature for more consistent output
-
-    if (!cleanedTranscript) {
-      throw new Error('No transcript returned from OpenAI')
-    }
-
-    console.log('📏 Cleaned transcript length:', cleanedTranscript.length, 'characters')
-    console.log('📊 Length comparison: Original:', transcript.length, '→ Cleaned:', cleanedTranscript.length)
     
-    if (cleanedTranscript.length < transcript.length * 0.8) {
-      console.warn('⚠️ WARNING: Cleaned transcript is significantly shorter than original! Possible content loss.')
+    let cleanedTranscript;
+    try {
+      cleanedTranscript = await callOpenAI(transcriptPrompt, openAIKey, 0.1)
+      
+      if (!cleanedTranscript) {
+        console.error('❌ No cleaned transcript returned from OpenAI')
+        throw new Error('No cleaned transcript returned from OpenAI')
+      }
+      
+      console.log('📏 Cleaned transcript length:', cleanedTranscript.length, 'characters')
+      console.log('📊 Length comparison: Original:', transcript.length, '→ Cleaned:', cleanedTranscript.length)
+      
+      if (cleanedTranscript.length < transcript.length * 0.7) {
+        console.warn('⚠️ WARNING: Cleaned transcript is significantly shorter than original! Possible content loss.')
+      }
+
+      // ÉTAPE 3: Sauvegarder le transcript nettoyé UNIQUEMENT dans la colonne transcript
+      console.log('💾 Saving cleaned transcript in transcript column...')
+      await saveTranscript(supabaseClient, meetingId, cleanedTranscript)
+      console.log('✅ Cleaned transcript saved successfully in transcript column')
+      
+    } catch (openaiError) {
+      console.error('❌ OpenAI cleaning failed:', openaiError)
+      
+      // En cas d'erreur OpenAI, utiliser le transcript brut pour continuer le traitement
+      console.log('⚠️ Fallback: Using raw transcript for processing due to OpenAI failure')
+      cleanedTranscript = transcript
+      
+      // Sauvegarder quand même le transcript brut dans la colonne transcript pour continuer
+      await saveTranscript(supabaseClient, meetingId, transcript)
     }
 
-    console.log('✨ Cleaned transcript generated successfully')
-    await saveTranscript(supabaseClient, meetingId, cleanedTranscript)
-
-    // Process document and embeddings in parallel with AI processing
-    // Use the CLEANED transcript for vectorization as requested
+    // ÉTAPE 4: Traitement parallèle des embeddings
     const documentProcessingPromise = handleDocumentProcessing(
       supabaseClient, 
       meetingId, 
@@ -92,39 +108,63 @@ serve(async (req) => {
       chunkText(cleanedTranscript)
     )
 
-    // Parallelize summary and tasks extraction
+    // ÉTAPE 5: Traitement parallèle du résumé et des tâches
     console.log('⚡ Starting parallel processing of summary and tasks...')
     const summaryPrompt = createSummaryPrompt(meetingName, meetingDate, participantNames, cleanedTranscript)
     const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript)
 
-    const [summaryResult, tasksResult] = await Promise.all([
-      callOpenAI(summaryPrompt, openAIKey),
-      callOpenAI(tasksPrompt, openAIKey)
-    ])
-
-    console.log('✅ Parallel AI processing completed')
-
-    // Save summary
-    if (summaryResult) {
-      await saveSummary(supabaseClient, meetingId, summaryResult)
-      console.log('📝 Summary generated and saved successfully')
+    let summaryResult, tasksResult;
+    try {
+      [summaryResult, tasksResult] = await Promise.all([
+        callOpenAI(summaryPrompt, openAIKey),
+        callOpenAI(tasksPrompt, openAIKey)
+      ])
+      console.log('✅ Parallel AI processing completed')
+    } catch (parallelError) {
+      console.error('❌ Error in parallel processing:', parallelError)
+      
+      // Essayer séquentiellement en cas d'erreur parallèle
+      console.log('🔄 Retrying sequentially...')
+      try {
+        summaryResult = await callOpenAI(summaryPrompt, openAIKey)
+        tasksResult = await callOpenAI(tasksPrompt, openAIKey)
+        console.log('✅ Sequential processing completed')
+      } catch (sequentialError) {
+        console.error('❌ Sequential processing also failed:', sequentialError)
+        summaryResult = null
+        tasksResult = null
+      }
     }
 
-    // Process and save tasks
+    // ÉTAPE 6: Sauvegarder le résumé
+    if (summaryResult) {
+      try {
+        await saveSummary(supabaseClient, meetingId, summaryResult)
+        console.log('📝 Summary generated and saved successfully')
+      } catch (summaryError) {
+        console.error('❌ Error saving summary:', summaryError)
+      }
+    } else {
+      console.log('⚠️ No summary to save')
+    }
+
+    // ÉTAPE 7: Traiter et sauvegarder les tâches
     let extractedTasks = []
     if (tasksResult) {
       try {
         const cleanedTasksContent = cleanJSONResponse(tasksResult)
-        console.log('🔍 Cleaned tasks content:', cleanedTasksContent)
+        console.log('🔍 Cleaned tasks content:', cleanedTasksContent.substring(0, 200) + '...')
         
         const tasksJson = JSON.parse(cleanedTasksContent)
         extractedTasks = tasksJson.tasks || []
         console.log(`📋 Extracted ${extractedTasks.length} tasks from transcript`)
       } catch (parseError) {
         console.error('❌ Error parsing tasks JSON:', parseError)
-        console.log('📄 Raw tasks content:', tasksResult)
+        console.log('📄 Raw tasks content:', tasksResult?.substring(0, 500))
         extractedTasks = []
       }
+    } else {
+      console.log('⚠️ No tasks result to process')
     }
 
     const savedTasks = []
@@ -139,21 +179,36 @@ serve(async (req) => {
       }
     }
 
-    // Wait for document processing to complete
-    const documentData = await documentProcessingPromise
-    console.log(`📄 Document processing completed with ${documentData.chunksCount} chunks`)
+    // ÉTAPE 8: Attendre le traitement des documents
+    let documentData;
+    try {
+      documentData = await documentProcessingPromise
+      console.log(`📄 Document processing completed with ${documentData.chunksCount} chunks`)
+    } catch (documentError) {
+      console.error('❌ Document processing failed:', documentError)
+      documentData = { chunksCount: 0, id: null }
+    }
 
-    // IMPORTANT: Process AI recommendations for all saved tasks
-    console.log('🤖 Starting AI recommendations generation...')
-    await processAIRecommendations(
-      supabaseClient,
-      savedTasks,
-      cleanedTranscript,
-      meetingName,
-      meetingDate,
-      participantNames,
-      participants || []
-    )
+    // ÉTAPE 9: Traiter les recommandations IA
+    if (savedTasks.length > 0) {
+      console.log('🤖 Starting AI recommendations generation...')
+      try {
+        await processAIRecommendations(
+          supabaseClient,
+          savedTasks,
+          cleanedTranscript,
+          meetingName,
+          meetingDate,
+          participantNames,
+          participants || []
+        )
+        console.log('✅ AI recommendations processing completed')
+      } catch (recommendationError) {
+        console.error('❌ AI recommendations failed:', recommendationError)
+      }
+    } else {
+      console.log('ℹ️ No tasks to process for AI recommendations')
+    }
 
     console.log(`🎉 Successfully processed transcript for meeting ${meetingId}`)
     console.log(`📊 Final summary: ${savedTasks.length} tasks with AI recommendations, ${documentData.chunksCount} embedding chunks`)
