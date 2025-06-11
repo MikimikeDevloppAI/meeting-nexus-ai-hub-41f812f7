@@ -9,41 +9,35 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('[SUMMARY-CHAT] 🚀 Démarrage function');
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log('[SUMMARY-CHAT] 🚀 Démarrage function');
-
   try {
     const { meetingId, userMessage } = await req.json();
-    
     console.log('[SUMMARY-CHAT] 📝 Demande reçue:', {
-      meetingId,
-      userMessage: userMessage?.substring(0, 50) + '...'
+      meetingId: meetingId,
+      userMessage: userMessage.substring(0, 50) + '...'
     });
-    
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
-      console.error('[SUMMARY-CHAT] ❌ Clé OpenAI manquante');
-      throw new Error('OpenAI API key not configured');
-    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Récupérer les données de la réunion
     console.log('[SUMMARY-CHAT] 🔍 Récupération réunion...');
-
-    const { data: meeting, error } = await supabase
+    const { data: meeting, error: meetingError } = await supabase
       .from('meetings')
       .select('title, summary, transcript')
       .eq('id', meetingId)
       .single();
 
-    if (error) {
-      console.error('[SUMMARY-CHAT] ❌ Erreur DB:', error);
-      throw new Error(`Erreur récupération réunion: ${error.message}`);
+    if (meetingError || !meeting) {
+      throw new Error(`Réunion non trouvée: ${meetingError?.message}`);
     }
 
     console.log('[SUMMARY-CHAT] ✅ Réunion récupérée:', {
@@ -52,129 +46,149 @@ serve(async (req) => {
       transcriptLength: meeting.transcript?.length || 0
     });
 
-    // Extraire seulement les parties essentielles du transcript
-    let contextInfo = '';
-    if (meeting.transcript) {
-      // Prendre seulement le début (500 chars) et chercher les mots-clés de la demande
-      const transcriptStart = meeting.transcript.substring(0, 500);
-      
-      // Chercher 1 passage pertinent maximum
-      const keywords = userMessage.toLowerCase().split(' ').filter(word => word.length > 4);
-      let relevantPart = '';
-      
-      if (keywords.length > 0) {
-        const keyword = keywords[0];
-        const index = meeting.transcript.toLowerCase().indexOf(keyword);
-        if (index !== -1) {
-          const start = Math.max(0, index - 100);
-          const end = Math.min(meeting.transcript.length, index + 200);
-          relevantPart = meeting.transcript.substring(start, end);
-        }
-      }
-      
-      contextInfo = transcriptStart + (relevantPart ? `\n\nPASSAGE PERTINENT: ${relevantPart}` : '');
-      
-      // Limiter strictement à 800 caractères
-      if (contextInfo.length > 800) {
-        contextInfo = contextInfo.substring(0, 800) + '...';
-      }
+    if (!meeting.summary) {
+      throw new Error('Aucun résumé disponible pour cette réunion');
     }
 
-    console.log('[SUMMARY-CHAT] 📝 Context réduit:', contextInfo.length, 'caractères');
+    // Limiter le contexte pour éviter les timeouts
+    const maxContextLength = 1000;
+    const transcriptContext = meeting.transcript 
+      ? meeting.transcript.substring(0, maxContextLength)
+      : 'Transcript non disponible';
 
-    // Prompt beaucoup plus court et simple
-    const systemPrompt = `Modifie ce résumé de réunion médicale selon la demande.
+    console.log('[SUMMARY-CHAT] 📝 Context réduit:', transcriptContext.length + ' caractères');
 
-RÉSUMÉ ACTUEL:
-${meeting.summary || 'Aucun résumé'}
+    // Prompt très strict pour le format JSON
+    const prompt = `Tu es un assistant spécialisé dans la modification de résumés de réunions.
 
-CONTEXTE:
-${contextInfo || 'Pas de contexte'}
+INSTRUCTION CRITIQUE : Tu dois retourner UNIQUEMENT un objet JSON valide, sans aucun texte avant ou après. Pas de markdown, pas d'explication, SEULEMENT le JSON.
 
-DEMANDE: ${userMessage}
+Format de réponse OBLIGATOIRE (respecte exactement cette structure) :
+{
+  "new_summary": "le nouveau résumé en Markdown avec emojis",
+  "explanation": "explication courte de ce qui a été modifié"
+}
 
-Réponds en JSON:
-{"new_summary":"résumé modifié","explanation":"ce qui a changé"}`;
+CONTRAINTES STRICTES :
+- Le résumé modifié doit faire maximum 2000 caractères
+- Garde la structure Markdown avec les emojis existants
+- Applique EXACTEMENT la modification demandée par l'utilisateur
+- Si la demande n'est pas claire, garde le résumé original
+
+DONNÉES DE LA RÉUNION :
+Titre: ${meeting.title}
+Résumé actuel:
+${meeting.summary}
+
+Context transcript (partiel):
+${transcriptContext}
+
+DEMANDE DE MODIFICATION :
+${userMessage}
+
+RAPPEL : Retourne UNIQUEMENT le JSON, rien d'autre.`;
 
     console.log('[SUMMARY-CHAT] 🧠 Appel OpenAI...');
-
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${openaiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: systemPrompt }
+          {
+            role: 'system',
+            content: 'Tu es un assistant qui modifie des résumés de réunions. Tu dois TOUJOURS retourner UNIQUEMENT du JSON valide, sans aucun texte supplémentaire.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
         ],
-        temperature: 0.1,
-        max_tokens: 300,
+        temperature: 0.3,
+        max_tokens: 1500,
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[SUMMARY-CHAT] ❌ Erreur OpenAI:', response.status, errorText);
-      throw new Error(`OpenAI error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    const aiData = await response.json();
-    console.log('[SUMMARY-CHAT] ✅ Réponse OpenAI reçue');
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
 
-    let aiResponse;
+    console.log('[SUMMARY-CHAT] ✅ Réponse OpenAI reçue');
+    console.log('[SUMMARY-CHAT] 🔍 Contenu:', content.substring(0, 100) + '...');
+
+    // Parsing JSON plus robuste
+    let parsedResponse;
     try {
-      const aiContent = aiData.choices[0].message.content;
-      console.log('[SUMMARY-CHAT] 🔍 Contenu:', aiContent.substring(0, 100));
+      // Nettoyer le contenu si nécessaire
+      let cleanContent = content;
       
-      // Parser le JSON plus robuste
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      // Retirer les blocs de code markdown si présents
+      cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Chercher un JSON dans le contenu
+      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        aiResponse = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Pas de JSON trouvé');
+        cleanContent = jsonMatch[0];
       }
+      
+      parsedResponse = JSON.parse(cleanContent);
+      
+      // Valider la structure
+      if (!parsedResponse.new_summary || typeof parsedResponse.new_summary !== 'string') {
+        throw new Error('Structure JSON invalide: new_summary manquant');
+      }
+      
     } catch (parseError) {
       console.error('[SUMMARY-CHAT] ❌ Erreur parsing:', parseError);
-      aiResponse = {
-        new_summary: meeting.summary || "",
-        explanation: "Erreur lors du traitement."
-      };
+      
+      // En cas d'erreur de parsing, retourner le résumé original avec un message d'erreur
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erreur de format de réponse de l\'IA',
+        response: `Je n'ai pas pu traiter votre demande correctement. Le résumé reste inchangé.`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Mettre à jour le résumé
+    // Mise à jour en base
     console.log('[SUMMARY-CHAT] 💾 Mise à jour résumé...');
-    
     const { error: updateError } = await supabase
       .from('meetings')
-      .update({ summary: aiResponse.new_summary })
+      .update({
+        summary: parsedResponse.new_summary
+      })
       .eq('id', meetingId);
-    
+
     if (updateError) {
-      console.error('[SUMMARY-CHAT] ❌ Erreur update:', updateError);
-      throw updateError;
+      throw new Error(`Erreur mise à jour: ${updateError.message}`);
     }
-    
+
     console.log('[SUMMARY-CHAT] ✅ Résumé mis à jour');
-    
+
     return new Response(JSON.stringify({
       success: true,
-      explanation: aiResponse.explanation,
-      response: aiResponse.explanation
+      response: parsedResponse.explanation || 'Résumé modifié avec succès',
+      explanation: parsedResponse.explanation
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[SUMMARY-CHAT] ❌ ERREUR:', error);
-    
-    return new Response(JSON.stringify({ 
+    console.error('[SUMMARY-CHAT] ❌ Erreur générale:', error);
+    return new Response(JSON.stringify({
+      success: false,
       error: error.message,
-      response: `Erreur: ${error.message}`,
-      success: false
+      response: 'Erreur lors de la modification du résumé'
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
