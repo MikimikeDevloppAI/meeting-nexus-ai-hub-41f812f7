@@ -100,17 +100,35 @@ export const DocumentSearchAssistant = () => {
 
       console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
 
-      // Traiter les sources qui viennent maintenant directement enrichies
-      let enrichedSources = [];
+      // Traiter les sources et grouper par document unique
+      let uniqueDocuments = [];
       if (data.sources && data.sources.length > 0) {
         console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
-        enrichedSources = data.sources.map((source: any) => ({
-          documentId: source.document_id || source.id,
-          documentName: source.document_name || 'Document inconnu',
-          relevantText: source.content || source.chunk_text || '',
-          similarity: source.similarity || 0,
-          chunkIndex: source.chunkIndex || source.chunk_index
-        }));
+        
+        // Grouper les sources par document_id pour éviter les doublons
+        const documentsMap = new Map();
+        
+        data.sources.forEach((source: any) => {
+          const docId = source.document_id || source.id;
+          const docName = source.document_name || 'Document inconnu';
+          
+          if (!documentsMap.has(docId)) {
+            documentsMap.set(docId, {
+              documentId: docId,
+              documentName: docName,
+              maxSimilarity: source.similarity || 0,
+              chunksCount: 1
+            });
+          } else {
+            // Mettre à jour avec la meilleure similarité et compter les chunks
+            const existing = documentsMap.get(docId);
+            existing.maxSimilarity = Math.max(existing.maxSimilarity, source.similarity || 0);
+            existing.chunksCount += 1;
+          }
+        });
+
+        uniqueDocuments = Array.from(documentsMap.values())
+          .sort((a, b) => b.maxSimilarity - a.maxSimilarity); // Trier par pertinence
       } else {
         console.log('[DOCUMENT_SEARCH] Aucune source trouvée');
       }
@@ -120,13 +138,13 @@ export const DocumentSearchAssistant = () => {
         content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents.",
         isUser: false,
         timestamp: new Date(),
-        sources: enrichedSources
+        sources: uniqueDocuments
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
       // Afficher les résultats dans la console pour debug
-      console.log('[DOCUMENT_SEARCH] Sources enrichies finales:', enrichedSources);
+      console.log('[DOCUMENT_SEARCH] Documents uniques utilisés:', uniqueDocuments);
 
     } catch (error: any) {
       console.error('[DOCUMENT_SEARCH] Error sending message:', error);
@@ -222,37 +240,30 @@ export const DocumentSearchAssistant = () => {
                       </div>
                     </div>
 
-                    {/* Sources utilisées avec plus de détails */}
+                    {/* Documents sources utilisés (sans mention des chunks) */}
                     {!message.isUser && message.sources && message.sources.length > 0 && (
                       <div className="ml-11 space-y-3">
                         <div className="text-sm text-muted-foreground font-medium flex items-center gap-2">
                           <FileText className="h-4 w-4" />
                           Documents sources utilisés ({message.sources.length}):
                         </div>
-                        {message.sources.map((source, index) => (
+                        {message.sources.map((document, index) => (
                           <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-blue-600" />
                                 <span className="font-medium text-blue-800 text-sm">
-                                  {source.documentName}
+                                  {document.documentName}
                                 </span>
                               </div>
                               <div className="flex gap-2">
                                 <Badge variant="outline" className="text-xs">
-                                  Pertinence: {(source.similarity * 100).toFixed(1)}%
+                                  Pertinence: {(document.maxSimilarity * 100).toFixed(1)}%
                                 </Badge>
-                                {source.chunkIndex && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Partie #{source.chunkIndex}
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  {document.chunksCount} section{document.chunksCount > 1 ? 's' : ''} utilisée{document.chunksCount > 1 ? 's' : ''}
+                                </Badge>
                               </div>
-                            </div>
-                            <div className="text-sm text-gray-700 bg-white p-3 rounded border-l-4 border-blue-400 italic">
-                              "{source.relevantText.length > 200 
-                                ? source.relevantText.substring(0, 200) + "..." 
-                                : source.relevantText}"
                             </div>
                           </div>
                         ))}
