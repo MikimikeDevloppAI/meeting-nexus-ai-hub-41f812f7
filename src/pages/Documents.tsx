@@ -37,6 +37,7 @@ interface SearchFilters {
 
 const Documents = () => {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -111,7 +112,12 @@ const Documents = () => {
         if (!searchableText.includes(query)) return false;
       }
       
-      // Filtre par catégorie
+      // Filtre par catégorie sélectionnée
+      if (selectedCategory && doc.taxonomy?.category !== selectedCategory) {
+        return false;
+      }
+      
+      // Filtre par catégorie des filtres de recherche
       if (searchFilters.category && doc.taxonomy?.category !== searchFilters.category) {
         return false;
       }
@@ -152,7 +158,7 @@ const Documents = () => {
       
       return true;
     });
-  }, [documents, searchFilters]);
+  }, [documents, searchFilters, selectedCategory]);
 
   // Upload mutation
   const uploadMutation = useMutation({
@@ -355,15 +361,11 @@ const Documents = () => {
         />
       )}
 
-      {/* Affichage des mots-clés disponibles */}
+      {/* Filtre par catégories (remplace l'affichage des mots-clés) */}
       {documents && documents.length > 0 && (
         <KeywordsDisplay 
-          onKeywordClick={(keyword) => {
-            setSearchFilters(prev => ({
-              ...prev,
-              query: keyword
-            }));
-          }}
+          onCategoryClick={setSelectedCategory}
+          selectedCategory={selectedCategory}
         />
       )}
 

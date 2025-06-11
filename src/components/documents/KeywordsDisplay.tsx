@@ -4,20 +4,30 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Tag } from "lucide-react";
+import { RefreshCw, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface KeywordsDisplayProps {
-  onKeywordClick?: (keyword: string) => void;
+  onCategoryClick?: (category: string | null) => void;
+  selectedCategory?: string | null;
 }
 
-export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
-  const [keywords, setKeywords] = useState<string[]>([]);
+export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsDisplayProps) => {
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNormalizing, setIsNormalizing] = useState(false);
   const { toast } = useToast();
 
-  const fetchKeywords = async () => {
+  const validCategories = [
+    "Administratif", 
+    "Marketing", 
+    "Contrat", 
+    "Information médicale", 
+    "Fiche Technique Materiel", 
+    "Contact"
+  ];
+
+  const fetchCategories = async () => {
     try {
       const { data: documents, error } = await supabase
         .from('uploaded_documents')
@@ -26,22 +36,20 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
 
       if (error) throw error;
 
-      const keywordsSet = new Set<string>();
+      const categoriesSet = new Set<string>();
       documents?.forEach(doc => {
-        if (doc.taxonomy?.keywords) {
-          doc.taxonomy.keywords.forEach((keyword: string) => {
-            keywordsSet.add(keyword);
-          });
+        if (doc.taxonomy?.category) {
+          categoriesSet.add(doc.taxonomy.category);
         }
       });
 
-      const sortedKeywords = Array.from(keywordsSet).sort();
-      setKeywords(sortedKeywords);
+      const sortedCategories = Array.from(categoriesSet).sort();
+      setCategories(sortedCategories);
     } catch (error: any) {
-      console.error('Error fetching keywords:', error);
+      console.error('Error fetching categories:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger les mots-clés",
+        description: "Impossible de charger les catégories",
         variant: "destructive",
       });
     } finally {
@@ -61,8 +69,8 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
         description: `${data.processedDocuments} documents mis à jour avec des mots-clés normalisés`,
       });
 
-      // Recharger les mots-clés après normalisation
-      await fetchKeywords();
+      // Recharger les catégories après normalisation
+      await fetchCategories();
     } catch (error: any) {
       console.error('Error normalizing keywords:', error);
       toast({
@@ -76,7 +84,7 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
   };
 
   useEffect(() => {
-    fetchKeywords();
+    fetchCategories();
   }, []);
 
   if (isLoading) {
@@ -84,7 +92,7 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="text-center text-muted-foreground">
-            Chargement des mots-clés...
+            Chargement des catégories...
           </div>
         </CardContent>
       </Card>
@@ -96,8 +104,8 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Tag className="h-5 w-5" />
-            <CardTitle>Mots-clés disponibles ({keywords.length})</CardTitle>
+            <Filter className="h-5 w-5" />
+            <CardTitle>Filtrer par catégorie</CardTitle>
           </div>
           <Button
             variant="outline"
@@ -115,22 +123,41 @@ export const KeywordsDisplay = ({ onKeywordClick }: KeywordsDisplayProps) => {
         </div>
       </CardHeader>
       <CardContent>
-        {keywords.length === 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {/* Bouton "Toutes les catégories" */}
+          <Badge
+            variant={selectedCategory === null ? "default" : "secondary"}
+            className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+            onClick={() => onCategoryClick?.(null)}
+          >
+            Toutes les catégories
+          </Badge>
+          
+          {/* Filtres par catégorie disponible */}
+          {categories.map((category, index) => (
+            <Badge
+              key={index}
+              variant={selectedCategory === category ? "default" : "secondary"}
+              className="cursor-pointer hover:bg-primary hover:text-primary-foreground flex items-center gap-1"
+              onClick={() => onCategoryClick?.(category)}
+            >
+              {category}
+              {selectedCategory === category && (
+                <X 
+                  className="h-3 w-3 ml-1" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCategoryClick?.(null);
+                  }}
+                />
+              )}
+            </Badge>
+          ))}
+        </div>
+        
+        {categories.length === 0 && (
           <div className="text-center text-muted-foreground py-4">
-            Aucun mot-clé disponible
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {keywords.map((keyword, index) => (
-              <Badge
-                key={index}
-                variant="secondary"
-                className={onKeywordClick ? "cursor-pointer hover:bg-primary hover:text-primary-foreground" : ""}
-                onClick={() => onKeywordClick?.(keyword)}
-              >
-                {keyword}
-              </Badge>
-            ))}
+            Aucune catégorie disponible
           </div>
         )}
       </CardContent>
