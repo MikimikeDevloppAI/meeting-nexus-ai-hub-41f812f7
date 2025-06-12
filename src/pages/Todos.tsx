@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -270,7 +269,7 @@ export default function Todos() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Mes Tâches</h1>
@@ -319,15 +318,14 @@ export default function Todos() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Tâches ({filteredTodos.length})</h3>
+        <div className="space-y-6">
           {filteredTodos.map((todo) => (
             <Card key={todo.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {/* Task header with edit and delete buttons - edit on left, delete on right */}
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {/* Task header with edit and delete buttons */}
                   <div className="flex justify-between items-start">
-                    <div className="text-sm font-medium flex-grow mr-2">
+                    <div className="text-lg font-medium flex-grow mr-2">
                       <EditableContent
                         content={todo.description}
                         onSave={(newContent) => handleTodoSave(todo.id, newContent)}
@@ -343,17 +341,17 @@ export default function Todos() {
                         variant="outline"
                         size="sm"
                         onClick={() => startEditingTodo(todo.id)}
-                        className="h-7 px-2 hover:bg-blue-100 hover:text-blue-800"
+                        className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
                       >
-                        <Pen className="h-3 w-3" />
+                        <Pen className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => deleteTodo(todo.id)}
-                        className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -391,20 +389,22 @@ export default function Todos() {
                         <Button
                           size="sm"
                           onClick={() => completeTodo(todo.id)}
-                          className="h-7 px-3 bg-green-600 hover:bg-green-700"
+                          className="h-8 px-4 bg-green-600 hover:bg-green-700"
                         >
-                          <CheckCircle className="h-3 w-3 mr-1" />
+                          <CheckCircle className="h-4 w-4 mr-1" />
                           Terminer
                         </Button>
                       )}
                     </div>
                   </div>
 
+                  {/* AI Chat integrated inside the todo card */}
+                  <div className="pl-0.5">
+                    <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
+                  </div>
+
                   {/* AI Recommendation */}
                   <TodoAIRecommendation todoId={todo.id} />
-
-                  {/* AI Chat for this todo */}
-                  <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
 
                   {/* Inline Comments section */}
                   <TodoComments todoId={todo.id} />
