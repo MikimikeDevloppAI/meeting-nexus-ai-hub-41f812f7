@@ -28,6 +28,8 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
   const fetchTodos = async () => {
     try {
+      console.log('🔍 Fetching todos for meeting:', meetingId);
+      
       const { data, error } = await supabase
         .from("todos")
         .select(`
@@ -39,13 +41,33 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           )
         `)
         .eq("meeting_id", meetingId)
-        .in("status", ["confirmed", "completed"])
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setTodos(data as Todo[] || []);
+      if (error) {
+        console.error("❌ Error fetching todos:", error);
+        throw error;
+      }
+
+      console.log('📋 Raw todos data:', data);
+      
+      // Afficher tous les todos sans filtrage par statut pour le debug
+      const allTodos = data as Todo[] || [];
+      console.log(`📊 Found ${allTodos.length} total todos for meeting ${meetingId}`);
+      
+      // Afficher le détail de chaque todo
+      allTodos.forEach((todo, index) => {
+        console.log(`Todo ${index + 1}:`, {
+          id: todo.id,
+          description: todo.description?.substring(0, 50) + '...',
+          status: todo.status,
+          meeting_id: todo.meeting_id
+        });
+      });
+
+      // Pour l'instant, afficher tous les todos (on peut filtrer plus tard)
+      setTodos(allTodos);
     } catch (error: any) {
-      console.error("Error fetching todos:", error);
+      console.error("❌ Error fetching todos:", error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les tâches",
@@ -146,12 +168,17 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
     return (
       <div className="text-center py-8 text-muted-foreground">
         <p>Aucune tâche pour cette réunion</p>
+        <p className="text-xs mt-2">Meeting ID: {meetingId}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className="text-sm text-muted-foreground mb-2">
+        {todos.length} tâche(s) trouvée(s) pour cette réunion
+      </div>
+      
       {todos.map((todo) => (
         <Card key={todo.id} className="hover:shadow-sm transition-shadow">
           <CardContent className="p-4">
