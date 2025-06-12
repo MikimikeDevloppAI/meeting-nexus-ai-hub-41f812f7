@@ -115,8 +115,8 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-blue-50 rounded">
-        <Lightbulb className="h-4 w-4 animate-pulse" />
+      <div className="flex items-center gap-2 text-sm text-foreground p-2 bg-blue-50 rounded">
+        <Lightbulb className="h-4 w-4 animate-pulse text-yellow-500" />
         <span>Analyse IA...</span>
       </div>
     );
@@ -136,10 +136,10 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-muted-foreground hover:text-foreground"
+            className="w-full justify-between text-foreground hover:text-foreground"
           >
             <div className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4" />
+              <Lightbulb className="h-4 w-4 text-yellow-500" />
               <span className="text-sm">Recommandation IA</span>
               {recommendation.email_draft && (
                 <Mail className="h-3 w-3" />
