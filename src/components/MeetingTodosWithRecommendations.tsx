@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,12 +49,37 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       }
 
       console.log('📋 Raw todos data:', data);
+      console.log('📊 Todos count by status:', data?.reduce((acc, todo) => {
+        acc[todo.status] = (acc[todo.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
       
-      // Afficher tous les todos sans filtrage par statut
-      const allTodos = data as Todo[] || [];
-      console.log(`📊 Found ${allTodos.length} total todos for meeting ${meetingId}`);
+      // Convertir tous les statuts 'pending' en 'confirmed' et afficher TOUTES les tâches
+      const allTodos = data?.map(todo => {
+        if (todo.status === 'pending') {
+          console.log(`🔄 Converting todo ${todo.id} from pending to confirmed`);
+          // Mettre à jour en base de données aussi
+          supabase
+            .from("todos")
+            .update({ status: 'confirmed' })
+            .eq("id", todo.id)
+            .then(({ error }) => {
+              if (error) console.error('❌ Error updating todo status:', error);
+            });
+          return { ...todo, status: 'confirmed' };
+        }
+        return todo;
+      }) || [];
       
-      setTodos(allTodos);
+      console.log(`📊 Total todos found: ${allTodos.length} for meeting ${meetingId}`);
+      console.log('📋 Todos details:', allTodos.map(t => ({
+        id: t.id,
+        description: t.description.substring(0, 50) + '...',
+        status: t.status,
+        participants: t.todo_participants?.length || 0
+      })));
+      
+      setTodos(allTodos as Todo[]);
     } catch (error: any) {
       console.error("❌ Error fetching todos:", error);
       toast({
@@ -186,14 +210,29 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       <div className="text-center py-8 text-muted-foreground">
         <p>Aucune tâche pour cette réunion</p>
         <p className="text-xs mt-2">Meeting ID: {meetingId}</p>
+        <Button 
+          onClick={fetchTodos} 
+          variant="outline" 
+          size="sm" 
+          className="mt-3"
+        >
+          🔄 Recharger
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-muted-foreground mb-2">
-        {todos.length} tâche(s) trouvée(s) pour cette réunion
+      <div className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+        <span>{todos.length} tâche(s) trouvée(s) pour cette réunion</span>
+        <Button 
+          onClick={fetchTodos} 
+          variant="outline" 
+          size="sm"
+        >
+          🔄 Recharger
+        </Button>
       </div>
       
       {todos.map((todo) => (
