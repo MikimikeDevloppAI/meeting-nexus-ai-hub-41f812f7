@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, ExternalLink
+  Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -115,7 +115,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted/30 rounded">
         <Bot className="h-4 w-4 animate-pulse" />
         <span>Analyse IA...</span>
       </div>
@@ -130,7 +130,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 bg-accent/30 rounded-lg p-2">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
@@ -157,7 +157,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <Card className="mt-2 border-muted">
+          <Card className="mt-2 border-muted/50">
             <CardContent className="p-4">
               <div className="space-y-3">
                 {hasRecommendation && (
@@ -185,7 +185,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                     })}
                     
                     {recommendation.estimated_cost && (
-                      <div className="mt-3 p-2 bg-muted rounded text-sm">
+                      <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
                         <strong>Coût estimé :</strong> {recommendation.estimated_cost}
                       </div>
                     )}
@@ -217,7 +217,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                       <CollapsibleContent>
                         <div className="mt-2 space-y-2">
                           {recommendation.contacts.map((contact, index) => (
-                            <div key={index} className="bg-muted rounded p-2">
+                            <div key={index} className="bg-muted/50 rounded p-2">
                               <div className="font-medium text-sm">{contact.name}</div>
                               <div className="text-xs text-muted-foreground space-y-1 mt-1">
                                 {contact.phone && (
@@ -294,7 +294,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
-                        <div className="mt-2 bg-muted rounded p-3">
+                        <div className="mt-2 bg-muted/50 rounded p-3">
                           <pre className="text-xs whitespace-pre-wrap font-sans">
                             {recommendation.email_draft}
                           </pre>
