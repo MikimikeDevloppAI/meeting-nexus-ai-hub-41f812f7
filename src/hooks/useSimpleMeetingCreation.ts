@@ -75,9 +75,9 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided and listen for recommendations
+      // Step 2: Process audio if provided and listen for task completion
       if (hasAudio) {
-        console.log('[AUDIO] Processing audio - Setting up recommendation listener');
+        console.log('[AUDIO] Processing audio - Setting up task completion listener');
         
         try {
           // Upload audio
@@ -108,41 +108,76 @@ export const useSimpleMeetingCreation = () => {
             return;
           }
           
-          // Set up Realtime listener for recommendations BEFORE starting AI processing
-          console.log('[REALTIME] 🔗 Setting up recommendation listener for meeting:', meetingId);
+          // Set up Realtime listener for task completion BEFORE starting AI processing
+          console.log('[REALTIME] 🔗 Setting up task completion listener for meeting:', meetingId);
           
-          const recommendationPromise = new Promise<boolean>((resolve) => {
-            let recommendationDetected = false;
+          const taskCompletionPromise = new Promise<boolean>((resolve) => {
+            let processedTasks = new Set<string>();
+            let totalTasksFound = false;
+            let expectedTaskCount = 0;
             
-            // Setup Realtime subscription
+            // Setup Realtime subscription for todos table updates
             const channel = supabase
-              .channel(`recommendations-${meetingId}`)
+              .channel(`task-completion-${meetingId}`)
               .on(
                 'postgres_changes',
                 {
-                  event: 'INSERT',
+                  event: '*',
                   schema: 'public',
-                  table: 'todo_ai_recommendations',
-                  filter: `todo_id=in.(${selectedParticipantIds.map(() => '*').join(',')})`
+                  table: 'todos',
+                  filter: `meeting_id=eq.${meetingId}`
                 },
                 async (payload) => {
-                  console.log('[REALTIME] 🎯 Recommendation detected:', payload);
+                  console.log('[REALTIME] 📋 Task event detected:', {
+                    event: payload.eventType,
+                    taskId: payload.new?.id || payload.old?.id,
+                    aiRecommendationGenerated: payload.new?.ai_recommendation_generated
+                  });
                   
-                  if (!recommendationDetected) {
-                    recommendationDetected = true;
+                  if (payload.eventType === 'INSERT') {
+                    // Nouvelle tâche créée
+                    expectedTaskCount++;
+                    console.log('[REALTIME] ➕ Nouvelle tâche créée, total attendu:', expectedTaskCount);
+                  } else if (payload.eventType === 'UPDATE' && payload.new?.ai_recommendation_generated === true) {
+                    // Tâche traitée
+                    const taskId = payload.new.id;
+                    processedTasks.add(taskId);
+                    console.log('[REALTIME] ✅ Tâche traitée:', taskId, `(${processedTasks.size}/${expectedTaskCount})`);
                     
-                    console.log('[REALTIME] ⏳ Waiting 5 seconds after first recommendation...');
-                    setTimeout(() => {
-                      console.log('[REALTIME] ✅ 5-second delay completed, proceeding with redirect');
-                      channel.unsubscribe();
-                      resolve(true);
-                    }, 5000);
+                    // Vérifier si toutes les tâches sont traitées
+                    if (totalTasksFound && processedTasks.size >= expectedTaskCount && expectedTaskCount > 0) {
+                      console.log('[REALTIME] 🎯 Toutes les tâches sont traitées! Redirection dans 3 secondes...');
+                      setTimeout(() => {
+                        console.log('[REALTIME] ✅ Redirection après traitement complet des tâches');
+                        channel.unsubscribe();
+                        resolve(true);
+                      }, 3000);
+                    }
                   }
                 }
               )
               .subscribe((status) => {
                 console.log('[REALTIME] Subscription status:', status);
               });
+
+            // Marquer que la phase de création des tâches est terminée après 10 secondes
+            setTimeout(() => {
+              totalTasksFound = true;
+              console.log('[REALTIME] 📝 Phase de création des tâches terminée, tâches attendues:', expectedTaskCount);
+              
+              // Si aucune tâche créée, rediriger immédiatement
+              if (expectedTaskCount === 0) {
+                console.log('[REALTIME] ⚠️ Aucune tâche créée, redirection immédiate');
+                channel.unsubscribe();
+                resolve(false);
+              }
+              // Si toutes les tâches sont déjà traitées, rediriger
+              else if (processedTasks.size >= expectedTaskCount) {
+                console.log('[REALTIME] ✅ Toutes les tâches déjà traitées');
+                channel.unsubscribe();
+                resolve(true);
+              }
+            }, 10000);
 
             // Check if component unmounted
             const checkUnmounted = setInterval(() => {
@@ -162,7 +197,7 @@ export const useSimpleMeetingCreation = () => {
 
           console.log('[PROCESS] Starting AI processing...');
           
-          // Don't await this - let it run in background while we listen for recommendations
+          // Don't await this - let it run in background while we listen for task completion
           AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedParticipants,
@@ -173,17 +208,17 @@ export const useSimpleMeetingCreation = () => {
             console.error('[PROCESS] ❌ AI processing error:', error);
           });
 
-          // Wait for recommendations to be detected (no timeout)
-          console.log('[REALTIME] 🔄 Waiting for recommendation creation...');
-          const hasRecommendations = await recommendationPromise;
+          // Wait for task completion to be detected (no timeout)
+          console.log('[REALTIME] 🔄 Waiting for task completion...');
+          const hasCompletedTasks = await taskCompletionPromise;
           
           if (!isMountedRef.current) {
             console.log('[REALTIME] Component unmounted during wait');
             return;
           }
 
-          if (hasRecommendations) {
-            console.log('[SUCCESS] ✅ Recommandations détectées et délai respecté');
+          if (hasCompletedTasks) {
+            console.log('[SUCCESS] ✅ Toutes les tâches ont été traitées');
           } else {
             console.log('[WARNING] ⚠️ Attente interrompue');
           }
@@ -200,7 +235,7 @@ export const useSimpleMeetingCreation = () => {
 
       console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
 
-      // Redirection après détection des recommandations
+      // Redirection après traitement complet
       if (isMountedRef.current) {
         console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
@@ -208,7 +243,7 @@ export const useSimpleMeetingCreation = () => {
         // Message personnalisé
         let description = "Votre réunion a été créée avec succès";
         if (hasAudio) {
-          description = "Votre réunion a été créée et les recommandations sont prêtes";
+          description = "Votre réunion a été créée et toutes les tâches ont été traitées";
         }
         
         toast({
