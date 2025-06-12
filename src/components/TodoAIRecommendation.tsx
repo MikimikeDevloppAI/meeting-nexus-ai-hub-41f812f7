@@ -130,13 +130,13 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
-    <div className="mt-3 bg-blue-50 rounded-lg p-2">
+    <div className="mt-3 bg-blue-50 rounded-lg">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-foreground hover:text-foreground"
+            className="w-full justify-between text-foreground hover:text-foreground p-3"
           >
             <div className="flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-yellow-500" />
