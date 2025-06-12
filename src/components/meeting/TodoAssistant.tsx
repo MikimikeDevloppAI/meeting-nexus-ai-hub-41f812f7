@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,111 +130,124 @@ export const TodoAssistant = ({ todoId, todoDescription, onUpdate }: TodoAssista
   };
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-6 w-full justify-start px-2">
-          <Bot className="h-3 w-3 mr-1" />
-          <span className="text-xs">Assistant IA</span>
-          <MessageSquare className="h-3 w-3 ml-auto" />
-        </Button>
-      </CollapsibleTrigger>
-      
-      <CollapsibleContent className="mt-2">
-        <Card className="border-dashed">
-          <CardContent className="p-3">
-            <div className="space-y-3">
-              {/* Action selector */}
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(actionLabels).map(([action, label]) => (
-                  <Badge
-                    key={action}
-                    variant={activeAction === action ? "default" : "outline"}
-                    className="cursor-pointer text-xs h-5"
-                    onClick={() => setActiveAction(action as any)}
-                  >
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-              
-              {/* Messages */}
-              <ScrollArea className="h-[200px] pr-2">
-                <div className="space-y-2">
-                  {messages.length === 0 && (
-                    <div className="text-center py-2 text-muted-foreground">
-                      <p className="text-xs">
-                        Modifiez cette tâche avec l'IA
-                      </p>
-                    </div>
-                  )}
-                  
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+    <div className="mt-3 bg-blue-50 rounded-lg">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-between text-foreground hover:text-foreground p-2 pl-1"
+          >
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-blue-500" />
+              <span className="text-sm text-black">Assistant IA</span>
+              <MessageSquare className="h-3 w-3" />
+            </div>
+            {isOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent className="mt-2">
+          <Card className="border-dashed">
+            <CardContent className="p-3">
+              <div className="space-y-3">
+                {/* Action selector */}
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(actionLabels).map(([action, label]) => (
+                    <Badge
+                      key={action}
+                      variant={activeAction === action ? "default" : "outline"}
+                      className="cursor-pointer text-xs h-5"
+                      onClick={() => setActiveAction(action as any)}
                     >
-                      <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          message.role === 'user' ? 'bg-primary' : 'bg-secondary'
-                        }`}>
-                          {message.role === 'user' ? (
-                            <User className="h-3 w-3 text-primary-foreground" />
-                          ) : (
-                            <Bot className="h-3 w-3" />
-                          )}
-                        </div>
-                        
-                        <div className={`rounded-lg p-2 text-xs ${
-                          message.role === 'user' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-muted'
-                        }`}>
-                          {message.action && (
-                            <div className="text-xs opacity-70 mb-1">
-                              {actionLabels[message.action as keyof typeof actionLabels]}
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+                
+                {/* Messages */}
+                <ScrollArea className="h-[200px] pr-2">
+                  <div className="space-y-2">
+                    {messages.length === 0 && (
+                      <div className="text-center py-2 text-muted-foreground">
+                        <p className="text-xs">
+                          Modifiez cette tâche avec l'IA
+                        </p>
+                      </div>
+                    )}
+                    
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            message.role === 'user' ? 'bg-primary' : 'bg-secondary'
+                          }`}>
+                            {message.role === 'user' ? (
+                              <User className="h-3 w-3 text-primary-foreground" />
+                            ) : (
+                              <Bot className="h-3 w-3" />
+                            )}
+                          </div>
+                          
+                          <div className={`rounded-lg p-2 text-xs ${
+                            message.role === 'user' 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted'
+                          }`}>
+                            {message.action && (
+                              <div className="text-xs opacity-70 mb-1">
+                                {actionLabels[message.action as keyof typeof actionLabels]}
+                              </div>
+                            )}
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                            <div className="text-xs opacity-70 mt-1">
+                              {message.timestamp.toLocaleTimeString('fr-FR', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
                             </div>
-                          )}
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                          <div className="text-xs opacity-70 mt-1">
-                            {message.timestamp.toLocaleTimeString('fr-FR', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    ))}
+                  </div>
+                </ScrollArea>
 
-              {/* Input */}
-              <div className="flex gap-2">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={`Modifier ${actionLabels[activeAction].toLowerCase()}...`}
-                  disabled={isLoading}
-                  className="flex-1 text-xs h-7"
-                />
-                <Button 
-                  onClick={sendMessage} 
-                  disabled={isLoading || !inputValue.trim()}
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Send className="h-3 w-3" />
-                  )}
-                </Button>
+                {/* Input */}
+                <div className="flex gap-2">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={`Modifier ${actionLabels[activeAction].toLowerCase()}...`}
+                    disabled={isLoading}
+                    className="flex-1 text-xs h-7"
+                  />
+                  <Button 
+                    onClick={sendMessage} 
+                    disabled={isLoading || !inputValue.trim()}
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </CollapsibleContent>
-    </Collapsible>
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 };
