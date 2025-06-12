@@ -7,7 +7,7 @@ import { createTranscriptPrompt } from './prompts/transcript-prompt.ts';
 import { createTasksPrompt } from './prompts/tasks-prompt.ts';
 import { createSummaryPrompt } from './prompts/summary-prompt.ts';
 import { processTaskRecommendations } from './services/recommendation-service.ts';
-import { createChunks } from './utils/text-processing.ts';
+import { chunkText } from './utils/text-processing.ts';
 import { handleDocumentProcessing } from './services/document-service.ts';
 
 const corsHeaders = {
@@ -103,7 +103,7 @@ serve(async (req) => {
 
     // 4. Traitement document avec embeddings
     console.log('🔗 Processing document embeddings...');
-    const chunks = createChunks(cleanedTranscript, 1000, 200);
+    const chunks = chunkText(cleanedTranscript, 1000, 200);
     const documentResult = await handleDocumentProcessing(
       supabaseClient,
       meetingId,
