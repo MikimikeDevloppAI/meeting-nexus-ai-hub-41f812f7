@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +39,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           )
         `)
         .eq("meeting_id", meetingId)
+        .in("status", ["confirmed", "completed"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -117,7 +117,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En attente',
-      'confirmed': 'Confirmée',
+      'confirmed': 'En cours',
       'completed': 'Terminée'
     };
 
