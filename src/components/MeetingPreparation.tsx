@@ -4,11 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { TaskPriorityService, TaskWithPriority } from "@/services/taskPriorityService";
 import { Trash2, Plus, Calendar } from "lucide-react";
+
+interface Todo {
+  id: string;
+  description: string;
+  created_at: string;
+}
 
 interface CustomPoint {
   id: string;
@@ -17,7 +21,7 @@ interface CustomPoint {
 }
 
 export const MeetingPreparation = () => {
-  const [tasks, setTasks] = useState<TaskWithPriority[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [customPoints, setCustomPoints] = useState<CustomPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newPoint, setNewPoint] = useState("");
@@ -33,9 +37,15 @@ export const MeetingPreparation = () => {
     try {
       setIsLoading(true);
       
-      // Récupérer les tâches avec priorité
-      const prioritizedTasks = await TaskPriorityService.getTasksWithPriority();
-      setTasks(prioritizedTasks);
+      // Récupérer simplement les tâches en cours
+      const { data: todosData, error: todosError } = await supabase
+        .from("todos")
+        .select("id, description, created_at")
+        .eq("status", "confirmed")
+        .order("created_at", { ascending: false });
+
+      if (todosError) throw todosError;
+      setTodos(todosData || []);
 
       // Récupérer les points personnalisés
       const { data: points, error: pointsError } = await supabase
@@ -113,49 +123,33 @@ export const MeetingPreparation = () => {
     }
   };
 
-  const clearAllPreparationData = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir effacer toutes les notes de préparation ? Cette action est irréversible.")) {
+  const clearAllCustomPoints = async () => {
+    if (!confirm("Êtes-vous sûr de vouloir effacer tous les points personnels ? Cette action est irréversible.")) {
       return;
     }
 
     try {
-      // Supprimer toutes les notes de tâches
-      const { error: notesError } = await supabase
-        .from("meeting_preparation_notes")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-
-      if (notesError) throw notesError;
-
-      // Supprimer tous les points personnalisés
-      const { error: pointsError } = await supabase
+      const { error } = await supabase
         .from("meeting_preparation_custom_points")
         .delete()
         .neq("id", "00000000-0000-0000-0000-000000000000");
 
-      if (pointsError) throw pointsError;
+      if (error) throw error;
 
       await fetchData();
       
       toast({
-        title: "Données effacées",
-        description: "Toutes les notes de préparation ont été supprimées",
+        title: "Points effacés",
+        description: "Tous les points personnels ont été supprimés",
       });
     } catch (error: any) {
-      console.error("Error clearing preparation data:", error);
+      console.error("Error clearing custom points:", error);
       toast({
         title: "Erreur",
-        description: "Impossible d'effacer les données",
+        description: "Impossible d'effacer les points",
         variant: "destructive",
       });
     }
-  };
-
-  const getPriorityColor = (score: number) => {
-    if (score >= 8) return "bg-red-100 text-red-800 border-red-200";
-    if (score >= 6) return "bg-orange-100 text-orange-800 border-orange-200";
-    if (score >= 4) return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    return "bg-green-100 text-green-800 border-green-200";
   };
 
   if (isLoading) {
@@ -169,7 +163,7 @@ export const MeetingPreparation = () => {
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
-            Chargement des tâches en cours...
+            Chargement...
           </div>
         </CardContent>
       </Card>
@@ -179,97 +173,97 @@ export const MeetingPreparation = () => {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Préparation de la prochaine réunion
-          </CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={clearAllPreparationData}
-            className="text-red-600 hover:text-red-700"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Effacer après réunion
-          </Button>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5" />
+          Préparation de la prochaine réunion
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         
-        {/* Tâches en cours avec bullet points */}
+        {/* Tâches en cours */}
         <div>
           <h3 className="font-semibold mb-3">
-            Tâches en cours ({tasks.length})
+            Tâches en cours ({todos.length})
           </h3>
           
-          {tasks.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground bg-gray-50 rounded-lg">
+          {todos.length === 0 ? (
+            <div className="text-center py-3 text-muted-foreground text-sm">
               Aucune tâche en cours
             </div>
           ) : (
-            <ul className="space-y-2">
-              {tasks.map((task) => (
-                <li key={task.id} className="flex items-start gap-3">
-                  <span className="text-muted-foreground mt-2">•</span>
-                  <div className="flex-1 flex justify-between items-start">
-                    <span className="text-sm">{task.description}</span>
-                    <Badge variant="outline" className={`${getPriorityColor(task.priority_score)} ml-2 text-xs`}>
-                      {task.priority_score}/10
-                    </Badge>
-                  </div>
+            <ul className="space-y-1">
+              {todos.map((todo) => (
+                <li key={todo.id} className="flex items-start gap-2">
+                  <span className="text-muted-foreground mt-1 text-sm">•</span>
+                  <span className="text-sm">{todo.description}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* Points personnels à ajouter */}
-        <div>
-          <h3 className="font-semibold mb-3">
-            Points personnels à aborder
-          </h3>
-          
-          {/* Ajouter un point */}
-          <div className="flex gap-2 mb-3">
-            <Input
-              placeholder="Ajouter un point à aborder..."
-              value={newPoint}
-              onChange={(e) => setNewPoint(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && addCustomPoint()}
-              className="flex-1"
-            />
-            <Button onClick={addCustomPoint} disabled={!newPoint.trim()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter
-            </Button>
-          </div>
-
-          {/* Liste des points */}
-          {customPoints.length > 0 ? (
-            <ul className="space-y-2">
-              {customPoints.map((point) => (
-                <li key={point.id} className="flex items-start gap-3">
-                  <span className="text-muted-foreground mt-1">•</span>
-                  <div className="flex-1 flex justify-between items-center">
-                    <span className="text-sm">{point.point_text}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteCustomPoint(point.id)}
-                      className="text-red-600 hover:text-red-700 h-6 w-6 p-0"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground bg-gray-50 rounded-lg">
-              Aucun point personnel ajouté
+        {/* Séparateur visuel */}
+        <div className="border-t pt-6">
+          {/* Points personnels à ajouter */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold">
+                Points personnels à aborder
+              </h3>
+              {customPoints.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={clearAllCustomPoints}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Effacer les notes
+                </Button>
+              )}
             </div>
-          )}
+            
+            {/* Ajouter un point */}
+            <div className="flex gap-2 mb-3">
+              <Input
+                placeholder="Ajouter un point à aborder..."
+                value={newPoint}
+                onChange={(e) => setNewPoint(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addCustomPoint()}
+                className="flex-1"
+              />
+              <Button onClick={addCustomPoint} disabled={!newPoint.trim()}>
+                <Plus className="h-4 w-4 mr-1" />
+                Ajouter
+              </Button>
+            </div>
+
+            {/* Liste des points */}
+            {customPoints.length > 0 ? (
+              <ul className="space-y-1">
+                {customPoints.map((point) => (
+                  <li key={point.id} className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1 text-sm">•</span>
+                    <div className="flex-1 flex justify-between items-start">
+                      <span className="text-sm">{point.point_text}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteCustomPoint(point.id)}
+                        className="text-red-600 hover:text-red-700 h-6 w-6 p-0 ml-2"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center py-3 text-muted-foreground text-sm">
+                Aucun point personnel ajouté
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
