@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Users } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Users, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -50,21 +51,10 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
       console.log('📋 Raw todos data:', data);
       
-      // Afficher tous les todos sans filtrage par statut pour le debug
+      // Afficher tous les todos sans filtrage par statut
       const allTodos = data as Todo[] || [];
       console.log(`📊 Found ${allTodos.length} total todos for meeting ${meetingId}`);
       
-      // Afficher le détail de chaque todo
-      allTodos.forEach((todo, index) => {
-        console.log(`Todo ${index + 1}:`, {
-          id: todo.id,
-          description: todo.description?.substring(0, 50) + '...',
-          status: todo.status,
-          meeting_id: todo.meeting_id
-        });
-      });
-
-      // Pour l'instant, afficher tous les todos (on peut filtrer plus tard)
       setTodos(allTodos);
     } catch (error: any) {
       console.error("❌ Error fetching todos:", error);
@@ -75,6 +65,33 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startTodo = async (todoId: string) => {
+    try {
+      const { error } = await supabase
+        .from("todos")
+        .update({ status: 'confirmed' })
+        .eq("id", todoId);
+
+      if (error) throw error;
+
+      setTodos(todos.map(todo => 
+        todo.id === todoId ? { ...todo, status: 'confirmed' } : todo
+      ));
+
+      toast({
+        title: "Tâche démarrée",
+        description: "La tâche est maintenant en cours",
+      });
+    } catch (error: any) {
+      console.error("Error starting todo:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de démarrer la tâche",
+        variant: "destructive",
+      });
     }
   };
 
@@ -138,7 +155,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
-      'pending': 'En attente',
+      'pending': 'À démarrer',
       'confirmed': 'En cours',
       'completed': 'Terminée'
     };
@@ -146,7 +163,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
     const className = status === 'completed' 
       ? 'bg-green-100 text-green-800 border-green-200' 
       : status === 'pending'
-      ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      ? 'bg-orange-100 text-orange-800 border-orange-200'
       : 'bg-blue-100 text-blue-800 border-blue-200';
 
     return (
@@ -223,7 +240,17 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {todo.status !== 'completed' && (
+                  {todo.status === 'pending' && (
+                    <Button
+                      size="sm"
+                      onClick={() => startTodo(todo.id)}
+                      className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      Démarrer
+                    </Button>
+                  )}
+                  {todo.status === 'confirmed' && (
                     <Button
                       size="sm"
                       onClick={() => completeTodo(todo.id)}
