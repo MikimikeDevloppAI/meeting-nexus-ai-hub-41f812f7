@@ -158,7 +158,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
             <div className="space-y-3">
               {/* Task header */}
               <div className="flex justify-between items-start">
-                <div className="text-sm font-medium flex-grow mr-2">
+                <div className="text-sm flex-grow mr-2">
                   <EditableContent
                     content={todo.description}
                     onSave={(newContent) => handleTodoSave(todo.id, newContent)}

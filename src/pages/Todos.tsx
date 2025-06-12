@@ -344,7 +344,7 @@ export default function Todos() {
                 <div className="space-y-4">
                   {/* Task header with edit, complete and delete buttons */}
                   <div className="flex justify-between items-start">
-                    <div className="text-lg font-medium flex-grow mr-2">
+                    <div className="text-lg flex-grow mr-2">
                       <EditableContent
                         content={todo.description}
                         onSave={(newContent) => handleTodoSave(todo.id, newContent)}
