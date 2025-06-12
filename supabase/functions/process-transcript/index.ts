@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createSupabaseClient, saveRawTranscript, saveTranscript, saveSummary, saveTask, getMeetingData } from './services/database-service.ts';
@@ -14,6 +13,21 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Fonction pour nettoyer la réponse JSON d'OpenAI
+function cleanJsonResponse(response: string): string {
+  // Supprimer les balises markdown ```json et ```
+  let cleaned = response.trim();
+  
+  // Supprimer les balises de début
+  cleaned = cleaned.replace(/^```json\s*/i, '');
+  cleaned = cleaned.replace(/^```\s*/i, '');
+  
+  // Supprimer les balises de fin
+  cleaned = cleaned.replace(/\s*```\s*$/i, '');
+  
+  return cleaned.trim();
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -67,11 +81,32 @@ serve(async (req) => {
 
     let extractedTasks = [];
     try {
-      const tasksData = JSON.parse(tasksResponse);
+      console.log('📄 Raw tasks response:', tasksResponse);
+      
+      // Nettoyer la réponse avant de parser
+      const cleanedResponse = cleanJsonResponse(tasksResponse);
+      console.log('🧹 Cleaned tasks response:', cleanedResponse);
+      
+      const tasksData = JSON.parse(cleanedResponse);
       extractedTasks = tasksData.tasks || [];
+      console.log(`📋 Parsed ${extractedTasks.length} tasks successfully`);
     } catch (parseError) {
       console.error('❌ Error parsing tasks JSON:', parseError);
       console.log('📄 Raw tasks response:', tasksResponse);
+      console.log('📄 Cleaned response was:', cleanJsonResponse(tasksResponse));
+      
+      // Essayer une extraction alternative plus robuste
+      try {
+        console.log('🔧 Tentative d\'extraction alternative...');
+        const jsonMatch = tasksResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const tasksData = JSON.parse(jsonMatch[0]);
+          extractedTasks = tasksData.tasks || [];
+          console.log(`📋 Alternative parsing réussi: ${extractedTasks.length} tasks`);
+        }
+      } catch (altError) {
+        console.error('❌ Alternative parsing failed too:', altError);
+      }
     }
 
     // Sauvegarder les tâches
@@ -80,14 +115,18 @@ serve(async (req) => {
       console.log(`💾 Saving ${extractedTasks.length} tasks...`);
       for (const task of extractedTasks) {
         try {
+          console.log('💾 Saving task:', task.description?.substring(0, 50) + '...');
           const savedTask = await saveTask(supabaseClient, task, meetingId, meetingParticipants || []);
           if (savedTask) {
             savedTasks.push(savedTask);
+            console.log('✅ Task saved successfully:', savedTask.id);
           }
         } catch (taskError) {
           console.error('❌ Error saving task:', taskError);
         }
       }
+    } else {
+      console.log('⚠️ No tasks extracted from transcript');
     }
 
     // 3. Générer le résumé
