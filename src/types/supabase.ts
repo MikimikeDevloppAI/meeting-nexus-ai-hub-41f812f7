@@ -65,6 +65,7 @@ export interface Database {
           created_by: string
           transcript: string | null
           summary: string | null
+          raw_transcript: string | null
         }
         Insert: {
           id?: string
@@ -74,6 +75,7 @@ export interface Database {
           created_by: string
           transcript?: string | null
           summary?: string | null
+          raw_transcript?: string | null
         }
         Update: {
           id?: string
@@ -83,6 +85,7 @@ export interface Database {
           created_by?: string
           transcript?: string | null
           summary?: string | null
+          raw_transcript?: string | null
         }
       }
       meeting_participants: {
@@ -107,6 +110,8 @@ export interface Database {
           description: string
           status: string
           created_at: string
+          due_date: string | null
+          ai_recommendation_generated: boolean | null
         }
         Insert: {
           id?: string
@@ -115,6 +120,8 @@ export interface Database {
           description: string
           status?: string
           created_at?: string
+          due_date?: string | null
+          ai_recommendation_generated?: boolean | null
         }
         Update: {
           id?: string
@@ -123,6 +130,57 @@ export interface Database {
           description?: string
           status?: string
           created_at?: string
+          due_date?: string | null
+          ai_recommendation_generated?: boolean | null
+        }
+      }
+      meeting_preparation_notes: {
+        Row: {
+          id: string
+          todo_id: string | null
+          note_text: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          todo_id?: string | null
+          note_text: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          todo_id?: string | null
+          note_text?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      meeting_preparation_custom_points: {
+        Row: {
+          id: string
+          point_text: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          point_text: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          point_text?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
       invoices: {

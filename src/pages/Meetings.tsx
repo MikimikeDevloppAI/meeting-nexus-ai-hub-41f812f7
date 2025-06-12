@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { MeetingPreparation } from "@/components/MeetingPreparation";
 
 interface Meeting {
   id: string;
@@ -75,6 +76,9 @@ const Meetings = () => {
           <Plus className="mr-2 h-4 w-4" /> Nouvelle Réunion
         </Button>
       </div>
+
+      {/* Composant de préparation de réunion */}
+      <MeetingPreparation />
 
       <div className="mb-6">
         <div className="relative">
