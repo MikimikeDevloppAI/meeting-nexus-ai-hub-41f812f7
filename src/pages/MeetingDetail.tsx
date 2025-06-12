@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,7 +154,7 @@ export default function MeetingDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Chat Résumé à l'intérieur */}
-            <div className="pl-1">
+            <div className="pl-0.5">
               <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
             </div>
             
@@ -180,7 +179,7 @@ export default function MeetingDetail() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Chat Todos à l'intérieur */}
-          <div className="pl-1">
+          <div className="pl-0.5">
             <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
           </div>
           
