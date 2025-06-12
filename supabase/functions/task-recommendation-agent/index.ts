@@ -13,258 +13,145 @@ serve(async (req) => {
   }
 
   try {
-    const { task, transcript, meetingContext, participants } = await req.json();
-    console.log('[TASK-AGENT] 🎯 Analyse intelligente:', task.description.substring(0, 50));
-
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiKey) {
+    const requestBody = await req.json();
+    
+    // Détecter si c'est un traitement batch ou individuel
+    const isBatchRequest = requestBody.batchPrompt && requestBody.tasks;
+    
+    console.log(`[TASK-AGENT] ${isBatchRequest ? 'Traitement BATCH' : 'Traitement INDIVIDUEL'}`);
+    
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Prompt modifié pour garantir la génération systématique de recommandations
-    const prompt = `Tu es un assistant IA spécialisé pour un cabinet d'ophtalmologie à Genève dirigé par le Dr Tabibian.
+    let prompt;
+    let temperature = 0.3;
 
-TÂCHE À ANALYSER: "${task.description}"
+    if (isBatchRequest) {
+      // Traitement batch - utiliser le prompt pré-construit
+      prompt = requestBody.batchPrompt;
+      temperature = 0.2; // Plus déterministe pour le batch
+      console.log(`[TASK-AGENT] 🔄 Traitement batch pour ${requestBody.tasks.length} tâches`);
+    } else {
+      // Traitement individuel - garder l'ancien système
+      const { task, transcript, meetingContext, participants } = requestBody;
+      
+      console.log(`[TASK-AGENT] 🎯 Analyse intelligente: ${task.description.substring(0, 50)}`);
+      
+      const participantNames = participants?.map(p => p.name).join(', ') || 'Aucun participant spécifié';
+      
+      prompt = `Tu es un assistant IA spécialisé dans la génération de recommandations pour des tâches issues de réunions.
 
-CONTEXTE RÉUNION:
+CONTEXTE DE LA RÉUNION :
 - Titre: ${meetingContext.title}
 - Date: ${meetingContext.date}
 - Participants: ${meetingContext.participants}
 
-PARTICIPANTS DISPONIBLES: ${participants.map(p => p.name).join(', ')}
+TRANSCRIPT DE LA RÉUNION :
+${transcript}
 
-🔍 **OBLIGATION : Tu DOIS systématiquement générer une recommandation utile pour CHAQUE tâche, sans exception.**
+TÂCHE À ANALYSER :
+"${task.description}"
 
-**Pour chaque tâche, tu dois OBLIGATOIREMENT :**
-1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
-2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
-3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
-4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
-5. Être **bref, structuré et pertinent**, en apportant toujours une valeur ajoutée.
+INSTRUCTIONS :
+Analyse cette tâche dans le contexte de la réunion et génère une recommandation IA personnalisée.
 
-📧 **EMAILS PRÉ-RÉDIGÉS** (génération systématique si pertinent) :
+La recommandation doit être :
+1. Pratique et actionnable
+2. Basée sur le contexte de la réunion
+3. Spécifique à cette tâche
+4. Incluant un email pré-rédigé si la tâche implique une communication externe
 
-**EMAILS INTERNES** (équipe cabinet) :
-- Contexte minimal, droit au but
-- Ton familier mais professionnel
-- Instructions claires et directes
-- Format court et actionnable
-
-**EMAILS EXTERNES** (fournisseurs, partenaires, patients) :
-- Contexte complet et précis
-- Ton formel et professionnel
-- Présentation du cabinet et du contexte
-- Demandes détaillées et structurées
-- Formules de politesse appropriées
-
-CONTEXTE CABINET : Cabinet d'ophtalmologie Dr Tabibian, Genève, équipements spécialisés (OCT, campimètre, lampe à fente), fournisseurs courants (Zeiss, Heidelberg, Topcon, Haag-Streit), normes suisses (LAMal, Swissmedic).
-
-RÈGLES STRICTES :
-- Tu DOIS TOUJOURS générer une recommandation, même pour les tâches qui semblent simples
-- Chaque recommandation doit apporter une valeur ajoutée concrète
-- Si la tâche semble évidente, trouve des angles d'optimisation, de prévention ou d'amélioration
-- Génère un email pré-rédigé dès que cela peut faciliter la communication
-- JAMAIS de réponse vide ou sans recommandation
-
-TRANSCRIPT DE LA RÉUNION (pour contexte supplémentaire si nécessaire) :
-"${transcript}"
-
-RETOURNE UNIQUEMENT ce JSON :
+Réponds UNIQUEMENT en JSON avec cette structure :
 {
   "hasRecommendation": true,
-  "recommendation": "conseils pratiques détaillés OBLIGATOIRES",
-  "estimatedCost": "estimation OU null",
-  "contacts": [{"name": "string", "phone": "string", "email": "string", "website": "string", "address": "string"}],
-  "needsEmail": boolean,
-  "emailDraft": "email formaté selon type (interne/externe) OU null",
-  "valueAddedReason": "pourquoi cette recommandation apporte de la valeur OBLIGATOIRE"
+  "recommendation": "Recommandation détaillée...",
+  "emailDraft": "Email pré-rédigé si nécessaire (sinon null)"
 }`;
+    }
 
-    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec prompt renforcé...');
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Changé de gpt-4o-mini à gpt-4o
-        messages: [
-          {
-            role: 'system',
-            content: `Tu es un expert en gestion de cabinet médical spécialisé en ophtalmologie. 
-
-OBJECTIF PRINCIPAL : Générer OBLIGATOIREMENT des recommandations utiles et actionables pour CHAQUE tâche, sans exception.
-
-CRITÈRES STRICTS POUR RECOMMANDATIONS :
-- TOUJOURS apporter une valeur ajoutée mesurable
-- Conseils PRATIQUES et ACTIONABLES
-- Expertise spécialisée ophtalmologie/Suisse
-- Insights professionnels basés sur l'expérience
-- JAMAIS de réponse vide ou générique
-
-RÈGLE ABSOLUE : Chaque tâche doit recevoir une recommandation personnalisée, même si elle semble simple.
-
-Pour emails internes, utilise ce format direct :
-
-Objet: [Sujet clair]
-
-Bonjour [Nom/Équipe],
-
-[Message direct avec points clairs]
-
-- Point 1
-- Point 2
-- Action attendue avec délai
-
-Merci.
-
-Dr. Tabibian
-
-Pour emails externes, utilise ce format professionnel :
-
-Objet: [Sujet détaillé]
-
-Madame, Monsieur,
-
-Je vous contacte au nom du Cabinet d'Ophtalmologie Dr Tabibian à Genève concernant [contexte détaillé].
-
-[Description précise de la demande avec contexte]
-
-Dans l'attente de votre retour, je vous prie d'agréer mes salutations distinguées.
-
-Dr. Tabibian
-Cabinet d'Ophtalmologie - Genève
-[coordonnées si pertinent]`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.5, // Changé de 0.5 à 0.5 (déjà correct)
-        max_tokens: 2000,
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: isBatchRequest ? 8000 : 2000, // Plus de tokens pour le batch
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[TASK-AGENT] ❌ Erreur OpenAI:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content?.trim();
-
+    const content = data.choices[0]?.message?.content;
+    
     console.log('[TASK-AGENT] ✅ Réponse OpenAI reçue');
 
-    // Parsing JSON robuste avec validation renforcée
     let recommendation;
     try {
-      // Nettoyer le contenu
-      let cleanContent = content;
+      // Nettoyer la réponse et parser le JSON
+      const cleanedContent = content.trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```\s*$/i, '');
       
-      // Retirer les blocs markdown
-      cleanContent = cleanContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      recommendation = JSON.parse(cleanedContent);
       
-      // Chercher le JSON
-      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
-      }
-      
-      recommendation = JSON.parse(cleanContent);
-      
-      // Validation stricte et forçage de génération
-      if (!recommendation.hasRecommendation || !recommendation.recommendation || recommendation.recommendation.trim().length < 10) {
-        console.log('[TASK-AGENT] ⚠️ Forçage OBLIGATOIRE de génération de recommandation');
-        recommendation.hasRecommendation = true;
-        
-        // Générer une recommandation basique mais utile selon le type de tâche
-        const taskLower = task.description.toLowerCase();
-        let fallbackRecommendation = "";
-        
-        if (taskLower.includes('acheter') || taskLower.includes('commander') || taskLower.includes('équipement')) {
-          fallbackRecommendation = "💡 **Points d'attention pour cet achat :**\n\n• Vérifier la compatibilité avec les équipements existants\n• Comparer au moins 3 devis de fournisseurs\n• Prévoir les coûts de maintenance et formation\n• Vérifier les délais de livraison et garanties\n• S'assurer de la conformité aux normes suisses";
-        } else if (taskLower.includes('contacter') || taskLower.includes('appeler') || taskLower.includes('email')) {
-          fallbackRecommendation = "📞 **Optimisation de la communication :**\n\n• Préparer les points clés à aborder avant l'appel\n• Documenter les échanges dans le CRM\n• Prévoir un suivi avec délai défini\n• Avoir les références du cabinet à portée de main\n• Confirmer par email les accords verbaux";
-        } else if (taskLower.includes('organiser') || taskLower.includes('planifier') || taskLower.includes('réunion')) {
-          fallbackRecommendation = "📅 **Bonnes pratiques d'organisation :**\n\n• Définir un agenda précis avec créneaux horaires\n• Envoyer les invitations 48h à l'avance minimum\n• Préparer les documents nécessaires en amont\n• Prévoir une salle adaptée au nombre de participants\n• Planifier un récapitulatif post-réunion";
-        } else {
-          fallbackRecommendation = `🎯 **Recommandations pour optimiser cette tâche :**\n\n• Définir des étapes claires et un planning\n• Identifier les ressources nécessaires\n• Prévoir des points de contrôle intermédiaires\n• Documenter le processus pour les fois suivantes\n• Évaluer les risques potentiels et solutions de contournement`;
-        }
-        
-        recommendation.recommendation = fallbackRecommendation;
-        recommendation.valueAddedReason = "Structuration et optimisation systématique de la tâche pour éviter les oublis et améliorer l'efficacité.";
-      }
-
-      // Forcer hasRecommendation à true
-      recommendation.hasRecommendation = true;
-
-      // Vérifier que valueAddedReason existe
-      if (!recommendation.valueAddedReason || recommendation.valueAddedReason.trim().length < 5) {
-        recommendation.valueAddedReason = "Optimisation et sécurisation du processus avec expertise métier spécialisée.";
-      }
-
-      // Nettoyer et formater l'email si présent
-      if (recommendation.needsEmail && recommendation.emailDraft) {
-        let emailContent = recommendation.emailDraft;
-        
-        // Remplacer les \\n par de vrais retours à la ligne
-        emailContent = emailContent.replace(/\\n/g, '\n');
-        
-        // S'assurer qu'il y a des retours à la ligne entre les sections
-        emailContent = emailContent.replace(/([.!?])\s*([A-Z][a-z])/g, '$1\n\n$2');
-        
-        // Nettoyer les espaces multiples
-        emailContent = emailContent.replace(/\n\s*\n\s*\n/g, '\n\n');
-        
-        recommendation.emailDraft = emailContent.trim();
+      if (isBatchRequest) {
+        console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendation.recommendations?.length || 0} recommandations`);
+      } else {
+        console.log(`[TASK-AGENT] ✅ Recommandation individuelle générée: ${recommendation.hasRecommendation ? 'Oui' : 'Non'}`);
       }
       
     } catch (parseError) {
-      console.error('[TASK-AGENT] ❌ Erreur parsing, génération recommandation de secours:', parseError);
+      console.error('[TASK-AGENT] ❌ Erreur parsing JSON:', parseError);
+      console.log('[TASK-AGENT] 📄 Contenu brut:', content);
       
-      // Recommandation de secours OBLIGATOIRE
-      recommendation = {
-        hasRecommendation: true,
-        recommendation: `🔧 **Recommandations générales pour : "${task.description}"**\n\n• Documenter les étapes clés de réalisation\n• Identifier les intervenants et responsabilités\n• Définir un délai réaliste avec marge de sécurité\n• Prévoir un point de validation intermédiaire\n• Capitaliser sur cette expérience pour les prochaines fois`,
-        estimatedCost: null,
-        contacts: [],
-        needsEmail: false,
-        emailDraft: null,
-        valueAddedReason: "Approche méthodique et professionnelle pour assurer le succès de la tâche et éviter les écueils courants."
-      };
+      // Fallback pour le batch
+      if (isBatchRequest) {
+        recommendation = {
+          recommendations: requestBody.tasks.map(task => ({
+            taskIndex: task.index,
+            taskId: task.id,
+            hasRecommendation: false,
+            recommendation: "Erreur lors de la génération de la recommandation",
+            emailDraft: null
+          }))
+        };
+      } else {
+        recommendation = {
+          hasRecommendation: false,
+          recommendation: "Erreur lors de la génération de la recommandation",
+          emailDraft: null
+        };
+      }
     }
 
-    // Log pour debugging
-    console.log('[TASK-AGENT] ✅ Recommandation GARANTIE générée:', {
-      hasRec: recommendation.hasRecommendation,
-      recLength: recommendation.recommendation?.length || 0,
-      needsEmail: recommendation.needsEmail,
-      valueAdded: recommendation.valueAddedReason ? 'Oui' : 'Non'
-    });
-
     return new Response(JSON.stringify({
-      success: true,
-      recommendation
+      recommendation,
+      success: true
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('[TASK-AGENT] ❌ Erreur:', error);
+    
     return new Response(JSON.stringify({
-      success: false,
       error: error.message,
-      recommendation: {
-        hasRecommendation: true,
-        recommendation: "🚨 **Erreur lors de l'analyse - Recommandations de base :**\n\n• Vérifier que tous les éléments nécessaires sont disponibles\n• Planifier la tâche avec des étapes intermédiaires\n• Prévoir un suivi régulier de l'avancement\n• Documenter les actions entreprises\n• Solliciter de l'aide si nécessaire",
-        estimatedCost: null,
-        contacts: [],
-        needsEmail: false,
-        emailDraft: null,
-        valueAddedReason: "Approche structurée minimale pour assurer un suivi professionnel même en cas de problème technique."
-      }
+      recommendation: null,
+      success: false
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
