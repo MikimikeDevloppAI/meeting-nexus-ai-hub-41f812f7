@@ -1,151 +1,90 @@
 
-export async function processAIRecommendations(
-  supabaseClient: any,
-  savedTasks: any[],
-  cleanedTranscript: string,
-  meetingName: string,
-  meetingDate: string,
-  participantNames: string,
+import { createSupabaseClient } from './database-service.ts'
+
+export async function processTaskRecommendations(
+  tasks: any[], 
+  cleanedTranscript: string, 
+  meetingData: any,
   participants: any[]
 ) {
-  console.log('🤖 Génération recommandations IA intelligentes en parallèle...');
-  console.log(`📋 Traitement de ${savedTasks.length} tâches`);
+  if (!tasks || tasks.length === 0) {
+    console.log('⚡ Aucune tâche à traiter pour les recommandations');
+    return;
+  }
+
+  console.log(`⚡ Génération des recommandations pour ${tasks.length} tâches`);
   
-  // Traiter toutes les tâches en parallèle avec gestion d'erreur individuelle
-  const recommendationPromises = savedTasks.map(async (task) => {
+  const supabaseClient = createSupabaseClient();
+  
+  // Traiter chaque tâche individuellement
+  for (const task of tasks) {
     try {
-      console.log(`🎯 Analyse intelligente pour: ${task.description.substring(0, 50)}...`);
+      console.log(`⚡ Génération recommandation pour tâche: ${task.description.substring(0, 50)}...`);
       
-      // Appel à l'agent intelligent avec retry
-      const result = await callRecommendationAgentWithRetry(supabaseClient, {
-        task: { description: task.description },
-        transcript: cleanedTranscript,
-        meetingContext: {
-          title: meetingName,
-          date: meetingDate,
-          participants: participantNames
-        },
-        participants: participants
+      const { data: recommendationResult, error: recError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
+        body: {
+          task: { description: task.description },
+          transcript: cleanedTranscript,
+          meetingContext: {
+            title: meetingData.title || 'Réunion',
+            date: meetingData.created_at || new Date().toISOString(),
+            participants: participants?.map(p => p.name).join(', ') || ''
+          },
+          participants: participants || []
+        }
       });
 
-      if (result.error) {
-        console.error('❌ Erreur agent recommandations pour tâche:', task.id, result.error);
-        return { taskId: task.id, success: false, error: result.error };
+      if (recError) {
+        console.error('❌ Erreur recommandation pour tâche:', task.id, recError);
+        // Ne pas marquer comme traité si erreur
+        continue;
       }
 
-      const rec = result.data?.recommendation;
+      const rec = recommendationResult?.recommendation;
       
-      if (rec && (rec.hasRecommendation || rec.needsEmail)) {
-        console.log(`✅ Recommandation intelligente pour: ${task.description.substring(0, 50)}...`);
-        console.log(`💡 Valeur ajoutée: ${rec.valueAddedReason || 'Non spécifiée'}`);
-        
-        // Construire le commentaire simplifié
-        let comment = '';
-        
-        if (rec.hasRecommendation && rec.recommendation) {
-          comment += `💡 **Recommandation IA :**\n\n${rec.recommendation}`;
-          
-          if (rec.valueAddedReason) {
-            comment += `\n\n✨ **Valeur ajoutée :** ${rec.valueAddedReason}`;
-          }
-        }
-        
-        if (rec.estimatedCost) {
-          comment += `\n\n💰 **Coût estimé :** ${rec.estimatedCost}`;
-        }
-        
-        if (rec.contacts?.length > 0) {
-          comment += `\n\n📞 **Contacts spécialisés :**`;
-          rec.contacts.forEach((contact: any) => {
-            comment += `\n• **${contact.name}**`;
-            if (contact.phone) comment += `\n  📞 ${contact.phone}`;
-            if (contact.email) comment += `\n  ✉️ ${contact.email}`;
-            if (contact.website) comment += `\n  🌐 ${contact.website}`;
-            if (contact.address) comment += `\n  📍 ${contact.address}`;
-          });
-        }
-
-        // Ajouter le commentaire si nécessaire
-        if (comment) {
-          await supabaseClient
-            .from('todo_comments')
+      if (rec && rec.hasRecommendation) {
+        try {
+          // Sauvegarder la recommandation
+          const { error: saveError } = await supabaseClient
+            .from('todo_ai_recommendations')
             .insert({
               todo_id: task.id,
-              user_id: '00000000-0000-0000-0000-000000000000', // System user
-              comment: comment
+              recommendation_text: rec.recommendation,
+              email_draft: rec.emailDraft || null
             });
+          
+          if (saveError) {
+            console.error('❌ Erreur sauvegarde recommandation pour tâche:', task.id, saveError);
+            continue;
+          }
+          
+          console.log(`✅ Recommandation sauvegardée pour tâche ${task.id}`);
+          
+          // MARQUER COMME TRAITÉ SEULEMENT SI SAUVEGARDE RÉUSSIE
+          const { error: updateError } = await supabaseClient
+            .from('todos')
+            .update({ ai_recommendation_generated: true })
+            .eq('id', task.id);
+            
+          if (updateError) {
+            console.error('❌ Erreur marquage tâche:', task.id, updateError);
+          } else {
+            console.log(`✅ Tâche ${task.id} marquée comme traitée`);
+          }
+          
+        } catch (saveError) {
+          console.error(`❌ Erreur lors de la sauvegarde pour tâche ${task.id}:`, saveError);
         }
-
-        // Sauvegarder la recommandation simplifiée
-        const recommendationData: any = {
-          todo_id: task.id,
-          recommendation_text: rec.recommendation || 'Voir email pré-rédigé ou conseils spécialisés.',
-          email_draft: rec.needsEmail ? rec.emailDraft : null
-        };
-
-        await supabaseClient
-          .from('todo_ai_recommendations')
-          .insert(recommendationData);
-        
-        console.log(`✅ Recommandation intelligente sauvegardée pour tâche ${task.id}`);
-        return { taskId: task.id, success: true };
       } else {
-        console.log(`ℹ️ Aucune recommandation pertinente pour: ${task.description.substring(0, 50)}...`);
-        return { taskId: task.id, success: true, noRecommendation: true };
-      }
-
-    } catch (recError) {
-      console.error('❌ Erreur traitement recommandation:', task.description.substring(0, 50), recError);
-      return { taskId: task.id, success: false, error: recError };
-    }
-  });
-
-  // Attendre toutes les recommandations en parallèle
-  const results = await Promise.all(recommendationPromises);
-  
-  // Marquer toutes les tâches comme traitées
-  const updatePromises = savedTasks.map(task => 
-    supabaseClient
-      .from('todos')
-      .update({ ai_recommendation_generated: true })
-      .eq('id', task.id)
-  );
-  
-  await Promise.all(updatePromises);
-  
-  // Compter les résultats
-  const successful = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
-  const withRecommendations = results.filter(r => r.success && !r.noRecommendation).length;
-  
-  console.log(`🏁 Traitement recommandations terminé: ${successful}/${savedTasks.length} succès, ${withRecommendations} avec recommandations, ${failed} échecs`);
-}
-
-// Fonction utilitaire avec retry
-async function callRecommendationAgentWithRetry(supabaseClient: any, payload: any, maxRetries = 2) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await supabaseClient.functions.invoke('task-recommendation-agent', {
-        body: payload
-      });
-      
-      if (!result.error) {
-        return result;
+        console.log(`⚠️ Pas de recommandation générée pour tâche ${task.id}`);
+        // Ne pas marquer comme traité si pas de recommandation
       }
       
-      if (attempt < maxRetries) {
-        console.log(`⚠️ Tentative ${attempt} échouée, retry dans 1s...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        return result;
-      }
     } catch (error) {
-      if (attempt < maxRetries) {
-        console.log(`⚠️ Erreur tentative ${attempt}, retry dans 1s...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        return { error };
-      }
+      console.error(`❌ Erreur lors du traitement de la tâche ${task.id}:`, error);
+      // Ne pas marquer comme traité si erreur globale
     }
   }
+  
+  console.log('🏁 Traitement des recommandations terminé');
 }
