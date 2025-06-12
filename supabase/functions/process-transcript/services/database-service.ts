@@ -1,4 +1,4 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 export const createSupabaseClient = () => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -8,7 +8,7 @@ export const createSupabaseClient = () => {
     throw new Error('Supabase URL or key not found')
   }
 
-  return new SupabaseClient(supabaseUrl, supabaseKey)
+  return createClient(supabaseUrl, supabaseKey)
 }
 
 export const saveRawTranscript = async (supabaseClient: any, meetingId: string, transcript: string) => {
