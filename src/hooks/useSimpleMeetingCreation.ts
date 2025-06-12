@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -130,28 +131,30 @@ export const useSimpleMeetingCreation = () => {
                 async (payload) => {
                   console.log('[REALTIME] 📋 Task event detected:', {
                     event: payload.eventType,
-                    taskId: payload.new?.id || payload.old?.id,
-                    aiRecommendationGenerated: payload.new?.ai_recommendation_generated
+                    taskId: (payload.new as any)?.id || (payload.old as any)?.id,
+                    aiRecommendationGenerated: (payload.new as any)?.ai_recommendation_generated
                   });
                   
                   if (payload.eventType === 'INSERT') {
                     // Nouvelle tâche créée
                     expectedTaskCount++;
                     console.log('[REALTIME] ➕ Nouvelle tâche créée, total attendu:', expectedTaskCount);
-                  } else if (payload.eventType === 'UPDATE' && payload.new?.ai_recommendation_generated === true) {
+                  } else if (payload.eventType === 'UPDATE' && (payload.new as any)?.ai_recommendation_generated === true) {
                     // Tâche traitée
-                    const taskId = payload.new.id;
-                    processedTasks.add(taskId);
-                    console.log('[REALTIME] ✅ Tâche traitée:', taskId, `(${processedTasks.size}/${expectedTaskCount})`);
-                    
-                    // Vérifier si toutes les tâches sont traitées
-                    if (totalTasksFound && processedTasks.size >= expectedTaskCount && expectedTaskCount > 0) {
-                      console.log('[REALTIME] 🎯 Toutes les tâches sont traitées! Redirection dans 3 secondes...');
-                      setTimeout(() => {
-                        console.log('[REALTIME] ✅ Redirection après traitement complet des tâches');
-                        channel.unsubscribe();
-                        resolve(true);
-                      }, 3000);
+                    const taskId = (payload.new as any)?.id;
+                    if (taskId) {
+                      processedTasks.add(taskId);
+                      console.log('[REALTIME] ✅ Tâche traitée:', taskId, `(${processedTasks.size}/${expectedTaskCount})`);
+                      
+                      // Vérifier si toutes les tâches sont traitées
+                      if (totalTasksFound && processedTasks.size >= expectedTaskCount && expectedTaskCount > 0) {
+                        console.log('[REALTIME] 🎯 Toutes les tâches sont traitées! Redirection dans 3 secondes...');
+                        setTimeout(() => {
+                          console.log('[REALTIME] ✅ Redirection après traitement complet des tâches');
+                          channel.unsubscribe();
+                          resolve(true);
+                        }, 3000);
+                      }
                     }
                   }
                 }
