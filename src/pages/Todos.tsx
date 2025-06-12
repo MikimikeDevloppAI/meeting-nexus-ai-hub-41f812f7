@@ -342,7 +342,7 @@ export default function Todos() {
             <Card key={todo.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {/* Task header with edit and delete buttons */}
+                  {/* Task header with edit, complete and delete buttons */}
                   <div className="flex justify-between items-start">
                     <div className="text-lg font-medium flex-grow mr-2">
                       <EditableContent
@@ -364,6 +364,16 @@ export default function Todos() {
                       >
                         <Pen className="h-4 w-4" />
                       </Button>
+                      {todo.status !== 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => completeTodo(todo.id)}
+                          className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -401,19 +411,6 @@ export default function Todos() {
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {todo.status !== 'completed' && (
-                        <Button
-                          size="sm"
-                          onClick={() => completeTodo(todo.id)}
-                          className="h-8 px-4 bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Terminer
-                        </Button>
-                      )}
                     </div>
                   </div>
 
