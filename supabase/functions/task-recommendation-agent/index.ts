@@ -21,7 +21,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Prompt simplifié avec les 5 points directeurs et transcript à la fin
+    // Prompt modifié pour générer systématiquement des recommandations
     const prompt = `Tu es un assistant IA spécialisé pour un cabinet d'ophtalmologie à Genève dirigé par le Dr Tabibian.
 
 TÂCHE À ANALYSER: "${task.description}"
@@ -33,12 +33,12 @@ CONTEXTE RÉUNION:
 
 PARTICIPANTS DISPONIBLES: ${participants.map(p => p.name).join(', ')}
 
-🔍 **Pour chaque tâche, uniquement si pertinent, tu dois :**
+🔍 **Pour chaque tâche, tu dois systématiquement :**
 1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
 2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
 3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
 4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
-5. Être **bref, structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter.
+5. Être **bref, structuré et pertinent**, en apportant toujours une valeur ajoutée.
 
 📧 **EMAILS PRÉ-RÉDIGÉS** (si nécessaire) :
 
@@ -57,11 +57,10 @@ PARTICIPANTS DISPONIBLES: ${participants.map(p => p.name).join(', ')}
 
 CONTEXTE CABINET : Cabinet d'ophtalmologie Dr Tabibian, Genève, équipements spécialisés (OCT, campimètre, lampe à fente), fournisseurs courants (Zeiss, Heidelberg, Topcon, Haag-Streit), normes suisses (LAMal, Swissmedic).
 
-RÈGLES STRICTES :
-- Ne génère une recommandation QUE si elle apporte une vraie valeur ajoutée
-- NE REFORMULE PAS bêtement la tâche
-- Fournir des conseils pratiques et actionables uniquement
-- Si la tâche est simple et claire, ne pas donner de recommandation
+RÈGLES :
+- Génère toujours une recommandation utile et actionnable
+- Fournir des conseils pratiques pour chaque tâche
+- Apporter systématiquement de la valeur ajoutée avec des insights spécialisés
 
 TRANSCRIPT DE LA RÉUNION (pour contexte supplémentaire si nécessaire) :
 "${transcript}"
@@ -69,15 +68,15 @@ TRANSCRIPT DE LA RÉUNION (pour contexte supplémentaire si nécessaire) :
 RETOURNE UNIQUEMENT ce JSON :
 {
   "hasRecommendation": boolean,
-  "recommendation": "conseils pratiques détaillés OU null si pas de valeur ajoutée",
-  "estimatedCost": "estimation si pertinent OU null",
+  "recommendation": "conseils pratiques détaillés",
+  "estimatedCost": "estimation OU null",
   "contacts": [{"name": "string", "phone": "string", "email": "string", "website": "string", "address": "string"}],
   "needsEmail": boolean,
   "emailDraft": "email formaté selon type (interne/externe) OU null",
-  "valueAddedReason": "pourquoi cette recommandation apporte de la valeur OU null"
+  "valueAddedReason": "pourquoi cette recommandation apporte de la valeur"
 }`;
 
-    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec prompt simplifié...');
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec prompt modifié...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -92,11 +91,13 @@ RETOURNE UNIQUEMENT ce JSON :
             role: 'system',
             content: `Tu es un expert en gestion de cabinet médical spécialisé en ophtalmologie. 
 
-CRITÈRES STRICTS POUR RECOMMANDATIONS :
-- UNIQUEMENT si valeur ajoutée claire et mesurable
+OBJECTIF : Générer systématiquement des recommandations utiles et actionables pour chaque tâche.
+
+CRITÈRES POUR RECOMMANDATIONS :
+- Toujours apporter une valeur ajoutée mesurable
 - Conseils PRATIQUES et ACTIONABLES
 - Expertise spécialisée ophtalmologie/Suisse
-- NE PAS reformuler bêtement
+- Insights professionnels basés sur l'expérience
 
 Pour emails internes, utilise ce format direct :
 
@@ -166,16 +167,17 @@ Cabinet d'Ophtalmologie - Genève
       
       recommendation = JSON.parse(cleanContent);
       
-      // Validation stricte de la structure
+      // Validation de la structure
       if (typeof recommendation.hasRecommendation !== 'boolean') {
         throw new Error('Structure invalide');
       }
 
-      // Validation de la valeur ajoutée - si pas de raison claire, rejeter
-      if (recommendation.hasRecommendation && !recommendation.valueAddedReason) {
-        console.log('[TASK-AGENT] ⚠️ Recommandation rejetée - pas de valeur ajoutée claire');
-        recommendation.hasRecommendation = false;
-        recommendation.recommendation = null;
+      // Forcer la génération de recommandations - plus de filtrage strict
+      if (!recommendation.hasRecommendation || !recommendation.recommendation) {
+        console.log('[TASK-AGENT] ⚠️ Forçage de génération de recommandation');
+        recommendation.hasRecommendation = true;
+        recommendation.recommendation = recommendation.recommendation || "Tâche identifiée - recommandation en cours d'analyse.";
+        recommendation.valueAddedReason = recommendation.valueAddedReason || "Suivi et documentation systématique de la tâche.";
       }
 
       // Nettoyer et formater l'email si présent
@@ -197,15 +199,15 @@ Cabinet d'Ophtalmologie - Genève
     } catch (parseError) {
       console.error('[TASK-AGENT] ❌ Erreur parsing:', parseError);
       
-      // Retour par défaut en cas d'erreur
+      // Retour par défaut avec recommandation basique
       recommendation = {
-        hasRecommendation: false,
-        recommendation: null,
+        hasRecommendation: true,
+        recommendation: "Tâche enregistrée - suivi recommandé pour assurer la bonne exécution.",
         estimatedCost: null,
         contacts: [],
         needsEmail: false,
         emailDraft: null,
-        valueAddedReason: null
+        valueAddedReason: "Suivi systématique et documentation de la tâche pour éviter les oublis."
       };
     }
 
@@ -229,13 +231,13 @@ Cabinet d'Ophtalmologie - Genève
       success: false,
       error: error.message,
       recommendation: {
-        hasRecommendation: false,
-        recommendation: null,
+        hasRecommendation: true,
+        recommendation: "Erreur lors de l'analyse - tâche nécessite un suivi manuel.",
         estimatedCost: null,
         contacts: [],
         needsEmail: false,
         emailDraft: null,
-        valueAddedReason: null
+        valueAddedReason: "Fallback pour assurer un suivi minimal de la tâche."
       }
     }), {
       status: 500,
