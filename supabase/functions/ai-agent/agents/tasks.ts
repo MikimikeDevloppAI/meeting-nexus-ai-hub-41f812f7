@@ -16,6 +16,81 @@ export class TaskAgent {
     this.supabase = supabase;
   }
 
+  // Fonction pour normaliser les noms et améliorer la correspondance
+  private normalizeParticipantName(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+      .trim();
+  }
+
+  // Fonction pour trouver le meilleur participant correspondant dans TOUS les participants
+  private async findBestParticipantMatch(searchName: string): Promise<any | null> {
+    if (!searchName) return null;
+
+    console.log(`[TASKS] 🔍 Recherche correspondance pour: "${searchName}"`);
+    
+    // Récupérer TOUS les participants de la base de données
+    const { data: allParticipants, error } = await this.supabase
+      .from('participants')
+      .select('id, name, email')
+      .order('name');
+
+    if (error || !allParticipants?.length) {
+      console.error('[TASKS] ❌ Erreur récupération participants:', error);
+      return null;
+    }
+
+    console.log(`[TASKS] 👥 Total participants disponibles: ${allParticipants.length}`);
+    
+    const normalizedSearch = this.normalizeParticipantName(searchName);
+    
+    // Variantes de noms connues
+    const nameVariants: Record<string, string[]> = {
+      'leila': ['leïla', 'leila'],
+      'emilie': ['émilie', 'emilie'],
+      'david': ['david', 'david tabibian'],
+      'parmice': ['parmice', 'parmis'],
+      'sybil': ['sybil'],
+      'tabibian': ['tabibian', 'dr tabibian']
+    };
+    
+    // 1. Correspondance exacte avec variantes
+    for (const participant of allParticipants) {
+      const normalizedParticipantName = this.normalizeParticipantName(participant.name);
+      const normalizedEmail = this.normalizeParticipantName(participant.email?.split('@')[0] || '');
+      
+      // Test direct
+      if (normalizedParticipantName === normalizedSearch || normalizedEmail === normalizedSearch) {
+        console.log(`[TASKS] ✅ Correspondance exacte: ${participant.name}`);
+        return participant;
+      }
+      
+      // Test avec variantes
+      for (const [key, variants] of Object.entries(nameVariants)) {
+        if (variants.some(variant => this.normalizeParticipantName(variant) === normalizedSearch)) {
+          if (variants.some(variant => this.normalizeParticipantName(variant) === normalizedParticipantName)) {
+            console.log(`[TASKS] ✅ Correspondance variante: ${participant.name}`);
+            return participant;
+          }
+        }
+      }
+    }
+    
+    // 2. Correspondance partielle
+    for (const participant of allParticipants) {
+      const normalizedParticipantName = this.normalizeParticipantName(participant.name);
+      if (normalizedParticipantName.includes(normalizedSearch) || normalizedSearch.includes(normalizedParticipantName)) {
+        console.log(`[TASKS] ✅ Correspondance partielle: ${participant.name}`);
+        return participant;
+      }
+    }
+    
+    console.log(`[TASKS] ⚠️ Aucune correspondance trouvée pour: "${searchName}"`);
+    return null;
+  }
+
   async handleTaskRequest(message: string, analysis: any, conversationHistory: any[] = []): Promise<TaskContext> {
     console.log('[TASKS] 📋 Gestion spécialisée des tâches');
     
@@ -95,7 +170,7 @@ export class TaskAgent {
         console.log('[TASKS] ➕ Création tâche avec assignation depuis réponse utilisateur');
         
         const taskDescription = this.extractTaskDescription(previousTaskRequest);
-        const assignedTo = this.extractAssignedTo(message);
+        const participant = await this.findBestParticipantMatch(message.trim());
         
         if (taskDescription) {
           const shortDescription = this.makeDescriptionConcise(taskDescription);
@@ -104,18 +179,27 @@ export class TaskAgent {
             .from('todos')
             .insert([{
               description: shortDescription,
-              status: 'confirmed', // Changé de 'pending' à 'confirmed'
-              assigned_to: assignedTo,
+              status: 'confirmed',
+              assigned_to: participant?.id || null,
               meeting_id: null
             }])
             .select()
             .single();
 
           if (!error && newTask) {
+            // Créer la relation todo_participants si participant trouvé
+            if (participant) {
+              await this.supabase.from('todo_participants').insert({
+                todo_id: newTask.id,
+                participant_id: participant.id
+              });
+              console.log('[TASKS] ✅ Participant assigné:', participant.name);
+            }
+            
             context.taskCreated = newTask;
             context.currentTasks.unshift(newTask);
             context.taskAction = 'create';
-            console.log('[TASKS] ✅ Tâche créée avec assignation:', newTask.id, 'assignée à:', assignedTo);
+            console.log('[TASKS] ✅ Tâche créée:', newTask.id);
           } else {
             console.log('[TASKS] ❌ Erreur création tâche:', error);
           }
@@ -129,25 +213,36 @@ export class TaskAgent {
         console.log('[TASKS] ➕ Création d\'une nouvelle tâche:', taskDescription);
         
         const shortDescription = this.makeDescriptionConcise(taskDescription);
-        const assignedTo = this.extractAssignedTo(message);
+        const participantName = this.extractAssignedToFromMessage(message);
         
-        if (assignedTo) {
+        let participant = null;
+        if (participantName) {
+          participant = await this.findBestParticipantMatch(participantName);
+        }
+        
+        if (participant) {
           // Création directe avec assignation
           const { data: newTask, error } = await this.supabase
             .from('todos')
             .insert([{
               description: shortDescription,
-              status: 'confirmed', // Changé de 'pending' à 'confirmed'
-              assigned_to: assignedTo,
+              status: 'confirmed',
+              assigned_to: participant.id,
               meeting_id: null
             }])
             .select()
             .single();
 
           if (!error && newTask) {
+            // Créer la relation todo_participants
+            await this.supabase.from('todo_participants').insert({
+              todo_id: newTask.id,
+              participant_id: participant.id
+            });
+            
             context.taskCreated = newTask;
             context.currentTasks.unshift(newTask);
-            console.log('[TASKS] ✅ Nouvelle tâche créée:', newTask.id, 'assignée à:', assignedTo);
+            console.log('[TASKS] ✅ Nouvelle tâche créée:', newTask.id, 'assignée à:', participant.name);
           } else {
             console.log('[TASKS] ❌ Erreur création tâche:', error);
           }
@@ -294,58 +389,20 @@ export class TaskAgent {
     return null;
   }
 
-  private extractAssignedTo(message: string): string | null {
-    // Extraire les participants du contexte avec logique améliorée
-    const participantMatch = message.match(/CONTEXT_PARTICIPANTS:\s*([^}]+)/);
-    const participantsStr = participantMatch ? participantMatch[1] : '';
+  private extractAssignedToFromMessage(message: string): string | null {
+    // Chercher des patterns comme "pour David", "à Emilie", etc.
+    const patterns = [
+      /(?:pour|à|assigner?\s+à)\s+([a-zA-ZÀ-ÿ\s]+)/i,
+      /([a-zA-ZÀ-ÿ]+)\s+(?:doit|va|peut)\s+/i
+    ];
     
-    console.log('[TASKS] 🔍 Participants context:', participantsStr);
-    
-    // Si c'est juste un nom simple, chercher dans les participants
-    const cleanMessage = message.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '').trim().toLowerCase();
-    
-    if (participantsStr) {
-      // Patterns améliorés pour extraire ID depuis le contexte participants
-      // Supporter différents formats de participants
-      const participantLines = participantsStr.split('\n').filter(line => line.trim());
-      
-      for (const line of participantLines) {
-        // Format: "Nom (Email: email@domain.com, ID: uuid)"
-        const idMatch = line.match(/ID:\s*([a-f0-9\-]{36})/i);
-        const nameMatch = line.match(/^([^(]+)/);
-        const emailMatch = line.match(/Email:\s*([^,)]+)/i);
-        
-        if (idMatch && (nameMatch || emailMatch)) {
-          const participantName = nameMatch ? nameMatch[1].trim().toLowerCase() : '';
-          const participantEmail = emailMatch ? emailMatch[1].trim().toLowerCase() : '';
-          const participantId = idMatch[1].trim();
-          
-          console.log('[TASKS] 🔄 Comparaison participant:', { participantName, participantEmail, cleanMessage });
-          
-          // Recherche par nom
-          if (participantName && (
-            participantName.includes(cleanMessage) || 
-            cleanMessage.includes(participantName) ||
-            participantName.split(' ')[0] === cleanMessage || // Premier prénom
-            cleanMessage === participantName.split(' ')[0]
-          )) {
-            console.log('[TASKS] ✅ Participant trouvé par nom:', participantId);
-            return participantId;
-          }
-          
-          // Recherche par email
-          if (participantEmail && (
-            participantEmail.includes(cleanMessage) || 
-            cleanMessage.includes(participantEmail)
-          )) {
-            console.log('[TASKS] ✅ Participant trouvé par email:', participantId);
-            return participantId;
-          }
-        }
+    for (const pattern of patterns) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
       }
     }
     
-    console.log('[TASKS] ⚠️ Aucun participant trouvé pour:', cleanMessage);
     return null;
   }
 

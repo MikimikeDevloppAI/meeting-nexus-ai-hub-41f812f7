@@ -62,18 +62,107 @@ export const getMeetingData = async (supabaseClient: any, meetingId: string) => 
   return data
 }
 
-export const saveTask = async (supabaseClient: any, task: any, meetingId: string, participants: any[]) => {
-  console.log('💾 Saving task:', task.description?.substring(0, 50) + '...')
+// Fonction pour normaliser les noms et améliorer la correspondance
+const normalizeParticipantName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+    .trim();
+};
+
+// Mapper les variantes de noms connues
+const getNameVariants = (searchName: string): string[] => {
+  const normalized = normalizeParticipantName(searchName);
+  
+  const nameMapping: Record<string, string[]> = {
+    'leila': ['leïla', 'leila'],
+    'emilie': ['émilie', 'emilie'],
+    'david': ['david', 'david tabibian'],
+    'parmice': ['parmice', 'parmis'],
+    'sybil': ['sybil'],
+    'tabibian': ['tabibian', 'dr tabibian', 'docteur tabibian']
+  };
+  
+  // Chercher dans le mapping
+  for (const [key, variants] of Object.entries(nameMapping)) {
+    if (variants.some(variant => normalizeParticipantName(variant) === normalized)) {
+      return variants;
+    }
+  }
+  
+  return [searchName];
+};
+
+// Fonction pour trouver le meilleur participant correspondant
+const findBestParticipantMatch = (searchName: string, allParticipants: any[]): any | null => {
+  if (!searchName || !allParticipants?.length) return null;
+
+  console.log(`🔍 Recherche correspondance pour: "${searchName}"`);
+  console.log(`👥 Participants disponibles:`, allParticipants.map(p => ({ id: p.id, name: p.name, email: p.email })));
+  
+  const variants = getNameVariants(searchName);
+  console.log(`🔄 Variantes testées:`, variants);
+  
+  // 1. Correspondance exacte avec variantes
+  for (const variant of variants) {
+    const normalizedVariant = normalizeParticipantName(variant);
+    
+    for (const participant of allParticipants) {
+      const normalizedParticipantName = normalizeParticipantName(participant.name);
+      const normalizedEmail = normalizeParticipantName(participant.email?.split('@')[0] || '');
+      
+      if (normalizedParticipantName === normalizedVariant || 
+          normalizedEmail === normalizedVariant ||
+          normalizedParticipantName.includes(normalizedVariant) ||
+          normalizedVariant.includes(normalizedParticipantName)) {
+        console.log(`✅ Correspondance trouvée: ${participant.name} (${participant.email})`);
+        return participant;
+      }
+    }
+  }
+  
+  // 2. Correspondance partielle par prénom
+  const firstName = normalizeParticipantName(searchName.split(' ')[0]);
+  for (const participant of allParticipants) {
+    const participantFirstName = normalizeParticipantName(participant.name.split(' ')[0]);
+    if (participantFirstName === firstName) {
+      console.log(`✅ Correspondance par prénom: ${participant.name}`);
+      return participant;
+    }
+  }
+  
+  console.log(`⚠️ Aucune correspondance trouvée pour: "${searchName}"`);
+  return null;
+};
+
+export const saveTask = async (supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) => {
+  console.log('💾 Saving task:', task.description?.substring(0, 50) + '...');
+  console.log('📋 Task assignment data:', task.assigned_to);
   
   try {
-    // Créer la tâche avec le statut "confirmed" (en cours) au lieu de "pending"
+    // Récupérer TOUS les participants de la base de données, pas seulement ceux de la réunion
+    const { data: allParticipants, error: participantsError } = await supabaseClient
+      .from('participants')
+      .select('id, name, email')
+      .order('name');
+
+    if (participantsError) {
+      console.error('❌ Error fetching all participants:', participantsError);
+      throw participantsError;
+    }
+
+    console.log(`👥 Total participants disponibles: ${allParticipants?.length || 0}`);
+    
+    // Créer la tâche avec le statut "confirmed" (en cours)
     const { data: savedTask, error } = await supabaseClient
       .from('todos')
       .insert([{
         meeting_id: meetingId,
         description: task.description,
-        status: 'confirmed', // Changé de 'pending' à 'confirmed'
+        status: 'confirmed',
         due_date: task.due_date || null,
+        assigned_to: null // On va le mettre à jour après
       }])
       .select()
       .single()
@@ -85,39 +174,20 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
 
     console.log('✅ Task saved with ID:', savedTask.id)
 
-    // Assigner les participants si spécifiés - logique améliorée
+    // Traiter les assignations si spécifiées
+    let firstAssignedParticipantId = null;
+    
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
-      console.log('👥 Assigning participants to task:', task.assigned_to)
+      console.log('👥 Assignation participants:', task.assigned_to);
       
-      for (const participantInfo of task.assigned_to) {
-        // Nettoyer le nom du participant
-        const cleanParticipantName = participantInfo.toString().toLowerCase().trim();
+      for (const participantName of task.assigned_to) {
+        if (!participantName || typeof participantName !== 'string') continue;
         
-        // Trouver le participant correspondant avec logique plus flexible
-        const participant = participants.find(p => {
-          const name = p.name?.toLowerCase() || '';
-          const email = p.email?.toLowerCase() || '';
-          
-          // Recherche exacte d'abord
-          if (name === cleanParticipantName || email === cleanParticipantName) {
-            return true;
-          }
-          
-          // Recherche partielle ensuite
-          if (name.includes(cleanParticipantName) || cleanParticipantName.includes(name)) {
-            return true;
-          }
-          
-          // Recherche par prénom (premier mot)
-          const firstName = name.split(' ')[0];
-          if (firstName && (firstName === cleanParticipantName || cleanParticipantName.includes(firstName))) {
-            return true;
-          }
-          
-          return false;
-        });
+        // Chercher le participant dans TOUS les participants disponibles
+        const participant = findBestParticipantMatch(participantName.toString(), allParticipants || []);
         
         if (participant) {
+          // Créer la relation dans todo_participants
           const { error: assignError } = await supabaseClient
             .from('todo_participants')
             .insert([{
@@ -128,15 +198,35 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
           if (assignError) {
             console.error('❌ Error assigning participant:', assignError)
           } else {
-            console.log('✅ Participant assigned:', participant.name, 'to task:', savedTask.id)
+            console.log('✅ Participant assigné:', participant.name, 'to task:', savedTask.id)
+            
+            // Garder le premier participant assigné pour la colonne assigned_to
+            if (!firstAssignedParticipantId) {
+              firstAssignedParticipantId = participant.id;
+            }
           }
         } else {
-          console.warn('⚠️ Participant not found for assignment:', participantInfo)
-          console.log('Available participants:', participants.map(p => ({ id: p.id, name: p.name, email: p.email })))
+          console.warn('⚠️ Participant non trouvé pour assignation:', participantName)
+          console.log('📋 Participants disponibles:', allParticipants?.map(p => ({ name: p.name, email: p.email })))
         }
       }
     } else {
-      console.log('ℹ️ No participants to assign for this task')
+      console.log('ℹ️ Pas de participants à assigner pour cette tâche')
+    }
+
+    // Mettre à jour la colonne assigned_to avec le premier participant assigné
+    if (firstAssignedParticipantId) {
+      const { error: updateError } = await supabaseClient
+        .from('todos')
+        .update({ assigned_to: firstAssignedParticipantId })
+        .eq('id', savedTask.id);
+        
+      if (updateError) {
+        console.error('❌ Error updating assigned_to column:', updateError);
+      } else {
+        console.log('✅ Updated assigned_to column with participant ID:', firstAssignedParticipantId);
+        savedTask.assigned_to = firstAssignedParticipantId;
+      }
     }
 
     return savedTask

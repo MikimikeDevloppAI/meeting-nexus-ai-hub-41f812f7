@@ -2,7 +2,7 @@
 export function createTasksPrompt(participantNames: string, cleanedTranscript: string): string {
   return `Basé sur ce transcript de réunion, identifie et REGROUPE INTELLIGEMMENT toutes les tâches, actions et suivis par SUJETS COHÉRENTS pour éviter les doublons. Privilégie le regroupement pour minimiser le nombre de tâches.
 
-Participants de la réunion : ${participantNames}
+Participants disponibles dans le système : ${participantNames}
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
 - Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
@@ -19,11 +19,18 @@ Participants de la réunion : ${participantNames}
 - Sois concis mais avec tout le contexte nécessaire pour être autonome
 
 **RÈGLES D'ASSIGNATION STRICTES:**
-- Assigne SEULEMENT si explicitement mentionné ou clairement déductible
-- Utilise les noms EXACTS : ${participantNames}
+- Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
+- Variantes acceptées pour correspondance :
+  • Leïla / leila / Leila
+  • Émilie / emilie / Emilie  
+  • David / david / David Tabibian
+  • Parmice / parmice / Parmis
+  • Sybil / sybil
+  • Tabibian / tabibian
 - Si une personne dit "je vais faire X" → assigne à cette personne
-- Si plusieurs personnes impliquées → assigne à la personne principale ou null
-- Si aucune assignation claire, laisse "assignedTo" à null
+- Si plusieurs personnes impliquées → assigne à la personne principale
+- Si aucune assignation claire, laisse "assigned_to" à null
+- Tu peux assigner à N'IMPORTE QUEL participant de la liste, même s'il n'était pas présent à la réunion
 
 Transcript :
 ${cleanedTranscript}
@@ -33,7 +40,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   "tasks": [
     {
       "description": "Action principale + contexte complet concis mais détaillé",
-      "assignedTo": "Nom exact du participant tel qu'il apparaît dans la liste ou null"
+      "assigned_to": ["Nom exact du participant tel qu'il apparaît dans la liste"] ou null
     }
   ]
 }`;
