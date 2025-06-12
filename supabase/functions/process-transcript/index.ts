@@ -152,23 +152,25 @@ serve(async (req) => {
       chunks
     );
 
-    // 5. Générer les recommandations IA pour les tâches - ATTENDRE QUE TOUT SOIT FINI
-    let recommendationsGenerated = false;
+    // 5. Générer les recommandations IA pour les tâches EN PARALLÈLE - NOUVELLE APPROCHE
+    let recommendationResults = null;
     if (savedTasks.length > 0) {
-      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches - ATTENTE COMPLETE`);
+      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches - TRAITEMENT PARALLÈLE`);
       try {
-        await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
-        recommendationsGenerated = true;
-        console.log('✅ TOUTES les recommandations ont été traitées');
+        recommendationResults = await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
+        console.log(`✅ TOUTES les recommandations ont été traitées en parallèle:`, recommendationResults);
       } catch (recError) {
         console.error('❌ Erreur lors de la génération des recommandations:', recError);
-        recommendationsGenerated = false;
+        recommendationResults = { processed: 0, successful: 0, failed: savedTasks.length };
       }
+    } else {
+      console.log('⚠️ Aucune tâche sauvegardée pour générer des recommandations');
+      recommendationResults = { processed: 0, successful: 0, failed: 0 };
     }
 
-    // 6. Attendre un délai supplémentaire pour s'assurer que toutes les opérations async sont terminées
+    // 6. Attendre un délai pour stabilisation (réduit car traitement parallèle)
     console.log('⏳ Attente finale pour stabilisation des données...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log('✅ TOUT le traitement est COMPLETEMENT terminé - prêt pour redirection');
 
@@ -179,7 +181,12 @@ serve(async (req) => {
       chunksProcessed: documentResult.chunksCount,
       transcriptCleaned: true,
       summaryGenerated: true,
-      recommendationsGenerated: recommendationsGenerated,
+      recommendationsGenerated: recommendationResults?.successful > 0,
+      recommendationStats: {
+        processed: recommendationResults?.processed || 0,
+        successful: recommendationResults?.successful || 0,
+        failed: recommendationResults?.failed || 0
+      },
       completelyFinished: true // Nouveau flag pour confirmer que TOUT est fini
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
