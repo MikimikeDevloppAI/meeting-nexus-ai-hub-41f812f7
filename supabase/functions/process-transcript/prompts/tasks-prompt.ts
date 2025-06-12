@@ -1,6 +1,6 @@
 
 export function createTasksPrompt(participantNames: string, cleanedTranscript: string): string {
-  return `Basé sur ce transcript de réunion, identifie et REGROUPE INTELLIGEMMENT toutes les tâches, actions et suivis par SUJETS COHÉRENTS pour éviter les doublons. AUCUNE TÂCHE NE DOIT ÊTRE OUBLIÉE.
+  return `Basé sur ce transcript de réunion, identifie et REGROUPE INTELLIGEMMENT toutes les tâches, actions et suivis par SUJETS COHÉRENTS pour éviter les doublons. Privilégie le regroupement pour minimiser le nombre de tâches.
 
 Participants de la réunion : ${participantNames}
 
@@ -9,7 +9,7 @@ Participants de la réunion : ${participantNames}
 - Une tâche = un sujet principal avec TOUT le contexte nécessaire
 - Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
 - Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
-- EXTRAIS TOUTES LES TÂCHES MENTIONNÉES, même les plus petites
+- Privilégie les macro-tâches sur les micro-actions
 
 **RÈGLES DE CONTEXTE ENRICHI:**
 - Inclus TOUT le contexte nécessaire pour comprendre et exécuter la tâche
