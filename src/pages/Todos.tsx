@@ -7,7 +7,7 @@ import { CheckCircle, Calendar, Trash2, Pen, Users, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
-import { TodoAIChat } from "@/components/TodoAIChat";
+import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
@@ -38,6 +38,7 @@ export default function Todos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [participantFilter, setParticipantFilter] = useState<string>("all");
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
@@ -251,12 +252,15 @@ export default function Todos() {
     );
   };
 
-  const filteredTodos = statusFilter === "all" 
-    ? todos 
-    : todos.filter(todo => {
-        const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
-        return effectiveStatus === statusFilter;
-      });
+  const filteredTodos = todos.filter(todo => {
+    const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
+    const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
+    
+    const participantMatch = participantFilter === "all" || 
+      todo.todo_participants?.some(tp => tp.participant_id === participantFilter);
+    
+    return statusMatch && participantMatch;
+  });
 
   if (loading) {
     return (
@@ -299,6 +303,21 @@ export default function Todos() {
               Terminées
             </Button>
           </div>
+          
+          <Select value={participantFilter} onValueChange={setParticipantFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filtrer par participant" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les participants</SelectItem>
+              {participants.map((participant) => (
+                <SelectItem key={participant.id} value={participant.id}>
+                  {participant.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
           <Button
             onClick={() => setShowNewTodoDialog(true)}
             variant="default"
@@ -398,9 +417,13 @@ export default function Todos() {
                     </div>
                   </div>
 
-                  {/* AI Chat integrated inside the todo card */}
+                  {/* AI Assistant integrated inside the todo card */}
                   <div className="pl-0.5">
-                    <TodoAIChat todoId={todo.id} todoDescription={todo.description} />
+                    <TodoAssistant 
+                      todoId={todo.id} 
+                      todoDescription={todo.description}
+                      onUpdate={fetchTodos}
+                    />
                   </div>
 
                   {/* AI Recommendation */}
