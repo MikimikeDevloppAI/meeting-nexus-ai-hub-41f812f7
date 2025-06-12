@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Send, Loader2, MessageSquare } from "lucide-react";
+import { Bot, Send, Loader2, MessageSquare, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Collapsible,
@@ -162,7 +162,7 @@ export const TodoAssistant = ({ todoId, todoDescription, onUpdate }: TodoAssista
               <ScrollArea className="h-[200px] pr-2">
                 <div className="space-y-2">
                   {messages.length === 0 && (
-                    <div className="text-center py-2 text-gray-500">
+                    <div className="text-center py-2 text-muted-foreground">
                       <p className="text-xs">
                         Modifiez cette tâche avec l'IA
                       </p>
@@ -172,24 +172,36 @@ export const TodoAssistant = ({ todoId, todoDescription, onUpdate }: TodoAssista
                   {messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`rounded-lg p-2 max-w-[85%] text-xs ${
-                        message.role === 'user' 
-                          ? 'bg-purple-600 text-white' 
-                          : 'bg-gray-100 text-gray-900'
-                      }`}>
-                        {message.action && (
-                          <div className="text-xs opacity-70 mb-1">
-                            {actionLabels[message.action as keyof typeof actionLabels]}
+                      <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          message.role === 'user' ? 'bg-primary' : 'bg-secondary'
+                        }`}>
+                          {message.role === 'user' ? (
+                            <User className="h-3 w-3 text-primary-foreground" />
+                          ) : (
+                            <Bot className="h-3 w-3" />
+                          )}
+                        </div>
+                        
+                        <div className={`rounded-lg p-2 text-xs ${
+                          message.role === 'user' 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'bg-muted'
+                        }`}>
+                          {message.action && (
+                            <div className="text-xs opacity-70 mb-1">
+                              {actionLabels[message.action as keyof typeof actionLabels]}
+                            </div>
+                          )}
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <div className="text-xs opacity-70 mt-1">
+                            {message.timestamp.toLocaleTimeString('fr-FR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
                           </div>
-                        )}
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <div className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString('fr-FR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
                         </div>
                       </div>
                     </div>
