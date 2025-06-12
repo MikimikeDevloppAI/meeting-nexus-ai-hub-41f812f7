@@ -15,7 +15,7 @@ export async function processAIRecommendations(
     try {
       console.log(`🎯 Analyse intelligente pour: ${task.description.substring(0, 50)}...`);
       
-      // Appel à l'agent intelligent amélioré
+      // Appel à l'agent intelligent simplifié
       const { data: recommendationResult, error: recommendationError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
         body: {
           task: { description: task.description },
@@ -44,21 +44,13 @@ export async function processAIRecommendations(
       
       if (rec && (rec.hasRecommendation || rec.needsEmail)) {
         console.log(`✅ Recommandation intelligente pour: ${task.description.substring(0, 50)}...`);
-        console.log(`🎯 Type: ${rec.recommendationType}, Valeur ajoutée: ${rec.valueAddedReason || 'Non spécifiée'}`);
+        console.log(`💡 Valeur ajoutée: ${rec.valueAddedReason || 'Non spécifiée'}`);
         
-        // Construire le commentaire avec les informations améliorées
+        // Construire le commentaire simplifié
         let comment = '';
         
         if (rec.hasRecommendation && rec.recommendation) {
-          const typeLabels = {
-            'supplier_tips': '🏥 Conseils Fournisseur',
-            'research_guide': '🔍 Guide de Recherche', 
-            'action_plan': '⚙️ Plan d\'Action',
-            'internal_communication': '📧 Communication Interne'
-          };
-          
-          const typeLabel = typeLabels[rec.recommendationType] || '💡 Recommandation IA';
-          comment += `${typeLabel} :\n\n${rec.recommendation}`;
+          comment += `💡 **Recommandation IA :**\n\n${rec.recommendation}`;
           
           if (rec.valueAddedReason) {
             comment += `\n\n✨ **Valeur ajoutée :** ${rec.valueAddedReason}`;
@@ -91,7 +83,7 @@ export async function processAIRecommendations(
             });
         }
 
-        // Sauvegarder la recommandation avec le nouveau champ valueAddedReason
+        // Sauvegarder la recommandation simplifiée
         const recommendationData: any = {
           todo_id: task.id,
           recommendation_text: rec.recommendation || 'Voir email pré-rédigé ou conseils spécialisés.',
@@ -102,7 +94,7 @@ export async function processAIRecommendations(
           .from('todo_ai_recommendations')
           .insert(recommendationData);
         
-        console.log(`✅ Recommandation intelligente sauvegardée: ${rec.recommendationType}`);
+        console.log(`✅ Recommandation intelligente sauvegardée`);
       } else {
         console.log(`ℹ️ Aucune recommandation pertinente pour: ${task.description.substring(0, 50)}... (pas de valeur ajoutée)`);
       }

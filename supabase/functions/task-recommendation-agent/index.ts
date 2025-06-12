@@ -21,7 +21,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Prompt complètement remanié avec logique intelligente
+    // Prompt simplifié avec les 5 points directeurs et transcript à la fin
     const prompt = `Tu es un assistant IA spécialisé pour un cabinet d'ophtalmologie à Genève dirigé par le Dr Tabibian.
 
 TÂCHE À ANALYSER: "${task.description}"
@@ -33,67 +33,51 @@ CONTEXTE RÉUNION:
 
 PARTICIPANTS DISPONIBLES: ${participants.map(p => p.name).join(', ')}
 
-RÈGLES STRICTES DE VALEUR AJOUTÉE :
-1. Ne génère une recommandation QUE si elle apporte une vraie valeur ajoutée
-2. NE REFORMULE PAS bêtement la tâche
-3. Fournir des conseils pratiques et actionables uniquement
-4. Si la tâche est simple et claire, ne pas donner de recommandation
+🔍 **Pour chaque tâche, uniquement si pertinent, tu dois :**
+1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
+2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
+3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
+4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
+5. Être **bref, structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter.
 
-TYPES DE TÂCHES ET LOGIQUE SPÉCIALISÉE :
+📧 **EMAILS PRÉ-RÉDIGÉS** (si nécessaire) :
 
-🏥 **CONTACT FOURNISSEUR/PRESTATAIRE** (matériel médical, services, équipements) :
-- Tips essentiels pour négocier avec des fournisseurs médicaux
-- Points d'attention spécifiques à l'ophtalmologie
-- Éléments techniques à ne pas oublier dans les specifications
-- Critères de sélection pour fournisseurs médicaux en Suisse
-- Questions clés à poser (certifications, maintenance, formation)
-- Aspects réglementaires suisses (Swissmedic, etc.)
+**EMAILS INTERNES** (équipe cabinet) :
+- Contexte minimal, droit au but
+- Ton familier mais professionnel
+- Instructions claires et directes
+- Format court et actionnable
 
-🔍 **RECHERCHE/RENSEIGNEMENT** (technologies, formations, procédures) :
-- Méthodologie de recherche pour le domaine médical
-- Sources fiables spécialisées en ophtalmologie
-- Questions structurées à poser aux experts
-- Critères d'évaluation pertinents
-- Checklist de points à couvrir
+**EMAILS EXTERNES** (fournisseurs, partenaires, patients) :
+- Contexte complet et précis
+- Ton formel et professionnel
+- Présentation du cabinet et du contexte
+- Demandes détaillées et structurées
+- Formules de politesse appropriées
 
-📧 **COMMUNICATION INTERNE** (emails équipe, rappels, coordination) :
-- Générer uniquement un email pré-rédigé professionnel
-- Ton approprié selon le destinataire
-- Structure claire et actionnable
+CONTEXTE CABINET : Cabinet d'ophtalmologie Dr Tabibian, Genève, équipements spécialisés (OCT, campimètre, lampe à fente), fournisseurs courants (Zeiss, Heidelberg, Topcon, Haag-Streit), normes suisses (LAMal, Swissmedic).
 
-⚙️ **ACTION COMPLEXE** (mise en place processus, formation équipe, etc.) :
-- Plan d'action détaillé avec étapes logiques
-- Ressources nécessaires et responsabilités
-- Timeline réaliste avec jalons
-- Risques potentiels et mitigations
+RÈGLES STRICTES :
+- Ne génère une recommandation QUE si elle apporte une vraie valeur ajoutée
+- NE REFORMULE PAS bêtement la tâche
+- Fournir des conseils pratiques et actionables uniquement
+- Si la tâche est simple et claire, ne pas donner de recommandation
 
-CONTEXTE MÉDICAL SPÉCIALISÉ :
-- Cabinet ophtalmologie Genève, Dr Tabibian
-- Réglementations suisses santé (LAMal, LPTh, Swissmedic)
-- Équipements spécialisés : OCT, campimètre, lampe à fente, rétinographe
-- Fournisseurs courants : Zeiss, Heidelberg, Topcon, Haag-Streit
-- Normes qualité : ISO 13485, MDD, MDR
-- Formation continue : SOG (Société Suisse d'Ophtalmologie)
-
-EXEMPLES DE SITUATIONS :
-- "Contacter fournisseur OCT" → Tips négociation, specs techniques, questions maintenance
-- "Se renseigner sur nouvelle technique laser" → Sources spécialisées, critères évaluation, questions experts
-- "Informer équipe changement planning" → Email pré-rédigé uniquement
-- "Former équipe nouveau protocole" → Plan formation détaillé étapes par étapes
+TRANSCRIPT DE LA RÉUNION (pour contexte supplémentaire si nécessaire) :
+"${transcript}"
 
 RETOURNE UNIQUEMENT ce JSON :
 {
   "hasRecommendation": boolean,
-  "recommendationType": "supplier_tips|research_guide|action_plan|internal_communication|null",
   "recommendation": "conseils pratiques détaillés OU null si pas de valeur ajoutée",
   "estimatedCost": "estimation si pertinent OU null",
   "contacts": [{"name": "string", "phone": "string", "email": "string", "website": "string", "address": "string"}],
   "needsEmail": boolean,
-  "emailDraft": "email formaté OU null",
+  "emailDraft": "email formaté selon type (interne/externe) OU null",
   "valueAddedReason": "pourquoi cette recommandation apporte de la valeur OU null"
 }`;
 
-    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec nouveau prompt intelligent...');
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec prompt simplifié...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -114,23 +98,37 @@ CRITÈRES STRICTS POUR RECOMMANDATIONS :
 - Expertise spécialisée ophtalmologie/Suisse
 - NE PAS reformuler bêtement
 
-Pour emails internes, utilise ce format professionnel :
+Pour emails internes, utilise ce format direct :
 
 Objet: [Sujet clair]
 
 Bonjour [Nom/Équipe],
 
-[Message structuré avec points clairs]
+[Message direct avec points clairs]
 
 - Point 1
 - Point 2
 - Action attendue avec délai
 
-Merci pour votre attention.
+Merci.
 
-Cordialement,
 Dr. Tabibian
-Cabinet d'Ophtalmologie - Genève`
+
+Pour emails externes, utilise ce format professionnel :
+
+Objet: [Sujet détaillé]
+
+Madame, Monsieur,
+
+Je vous contacte au nom du Cabinet d'Ophtalmologie Dr Tabibian à Genève concernant [contexte détaillé].
+
+[Description précise de la demande avec contexte]
+
+Dans l'attente de votre retour, je vous prie d'agréer mes salutations distinguées.
+
+Dr. Tabibian
+Cabinet d'Ophtalmologie - Genève
+[coordonnées si pertinent]`
           },
           {
             role: 'user',
@@ -178,7 +176,6 @@ Cabinet d'Ophtalmologie - Genève`
         console.log('[TASK-AGENT] ⚠️ Recommandation rejetée - pas de valeur ajoutée claire');
         recommendation.hasRecommendation = false;
         recommendation.recommendation = null;
-        recommendation.recommendationType = null;
       }
 
       // Nettoyer et formater l'email si présent
@@ -196,13 +193,6 @@ Cabinet d'Ophtalmologie - Genève`
         
         recommendation.emailDraft = emailContent.trim();
       }
-
-      // Valider le type de recommandation
-      const validTypes = ['supplier_tips', 'research_guide', 'action_plan', 'internal_communication'];
-      if (recommendation.recommendationType && !validTypes.includes(recommendation.recommendationType)) {
-        console.log('[TASK-AGENT] ⚠️ Type de recommandation invalide:', recommendation.recommendationType);
-        recommendation.recommendationType = null;
-      }
       
     } catch (parseError) {
       console.error('[TASK-AGENT] ❌ Erreur parsing:', parseError);
@@ -210,7 +200,6 @@ Cabinet d'Ophtalmologie - Genève`
       // Retour par défaut en cas d'erreur
       recommendation = {
         hasRecommendation: false,
-        recommendationType: null,
         recommendation: null,
         estimatedCost: null,
         contacts: [],
@@ -223,7 +212,6 @@ Cabinet d'Ophtalmologie - Genève`
     // Log pour debugging
     console.log('[TASK-AGENT] ✅ Recommandation générée:', {
       hasRec: recommendation.hasRecommendation,
-      type: recommendation.recommendationType,
       needsEmail: recommendation.needsEmail,
       valueAdded: recommendation.valueAddedReason ? 'Oui' : 'Non'
     });
@@ -242,7 +230,6 @@ Cabinet d'Ophtalmologie - Genève`
       error: error.message,
       recommendation: {
         hasRecommendation: false,
-        recommendationType: null,
         recommendation: null,
         estimatedCost: null,
         contacts: [],

@@ -3,10 +3,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { 
-  Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, ExternalLink, 
-  Target, Lightbulb, Users, Building, Search, MessageSquare, Cog, Sparkles
+  Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, ExternalLink
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -29,8 +27,6 @@ interface AIRecommendation {
   created_at: string;
   contacts?: ContactInfo[];
   estimated_cost?: string;
-  recommendation_type?: 'supplier_tips' | 'research_guide' | 'action_plan' | 'internal_communication';
-  value_added_reason?: string;
 }
 
 export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
@@ -55,23 +51,6 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
         }
 
         if (data) {
-          // Détecter le type de recommandation basé sur le contenu si pas déjà défini
-          let recommendation_type = null;
-          if (data.recommendation_text) {
-            const text = data.recommendation_text.toLowerCase();
-            if (text.includes('fournisseur') || text.includes('négociation') || text.includes('prestataire')) {
-              recommendation_type = 'supplier_tips';
-            } else if (text.includes('recherche') || text.includes('sources') || text.includes('méthodologie')) {
-              recommendation_type = 'research_guide';
-            } else if (text.includes('plan d\'action') || text.includes('étapes') || text.includes('timeline')) {
-              recommendation_type = 'action_plan';
-            } else if (text.includes('email') || text.includes('communication') || text.includes('équipe')) {
-              recommendation_type = 'internal_communication';
-            }
-          }
-          
-          data.recommendation_type = recommendation_type;
-          
           // Parser les contacts depuis la recommandation si disponibles
           try {
             const contactPattern = /\*\*Contact(?:s)?\*\*:?\s*([\s\S]*?)(?:\n\n|\*\*|$)/i;
@@ -136,9 +115,9 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Bot className="h-4 w-4 animate-pulse" />
-        <span>Analyse intelligente...</span>
+        <span>Analyse IA...</span>
       </div>
     );
   }
@@ -150,200 +129,141 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasContactInfo = recommendation.contacts && recommendation.contacts.length > 0;
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
-  const getRecommendationIcon = () => {
-    switch (recommendation.recommendation_type) {
-      case 'supplier_tips': return <Building className="h-4 w-4 text-orange-600" />;
-      case 'research_guide': return <Search className="h-4 w-4 text-blue-600" />;
-      case 'action_plan': return <Cog className="h-4 w-4 text-purple-600" />;
-      case 'internal_communication': return <MessageSquare className="h-4 w-4 text-green-600" />;
-      default: return <Lightbulb className="h-4 w-4 text-blue-600" />;
-    }
-  };
-
-  const getRecommendationLabel = () => {
-    switch (recommendation.recommendation_type) {
-      case 'supplier_tips': return 'Conseils Fournisseur';
-      case 'research_guide': return 'Guide de Recherche';
-      case 'action_plan': return 'Plan d\'Action';
-      case 'internal_communication': return 'Communication Interne';
-      default: return 'Recommandation IA';
-    }
-  };
-
-  const getBadgeColor = () => {
-    switch (recommendation.recommendation_type) {
-      case 'supplier_tips': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'research_guide': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'action_plan': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'internal_communication': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-blue-100 text-blue-800 border-blue-200';
-    }
-  };
-
   return (
     <div className="mt-3">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="w-full justify-between bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:from-blue-100 hover:to-purple-100"
+            className="w-full justify-between text-muted-foreground hover:text-foreground"
           >
             <div className="flex items-center gap-2">
-              {getRecommendationIcon()}
-              <Badge variant="secondary" className={getBadgeColor()}>
-                {getRecommendationLabel()}
-              </Badge>
+              <Bot className="h-4 w-4" />
+              <span className="text-sm">Recommandation IA</span>
               {recommendation.email_draft && (
-                <Mail className="h-3 w-3 text-blue-600" />
+                <Mail className="h-3 w-3" />
               )}
               {hasContactInfo && (
-                <Phone className="h-3 w-3 text-green-600" />
+                <Phone className="h-3 w-3" />
               )}
-              <Sparkles className="h-3 w-3 text-purple-600" />
             </div>
             {isOpen ? (
-              <ChevronUp className="h-4 w-4 text-blue-600" />
+              <ChevronUp className="h-4 w-4" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-blue-600" />
+              <ChevronDown className="h-4 w-4" />
             )}
           </Button>
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <Card className="mt-2 border-blue-200 bg-gradient-to-br from-white to-blue-50">
+          <Card className="mt-2 border-muted">
             <CardContent className="p-4">
               <div className="space-y-3">
                 {hasRecommendation && (
-                  <div className="flex items-start gap-3">
-                    {getRecommendationIcon()}
-                    <div className="flex-1">
-                      <div className="prose prose-sm max-w-none text-gray-700">
-                        {recommendation.recommendation_text.split('\n').map((line, index) => {
-                          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                            return (
-                              <h4 key={index} className="font-semibold text-gray-900 mt-3 mb-1">
-                                {line.replace(/\*\*/g, '')}
-                              </h4>
-                            );
-                          }
-                          if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-                            return (
-                              <div key={index} className="ml-4 mb-1">
-                                {line.trim().substring(2)}
-                              </div>
-                            );
-                          }
-                          return line.trim() ? (
-                            <p key={index} className="mb-2">{line}</p>
-                          ) : (
-                            <br key={index} />
-                          );
-                        })}
-                      </div>
-                      
-                      {recommendation.estimated_cost && (
-                        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
-                          <div className="text-sm font-medium text-green-800 flex items-center gap-2">
-                            💰 Coût estimé : {recommendation.estimated_cost}
+                  <div className="text-sm text-muted-foreground">
+                    {recommendation.recommendation_text.split('\n').map((line, index) => {
+                      if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                        return (
+                          <div key={index} className="font-medium text-foreground mt-2 mb-1">
+                            {line.replace(/\*\*/g, '')}
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        );
+                      }
+                      if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+                        return (
+                          <div key={index} className="ml-3 mb-1">
+                            {line.trim().substring(2)}
+                          </div>
+                        );
+                      }
+                      return line.trim() ? (
+                        <div key={index} className="mb-1">{line}</div>
+                      ) : (
+                        <div key={index} className="h-1" />
+                      );
+                    })}
+                    
+                    {recommendation.estimated_cost && (
+                      <div className="mt-3 p-2 bg-muted rounded text-sm">
+                        <strong>Coût estimé :</strong> {recommendation.estimated_cost}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Section contacts fournisseurs */}
+                {/* Section contacts */}
                 {hasContactInfo && (
                   <div className={hasRecommendation ? "border-t pt-3" : ""}>
                     <Collapsible open={showContacts} onOpenChange={setShowContacts}>
                       <CollapsibleTrigger asChild>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="w-full justify-between"
+                          className="w-full justify-between text-sm"
                         >
                           <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            <span>Contacts spécialisés ({recommendation.contacts.length})</span>
+                            <Phone className="h-3 w-3" />
+                            <span>Contacts ({recommendation.contacts.length})</span>
                           </div>
                           {showContacts ? (
-                            <ChevronUp className="h-4 w-4" />
+                            <ChevronUp className="h-3 w-3" />
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
                           )}
                         </Button>
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
-                        <div className="mt-3 space-y-3">
+                        <div className="mt-2 space-y-2">
                           {recommendation.contacts.map((contact, index) => (
-                            <Card key={index} className="bg-gray-50 border-gray-200">
-                              <CardContent className="p-3">
-                                <div className="space-y-2">
-                                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                                    {contact.name}
-                                    {contact.website && (
-                                      <ExternalLink className="h-3 w-3 text-gray-500" />
-                                    )}
-                                  </h4>
-                                  
-                                  <div className="grid gap-1.5">
-                                    {contact.phone && (
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <Phone className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                        <a 
-                                          href={`tel:${contact.phone.replace(/\s+/g, '')}`} 
-                                          className="text-blue-600 hover:underline font-mono"
-                                        >
-                                          {contact.phone}
-                                        </a>
-                                      </div>
-                                    )}
-                                    
-                                    {contact.email && (
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <Mail className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                        <a 
-                                          href={`mailto:${contact.email}`} 
-                                          className="text-blue-600 hover:underline break-all"
-                                        >
-                                          {contact.email}
-                                        </a>
-                                      </div>
-                                    )}
-                                    
-                                    {contact.website && (
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <Globe className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                                        <a 
-                                          href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:underline break-all"
-                                        >
-                                          {contact.website.replace(/^https?:\/\//i, '')}
-                                        </a>
-                                      </div>
-                                    )}
-                                    
-                                    {contact.address && (
-                                      <div className="flex items-start gap-2 text-sm">
-                                        <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0 mt-0.5" />
-                                        <a 
-                                          href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
-                                          target="_blank" 
-                                          rel="noopener noreferrer" 
-                                          className="text-blue-600 hover:underline"
-                                        >
-                                          {contact.address}
-                                        </a>
-                                      </div>
-                                    )}
+                            <div key={index} className="bg-muted rounded p-2">
+                              <div className="font-medium text-sm">{contact.name}</div>
+                              <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                                {contact.phone && (
+                                  <div className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
+                                      {contact.phone}
+                                    </a>
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
+                                )}
+                                {contact.email && (
+                                  <div className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    <a href={`mailto:${contact.email}`} className="hover:underline break-all">
+                                      {contact.email}
+                                    </a>
+                                  </div>
+                                )}
+                                {contact.website && (
+                                  <div className="flex items-center gap-1">
+                                    <Globe className="h-3 w-3" />
+                                    <a 
+                                      href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="hover:underline break-all"
+                                    >
+                                      {contact.website.replace(/^https?:\/\//i, '')}
+                                    </a>
+                                  </div>
+                                )}
+                                {contact.address && (
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <a 
+                                      href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="hover:underline"
+                                    >
+                                      {contact.address}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </CollapsibleContent>
@@ -351,66 +271,56 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                   </div>
                 )}
 
-                {/* Section email pré-rédigé */}
+                {/* Section email */}
                 {recommendation.email_draft && (
                   <div className={(hasRecommendation || hasContactInfo) ? "border-t pt-3" : ""}>
                     <Collapsible open={showEmailDraft} onOpenChange={setShowEmailDraft}>
                       <CollapsibleTrigger asChild>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="w-full justify-between"
+                          className="w-full justify-between text-sm"
                         >
                           <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
+                            <Mail className="h-3 w-3" />
                             <span>Email pré-rédigé</span>
                           </div>
                           {showEmailDraft ? (
-                            <ChevronUp className="h-4 w-4" />
+                            <ChevronUp className="h-3 w-3" />
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
                           )}
                         </Button>
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
-                        <Card className="mt-3 bg-gray-50">
-                          <CardContent className="p-4">
-                            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                              {recommendation.email_draft}
-                            </pre>
-                            <div className="mt-3 pt-3 border-t">
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(recommendation.email_draft || '');
-                                }}
-                                className="w-full"
-                              >
-                                Copier l'email
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        <div className="mt-2 bg-muted rounded p-3">
+                          <pre className="text-xs whitespace-pre-wrap font-sans">
+                            {recommendation.email_draft}
+                          </pre>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(recommendation.email_draft || '');
+                            }}
+                            className="w-full mt-3"
+                          >
+                            Copier l'email
+                          </Button>
+                        </div>
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
                 )}
 
-                <div className="text-xs text-gray-500 flex items-center justify-between">
-                  <span>
-                    Généré le {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-purple-500" />
-                    <span className="text-purple-600 font-medium">IA intelligente</span>
-                  </div>
+                <div className="text-xs text-muted-foreground text-right">
+                  {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
               </div>
             </CardContent>
