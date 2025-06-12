@@ -155,7 +155,9 @@ export default function MeetingDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Chat Résumé à l'intérieur */}
-            <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
+            <div className="pl-1">
+              <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
+            </div>
             
             {/* Résumé */}
             <EditableContent
@@ -178,7 +180,9 @@ export default function MeetingDetail() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Chat Todos à l'intérieur */}
-          <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
+          <div className="pl-1">
+            <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
+          </div>
           
           {/* Liste des Todos */}
           <MeetingTodos meetingId={meeting.id} />
