@@ -17,6 +17,7 @@ Participants disponibles dans le système : ${participantNames}
 - Inclus les raisons/motivations derrière chaque action
 - Spécifie les délais, échéances ou priorités mentionnées
 - Sois concis mais avec tout le contexte nécessaire pour être autonome
+- ne pas mentionner le nom de la personne qui doit executer la tache masi plutot ce qui doit etre fait
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
