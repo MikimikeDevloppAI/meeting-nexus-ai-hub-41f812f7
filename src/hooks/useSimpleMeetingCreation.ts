@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MeetingService } from "@/services/meetingService";
 import { AudioProcessingService } from "@/services/audioProcessingService";
 import { MeetingCreationData } from "@/types/meeting";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useSimpleMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,9 +76,9 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided
+      // Step 2: Process audio if provided and listen for recommendations
       if (hasAudio) {
-        console.log('[AUDIO] Processing audio - WAITING for recommendations');
+        console.log('[AUDIO] Processing audio - Setting up recommendation listener');
         
         try {
           // Upload audio
@@ -107,40 +109,99 @@ export const useSimpleMeetingCreation = () => {
             return;
           }
           
-          // Process with AI and wait for recommendations
+          // Set up Realtime listener for recommendations BEFORE starting AI processing
+          console.log('[REALTIME] 🔗 Setting up recommendation listener for meeting:', meetingId);
+          
+          const recommendationPromise = new Promise<boolean>((resolve) => {
+            let timeoutId: NodeJS.Timeout;
+            let recommendationDetected = false;
+            
+            // Setup Realtime subscription
+            const channel = supabase
+              .channel(`recommendations-${meetingId}`)
+              .on(
+                'postgres_changes',
+                {
+                  event: 'INSERT',
+                  schema: 'public',
+                  table: 'todo_ai_recommendations',
+                  filter: `todo_id=in.(${selectedParticipantIds.map(() => '*').join(',')})`
+                },
+                async (payload) => {
+                  console.log('[REALTIME] 🎯 Recommendation detected:', payload);
+                  
+                  if (!recommendationDetected) {
+                    recommendationDetected = true;
+                    
+                    // Clear the timeout since we got a recommendation
+                    if (timeoutId) {
+                      clearTimeout(timeoutId);
+                    }
+                    
+                    console.log('[REALTIME] ⏳ Waiting 5 seconds after first recommendation...');
+                    setTimeout(() => {
+                      console.log('[REALTIME] ✅ 5-second delay completed, proceeding with redirect');
+                      channel.unsubscribe();
+                      resolve(true);
+                    }, 5000);
+                  }
+                }
+              )
+              .subscribe((status) => {
+                console.log('[REALTIME] Subscription status:', status);
+              });
+
+            // Set up safety timeout (60 seconds)
+            timeoutId = setTimeout(() => {
+              console.log('[REALTIME] ⚠️ Timeout reached - no recommendations detected, proceeding anyway');
+              channel.unsubscribe();
+              resolve(false);
+            }, 60000);
+            
+            // Check if component unmounted
+            const checkUnmounted = setInterval(() => {
+              if (!isMountedRef.current) {
+                console.log('[REALTIME] Component unmounted, cleaning up listener');
+                clearInterval(checkUnmounted);
+                if (timeoutId) clearTimeout(timeoutId);
+                channel.unsubscribe();
+                resolve(false);
+              }
+            }, 1000);
+          });
+
+          // Start AI processing
           const selectedParticipants = participants.filter(p => 
             selectedParticipantIds.includes(p.id)
           );
 
           console.log('[PROCESS] Starting AI processing...');
           
-          const result = await AudioProcessingService.processTranscriptWithAI(
+          // Don't await this - let it run in background while we listen for recommendations
+          AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedParticipants,
             meetingId
-          );
+          ).then(result => {
+            console.log('[PROCESS] ✅ AI processing completed:', result);
+          }).catch(error => {
+            console.error('[PROCESS] ❌ AI processing error:', error);
+          });
 
-          console.log('[PROCESS] ✅ AI processing result:', result);
-
-          // Vérifier le succès des recommandations
-          const hasRecommendations = result.recommendationStats?.successful > 0;
-          
-          if (hasRecommendations) {
-            console.log('[SUCCESS] ✅ Recommandations générées avec succès');
-          } else {
-            console.log('[WARNING] ⚠️ Aucune recommandation générée ou échec des recommandations');
-          }
-
-          // DÉLAI DE SÉCURITÉ DE 20 SECONDES
-          console.log('[SAFETY] 🕐 Attente de sécurité de 20 secondes pour s\'assurer que toutes les recommandations sont prêtes...');
-          await new Promise(resolve => setTimeout(resolve, 20000));
+          // Wait for recommendations to be detected (or timeout)
+          console.log('[REALTIME] 🔄 Waiting for recommendation creation...');
+          const hasRecommendations = await recommendationPromise;
           
           if (!isMountedRef.current) {
-            console.log('[SAFETY] Component unmounted during safety delay');
+            console.log('[REALTIME] Component unmounted during wait');
             return;
           }
 
-          console.log('[SAFETY] ✅ Délai de sécurité terminé - prêt pour la redirection');
+          if (hasRecommendations) {
+            console.log('[SUCCESS] ✅ Recommandations détectées et délai respecté');
+          } else {
+            console.log('[WARNING] ⚠️ Aucune recommandation détectée dans le délai imparti');
+          }
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
@@ -154,16 +215,15 @@ export const useSimpleMeetingCreation = () => {
 
       console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
 
-      // Redirection avec message approprié
+      // Redirection après détection des recommandations
       if (isMountedRef.current) {
         console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
         
-        // Message personnalisé selon le succès des recommandations
+        // Message personnalisé
         let description = "Votre réunion a été créée avec succès";
         if (hasAudio) {
-          // Vérifier si on a des recommandations après le délai
-          description = "Votre réunion a été créée et le traitement audio est terminé";
+          description = "Votre réunion a été créée et les recommandations sont prêtes";
         }
         
         toast({
