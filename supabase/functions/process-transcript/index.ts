@@ -113,13 +113,25 @@ serve(async (req) => {
       chunks
     );
 
-    // 5. Générer les recommandations IA pour les tâches avec la nouvelle logique
+    // 5. Générer les recommandations IA pour les tâches - ATTENDRE QUE TOUT SOIT FINI
+    let recommendationsGenerated = false;
     if (savedTasks.length > 0) {
-      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches`);
-      await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
+      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches - ATTENTE COMPLETE`);
+      try {
+        await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
+        recommendationsGenerated = true;
+        console.log('✅ TOUTES les recommandations ont été traitées');
+      } catch (recError) {
+        console.error('❌ Erreur lors de la génération des recommandations:', recError);
+        recommendationsGenerated = false;
+      }
     }
 
-    console.log('✅ Transcript processing completed successfully');
+    // 6. Attendre un délai supplémentaire pour s'assurer que toutes les opérations async sont terminées
+    console.log('⏳ Attente finale pour stabilisation des données...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    console.log('✅ TOUT le traitement est COMPLETEMENT terminé - prêt pour redirection');
 
     return new Response(JSON.stringify({
       success: true,
@@ -128,7 +140,8 @@ serve(async (req) => {
       chunksProcessed: documentResult.chunksCount,
       transcriptCleaned: true,
       summaryGenerated: true,
-      recommendationsGenerated: true
+      recommendationsGenerated: recommendationsGenerated,
+      completelyFinished: true // Nouveau flag pour confirmer que TOUT est fini
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -137,7 +150,8 @@ serve(async (req) => {
     console.error('❌ Error processing transcript:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error.message,
+      completelyFinished: false
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

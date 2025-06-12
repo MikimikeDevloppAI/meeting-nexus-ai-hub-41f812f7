@@ -75,9 +75,9 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided and WAIT for completion
+      // Step 2: Process audio if provided and WAIT for COMPLETE processing
       if (hasAudio) {
-        console.log('[AUDIO] Processing audio - WAITING for complete processing');
+        console.log('[AUDIO] Processing audio - WAITING for COMPLETE processing including AI tasks');
         
         try {
           // Upload audio
@@ -93,7 +93,7 @@ export const useSimpleMeetingCreation = () => {
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
           console.log('[UPLOAD] ✅ Audio URL saved');
 
-          // Transcribe and process - WAIT for COMPLETE processing
+          // Transcribe audio
           const participantCount = Math.max(selectedParticipantIds.length, 2);
           const transcript = await AudioProcessingService.transcribeAudio(
             audioFileUrl, 
@@ -108,23 +108,25 @@ export const useSimpleMeetingCreation = () => {
             return;
           }
           
-          // Process with AI and WAIT for completion
+          // Process with AI and WAIT for COMPLETE processing (including tasks and recommendations)
           const selectedParticipants = participants.filter(p => 
             selectedParticipantIds.includes(p.id)
           );
 
-          console.log('[PROCESS] Starting AI processing and WAITING for completion...');
-          await AudioProcessingService.processTranscriptWithAI(
+          console.log('[PROCESS] Starting COMPLETE AI processing (transcript + tasks + recommendations)...');
+          
+          // Call the process-transcript edge function which handles EVERYTHING
+          const result = await AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedParticipants,
             meetingId
           );
 
-          console.log('[PROCESS] ✅ AI processing completed - including tasks extraction');
+          console.log('[PROCESS] ✅ COMPLETE AI processing finished:', result);
 
-          // Wait an additional moment to ensure all database operations are complete
-          console.log('[FINALIZE] Waiting for database operations to complete...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Wait additional time to ensure all async operations are truly complete
+          console.log('[FINALIZE] Waiting for all database operations to stabilize...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
@@ -136,9 +138,9 @@ export const useSimpleMeetingCreation = () => {
         }
       }
 
-      console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
+      console.log('[SUCCESS] ========== MEETING CREATION FULLY COMPLETED ==========');
 
-      // Mark as complete and redirect after ensuring all processing is done
+      // Mark as complete and redirect after ensuring ALL processing is done
       if (isMountedRef.current) {
         console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
@@ -146,17 +148,17 @@ export const useSimpleMeetingCreation = () => {
         toast({
           title: "Réunion créée",
           description: hasAudio ? 
-            "Votre réunion a été créée et le traitement est terminé" : 
+            "Votre réunion a été créée et TOUT le traitement IA est terminé (transcription, tâches, recommandations)" : 
             "Votre réunion a été créée avec succès",
         });
 
         // Redirect after showing completion state
         setTimeout(() => {
           if (isMountedRef.current && meetingId) {
-            console.log('[SUCCESS] Redirecting to meeting:', meetingId);
+            console.log('[SUCCESS] Redirecting to meeting after COMPLETE processing:', meetingId);
             navigate(`/meetings/${meetingId}`);
           }
-        }, 1500);
+        }, 2000); // Délai légèrement plus long pour bien voir l'état de completion
       }
 
     } catch (error: any) {
