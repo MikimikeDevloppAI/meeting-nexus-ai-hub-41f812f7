@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -124,8 +123,8 @@ export const useSimpleMeetingCreation = () => {
 
           console.log('[PROCESS] ✅ COMPLETE AI processing finished:', result);
 
-          // Wait additional time to ensure all async operations are truly complete
-          console.log('[FINALIZE] Waiting for all database operations to stabilize...');
+          // Attendre un délai supplémentaire pour s'assurer que les recommandations sont bien disponibles
+          console.log('[FINALIZE] Attente supplémentaire de 3 secondes pour s\'assurer que toutes les recommandations sont disponibles...');
           await new Promise(resolve => setTimeout(resolve, 3000));
           
         } catch (audioError) {
@@ -152,13 +151,13 @@ export const useSimpleMeetingCreation = () => {
             "Votre réunion a été créée avec succès",
         });
 
-        // Redirect after showing completion state
+        // Délai de 4 secondes pour voir l'état de completion et s'assurer que tout est prêt
         setTimeout(() => {
           if (isMountedRef.current && meetingId) {
             console.log('[SUCCESS] Redirecting to meeting after COMPLETE processing:', meetingId);
             navigate(`/meetings/${meetingId}`);
           }
-        }, 2000); // Délai légèrement plus long pour bien voir l'état de completion
+        }, 4000); // Délai total: 5s (backend) + 3s (attente) + 4s (frontend) = 12s de sécurité
       }
 
     } catch (error: any) {

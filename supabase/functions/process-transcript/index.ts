@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createSupabaseClient, saveRawTranscript, saveTranscript, saveSummary, saveTask, getMeetingData } from './services/database-service.ts';
@@ -152,13 +153,50 @@ serve(async (req) => {
       chunks
     );
 
-    // 5. Générer les recommandations IA pour les tâches EN PARALLÈLE - NOUVELLE APPROCHE
+    // 5. Générer les recommandations IA pour les tâches
     let recommendationResults = null;
     if (savedTasks.length > 0) {
-      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches - TRAITEMENT PARALLÈLE`);
+      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches`);
       try {
         recommendationResults = await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
-        console.log(`✅ TOUTES les recommandations ont été traitées en parallèle:`, recommendationResults);
+        console.log(`✅ Recommandations traitées:`, recommendationResults);
+
+        // NOUVELLE VÉRIFICATION: S'assurer que toutes les recommandations sont bien sauvegardées
+        if (recommendationResults.successful > 0) {
+          console.log('🔍 Vérification que toutes les recommandations sont bien en base...');
+          
+          let allRecommendationsSaved = false;
+          let verificationAttempts = 0;
+          const maxVerificationAttempts = 10;
+
+          while (!allRecommendationsSaved && verificationAttempts < maxVerificationAttempts) {
+            const { data: savedRecommendations, error: checkError } = await supabaseClient
+              .from('todo_ai_recommendations')
+              .select('todo_id')
+              .in('todo_id', savedTasks.map(t => t.id));
+
+            if (checkError) {
+              console.error('❌ Erreur lors de la vérification des recommandations:', checkError);
+              break;
+            }
+
+            const savedCount = savedRecommendations?.length || 0;
+            console.log(`📊 Vérification ${verificationAttempts + 1}: ${savedCount}/${recommendationResults.successful} recommandations trouvées en base`);
+
+            if (savedCount >= recommendationResults.successful) {
+              allRecommendationsSaved = true;
+              console.log('✅ TOUTES les recommandations sont confirmées en base de données');
+            } else {
+              verificationAttempts++;
+              await new Promise(resolve => setTimeout(resolve, 500)); // Attendre 500ms avant la prochaine vérification
+            }
+          }
+
+          if (!allRecommendationsSaved) {
+            console.log('⚠️ Certaines recommandations ne sont pas encore visibles en base, mais on continue');
+          }
+        }
+
       } catch (recError) {
         console.error('❌ Erreur lors de la génération des recommandations:', recError);
         recommendationResults = { processed: 0, successful: 0, failed: savedTasks.length };
@@ -168,11 +206,11 @@ serve(async (req) => {
       recommendationResults = { processed: 0, successful: 0, failed: 0 };
     }
 
-    // 6. Attendre un délai pour stabilisation (réduit car traitement parallèle)
-    console.log('⏳ Attente finale pour stabilisation des données...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 6. DÉLAI OBLIGATOIRE de 5 secondes pour s'assurer que TOUT est stabilisé
+    console.log('⏳ Attente obligatoire de 5 secondes pour stabilisation complète des données...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-    console.log('✅ TOUT le traitement est COMPLETEMENT terminé - prêt pour redirection');
+    console.log('✅ TOUT le traitement est COMPLETEMENT terminé après délai de sécurité - prêt pour redirection');
 
     return new Response(JSON.stringify({
       success: true,
@@ -187,7 +225,7 @@ serve(async (req) => {
         successful: recommendationResults?.successful || 0,
         failed: recommendationResults?.failed || 0
       },
-      completelyFinished: true // Nouveau flag pour confirmer que TOUT est fini
+      completelyFinished: true // Confirmé après délai de sécurité
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
