@@ -4,14 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { TaskPriorityService, TaskWithPriority } from "@/services/taskPriorityService";
-import { Trash2, Plus, Users, Calendar, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Trash2, Plus, Calendar } from "lucide-react";
 
 interface CustomPoint {
   id: string;
@@ -19,20 +16,11 @@ interface CustomPoint {
   created_at: string;
 }
 
-interface TaskNote {
-  id: string;
-  todo_id: string;
-  note_text: string;
-  created_at: string;
-}
-
 export const MeetingPreparation = () => {
   const [tasks, setTasks] = useState<TaskWithPriority[]>([]);
   const [customPoints, setCustomPoints] = useState<CustomPoint[]>([]);
-  const [taskNotes, setTaskNotes] = useState<TaskNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newPoint, setNewPoint] = useState("");
-  const [newNotes, setNewNotes] = useState<Record<string, string>>({});
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -57,15 +45,6 @@ export const MeetingPreparation = () => {
 
       if (pointsError) throw pointsError;
       setCustomPoints(points || []);
-
-      // Récupérer les notes des tâches
-      const { data: notes, error: notesError } = await supabase
-        .from("meeting_preparation_notes")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (notesError) throw notesError;
-      setTaskNotes(notes || []);
 
     } catch (error: any) {
       console.error("Error fetching preparation data:", error);
@@ -134,63 +113,6 @@ export const MeetingPreparation = () => {
     }
   };
 
-  const saveTaskNote = async (todoId: string) => {
-    const noteText = newNotes[todoId]?.trim();
-    if (!noteText || !user?.id) return;
-
-    try {
-      const { error } = await supabase
-        .from("meeting_preparation_notes")
-        .insert([{
-          todo_id: todoId,
-          note_text: noteText,
-          created_by: user.id
-        }]);
-
-      if (error) throw error;
-
-      setNewNotes(prev => ({ ...prev, [todoId]: "" }));
-      await fetchData();
-      
-      toast({
-        title: "Note ajoutée",
-        description: "La note a été ajoutée à la tâche",
-      });
-    } catch (error: any) {
-      console.error("Error saving task note:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder la note",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteTaskNote = async (noteId: string) => {
-    try {
-      const { error } = await supabase
-        .from("meeting_preparation_notes")
-        .delete()
-        .eq("id", noteId);
-
-      if (error) throw error;
-
-      await fetchData();
-      
-      toast({
-        title: "Note supprimée",
-        description: "La note a été supprimée",
-      });
-    } catch (error: any) {
-      console.error("Error deleting task note:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer la note",
-        variant: "destructive",
-      });
-    }
-  };
-
   const clearAllPreparationData = async () => {
     if (!confirm("Êtes-vous sûr de vouloir effacer toutes les notes de préparation ? Cette action est irréversible.")) {
       return;
@@ -201,7 +123,7 @@ export const MeetingPreparation = () => {
       const { error: notesError } = await supabase
         .from("meeting_preparation_notes")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+        .neq("id", "00000000-0000-0000-0000-000000000000");
 
       if (notesError) throw notesError;
 
@@ -209,7 +131,7 @@ export const MeetingPreparation = () => {
       const { error: pointsError } = await supabase
         .from("meeting_preparation_custom_points")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+        .neq("id", "00000000-0000-0000-0000-000000000000");
 
       if (pointsError) throw pointsError;
 
@@ -234,10 +156,6 @@ export const MeetingPreparation = () => {
     if (score >= 6) return "bg-orange-100 text-orange-800 border-orange-200";
     if (score >= 4) return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-green-100 text-green-800 border-green-200";
-  };
-
-  const getTaskNotesByTodoId = (todoId: string) => {
-    return taskNotes.filter(note => note.todo_id === todoId);
   };
 
   if (isLoading) {
@@ -279,10 +197,9 @@ export const MeetingPreparation = () => {
       </CardHeader>
       <CardContent className="space-y-6">
         
-        {/* Tâches en cours classées par importance */}
+        {/* Tâches en cours avec bullet points */}
         <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
+          <h3 className="font-semibold mb-3">
             Tâches en cours ({tasks.length})
           </h3>
           
@@ -291,84 +208,26 @@ export const MeetingPreparation = () => {
               Aucune tâche en cours
             </div>
           ) : (
-            <div className="space-y-3">
+            <ul className="space-y-2">
               {tasks.map((task) => (
-                <div key={task.id} className="border rounded-lg p-4 bg-white">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <p className="font-medium">{task.description}</p>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        {task.due_date && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(task.due_date), "d MMM yyyy", { locale: fr })}
-                          </span>
-                        )}
-                        {task.todo_participants && task.todo_participants.length > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {task.todo_participants.length} participant(s)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className={getPriorityColor(task.priority_score)}>
-                        Priorité {task.priority_score}/10
-                      </Badge>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {task.priority_reason}
-                      </p>
-                    </div>
+                <li key={task.id} className="flex items-start gap-3">
+                  <span className="text-muted-foreground mt-2">•</span>
+                  <div className="flex-1 flex justify-between items-start">
+                    <span className="text-sm">{task.description}</span>
+                    <Badge variant="outline" className={`${getPriorityColor(task.priority_score)} ml-2 text-xs`}>
+                      {task.priority_score}/10
+                    </Badge>
                   </div>
-
-                  {/* Notes existantes pour cette tâche */}
-                  {getTaskNotesByTodoId(task.id).length > 0 && (
-                    <div className="mb-2">
-                      <p className="text-sm font-medium mb-1">Notes :</p>
-                      {getTaskNotesByTodoId(task.id).map((note) => (
-                        <div key={note.id} className="flex justify-between items-start bg-blue-50 p-2 rounded text-sm">
-                          <span>{note.note_text}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteTaskNote(note.id)}
-                            className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Ajouter une note */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="Ajouter une note pour cette tâche..."
-                      value={newNotes[task.id] || ""}
-                      onChange={(e) => setNewNotes(prev => ({ ...prev, [task.id]: e.target.value }))}
-                      className="flex-1 min-h-[60px]"
-                    />
-                    <Button
-                      onClick={() => saveTaskNote(task.id)}
-                      disabled={!newNotes[task.id]?.trim()}
-                      size="sm"
-                    >
-                      Ajouter
-                    </Button>
-                  </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
 
-        {/* Points additionnels */}
+        {/* Points personnels à ajouter */}
         <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Points additionnels à aborder
+          <h3 className="font-semibold mb-3">
+            Points personnels à aborder
           </h3>
           
           {/* Ajouter un point */}
@@ -388,24 +247,27 @@ export const MeetingPreparation = () => {
 
           {/* Liste des points */}
           {customPoints.length > 0 ? (
-            <div className="space-y-2">
+            <ul className="space-y-2">
               {customPoints.map((point) => (
-                <div key={point.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                  <span>{point.point_text}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteCustomPoint(point.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <li key={point.id} className="flex items-start gap-3">
+                  <span className="text-muted-foreground mt-1">•</span>
+                  <div className="flex-1 flex justify-between items-center">
+                    <span className="text-sm">{point.point_text}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteCustomPoint(point.id)}
+                      className="text-red-600 hover:text-red-700 h-6 w-6 p-0"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <div className="text-center py-4 text-muted-foreground bg-gray-50 rounded-lg">
-              Aucun point additionnel ajouté
+              Aucun point personnel ajouté
             </div>
           )}
         </div>
