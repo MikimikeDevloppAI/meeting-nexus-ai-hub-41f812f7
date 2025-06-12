@@ -53,8 +53,9 @@ Pour chaque tâche, analyse le contexte de la réunion et génère une recommend
 2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
 3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
 4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s’ils ne sont pas explicitement mentionnés.
-5. Être **bref, structuré et pertinent**, sans remplir s’il n’y a rien d’utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
-6. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que le fournisseur externe comprenne la demande et soit professionnel
+5. Créer un plan d'action clair est structuré quand c'est nécessaire.
+6. Être **bref, structuré et pertinent**, sans remplir s’il n’y a rien d’utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
+7. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que le fournisseur externe comprenne la demande et soit professionnel
 
 IMPORTANT : 
 - Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
