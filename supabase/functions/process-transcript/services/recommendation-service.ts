@@ -51,16 +51,14 @@ Pour chaque tâche, analyse le contexte de la réunion et génère une recommend
 
 1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
 2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
-3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
+3. Suggérer des **outils numériques,fournisseur prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…) en sitant le nom des fournisseurs connus qui peuvent founrir le service sur genève.
 4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
 5. Créer un plan d'action clair est structuré quand c'est nécessaire.
-6. Être **bref, structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
+6. Être **structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
 7. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que le fournisseur externe comprenne la demande et soit professionnel
 
 IMPORTANT : 
 - Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
-- Assure-toi que chaque recommandation soit pertinente et spécifique à la tâche
-- Les recommandations doivent être basées sur le contexte de la réunion
 
 Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
 {
@@ -70,7 +68,7 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
       "recommendation": "Recommandation détaillée pour la tâche...",
-      "emailDraft": "Email pré-rédigé si nécessaire (optionnel)"
+      "emailDraft": "Email pré-rédigé  (optionnel masi fortement recommendé)"
     },
     {
       "taskIndex": 1,
