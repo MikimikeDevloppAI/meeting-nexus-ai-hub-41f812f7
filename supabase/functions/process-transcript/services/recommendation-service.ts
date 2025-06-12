@@ -47,9 +47,14 @@ ${task.index}. [ID: ${task.id}] ${task.description}
 
 INSTRUCTIONS :
 Génère des recommandations IA personnalisées pour CHAQUE tâche listée ci-dessus.
-Pour chaque tâche, analyse le contexte de la réunion et génère :
-1. Une recommandation pratique et actionnable
-2. Un email pré-rédigé si la tâche implique une communication externe
+Pour chaque tâche, analyse le contexte de la réunion et génère une recommendation qui doit suivre l'instruction ci-dessous:
+
+1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
+2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
+3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
+4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s’ils ne sont pas explicitement mentionnés.
+5. Être **bref, structuré et pertinent**, sans remplir s’il n’y a rien d’utile à ajouter.
+6. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que la personne comprenne la demande et soit profession
 
 IMPORTANT : 
 - Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
