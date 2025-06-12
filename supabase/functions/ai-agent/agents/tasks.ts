@@ -104,7 +104,7 @@ export class TaskAgent {
             .from('todos')
             .insert([{
               description: shortDescription,
-              status: 'confirmed',
+              status: 'confirmed', // Changé de 'pending' à 'confirmed'
               assigned_to: assignedTo,
               meeting_id: null
             }])
@@ -137,7 +137,7 @@ export class TaskAgent {
             .from('todos')
             .insert([{
               description: shortDescription,
-              status: 'confirmed',
+              status: 'confirmed', // Changé de 'pending' à 'confirmed'
               assigned_to: assignedTo,
               meeting_id: null
             }])

@@ -154,7 +154,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
               .insert({
                 meeting_id: meetingId,
                 description: action.data.description,
-                status: 'confirmed'
+                status: 'confirmed' // Changé de 'pending' à 'confirmed'
               })
               .select()
               .single();
@@ -188,7 +188,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
               .from('todos')
               .update({ 
                 description: action.data.description,
-                status: action.data.status || 'confirmed'
+                status: action.data.status || 'confirmed' // Par défaut 'confirmed'
               })
               .eq('id', action.data.id);
             
