@@ -136,11 +136,11 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-foreground hover:text-foreground p-3"
+            className="w-full justify-between text-foreground hover:text-foreground p-2 pl-1"
           >
             <div className="flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm">Recommandation IA</span>
+              <span className="text-sm text-black">Recommandation IA</span>
               {recommendation.email_draft && (
                 <Mail className="h-3 w-3" />
               )}
