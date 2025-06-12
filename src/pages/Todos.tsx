@@ -417,6 +417,9 @@ export default function Todos() {
                     </div>
                   </div>
 
+                  {/* AI Recommendation - moved before AI Assistant */}
+                  <TodoAIRecommendation todoId={todo.id} />
+
                   {/* AI Assistant integrated inside the todo card */}
                   <div className="pl-0.5">
                     <TodoAssistant 
@@ -425,9 +428,6 @@ export default function Todos() {
                       onUpdate={fetchTodos}
                     />
                   </div>
-
-                  {/* AI Recommendation */}
-                  <TodoAIRecommendation todoId={todo.id} />
 
                   {/* Inline Comments section */}
                   <TodoComments todoId={todo.id} />

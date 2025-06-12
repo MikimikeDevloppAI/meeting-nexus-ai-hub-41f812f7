@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, FileText } from "lucide-react";
-import { MeetingTodos } from "@/components/MeetingTodos";
+import { MeetingTodosWithRecommendations } from "@/components/MeetingTodosWithRecommendations";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { TodosChat } from "@/components/meeting/TodosChat";
@@ -183,8 +183,8 @@ export default function MeetingDetail() {
             <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
           </div>
           
-          {/* Liste des Todos */}
-          <MeetingTodos meetingId={meeting.id} />
+          {/* Liste des Todos avec recommandations IA */}
+          <MeetingTodosWithRecommendations meetingId={meeting.id} />
         </CardContent>
       </Card>
 
