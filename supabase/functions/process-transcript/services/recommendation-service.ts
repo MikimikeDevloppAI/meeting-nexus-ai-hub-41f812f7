@@ -8,39 +8,32 @@ export async function processAIRecommendations(
   participantNames: string,
   participants: any[]
 ) {
-  console.log('🤖 Génération recommandations IA intelligentes...');
+  console.log('🤖 Génération recommandations IA intelligentes en parallèle...');
   console.log(`📋 Traitement de ${savedTasks.length} tâches`);
   
-  for (const task of savedTasks) {
+  // Traiter toutes les tâches en parallèle avec gestion d'erreur individuelle
+  const recommendationPromises = savedTasks.map(async (task) => {
     try {
       console.log(`🎯 Analyse intelligente pour: ${task.description.substring(0, 50)}...`);
       
-      // Appel à l'agent intelligent simplifié
-      const { data: recommendationResult, error: recommendationError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
-        body: {
-          task: { description: task.description },
-          transcript: cleanedTranscript,
-          meetingContext: {
-            title: meetingName,
-            date: meetingDate,
-            participants: participantNames
-          },
-          participants: participants
-        }
+      // Appel à l'agent intelligent avec retry
+      const result = await callRecommendationAgentWithRetry(supabaseClient, {
+        task: { description: task.description },
+        transcript: cleanedTranscript,
+        meetingContext: {
+          title: meetingName,
+          date: meetingDate,
+          participants: participantNames
+        },
+        participants: participants
       });
 
-      if (recommendationError) {
-        console.error('❌ Erreur agent recommandations:', recommendationError);
-        
-        // Marquer comme traité même en cas d'erreur
-        await supabaseClient
-          .from('todos')
-          .update({ ai_recommendation_generated: true })
-          .eq('id', task.id);
-        continue;
+      if (result.error) {
+        console.error('❌ Erreur agent recommandations pour tâche:', task.id, result.error);
+        return { taskId: task.id, success: false, error: result.error };
       }
 
-      const rec = recommendationResult?.recommendation;
+      const rec = result.data?.recommendation;
       
       if (rec && (rec.hasRecommendation || rec.needsEmail)) {
         console.log(`✅ Recommandation intelligente pour: ${task.description.substring(0, 50)}...`);
@@ -94,27 +87,65 @@ export async function processAIRecommendations(
           .from('todo_ai_recommendations')
           .insert(recommendationData);
         
-        console.log(`✅ Recommandation intelligente sauvegardée`);
+        console.log(`✅ Recommandation intelligente sauvegardée pour tâche ${task.id}`);
+        return { taskId: task.id, success: true };
       } else {
-        console.log(`ℹ️ Aucune recommandation pertinente pour: ${task.description.substring(0, 50)}... (pas de valeur ajoutée)`);
+        console.log(`ℹ️ Aucune recommandation pertinente pour: ${task.description.substring(0, 50)}...`);
+        return { taskId: task.id, success: true, noRecommendation: true };
       }
-
-      // Marquer que la recommandation IA a été générée
-      await supabaseClient
-        .from('todos')
-        .update({ ai_recommendation_generated: true })
-        .eq('id', task.id);
 
     } catch (recError) {
       console.error('❌ Erreur traitement recommandation:', task.description.substring(0, 50), recError);
+      return { taskId: task.id, success: false, error: recError };
+    }
+  });
+
+  // Attendre toutes les recommandations en parallèle
+  const results = await Promise.all(recommendationPromises);
+  
+  // Marquer toutes les tâches comme traitées
+  const updatePromises = savedTasks.map(task => 
+    supabaseClient
+      .from('todos')
+      .update({ ai_recommendation_generated: true })
+      .eq('id', task.id)
+  );
+  
+  await Promise.all(updatePromises);
+  
+  // Compter les résultats
+  const successful = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  const withRecommendations = results.filter(r => r.success && !r.noRecommendation).length;
+  
+  console.log(`🏁 Traitement recommandations terminé: ${successful}/${savedTasks.length} succès, ${withRecommendations} avec recommandations, ${failed} échecs`);
+}
+
+// Fonction utilitaire avec retry
+async function callRecommendationAgentWithRetry(supabaseClient: any, payload: any, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await supabaseClient.functions.invoke('task-recommendation-agent', {
+        body: payload
+      });
       
-      // Marquer comme traité même en cas d'erreur
-      await supabaseClient
-        .from('todos')
-        .update({ ai_recommendation_generated: true })
-        .eq('id', task.id);
+      if (!result.error) {
+        return result;
+      }
+      
+      if (attempt < maxRetries) {
+        console.log(`⚠️ Tentative ${attempt} échouée, retry dans 1s...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        return result;
+      }
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.log(`⚠️ Erreur tentative ${attempt}, retry dans 1s...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        return { error };
+      }
     }
   }
-  
-  console.log(`🏁 Traitement recommandations intelligentes terminé pour ${savedTasks.length} tâches`);
 }

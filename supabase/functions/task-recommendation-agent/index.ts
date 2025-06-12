@@ -89,7 +89,7 @@ RETOURNE UNIQUEMENT ce JSON :
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o', // Changé de gpt-4o-mini à gpt-4o
         messages: [
           {
             role: 'system',
@@ -143,7 +143,7 @@ Cabinet d'Ophtalmologie - Genève
             content: prompt
           }
         ],
-        temperature: 0.5,
+        temperature: 0.5, // Changé de 0.5 à 0.5 (déjà correct)
         max_tokens: 2000,
       }),
     });

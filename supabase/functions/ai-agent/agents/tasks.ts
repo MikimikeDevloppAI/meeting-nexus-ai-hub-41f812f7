@@ -295,7 +295,7 @@ export class TaskAgent {
   }
 
   private extractAssignedTo(message: string): string | null {
-    // Extraire les participants du contexte
+    // Extraire les participants du contexte avec logique améliorée
     const participantMatch = message.match(/CONTEXT_PARTICIPANTS:\s*([^}]+)/);
     const participantsStr = participantMatch ? participantMatch[1] : '';
     
@@ -305,28 +305,47 @@ export class TaskAgent {
     const cleanMessage = message.replace(/CONTEXT_PARTICIPANTS:.*$/gi, '').trim().toLowerCase();
     
     if (participantsStr) {
-      // Patterns pour extraire ID depuis le contexte participants
-      const participantIdMatch = participantsStr.match(new RegExp(`([^,()]+)\\s*\\([^,()]*ID:\\s*([^,()]+)\\)`, 'gi'));
-      if (participantIdMatch) {
-        for (const participant of participantIdMatch) {
-          const idMatch = participant.match(/ID:\s*([^,()]+)\)/);
-          const nameMatch = participant.match(/^([^(]+)/);
+      // Patterns améliorés pour extraire ID depuis le contexte participants
+      // Supporter différents formats de participants
+      const participantLines = participantsStr.split('\n').filter(line => line.trim());
+      
+      for (const line of participantLines) {
+        // Format: "Nom (Email: email@domain.com, ID: uuid)"
+        const idMatch = line.match(/ID:\s*([a-f0-9\-]{36})/i);
+        const nameMatch = line.match(/^([^(]+)/);
+        const emailMatch = line.match(/Email:\s*([^,)]+)/i);
+        
+        if (idMatch && (nameMatch || emailMatch)) {
+          const participantName = nameMatch ? nameMatch[1].trim().toLowerCase() : '';
+          const participantEmail = emailMatch ? emailMatch[1].trim().toLowerCase() : '';
+          const participantId = idMatch[1].trim();
           
-          if (idMatch && nameMatch) {
-            const participantName = nameMatch[1].trim().toLowerCase();
-            const participantId = idMatch[1].trim();
-            
-            console.log('[TASKS] 🔄 Comparaison:', participantName, 'avec', cleanMessage);
-            
-            if (participantName.includes(cleanMessage) || cleanMessage.includes(participantName)) {
-              console.log('[TASKS] ✅ Participant trouvé:', participantId);
-              return participantId;
-            }
+          console.log('[TASKS] 🔄 Comparaison participant:', { participantName, participantEmail, cleanMessage });
+          
+          // Recherche par nom
+          if (participantName && (
+            participantName.includes(cleanMessage) || 
+            cleanMessage.includes(participantName) ||
+            participantName.split(' ')[0] === cleanMessage || // Premier prénom
+            cleanMessage === participantName.split(' ')[0]
+          )) {
+            console.log('[TASKS] ✅ Participant trouvé par nom:', participantId);
+            return participantId;
+          }
+          
+          // Recherche par email
+          if (participantEmail && (
+            participantEmail.includes(cleanMessage) || 
+            cleanMessage.includes(participantEmail)
+          )) {
+            console.log('[TASKS] ✅ Participant trouvé par email:', participantId);
+            return participantId;
           }
         }
       }
     }
     
+    console.log('[TASKS] ⚠️ Aucun participant trouvé pour:', cleanMessage);
     return null;
   }
 

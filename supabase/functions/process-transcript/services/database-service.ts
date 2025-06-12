@@ -85,16 +85,37 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
 
     console.log('✅ Task saved with ID:', savedTask.id)
 
-    // Assigner les participants si spécifiés
+    // Assigner les participants si spécifiés - logique améliorée
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
       console.log('👥 Assigning participants to task:', task.assigned_to)
       
       for (const participantInfo of task.assigned_to) {
-        // Trouver le participant correspondant
-        const participant = participants.find(p => 
-          p.name.toLowerCase().includes(participantInfo.toLowerCase()) ||
-          p.email.toLowerCase().includes(participantInfo.toLowerCase())
-        )
+        // Nettoyer le nom du participant
+        const cleanParticipantName = participantInfo.toString().toLowerCase().trim();
+        
+        // Trouver le participant correspondant avec logique plus flexible
+        const participant = participants.find(p => {
+          const name = p.name?.toLowerCase() || '';
+          const email = p.email?.toLowerCase() || '';
+          
+          // Recherche exacte d'abord
+          if (name === cleanParticipantName || email === cleanParticipantName) {
+            return true;
+          }
+          
+          // Recherche partielle ensuite
+          if (name.includes(cleanParticipantName) || cleanParticipantName.includes(name)) {
+            return true;
+          }
+          
+          // Recherche par prénom (premier mot)
+          const firstName = name.split(' ')[0];
+          if (firstName && (firstName === cleanParticipantName || cleanParticipantName.includes(firstName))) {
+            return true;
+          }
+          
+          return false;
+        });
         
         if (participant) {
           const { error: assignError } = await supabaseClient
@@ -107,12 +128,15 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
           if (assignError) {
             console.error('❌ Error assigning participant:', assignError)
           } else {
-            console.log('✅ Participant assigned:', participant.name)
+            console.log('✅ Participant assigned:', participant.name, 'to task:', savedTask.id)
           }
         } else {
-          console.warn('⚠️ Participant not found:', participantInfo)
+          console.warn('⚠️ Participant not found for assignment:', participantInfo)
+          console.log('Available participants:', participants.map(p => ({ id: p.id, name: p.name, email: p.email })))
         }
       }
+    } else {
+      console.log('ℹ️ No participants to assign for this task')
     }
 
     return savedTask
