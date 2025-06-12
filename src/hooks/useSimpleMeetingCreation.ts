@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -76,7 +77,7 @@ export const useSimpleMeetingCreation = () => {
 
       // Step 2: Process audio if provided and WAIT for COMPLETE processing
       if (hasAudio) {
-        console.log('[AUDIO] Processing audio - WAITING for COMPLETE processing including AI tasks');
+        console.log('[AUDIO] Processing audio - WAITING for COMPLETE processing including AI recommendations');
         
         try {
           // Upload audio
@@ -107,25 +108,29 @@ export const useSimpleMeetingCreation = () => {
             return;
           }
           
-          // Process with AI and WAIT for COMPLETE processing (including tasks and recommendations)
+          // Process with AI and WAIT UNTIL recommendations are COMPLETELY done
           const selectedParticipants = participants.filter(p => 
             selectedParticipantIds.includes(p.id)
           );
 
-          console.log('[PROCESS] Starting COMPLETE AI processing (transcript + tasks + recommendations)...');
+          console.log('[PROCESS] Starting AI processing - WAITING for COMPLETE recommendations...');
           
-          // Call the process-transcript edge function which handles EVERYTHING
           const result = await AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedParticipants,
             meetingId
           );
 
-          console.log('[PROCESS] ✅ COMPLETE AI processing finished:', result);
+          console.log('[PROCESS] ✅ AI processing result:', result);
 
-          // Attendre un délai supplémentaire pour s'assurer que les recommandations sont bien disponibles
-          console.log('[FINALIZE] Attente supplémentaire de 3 secondes pour s\'assurer que toutes les recommandations sont disponibles...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Vérifier que les recommandations sont VRAIMENT terminées
+          if (result.fullyCompleted && result.recommendationStats?.successful > 0) {
+            console.log('[SUCCESS] ✅ TOUTES LES RECOMMANDATIONS SONT COMPLÈTES - Redirection immédiate');
+          } else if (result.success && result.tasksCreated > 0) {
+            console.log('[SUCCESS] ✅ Réunion créée avec tâches - Redirection immédiate');
+          } else {
+            console.log('[SUCCESS] ✅ Réunion créée sans recommandations - Redirection immédiate');
+          }
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
@@ -137,9 +142,9 @@ export const useSimpleMeetingCreation = () => {
         }
       }
 
-      console.log('[SUCCESS] ========== MEETING CREATION FULLY COMPLETED ==========');
+      console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
 
-      // Mark as complete and redirect after ensuring ALL processing is done
+      // Redirection immédiate dès que le traitement est fini
       if (isMountedRef.current) {
         console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
@@ -147,24 +152,20 @@ export const useSimpleMeetingCreation = () => {
         toast({
           title: "Réunion créée",
           description: hasAudio ? 
-            "Votre réunion a été créée et TOUT le traitement IA est terminé (transcription, tâches, recommandations)" : 
+            "Votre réunion a été créée et toutes les recommandations sont disponibles" : 
             "Votre réunion a été créée avec succès",
         });
 
-        // Délai de 4 secondes pour voir l'état de completion et s'assurer que tout est prêt
-        setTimeout(() => {
-          if (isMountedRef.current && meetingId) {
-            console.log('[SUCCESS] Redirecting to meeting after COMPLETE processing:', meetingId);
-            navigate(`/meetings/${meetingId}`);
-          }
-        }, 4000); // Délai total: 5s (backend) + 3s (attente) + 4s (frontend) = 12s de sécurité
+        // Redirection immédiate - plus de délais arbitraires
+        console.log('[SUCCESS] Redirection immédiate vers la réunion:', meetingId);
+        navigate(`/meetings/${meetingId}`);
       }
 
     } catch (error: any) {
       console.error("[ERROR] Meeting creation error:", error);
       
       if (meetingId) {
-        // Meeting was created, still redirect but after a delay
+        // Meeting was created, still redirect
         console.log('[ERROR] Meeting created, navigating despite errors');
         if (isMountedRef.current) {
           setIsComplete(true);
@@ -172,11 +173,8 @@ export const useSimpleMeetingCreation = () => {
             title: "Réunion créée",
             description: "La réunion a été créée avec succès",
           });
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              navigate(`/meetings/${meetingId}`);
-            }
-          }, 1500);
+          // Redirection immédiate même en cas d'erreur partielle
+          navigate(`/meetings/${meetingId}`);
         }
       } else {
         // Complete failure

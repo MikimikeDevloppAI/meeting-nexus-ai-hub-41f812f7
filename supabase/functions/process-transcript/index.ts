@@ -153,64 +153,41 @@ serve(async (req) => {
       chunks
     );
 
-    // 5. Générer les recommandations IA pour les tâches
+    // 5. Générer les recommandations IA pour les tâches - ÉTAPE CRITIQUE
     let recommendationResults = null;
     if (savedTasks.length > 0) {
-      console.log(`⚡ Génération des recommandations pour ${savedTasks.length} tâches`);
+      console.log(`⚡ DÉBUT génération des recommandations pour ${savedTasks.length} tâches`);
       try {
         recommendationResults = await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
-        console.log(`✅ Recommandations traitées:`, recommendationResults);
+        console.log(`✅ RECOMMANDATIONS COMPLÈTEMENT TERMINÉES:`, recommendationResults);
 
-        // NOUVELLE VÉRIFICATION: S'assurer que toutes les recommandations sont bien sauvegardées
+        // Vérification finale que toutes les recommandations sont en base
         if (recommendationResults.successful > 0) {
-          console.log('🔍 Vérification que toutes les recommandations sont bien en base...');
+          console.log('🔍 Vérification finale que toutes les recommandations sont bien sauvegardées...');
           
-          let allRecommendationsSaved = false;
-          let verificationAttempts = 0;
-          const maxVerificationAttempts = 10;
+          const { data: finalCheck, error: checkError } = await supabaseClient
+            .from('todo_ai_recommendations')
+            .select('todo_id')
+            .in('todo_id', savedTasks.map(t => t.id));
 
-          while (!allRecommendationsSaved && verificationAttempts < maxVerificationAttempts) {
-            const { data: savedRecommendations, error: checkError } = await supabaseClient
-              .from('todo_ai_recommendations')
-              .select('todo_id')
-              .in('todo_id', savedTasks.map(t => t.id));
-
-            if (checkError) {
-              console.error('❌ Erreur lors de la vérification des recommandations:', checkError);
-              break;
-            }
-
-            const savedCount = savedRecommendations?.length || 0;
-            console.log(`📊 Vérification ${verificationAttempts + 1}: ${savedCount}/${recommendationResults.successful} recommandations trouvées en base`);
-
-            if (savedCount >= recommendationResults.successful) {
-              allRecommendationsSaved = true;
-              console.log('✅ TOUTES les recommandations sont confirmées en base de données');
-            } else {
-              verificationAttempts++;
-              await new Promise(resolve => setTimeout(resolve, 500)); // Attendre 500ms avant la prochaine vérification
-            }
-          }
-
-          if (!allRecommendationsSaved) {
-            console.log('⚠️ Certaines recommandations ne sont pas encore visibles en base, mais on continue');
+          if (checkError) {
+            console.error('❌ Erreur lors de la vérification finale:', checkError);
+          } else {
+            const savedRecommendationsCount = finalCheck?.length || 0;
+            console.log(`📊 Vérification finale: ${savedRecommendationsCount}/${recommendationResults.successful} recommandations confirmées en base`);
           }
         }
 
       } catch (recError) {
         console.error('❌ Erreur lors de la génération des recommandations:', recError);
-        recommendationResults = { processed: 0, successful: 0, failed: savedTasks.length };
+        recommendationResults = { processed: 0, successful: 0, failed: savedTasks.length, fullyCompleted: false };
       }
     } else {
       console.log('⚠️ Aucune tâche sauvegardée pour générer des recommandations');
-      recommendationResults = { processed: 0, successful: 0, failed: 0 };
+      recommendationResults = { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
     }
 
-    // 6. DÉLAI OBLIGATOIRE de 5 secondes pour s'assurer que TOUT est stabilisé
-    console.log('⏳ Attente obligatoire de 5 secondes pour stabilisation complète des données...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    console.log('✅ TOUT le traitement est COMPLETEMENT terminé après délai de sécurité - prêt pour redirection');
+    console.log('✅ TRAITEMENT COMPLÈTEMENT TERMINÉ - Toutes les recommandations sont prêtes');
 
     return new Response(JSON.stringify({
       success: true,
@@ -225,7 +202,7 @@ serve(async (req) => {
         successful: recommendationResults?.successful || 0,
         failed: recommendationResults?.failed || 0
       },
-      completelyFinished: true // Confirmé après délai de sécurité
+      fullyCompleted: recommendationResults?.fullyCompleted || false // Signal critique pour le frontend
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -235,7 +212,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
-      completelyFinished: false
+      fullyCompleted: false
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

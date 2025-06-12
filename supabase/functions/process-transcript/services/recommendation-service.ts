@@ -9,7 +9,7 @@ export async function processTaskRecommendations(
 ) {
   if (!tasks || tasks.length === 0) {
     console.log('⚡ Aucune tâche à traiter pour les recommandations');
-    return { processed: 0, successful: 0, failed: 0 };
+    return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
   console.log(`⚡ Génération des recommandations pour ${tasks.length} tâches EN BATCH UNIQUE`);
@@ -52,9 +52,9 @@ Pour chaque tâche, analyse le contexte de la réunion et génère une recommend
 1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
 2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
 3. Suggérer des **outils numériques, prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…).
-4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s’ils ne sont pas explicitement mentionnés.
+4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
 5. Créer un plan d'action clair est structuré quand c'est nécessaire.
-6. Être **bref, structuré et pertinent**, sans remplir s’il n’y a rien d’utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
+6. Être **bref, structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
 7. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que le fournisseur externe comprenne la demande et soit professionnel
 
 IMPORTANT : 
@@ -102,10 +102,10 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
 
     if (openaiError) {
       console.error('❌ Erreur lors de l\'appel OpenAI batch:', openaiError);
-      return { processed: tasks.length, successful: 0, failed: tasks.length };
+      return { processed: tasks.length, successful: 0, failed: tasks.length, fullyCompleted: false };
     }
 
-    console.log('✅ Réponse OpenAI batch reçue');
+    console.log('✅ Réponse OpenAI batch reçue - traitement des recommandations');
 
     const recommendations = batchResult?.recommendation?.recommendations || [];
     console.log(`📊 ${recommendations.length} recommandations reçues pour ${tasks.length} tâches`);
@@ -113,7 +113,6 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
     // Traitement et sauvegarde des recommandations
     let successful = 0;
     let failed = 0;
-    const results = [];
 
     for (const task of tasks) {
       try {
@@ -135,7 +134,6 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
           if (saveError) {
             console.error(`❌ Erreur sauvegarde recommandation pour tâche ${task.id}:`, saveError);
             failed++;
-            results.push({ taskId: task.id, success: false, error: saveError });
             continue;
           }
           
@@ -154,28 +152,26 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
           }
           
           successful++;
-          results.push({ taskId: task.id, success: true });
           
         } else {
           console.log(`⚠️ Pas de recommandation trouvée pour tâche ${task.id}`);
           failed++;
-          results.push({ taskId: task.id, success: false, error: 'No recommendation found in batch response' });
         }
         
       } catch (error) {
         console.error(`❌ Erreur lors du traitement de la tâche ${task.id}:`, error);
         failed++;
-        results.push({ taskId: task.id, success: false, error });
       }
     }
     
-    console.log(`🏁 [BATCH] Traitement terminé: ${successful} succès, ${failed} échecs sur ${tasks.length} tâches`);
+    console.log(`🏁 [BATCH] Traitement des recommandations COMPLÈTEMENT terminé: ${successful} succès, ${failed} échecs sur ${tasks.length} tâches`);
     
+    // Signal que le traitement est entièrement terminé
     return {
       processed: tasks.length,
       successful,
       failed,
-      results
+      fullyCompleted: true // Signal important pour indiquer que tout est fini
     };
     
   } catch (error) {
@@ -184,6 +180,7 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
       processed: tasks.length, 
       successful: 0, 
       failed: tasks.length,
+      fullyCompleted: false,
       error: error.message 
     };
   }
