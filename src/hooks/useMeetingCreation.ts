@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -91,12 +90,17 @@ export const useMeetingCreation = () => {
     const hasAudio = !!(audioBlob || audioFile);
     let meetingId: string | null = null;
 
-    // Start realistic processing animation
+    // Start realistic processing animation with custom completion callback
     startRealisticProcessing(hasAudio, () => {
-      // This callback is called when all steps are complete
+      // This callback will only be called when ALL processing is truly complete
       console.log('[useMeetingCreation] All processing steps completed, navigating...');
       if (meetingId && isMountedRef.current) {
-        navigate(`/meetings/${meetingId}`);
+        // Add a small delay to ensure UI shows completion
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            navigate(`/meetings/${meetingId}`);
+          }
+        }, 1000);
       }
     });
 
@@ -135,13 +139,13 @@ export const useMeetingCreation = () => {
         console.log('[CREATE] No participants to add');
       }
 
-      // Step 2: Process audio only if provided
+      // Step 2: Process audio only if provided and WAIT for complete processing
       if (hasAudio) {
-        console.log('[AUDIO] ========== PROCESSING AUDIO ==========');
+        console.log('[AUDIO] ========== PROCESSING AUDIO - WAITING FOR COMPLETION ==========');
         
-        // Upload audio
-        console.log('[UPLOAD] Starting audio upload...');
         try {
+          // Upload audio
+          console.log('[UPLOAD] Starting audio upload...');
           const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
           console.log('[UPLOAD] ✅ Audio uploaded:', audioFileUrl);
           
@@ -153,51 +157,49 @@ export const useMeetingCreation = () => {
 
           // Transcribe audio
           console.log('[TRANSCRIBE] Starting transcription...');
-          try {
-            const participantCount = Math.max(selectedParticipantIds.length, 2);
-            const transcript = await AudioProcessingService.transcribeAudio(
-              audioFileUrl, 
-              participantCount, 
-              meetingId
-            );
-            
-            console.log('[TRANSCRIBE] ✅ Transcription completed');
-            
-            // Process transcript with OpenAI
-            console.log('[PROCESS] Starting OpenAI processing...');
-            const selectedParticipants = participants.filter(p => 
-              selectedParticipantIds.includes(p.id)
-            );
+          const participantCount = Math.max(selectedParticipantIds.length, 2);
+          const transcript = await AudioProcessingService.transcribeAudio(
+            audioFileUrl, 
+            participantCount, 
+            meetingId
+          );
+          
+          console.log('[TRANSCRIBE] ✅ Transcription completed');
+          
+          // Process transcript with OpenAI and WAIT for completion
+          console.log('[PROCESS] Starting OpenAI processing and WAITING for completion...');
+          const selectedParticipants = participants.filter(p => 
+            selectedParticipantIds.includes(p.id)
+          );
 
-            try {
-              const result = await AudioProcessingService.processTranscriptWithAI(
-                transcript,
-                selectedParticipants,
-                meetingId
-              );
+          const result = await AudioProcessingService.processTranscriptWithAI(
+            transcript,
+            selectedParticipants,
+            meetingId
+          );
 
-              console.log('[PROCESS] ✅ OpenAI processing result:', result);
-              
-              if (result.tasks && result.tasks.length > 0) {
-                console.log(`[TASKS] ✅ ${result.tasks.length} tasks extracted and saved successfully`);
-                toast({
-                  title: "Tâches extraites",
-                  description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
-                  duration: 5000,
-                });
-              }
-              
-            } catch (openaiError: any) {
-              console.error('[PROCESS] OpenAI processing failed:', openaiError);
-              console.log('[PROCESS] OpenAI processing failed, but meeting and transcript were saved successfully');
-            }
-          } catch (transcriptionError: any) {
-            console.error("[TRANSCRIBE] Transcription failed:", transcriptionError);
-            console.log('[TRANSCRIBE] Transcription failed, but meeting was created successfully');
+          console.log('[PROCESS] ✅ OpenAI processing result:', result);
+          
+          if (result.tasks && result.tasks.length > 0) {
+            console.log(`[TASKS] ✅ ${result.tasks.length} tasks extracted and saved successfully`);
+            toast({
+              title: "Tâches extraites",
+              description: `${result.tasks.length} tâche(s) ont été automatiquement créées à partir de la réunion`,
+              duration: 5000,
+            });
           }
-        } catch (uploadError: any) {
-          console.error('[UPLOAD] Audio upload failed:', uploadError);
-          console.log('[UPLOAD] Audio upload failed, but meeting was created successfully');
+
+          // Wait additional time to ensure all database operations are complete
+          console.log('[FINALIZE] Waiting for all database operations to complete...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+        } catch (audioError: any) {
+          console.error('[AUDIO] Audio processing failed:', audioError);
+          // Don't throw, meeting was created successfully
+          toast({
+            title: "Réunion créée",
+            description: "La réunion a été créée mais le traitement audio a échoué",
+          });
         }
       } else {
         console.log('[NO_AUDIO] No audio provided, skipping audio processing');
@@ -207,7 +209,9 @@ export const useMeetingCreation = () => {
 
       toast({
         title: "Réunion créée",
-        description: "Votre réunion a été créée avec succès",
+        description: hasAudio ? 
+          "Votre réunion a été créée et le traitement est terminé" :
+          "Votre réunion a été créée avec succès",
         duration: 5000,
       });
 

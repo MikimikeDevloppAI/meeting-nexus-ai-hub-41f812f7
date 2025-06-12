@@ -75,62 +75,79 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided
+      // Step 2: Process audio if provided and WAIT for completion
       if (hasAudio) {
-        console.log('[AUDIO] Processing audio');
+        console.log('[AUDIO] Processing audio - WAITING for complete processing');
         
-        // Upload audio
-        const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
-        console.log('[UPLOAD] ✅ Audio uploaded');
-        
-        if (!isMountedRef.current) {
-          console.log('[UPLOAD] Component unmounted during upload');
-          return;
+        try {
+          // Upload audio
+          const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
+          console.log('[UPLOAD] ✅ Audio uploaded');
+          
+          if (!isMountedRef.current) {
+            console.log('[UPLOAD] Component unmounted during upload');
+            return;
+          }
+          
+          // Save audio URL
+          await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
+          console.log('[UPLOAD] ✅ Audio URL saved');
+
+          // Transcribe and process - WAIT for COMPLETE processing
+          const participantCount = Math.max(selectedParticipantIds.length, 2);
+          const transcript = await AudioProcessingService.transcribeAudio(
+            audioFileUrl, 
+            participantCount, 
+            meetingId
+          );
+          
+          console.log('[TRANSCRIBE] ✅ Transcription completed');
+          
+          if (!isMountedRef.current) {
+            console.log('[TRANSCRIBE] Component unmounted during transcription');
+            return;
+          }
+          
+          // Process with AI and WAIT for completion
+          const selectedParticipants = participants.filter(p => 
+            selectedParticipantIds.includes(p.id)
+          );
+
+          console.log('[PROCESS] Starting AI processing and WAITING for completion...');
+          await AudioProcessingService.processTranscriptWithAI(
+            transcript,
+            selectedParticipants,
+            meetingId
+          );
+
+          console.log('[PROCESS] ✅ AI processing completed - including tasks extraction');
+
+          // Wait an additional moment to ensure all database operations are complete
+          console.log('[FINALIZE] Waiting for database operations to complete...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+        } catch (audioError) {
+          console.error('[AUDIO] Audio processing failed:', audioError);
+          // Don't throw here, meeting was created successfully
+          toast({
+            title: "Réunion créée",
+            description: "La réunion a été créée mais le traitement audio a échoué",
+          });
         }
-        
-        // Save audio URL
-        await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
-        console.log('[UPLOAD] ✅ Audio URL saved');
-
-        // Transcribe and process
-        const participantCount = Math.max(selectedParticipantIds.length, 2);
-        const transcript = await AudioProcessingService.transcribeAudio(
-          audioFileUrl, 
-          participantCount, 
-          meetingId
-        );
-        
-        console.log('[TRANSCRIBE] ✅ Transcription completed');
-        
-        if (!isMountedRef.current) {
-          console.log('[TRANSCRIBE] Component unmounted during transcription');
-          return;
-        }
-        
-        // Process with AI
-        const selectedParticipants = participants.filter(p => 
-          selectedParticipantIds.includes(p.id)
-        );
-
-        await AudioProcessingService.processTranscriptWithAI(
-          transcript,
-          selectedParticipants,
-          meetingId
-        );
-
-        console.log('[PROCESS] ✅ AI processing completed');
       }
 
       console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
 
-      // Mark as complete and redirect after short delay
+      // Mark as complete and redirect after ensuring all processing is done
       if (isMountedRef.current) {
         console.log('[SUCCESS] Setting isComplete to true');
         setIsComplete(true);
         
         toast({
           title: "Réunion créée",
-          description: "Votre réunion a été créée avec succès",
+          description: hasAudio ? 
+            "Votre réunion a été créée et le traitement est terminé" : 
+            "Votre réunion a été créée avec succès",
         });
 
         // Redirect after showing completion state
@@ -139,14 +156,14 @@ export const useSimpleMeetingCreation = () => {
             console.log('[SUCCESS] Redirecting to meeting:', meetingId);
             navigate(`/meetings/${meetingId}`);
           }
-        }, 2000);
+        }, 1500);
       }
 
     } catch (error: any) {
       console.error("[ERROR] Meeting creation error:", error);
       
       if (meetingId) {
-        // Meeting was created, still redirect
+        // Meeting was created, still redirect but after a delay
         console.log('[ERROR] Meeting created, navigating despite errors');
         if (isMountedRef.current) {
           setIsComplete(true);
@@ -158,7 +175,7 @@ export const useSimpleMeetingCreation = () => {
             if (isMountedRef.current) {
               navigate(`/meetings/${meetingId}`);
             }
-          }, 2000);
+          }, 1500);
         }
       } else {
         // Complete failure
