@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  Bot, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin
+  Lightbulb, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -115,8 +115,8 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted/30 rounded">
-        <Bot className="h-4 w-4 animate-pulse" />
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-blue-50 rounded">
+        <Lightbulb className="h-4 w-4 animate-pulse" />
         <span>Analyse IA...</span>
       </div>
     );
@@ -130,7 +130,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
-    <div className="mt-3 bg-accent/30 rounded-lg p-2">
+    <div className="mt-3 bg-blue-50 rounded-lg p-2">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
@@ -139,7 +139,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
             className="w-full justify-between text-muted-foreground hover:text-foreground"
           >
             <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4" />
+              <Lightbulb className="h-4 w-4" />
               <span className="text-sm">Recommandation IA</span>
               {recommendation.email_draft && (
                 <Mail className="h-3 w-3" />
