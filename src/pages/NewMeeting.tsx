@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useSimpleMeetingCreation } from "@/hooks/useSimpleMeetingCreation";
 import { SimpleMeetingForm } from "@/components/meeting/SimpleMeetingForm";
+import { MeetingPreparation } from "@/components/MeetingPreparation";
 import { useAuth } from "@/lib/auth";
 
 const NewMeeting = () => {
@@ -58,6 +59,9 @@ const NewMeeting = () => {
         </Button>
         <h1 className="text-2xl font-bold">Créer une nouvelle réunion</h1>
       </div>
+
+      {/* Composant de préparation de réunion */}
+      <MeetingPreparation />
 
       <SimpleMeetingForm
         isSubmitting={isSubmitting}

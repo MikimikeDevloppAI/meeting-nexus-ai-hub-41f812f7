@@ -18,6 +18,10 @@ interface CustomPoint {
   id: string;
   point_text: string;
   created_at: string;
+  created_by: string;
+  users?: {
+    name: string;
+  };
 }
 
 export const MeetingPreparation = () => {
@@ -47,10 +51,13 @@ export const MeetingPreparation = () => {
       if (todosError) throw todosError;
       setTodos(todosData || []);
 
-      // Récupérer les points personnalisés
+      // Récupérer les points personnalisés avec le nom de l'utilisateur
       const { data: points, error: pointsError } = await supabase
         .from("meeting_preparation_custom_points")
-        .select("*")
+        .select(`
+          *,
+          users!meeting_preparation_custom_points_created_by_fkey(name)
+        `)
         .order("created_at", { ascending: false });
 
       if (pointsError) throw pointsError;
@@ -86,7 +93,7 @@ export const MeetingPreparation = () => {
       
       toast({
         title: "Point ajouté",
-        description: "Le point a été ajouté à la préparation",
+        description: "Le point a été ajouté à l'ordre du jour",
       });
     } catch (error: any) {
       console.error("Error adding custom point:", error);
@@ -111,7 +118,7 @@ export const MeetingPreparation = () => {
       
       toast({
         title: "Point supprimé",
-        description: "Le point a été retiré de la préparation",
+        description: "Le point a été retiré de l'ordre du jour",
       });
     } catch (error: any) {
       console.error("Error deleting custom point:", error);
@@ -124,7 +131,7 @@ export const MeetingPreparation = () => {
   };
 
   const clearAllCustomPoints = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir effacer tous les points personnels ? Cette action est irréversible.")) {
+    if (!confirm("Êtes-vous sûr de vouloir effacer tous les points de l'ordre du jour ? Cette action est irréversible.")) {
       return;
     }
 
@@ -140,7 +147,7 @@ export const MeetingPreparation = () => {
       
       toast({
         title: "Points effacés",
-        description: "Tous les points personnels ont été supprimés",
+        description: "Tous les points de l'ordre du jour ont été supprimés",
       });
     } catch (error: any) {
       console.error("Error clearing custom points:", error);
@@ -191,11 +198,11 @@ export const MeetingPreparation = () => {
               Aucune tâche en cours
             </div>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-2 pl-4">
               {todos.map((todo) => (
                 <li key={todo.id} className="flex items-start gap-2">
-                  <span className="text-muted-foreground mt-1 text-sm">•</span>
-                  <span className="text-sm">{todo.description}</span>
+                  <span className="text-muted-foreground mt-0.5 text-sm">•</span>
+                  <span className="text-sm flex-1">{todo.description}</span>
                 </li>
               ))}
             </ul>
@@ -204,11 +211,11 @@ export const MeetingPreparation = () => {
 
         {/* Séparateur visuel */}
         <div className="border-t pt-6">
-          {/* Points personnels à ajouter */}
+          {/* Points à ajouter à l'ordre du jour */}
           <div>
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold">
-                Points personnels à aborder
+                Points à ajouter à l'ordre du jour
               </h3>
               {customPoints.length > 0 && (
                 <Button 
@@ -218,7 +225,7 @@ export const MeetingPreparation = () => {
                   className="text-red-600 hover:text-red-700"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  Effacer les notes
+                  Effacer tous les points
                 </Button>
               )}
             </div>
@@ -226,7 +233,7 @@ export const MeetingPreparation = () => {
             {/* Ajouter un point */}
             <div className="flex gap-2 mb-3">
               <Input
-                placeholder="Ajouter un point à aborder..."
+                placeholder="Ajouter un point à l'ordre du jour..."
                 value={newPoint}
                 onChange={(e) => setNewPoint(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addCustomPoint()}
@@ -240,17 +247,22 @@ export const MeetingPreparation = () => {
 
             {/* Liste des points */}
             {customPoints.length > 0 ? (
-              <ul className="space-y-1">
+              <ul className="space-y-2 pl-4">
                 {customPoints.map((point) => (
                   <li key={point.id} className="flex items-start gap-2">
-                    <span className="text-muted-foreground mt-1 text-sm">•</span>
+                    <span className="text-muted-foreground mt-0.5 text-sm">•</span>
                     <div className="flex-1 flex justify-between items-start">
-                      <span className="text-sm">{point.point_text}</span>
+                      <div className="flex-1">
+                        <span className="text-sm">{point.point_text}</span>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Ajouté par {point.users?.name || 'Utilisateur inconnu'}
+                        </div>
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteCustomPoint(point.id)}
-                        className="text-red-600 hover:text-red-700 h-6 w-6 p-0 ml-2"
+                        className="text-red-600 hover:text-red-700 h-6 w-6 p-0 ml-2 flex-shrink-0"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -260,7 +272,7 @@ export const MeetingPreparation = () => {
               </ul>
             ) : (
               <div className="text-center py-3 text-muted-foreground text-sm">
-                Aucun point personnel ajouté
+                Aucun point ajouté à l'ordre du jour
               </div>
             )}
           </div>
