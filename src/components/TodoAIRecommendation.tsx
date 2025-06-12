@@ -113,6 +113,14 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
     fetchRecommendation();
   }, [todoId]);
 
+  const handleRecommendationToggle = (newIsOpen: boolean) => {
+    setIsOpen(newIsOpen);
+    // Auto-open email if there's an email draft when expanding the recommendation
+    if (newIsOpen && recommendation?.email_draft) {
+      setShowEmailDraft(true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-foreground p-2 bg-blue-50 rounded">
@@ -131,7 +139,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   return (
     <div className="mt-3 bg-blue-50 rounded-lg">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Collapsible open={isOpen} onOpenChange={handleRecommendationToggle}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
