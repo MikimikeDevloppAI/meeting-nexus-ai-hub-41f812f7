@@ -27,6 +27,43 @@ export const DocumentSearchAssistant = () => {
     maxSentHistory: 20
   });
 
+  // Fonction pour transformer les sources de l'Edge Function au format attendu par SmartDocumentSources
+  const transformSourcesForDisplay = (sources: any[]) => {
+    if (!sources || sources.length === 0) return [];
+
+    // Grouper les chunks par document
+    const groupedByDocument = sources.reduce((acc, source) => {
+      const docId = source.document_id;
+      if (!acc[docId]) {
+        acc[docId] = {
+          documentId: docId,
+          documentName: source.document_name || 'Document inconnu',
+          maxSimilarity: source.similarity || 0,
+          chunksCount: 0,
+          documentType: source.document_type || 'document',
+          relevantChunks: []
+        };
+      }
+      
+      // Prendre la similarité maximale pour ce document
+      if (source.similarity > acc[docId].maxSimilarity) {
+        acc[docId].maxSimilarity = source.similarity;
+      }
+      
+      acc[docId].chunksCount += 1;
+      if (source.chunk_text) {
+        acc[docId].relevantChunks.push(source.chunk_text);
+      }
+      
+      return acc;
+    }, {});
+
+    // Convertir en tableau et filtrer par similarité > 35%
+    return Object.values(groupedByDocument).filter(doc => 
+      doc.maxSimilarity > 0.35
+    );
+  };
+
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -69,17 +106,18 @@ export const DocumentSearchAssistant = () => {
         .replace(/\s*CONTEXTE.*?:/gi, '')
         .trim();
 
-      // Filtrer les sources avec pertinence > 35%
-      const filteredSources = data.sources ? data.sources.filter(source => 
-        source.maxSimilarity && source.maxSimilarity > 0.35
-      ) : [];
+      // Transformer les sources au format attendu par SmartDocumentSources
+      const transformedSources = transformSourcesForDisplay(data.sources || []);
+
+      console.log('[DOCUMENT_SEARCH] 📊 Sources originales:', data.sources?.length || 0);
+      console.log('[DOCUMENT_SEARCH] 📋 Sources transformées:', transformedSources.length);
 
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         content: cleanContent,
         isUser: false,
         timestamp: new Date(),
-        sources: filteredSources
+        sources: transformedSources
       };
 
       addMessage(aiMessage);
@@ -91,10 +129,10 @@ export const DocumentSearchAssistant = () => {
           description: `${data.searchMetrics.totalDataPoints} sources trouvées dans vos documents`,
           variant: "default",
         });
-      } else if (filteredSources.length > 0) {
+      } else if (transformedSources.length > 0) {
         toast({
           title: "Documents trouvés",
-          description: `${filteredSources.length} document(s) pertinent(s)`,
+          description: `${transformedSources.length} document(s) pertinent(s)`,
           variant: "default",
         });
       }
