@@ -23,7 +23,7 @@ interface Message {
   content: string;
   isUser: boolean;
   timestamp: Date;
-  primarySource?: DocumentSource;
+  sources?: DocumentSource[];
 }
 
 export const DocumentSearchAssistant = () => {
@@ -49,19 +49,11 @@ export const DocumentSearchAssistant = () => {
     });
   };
 
-  const findMostRelevantDocument = (sources: any[]): DocumentSource | null => {
-    if (!sources || sources.length === 0) return null;
+  const processDocumentSources = (sources: any[]): DocumentSource[] => {
+    if (!sources || sources.length === 0) return [];
 
-    // Grouper les sources par document et calculer la pertinence totale
-    const documentsMap = new Map<string, {
-      documentId: string;
-      documentName: string;
-      maxSimilarity: number;
-      chunksCount: number;
-      documentType?: string;
-      relevantChunks: string[];
-      totalRelevance: number;
-    }>();
+    // Grouper les sources par document et calculer les métriques
+    const documentsMap = new Map<string, DocumentSource>();
 
     sources.forEach((source: any) => {
       const docId = source.document_id || source.id;
@@ -76,34 +68,19 @@ export const DocumentSearchAssistant = () => {
           maxSimilarity: similarity,
           chunksCount: 1,
           documentType: source.type,
-          relevantChunks: [chunkText],
-          totalRelevance: similarity
+          relevantChunks: [chunkText]
         });
       } else {
         const existing = documentsMap.get(docId)!;
         existing.maxSimilarity = Math.max(existing.maxSimilarity, similarity);
         existing.chunksCount += 1;
-        existing.relevantChunks.push(chunkText);
-        existing.totalRelevance += similarity;
+        existing.relevantChunks!.push(chunkText);
       }
     });
 
-    // Sélectionner le document avec la meilleure pertinence totale
-    const documents = Array.from(documentsMap.values());
-    if (documents.length === 0) return null;
-
-    const mostRelevant = documents.reduce((best, current) => 
-      current.totalRelevance > best.totalRelevance ? current : best
-    );
-
-    return {
-      documentId: mostRelevant.documentId,
-      documentName: mostRelevant.documentName,
-      maxSimilarity: mostRelevant.maxSimilarity,
-      chunksCount: mostRelevant.chunksCount,
-      documentType: mostRelevant.documentType,
-      relevantChunks: mostRelevant.relevantChunks.slice(0, 3) // Limiter à 3 chunks les plus pertinents
-    };
+    // Retourner tous les documents triés par pertinence
+    return Array.from(documentsMap.values())
+      .sort((a, b) => b.maxSimilarity - a.maxSimilarity);
   };
 
   const sendMessage = async () => {
@@ -160,12 +137,12 @@ export const DocumentSearchAssistant = () => {
 
       console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
 
-      // Identifier le document le plus pertinent
-      let primarySource: DocumentSource | null = null;
+      // Traiter toutes les sources de documents
+      let documentSources: DocumentSource[] = [];
       if (data.sources && data.sources.length > 0) {
         console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
-        primarySource = findMostRelevantDocument(data.sources);
-        console.log('[DOCUMENT_SEARCH] Document principal sélectionné:', primarySource);
+        documentSources = processDocumentSources(data.sources);
+        console.log('[DOCUMENT_SEARCH] Documents sources traités:', documentSources);
       } else {
         console.log('[DOCUMENT_SEARCH] Aucune source trouvée');
       }
@@ -175,7 +152,7 @@ export const DocumentSearchAssistant = () => {
         content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents.",
         isUser: false,
         timestamp: new Date(),
-        primarySource: primarySource || undefined
+        sources: documentSources.length > 0 ? documentSources : undefined
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -229,7 +206,7 @@ export const DocumentSearchAssistant = () => {
           )}
         </div>
         <CardDescription>
-          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec le document source le plus pertinent.
+          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les documents sources pertinents.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -274,12 +251,12 @@ export const DocumentSearchAssistant = () => {
                       </div>
                     </div>
 
-                    {/* Affichage intelligent du document source */}
-                    {!message.isUser && message.primarySource && (
+                    {/* Affichage intelligent des documents sources */}
+                    {!message.isUser && message.sources && message.sources.length > 0 && (
                       <div className="ml-11">
                         <SmartDocumentSources 
-                          sources={[message.primarySource]}
-                          title="Document source utilisé"
+                          sources={message.sources}
+                          title={message.sources.length === 1 ? "Document source utilisé" : "Documents sources utilisés"}
                         />
                       </div>
                     )}
@@ -325,7 +302,7 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              🔍 Recherche intelligente avec affichage du document le plus pertinent
+              🔍 Recherche intelligente avec affichage de tous les documents pertinents
             </div>
           </div>
         </div>
