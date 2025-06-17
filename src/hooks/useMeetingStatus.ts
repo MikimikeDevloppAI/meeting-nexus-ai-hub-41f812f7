@@ -56,26 +56,38 @@ export const useMeetingStatus = (meetingId: string | null) => {
         return;
       }
 
-      // Count recommendations
-      const { count: recommendationCount, error: recError } = await supabase
-        .from('todo_ai_recommendations')
-        .select('todo_id', { count: 'exact', head: true })
-        .in('todo_id', 
-          supabase
-            .from('todos')
-            .select('id')
-            .eq('meeting_id', meetingId)
-        );
+      // First get todos for this meeting, then count recommendations
+      const { data: todoIds, error: todoError } = await supabase
+        .from('todos')
+        .select('id')
+        .eq('meeting_id', meetingId);
 
-      if (recError) {
-        console.error('[MeetingStatus] Error counting recommendations:', recError);
+      if (todoError) {
+        console.error('[MeetingStatus] Error fetching todo IDs:', todoError);
         return;
+      }
+
+      let recommendationCount = 0;
+      if (todoIds && todoIds.length > 0) {
+        const todoIdList = todoIds.map(todo => todo.id);
+        
+        const { count: recCount, error: recError } = await supabase
+          .from('todo_ai_recommendations')
+          .select('*', { count: 'exact', head: true })
+          .in('todo_id', todoIdList);
+
+        if (recError) {
+          console.error('[MeetingStatus] Error counting recommendations:', recError);
+          return;
+        }
+
+        recommendationCount = recCount || 0;
       }
 
       const hasSummary = !!meetingData?.summary;
       const hasCleanedTranscript = !!meetingData?.transcript;
       const tasksCreated = taskCount || 0;
-      const recommendationsCreated = recommendationCount || 0;
+      const recommendationsCreated = recommendationCount;
 
       // Calculate progress
       let progressPercentage = 0;
