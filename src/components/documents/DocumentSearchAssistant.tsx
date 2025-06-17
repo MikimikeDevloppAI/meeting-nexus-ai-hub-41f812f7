@@ -190,7 +190,7 @@ export const DocumentSearchAssistant = () => {
                 </div>
               </div>
               
-              {/* Affichage des documents sources pour les réponses de l'IA */}
+              {/* Affichage des documents sources pour les réponses de l'IA avec le même visuel que Documents et Meetings */}
               {!message.isUser && message.sources && message.sources.length > 0 && (
                 <div className="ml-11">
                   <SmartDocumentSources 
