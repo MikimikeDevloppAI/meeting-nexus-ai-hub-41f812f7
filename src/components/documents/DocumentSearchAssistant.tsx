@@ -4,16 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Loader2, FileText, Search, Trash2 } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
+import { SmartDocumentSources } from "./SmartDocumentSources";
 
 interface DocumentSource {
   documentId: string;
   documentName: string;
   maxSimilarity: number;
   chunksCount: number;
+  documentType?: string;
+  relevantChunks?: string[];
 }
 
 interface Message {
@@ -21,7 +23,7 @@ interface Message {
   content: string;
   isUser: boolean;
   timestamp: Date;
-  sources?: DocumentSource[];
+  primarySource?: DocumentSource;
 }
 
 export const DocumentSearchAssistant = () => {
@@ -45,6 +47,63 @@ export const DocumentSearchAssistant = () => {
       title: "Chat effacé",
       description: "L'historique de la conversation a été supprimé.",
     });
+  };
+
+  const findMostRelevantDocument = (sources: any[]): DocumentSource | null => {
+    if (!sources || sources.length === 0) return null;
+
+    // Grouper les sources par document et calculer la pertinence totale
+    const documentsMap = new Map<string, {
+      documentId: string;
+      documentName: string;
+      maxSimilarity: number;
+      chunksCount: number;
+      documentType?: string;
+      relevantChunks: string[];
+      totalRelevance: number;
+    }>();
+
+    sources.forEach((source: any) => {
+      const docId = source.document_id || source.id;
+      const docName = source.document_name || 'Document inconnu';
+      const similarity = source.similarity || 0;
+      const chunkText = source.chunk_text || '';
+      
+      if (!documentsMap.has(docId)) {
+        documentsMap.set(docId, {
+          documentId: docId,
+          documentName: docName,
+          maxSimilarity: similarity,
+          chunksCount: 1,
+          documentType: source.type,
+          relevantChunks: [chunkText],
+          totalRelevance: similarity
+        });
+      } else {
+        const existing = documentsMap.get(docId)!;
+        existing.maxSimilarity = Math.max(existing.maxSimilarity, similarity);
+        existing.chunksCount += 1;
+        existing.relevantChunks.push(chunkText);
+        existing.totalRelevance += similarity;
+      }
+    });
+
+    // Sélectionner le document avec la meilleure pertinence totale
+    const documents = Array.from(documentsMap.values());
+    if (documents.length === 0) return null;
+
+    const mostRelevant = documents.reduce((best, current) => 
+      current.totalRelevance > best.totalRelevance ? current : best
+    );
+
+    return {
+      documentId: mostRelevant.documentId,
+      documentName: mostRelevant.documentName,
+      maxSimilarity: mostRelevant.maxSimilarity,
+      chunksCount: mostRelevant.chunksCount,
+      documentType: mostRelevant.documentType,
+      relevantChunks: mostRelevant.relevantChunks.slice(0, 3) // Limiter à 3 chunks les plus pertinents
+    };
   };
 
   const sendMessage = async () => {
@@ -101,35 +160,12 @@ export const DocumentSearchAssistant = () => {
 
       console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
 
-      // Traiter les sources et grouper par document unique
-      let uniqueDocuments: DocumentSource[] = [];
+      // Identifier le document le plus pertinent
+      let primarySource: DocumentSource | null = null;
       if (data.sources && data.sources.length > 0) {
         console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
-        
-        // Grouper les sources par document_id pour éviter les doublons
-        const documentsMap = new Map<string, DocumentSource>();
-        
-        data.sources.forEach((source: any) => {
-          const docId = source.document_id || source.id;
-          const docName = source.document_name || 'Document inconnu';
-          
-          if (!documentsMap.has(docId)) {
-            documentsMap.set(docId, {
-              documentId: docId,
-              documentName: docName,
-              maxSimilarity: source.similarity || 0,
-              chunksCount: 1
-            });
-          } else {
-            // Mettre à jour avec la meilleure similarité et compter les chunks
-            const existing = documentsMap.get(docId)!;
-            existing.maxSimilarity = Math.max(existing.maxSimilarity, source.similarity || 0);
-            existing.chunksCount += 1;
-          }
-        });
-
-        uniqueDocuments = Array.from(documentsMap.values())
-          .sort((a, b) => b.maxSimilarity - a.maxSimilarity); // Trier par pertinence
+        primarySource = findMostRelevantDocument(data.sources);
+        console.log('[DOCUMENT_SEARCH] Document principal sélectionné:', primarySource);
       } else {
         console.log('[DOCUMENT_SEARCH] Aucune source trouvée');
       }
@@ -139,13 +175,10 @@ export const DocumentSearchAssistant = () => {
         content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents.",
         isUser: false,
         timestamp: new Date(),
-        sources: uniqueDocuments
+        primarySource: primarySource || undefined
       };
 
       setMessages(prev => [...prev, aiMessage]);
-
-      // Afficher les résultats dans la console pour debug
-      console.log('[DOCUMENT_SEARCH] Documents uniques utilisés:', uniqueDocuments);
 
     } catch (error: any) {
       console.error('[DOCUMENT_SEARCH] Error sending message:', error);
@@ -196,7 +229,7 @@ export const DocumentSearchAssistant = () => {
           )}
         </div>
         <CardDescription>
-          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les sources exactes utilisées.
+          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec le document source le plus pertinent.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -241,33 +274,13 @@ export const DocumentSearchAssistant = () => {
                       </div>
                     </div>
 
-                    {/* Documents sources utilisés */}
-                    {!message.isUser && message.sources && message.sources.length > 0 && (
-                      <div className="ml-11 space-y-3">
-                        <div className="text-sm text-muted-foreground font-medium flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Documents sources utilisés ({message.sources.length}):
-                        </div>
-                        {message.sources.map((document, index) => (
-                          <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium text-blue-800 text-sm">
-                                  {document.documentName}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  Pertinence: {(document.maxSimilarity * 100).toFixed(1)}%
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {document.chunksCount} section{document.chunksCount > 1 ? 's' : ''} utilisée{document.chunksCount > 1 ? 's' : ''}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                    {/* Affichage intelligent du document source */}
+                    {!message.isUser && message.primarySource && (
+                      <div className="ml-11">
+                        <SmartDocumentSources 
+                          sources={[message.primarySource]}
+                          title="Document source utilisé"
+                        />
                       </div>
                     )}
                   </div>
@@ -280,7 +293,7 @@ export const DocumentSearchAssistant = () => {
                     </div>
                     <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Recherche vectorielle uniquement dans les documents...</span>
+                      <span className="text-sm">Recherche intelligente dans les documents...</span>
                     </div>
                   </div>
                 )}
@@ -312,7 +325,7 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              🔍 Recherche vectorielle UNIQUEMENT avec noms de documents depuis table 'documents'
+              🔍 Recherche intelligente avec affichage du document le plus pertinent
             </div>
           </div>
         </div>
