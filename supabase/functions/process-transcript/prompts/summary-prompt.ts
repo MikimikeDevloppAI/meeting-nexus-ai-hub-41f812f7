@@ -5,7 +5,7 @@ export function createSummaryPrompt(
   participantNames: string, 
   cleanedTranscript: string
 ): string {
-  return `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour un cabinet ophtalmologique situé à Genève, dirigé par le Dr Tabibian.
+  return `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour le cabinet ophtacare situé à Genève, dirigé par le Dr Tabibian. Il y aplusieurs ophtalomologues qui travaillent la bas ainsi que plusieurs personnels administratifs.L edirecteur du cabinet est le Dr. Tabibian.
 
 Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
 
