@@ -1,116 +1,28 @@
+// test-task-recommendation-agent.js
+const fetch = require('node-fetch');
+require('dotenv').config();
 
-// Test manuel de la fonction task-recommendation-agent
-// Utilise les données réelles de la réunion 958e7b7c-3291-45a1-949f-d67db1a6885e
+const FUNCTION_URL = process.env.SUPABASE_FUNCTION_TASK_RECOMMENDATION_AGENT_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-const testTaskRecommendationAgent = async () => {
-  console.log('🧪 DÉBUT du test manuel task-recommendation-agent');
+if (!FUNCTION_URL) {
+  console.error('❌ Erreur: Variable d\'environnement SUPABASE_FUNCTION_TASK_RECOMMENDATION_AGENT_URL non définie.');
+  process.exit(1);
+}
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('❌ Erreur: Variable d\'environnement SUPABASE_ANON_KEY non définie.');
+  process.exit(1);
+}
+
+async function testTaskRecommendationAgent() {
+  console.log('🚀 DÉBUT DU TEST MANUEL - Task Recommendation Agent');
+  console.log('=' .repeat(60));
   
-  // Données réelles de la réunion
-  const meetingData = {
-    id: '958e7b7c-3291-45a1-949f-d67db1a6885e',
-    title: 'Réunion équipe médicale - Organisation et préparatifs',
-    created_at: '2025-01-17T13:27:40.284849+00:00'
-  };
-
-  const participants = [
-    { name: 'Émilie' },
-    { name: 'Leïla' },
-    { name: 'Parmis' }
-  ];
-
-  const tasks = [
-    {
-      index: 0,
-      id: 'f0ee8e40-d54a-4b6b-9e04-df63e3f6b2a4',
-      description: 'Organiser une réunion avec les équipes pour discuter des nouveaux protocoles médicaux',
-      assigned_to: 'Émilie'
-    },
-    {
-      index: 1,
-      id: '8b2c4a1e-f3d5-4e6f-a7b8-c9d0e1f2a3b4',
-      description: 'Préparer le matériel pour la formation du personnel médical sur les nouvelles procédures',
-      assigned_to: 'Leïla'
-    },
-    {
-      index: 2,
-      id: 'a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
-      description: 'Mettre à jour la documentation médicale selon les dernières réglementations',
-      assigned_to: 'Parmis'
-    },
-    {
-      index: 3,
-      id: 'b2c3d4e5-f6g7-8h9i-0j1k-l2m3n4o5p6q7',
-      description: 'Coordonner avec le laboratoire pour les analyses spécialisées en ophtalmologie',
-      assigned_to: 'Émilie'
-    },
-    {
-      index: 4,
-      id: 'c3d4e5f6-g7h8-9i0j-1k2l-m3n4o5p6q7r8',
-      description: 'Planifier les rotations du personnel pour assurer une couverture optimale',
-      assigned_to: 'Leïla'
-    },
-    {
-      index: 5,
-      id: 'd4e5f6g7-h8i9-0j1k-2l3m-n4o5p6q7r8s9',
-      description: 'Vérifier et commander les équipements médicaux nécessaires',
-      assigned_to: 'Parmis'
-    },
-    {
-      index: 6,
-      id: 'e5f6g7h8-i9j0-1k2l-3m4n-o5p6q7r8s9t0',
-      description: 'Organiser la formation continue du personnel sur les nouvelles technologies',
-      assigned_to: 'Émilie'
-    },
-    {
-      index: 7,
-      id: 'f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1',
-      description: 'Mettre en place un système de suivi des patients pour améliorer la qualité des soins',
-      assigned_to: 'Leïla'
-    },
-    {
-      index: 8,
-      id: 'g7h8i9j0-k1l2-3m4n-5o6p-q7r8s9t0u1v2',
-      description: 'Réviser les protocoles d\'hygiène et de sécurité du cabinet',
-      assigned_to: 'Parmis'
-    },
-    {
-      index: 9,
-      id: 'h8i9j0k1-l2m3-4n5o-6p7q-r8s9t0u1v2w3',
-      description: 'Préparer le rapport mensuel d\'activité du cabinet d\'ophtalmologie',
-      assigned_to: 'Émilie'
-    }
-  ];
-
-  const cleanedTranscript = `
-Réunion de l'équipe médicale du cabinet d'ophtalmologie Dr Tabibian à Genève.
-
-Participants : Émilie (coordinatrice), Leïla (assistante médicale), Parmis (secrétaire médicale)
-
-Points abordés :
-- Organisation des nouveaux protocoles médicaux suite aux recommandations de la société suisse d'ophtalmologie
-- Formation du personnel sur les nouvelles procédures d'examen de la rétine
-- Mise à jour de la documentation selon la réglementation cantonale genevoise
-- Coordination avec le laboratoire Viollier pour les analyses spécialisées
-- Planification des rotations pour assurer une présence continue
-- Commande des nouveaux équipements : OCT dernière génération, lampe à fente
-- Formation sur la nouvelle machine d'angiographie fluorescéinique
-- Amélioration du suivi des patients diabétiques
-- Révision des protocoles COVID et hygiène du cabinet
-- Préparation du rapport mensuel pour l'assurance maladie
-
-Décisions prises :
-- Émilie coordonne les réunions et formations
-- Leïla s'occupe du matériel et des rotations
-- Parmis gère la documentation et les commandes
-- Rendez-vous hebdomadaires le lundi matin
-- Formation prévue le 15 février avec un spécialiste externe
-  `;
-
-  // Construction du prompt batch complet
-  const participantNames = participants.map(p => p.name).join(', ');
-
-  const batchPrompt = `
-Tu es un assistant IA spécialisé dans la génération de recommandations TRÈS DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
+  try {
+    // Payload de test avec toutes les tâches réelles
+    const testPayload = {
+      batchPrompt: `Tu es un assistant IA spécialisé dans la génération de recommandations TRÈS DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
 Ton objectif est d'analyser la tâche et de :
 1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
@@ -118,7 +30,7 @@ Ton objectif est d'analyser la tâche et de :
 3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l'exécution.
 4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
 5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : "Aucune recommandation.").
-6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
+6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe.
 
 Critères de qualité :
 - Sois **concis, structuré et actionnable**.
@@ -127,21 +39,46 @@ Critères de qualité :
 - Évite les banalités ou les évidences.
 
 CONTEXTE DE LA RÉUNION :
-- Titre: ${meetingData.title}
-- Date: ${meetingData.created_at}
-- Participants: ${participantNames}
+- Titre: Réunion hebdomadaire du cabinet Dr Tabibian
+- Date: 2025-06-17
+- Participants: Émilie, Leïla, Parmis
 
 TRANSCRIPT DE LA RÉUNION :
-${cleanedTranscript}
+Réunion hebdomadaire concernant l'organisation du cabinet, la gestion des stocks de matériel médical, et la coordination des rendez-vous patients. Discussion sur les nouvelles procédures administratives et les améliorations à apporter au service client.
 
-TÂCHES À ANALYSER (${tasks.length} tâches) :
-${tasks.map(task => `
-${task.index}. [ID: ${task.id}] ${task.description}
-   - Assigné à: ${task.assigned_to}
-`).join('')}
+TÂCHES À ANALYSER (10 tâches) :
+0. [ID: 3eedc900-7f3b-4257-a7c4-e975dc550a40] Effectuer le suivi des stocks de matériel médical
+   - Assigné à: Émilie
+
+1. [ID: 59bfd784-9e47-4820-bf2c-5d282b118165] Organiser la formation du personnel sur les nouvelles procédures
+   - Assigné à: Leïla
+
+2. [ID: dcd2c427-85a0-42dc-ab70-3f0626ace471] Mettre à jour le système de prise de rendez-vous
+   - Assigné à: Parmis
+
+3. [ID: 020dcf06-c7c9-46ef-858e-25282d7c2b55] Réviser les protocoles de nettoyage et désinfection
+   - Assigné à: Émilie
+
+4. [ID: 4bb2c6c2-adf1-4633-ab7e-7779be92c6d9] Coordonner avec les fournisseurs pour les commandes urgentes
+   - Assigné à: Leïla
+
+5. [ID: eb1e518e-0e00-44bf-8fb4-3e57451c6f9f] Optimiser l'accueil et l'orientation des patients
+   - Assigné à: Parmis
+
+6. [ID: ba0bda6e-1b30-4ae3-92ec-592bfe380e26] Planifier la maintenance préventive des équipements
+   - Assigné à: Émilie
+
+7. [ID: bebd1289-ad9b-4fc1-8cdc-216d08468855] Analyser la satisfaction patient et proposer des améliorations
+   - Assigné à: Leïla
+
+8. [ID: d380d446-dba2-4f35-8d5f-028f5b8f67ef] Gérer les relations avec les laboratoires partenaires
+   - Assigné à: Parmis
+
+9. [ID: a1c9d7f8-63e2-44d2-90d3-d6b2b445f835] Mettre en place un système de rappel automatique pour les patients
+   - Assigné à: Émilie
 
 IMPORTANT : 
-- Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
+- Traite TOUTES les tâches (indices 0 à 9)
 - Sois EXTRÊMEMENT DÉTAILLÉ dans chaque recommandation
 - Développe tous les aspects pertinents en profondeur
 
@@ -165,129 +102,191 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
   ]
 }
 
-ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec des recommandations TRÈS DÉTAILLÉES.`;
+ASSURE-TOI d'inclure TOUTES les 10 tâches dans ta réponse avec des recommandations TRÈS DÉTAILLÉES.`,
+      
+      tasks: [
+        {
+          index: 0,
+          id: "3eedc900-7f3b-4257-a7c4-e975dc550a40",
+          description: "Effectuer le suivi des stocks de matériel médical",
+          assigned_to: "Émilie"
+        },
+        {
+          index: 1,
+          id: "59bfd784-9e47-4820-bf2c-5d282b118165", 
+          description: "Organiser la formation du personnel sur les nouvelles procédures",
+          assigned_to: "Leïla"
+        },
+        {
+          index: 2,
+          id: "dcd2c427-85a0-42dc-ab70-3f0626ace471",
+          description: "Mettre à jour le système de prise de rendez-vous", 
+          assigned_to: "Parmis"
+        },
+        {
+          index: 3,
+          id: "020dcf06-c7c9-46ef-858e-25282d7c2b55",
+          description: "Réviser les protocoles de nettoyage et désinfection",
+          assigned_to: "Émilie"
+        },
+        {
+          index: 4,
+          id: "4bb2c6c2-adf1-4633-ab7e-7779be92c6d9",
+          description: "Coordonner avec les fournisseurs pour les commandes urgentes",
+          assigned_to: "Leïla"
+        },
+        {
+          index: 5,
+          id: "eb1e518e-0e00-44bf-8fb4-3e57451c6f9f",
+          description: "Optimiser l'accueil et l'orientation des patients",
+          assigned_to: "Parmis"
+        },
+        {
+          index: 6,
+          id: "ba0bda6e-1b30-4ae3-92ec-592bfe380e26",
+          description: "Planifier la maintenance préventive des équipements",
+          assigned_to: "Émilie"
+        },
+        {
+          index: 7,
+          id: "bebd1289-ad9b-4fc1-8cdc-216d08468855",
+          description: "Analyser la satisfaction patient et proposer des améliorations",
+          assigned_to: "Leïla"
+        },
+        {
+          index: 8,
+          id: "d380d446-dba2-4f35-8d5f-028f5b8f67ef",
+          description: "Gérer les relations avec les laboratoires partenaires",
+          assigned_to: "Parmis"
+        },
+        {
+          index: 9,
+          id: "a1c9d7f8-63e2-44d2-90d3-d6b2b445f835",
+          description: "Mettre en place un système de rappel automatique pour les patients",
+          assigned_to: "Émilie"
+        }
+      ],
+      transcript: "Réunion hebdomadaire concernant l'organisation du cabinet, la gestion des stocks de matériel médical, et la coordination des rendez-vous patients. Discussion sur les nouvelles procédures administratives et les améliorations à apporter au service client.",
+      meetingContext: {
+        title: "Réunion hebdomadaire du cabinet Dr Tabibian",
+        date: "2025-06-17T12:00:00.000Z",
+        participants: "Émilie, Leïla, Parmis"
+      }
+    };
 
-  // Payload complet pour la fonction
-  const payload = {
-    batchPrompt,
-    tasks,
-    transcript: cleanedTranscript,
-    meetingContext: {
-      title: meetingData.title,
-      date: meetingData.created_at,
-      participants: participantNames
-    }
-  };
+    console.log('📤 Envoi de la requête à task-recommendation-agent...');
+    console.log(`📊 Nombre de tâches: ${testPayload.tasks.length}`);
+    console.log(`📝 Taille du prompt: ${testPayload.batchPrompt.length} caractères`);
+    console.log();
 
-  console.log('📋 Payload construit avec:');
-  console.log(`- ${tasks.length} tâches`);
-  console.log(`- Participants: ${participantNames}`);
-  console.log(`- Transcript: ${cleanedTranscript.length} caractères`);
-  console.log(`- Prompt: ${batchPrompt.length} caractères`);
-
-  try {
-    console.log('⏳ Appel de la fonction task-recommendation-agent...');
+    const startTime = Date.now();
     
-    // Simulation de l'appel à la fonction (remplace par l'appel réel)
-    const response = await fetch('https://ynzthyffbgdsgcyfrzgf.supabase.co/functions/v1/task-recommendation-agent', {
+    const response = await fetch(FUNCTION_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_ANON_KEY' // Remplace par la vraie clé
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(testPayload)
     });
 
+    const duration = Date.now() - startTime;
+    console.log(`⏱️ Durée de la requête: ${duration}ms`);
+    console.log(`📡 Status HTTP: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const errorText = await response.text();
+      console.error('❌ Erreur HTTP:', response.status, response.statusText);
+      console.error('❌ Détails:', errorText);
+      return;
     }
 
     const result = await response.json();
+    console.log('\n📥 RÉPONSE REÇUE:');
+    console.log('=' .repeat(50));
     
-    console.log('✅ Réponse reçue de task-recommendation-agent:');
-    console.log('📊 Structure de la réponse:');
-    console.log(`- Success: ${result.success}`);
-    console.log(`- Recommendation: ${result.recommendation ? 'Présent' : 'Absent'}`);
-    
-    if (result.recommendation?.recommendations) {
-      console.log(`- Nombre de recommandations: ${result.recommendation.recommendations.length}`);
-      
-      // Analyse détaillée de chaque recommandation
-      result.recommendation.recommendations.forEach((rec, index) => {
-        console.log(`\n📋 Recommandation ${index + 1}:`);
-        console.log(`- Task Index: ${rec.taskIndex}`);
-        console.log(`- Task ID: ${rec.taskId}`);
-        console.log(`- Has Recommendation: ${rec.hasRecommendation}`);
-        console.log(`- Recommendation Length: ${rec.recommendation?.length || 0} caractères`);
-        console.log(`- Has Email Draft: ${rec.emailDraft ? 'Oui' : 'Non'}`);
-        
-        if (rec.recommendation) {
-          console.log(`- Extrait: "${rec.recommendation.substring(0, 100)}..."`);
-        }
-      });
+    if (result.error) {
+      console.error('❌ Erreur dans la réponse:', result.error);
+      return;
     }
 
-    // Vérification de la conformité JSON
-    if (result.recommendation?.recommendations) {
+    if (result.success && result.recommendation) {
+      console.log('✅ Réponse reçue avec succès');
+      
       const recommendations = result.recommendation.recommendations;
-      const allTasksPresent = tasks.every(task => 
-        recommendations.some(rec => rec.taskId === task.id)
-      );
-      
-      console.log(`\n✅ Vérifications:`);
-      console.log(`- Toutes les tâches présentes: ${allTasksPresent}`);
-      console.log(`- Format JSON valide: ✅`);
-      
-      const detailedRecs = recommendations.filter(rec => 
-        rec.recommendation && rec.recommendation.length > 100
-      );
-      console.log(`- Recommandations détaillées: ${detailedRecs.length}/${recommendations.length}`);
-      
-      const withEmails = recommendations.filter(rec => rec.emailDraft);
-      console.log(`- Avec brouillons d'email: ${withEmails.length}/${recommendations.length}`);
-    }
+      if (recommendations && Array.isArray(recommendations)) {
+        console.log(`📊 Nombre de recommandations reçues: ${recommendations.length}`);
+        console.log();
+        
+        // Analyser chaque recommandation
+        for (let i = 0; i < recommendations.length; i++) {
+          const rec = recommendations[i];
+          console.log(`📋 RECOMMANDATION ${i + 1}/10:`);
+          console.log(`   Task ID: ${rec.taskId}`);
+          console.log(`   Task Index: ${rec.taskIndex}`);
+          console.log(`   Has Recommendation: ${rec.hasRecommendation}`);
+          
+          if (rec.recommendation) {
+            const recLength = rec.recommendation.length;
+            console.log(`   Recommandation (${recLength} chars): ${rec.recommendation.substring(0, 100)}...`);
+          }
+          
+          if (rec.emailDraft) {
+            const emailLength = rec.emailDraft.length;
+            console.log(`   Email Draft (${emailLength} chars): ${rec.emailDraft.substring(0, 100)}...`);
+          }
+          console.log();
+        }
+        
+        // Vérifications de qualité
+        console.log('🔍 VÉRIFICATIONS DE QUALITÉ:');
+        console.log('=' .repeat(50));
+        
+        const allTasksProcessed = recommendations.length === 10;
+        console.log(`✅ Toutes les tâches traitées: ${allTasksProcessed ? 'OUI' : 'NON'}`);
+        
+        const allHaveRecommendations = recommendations.every(r => r.hasRecommendation);
+        console.log(`✅ Toutes ont des recommandations: ${allHaveRecommendations ? 'OUI' : 'NON'}`);
+        
+        const avgRecommendationLength = recommendations
+          .map(r => r.recommendation?.length || 0)
+          .reduce((a, b) => a + b, 0) / recommendations.length;
+        console.log(`📏 Longueur moyenne recommandations: ${Math.round(avgRecommendationLength)} chars`);
+        
+        const emailDraftsCount = recommendations.filter(r => r.emailDraft).length;
+        console.log(`📧 Nombre d'emails pré-rédigés: ${emailDraftsCount}/10`);
+        
+        // Afficher une recommandation complète en exemple
+        if (recommendations.length > 0) {
+          console.log('\n📄 EXEMPLE DE RECOMMANDATION COMPLÈTE:');
+          console.log('=' .repeat(50));
+          const firstRec = recommendations[0];
+          console.log('Tâche:', testPayload.tasks[0].description);
+          console.log('Recommandation:');
+          console.log(firstRec.recommendation);
+          if (firstRec.emailDraft) {
+            console.log('\nEmail pré-rédigé:');
+            console.log(firstRec.emailDraft);
+          }
+        }
 
-    console.log('\n🎯 RÉSULTAT DU TEST:');
-    if (result.success && result.recommendation?.recommendations) {
-      console.log('✅ La fonction task-recommendation-agent fonctionne correctement');
-      console.log('➡️ Le problème est probablement dans recommendation-service.ts');
+      } else {
+        console.error('❌ Format de réponse inattendu - pas de tableau de recommandations');
+        console.log('Structure reçue:', JSON.stringify(result, null, 2));
+      }
     } else {
-      console.log('❌ La fonction task-recommendation-agent a un problème');
-      console.log('➡️ Analyser les logs de la fonction edge');
+      console.error('❌ Réponse sans succès ou recommandation');
+      console.log('Réponse complète:', JSON.stringify(result, null, 2));
     }
-
-    return result;
 
   } catch (error) {
-    console.error('❌ Erreur lors du test:', error);
-    console.log('➡️ Vérifier la connectivité et les logs de la fonction');
-    return null;
+    console.error('❌ ERREUR DURANT LE TEST:', error);
+    console.error('Stack trace:', error.stack);
   }
-};
-
-// Instructions pour l'exécution
-console.log(`
-🧪 TEST MANUEL TASK-RECOMMENDATION-AGENT
-
-Pour exécuter ce test:
-1. Ouvre la console du navigateur (F12)
-2. Colle ce code complet
-3. Remplace YOUR_ANON_KEY par la vraie clé Supabase anon
-4. Exécute: testTaskRecommendationAgent()
-
-Le test va:
-✅ Construire un payload réaliste avec 10 tâches
-✅ Appeler la fonction avec le contexte complet
-✅ Analyser la réponse en détail
-✅ Diagnostiquer où est le problème
-
-Attendre les résultats pour déterminer si le problème vient de:
-- La fonction task-recommendation-agent elle-même
-- Le service recommendation-service.ts
-- La communication OpenAI
-`);
-
-// Export pour pouvoir l'utiliser
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { testTaskRecommendationAgent };
+  
+  console.log('\n🏁 FIN DU TEST MANUEL');
+  console.log('=' .repeat(60));
 }
+
+// Exécution du test
+testTaskRecommendationAgent();
