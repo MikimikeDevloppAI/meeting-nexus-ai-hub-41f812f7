@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { FileText, Mic } from "lucide-react";
+import { FileText } from "lucide-react";
 import { DocumentViewer } from "./DocumentViewer";
 import { CompactDocumentItem } from "./CompactDocumentItem";
 import { UnifiedDocumentItem } from "@/types/unified-document";
@@ -26,6 +26,13 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
   if (!sources || sources.length === 0) {
     return null;
   }
+
+  // Filtrer pour garder uniquement les documents vraiment pertinents
+  // Seuil de similarité plus élevé pour éviter d'afficher tous les documents récupérés
+  const relevantSources = sources.filter(source => source.maxSimilarity > 0.3);
+  
+  // Si aucun document n'atteint le seuil, prendre le meilleur
+  const displaySources = relevantSources.length > 0 ? relevantSources : sources.slice(0, 1);
 
   // Créer un objet UnifiedDocumentItem simulé pour le viewer
   const createDocumentFromSource = (source: DocumentSource): UnifiedDocumentItem => ({
@@ -71,11 +78,11 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
       <div className="mt-4 space-y-3">
         <div className="text-sm text-muted-foreground font-medium flex items-center gap-2">
           <FileText className="h-4 w-4" />
-          {title} ({sources.length} document{sources.length > 1 ? 's' : ''}) :
+          {title} ({displaySources.length} document{displaySources.length > 1 ? 's' : ''}) :
         </div>
         
         <div className="space-y-2">
-          {sources.map((source, index) => {
+          {displaySources.map((source, index) => {
             const documentData = createDocumentFromSource(source);
             
             return (
@@ -97,16 +104,6 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
                     {source.chunksCount} section{source.chunksCount > 1 ? 's' : ''}
                   </div>
                 </div>
-
-                {/* Passage pertinent */}
-                {source.relevantChunks && source.relevantChunks.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-600 bg-blue-50 p-2 rounded border-l-4 border-blue-200">
-                    <strong>Passage utilisé :</strong>
-                    <div className="mt-1 font-mono italic">
-                      "{source.relevantChunks[0].substring(0, 200)}..."
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
