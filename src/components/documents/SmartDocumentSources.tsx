@@ -81,30 +81,19 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
           {title} ({displaySources.length} document{displaySources.length > 1 ? 's' : ''}) :
         </div>
         
-        <div className="space-y-2">
+        <div className="space-y-3">
           {displaySources.map((source, index) => {
             const documentData = createDocumentFromSource(source);
             
             return (
-              <div key={`${source.documentId}-${index}`} className="relative">
-                <CompactDocumentItem
-                  document={documentData}
-                  onDownload={() => handleDownloadDocument(source)}
-                  onDelete={handleDelete}
-                  isDeleting={false}
-                  onUpdate={handleUpdate}
-                />
-                
-                {/* Overlay pour montrer les informations de pertinence */}
-                <div className="absolute top-2 right-16 flex gap-1">
-                  <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                    {(source.maxSimilarity * 100).toFixed(1)}% pertinent
-                  </div>
-                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                    {source.chunksCount} section{source.chunksCount > 1 ? 's' : ''}
-                  </div>
-                </div>
-              </div>
+              <CompactDocumentItem
+                key={`${source.documentId}-${index}`}
+                document={documentData}
+                onDownload={() => handleDownloadDocument(source)}
+                onDelete={handleDelete}
+                isDeleting={false}
+                onUpdate={handleUpdate}
+              />
             );
           })}
         </div>
