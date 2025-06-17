@@ -1,4 +1,3 @@
-
 import { createSupabaseClient } from './database-service.ts'
 
 export async function processTaskRecommendations(
@@ -42,7 +41,7 @@ Ton objectif est d'analyser la tâche et de :
 3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l'exécution.
 4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
 5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : "Aucune recommandation.").
-6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe.
+6. Génére des email prérédigé lorsque la tâche nécessite une communication. Adapte l'email si il s'agit de communication interne (directe, droit au but en amenant quand même le contexte nécessaire) et communication externe (donne tout le contexte nécessaire pour que le fournisseur externe comprenne la tâche et soit professionnel et détaillé).
 
 Critères de qualité :
 - Sois **concis, structuré et actionnable**.
