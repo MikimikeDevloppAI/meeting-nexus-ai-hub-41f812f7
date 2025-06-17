@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,8 @@ import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAs
 import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
-import { getDocumentDownloadUrl, ensureDocumentsBucket } from "@/lib/storage";
+import { getDocumentDownloadUrl } from "@/lib/utils";
+import { ensureDocumentsBucket } from "@/lib/storage";
 
 interface SearchFilters {
   query: string;
