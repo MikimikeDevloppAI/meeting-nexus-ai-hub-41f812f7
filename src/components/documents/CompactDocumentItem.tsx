@@ -1,10 +1,10 @@
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X, Mic, Users, Play } from "lucide-react";
+import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X, Mic, Users, Play, Eye } from "lucide-react";
 import { useState } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
+import { DocumentViewer } from "./DocumentViewer";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 
 interface CompactDocumentItemProps {
@@ -23,6 +23,7 @@ export const CompactDocumentItem = ({
   onUpdate 
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return 'N/A';
@@ -132,6 +133,17 @@ export const CompactDocumentItem = ({
           </div>
           
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {/* Eye button for viewing original document - only for non-meeting documents with file_path */}
+            {!isMeeting && document.file_path && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowViewer(true)}
+                title="Voir le document original"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             {isMeeting && document.audio_url && (
               <Button
                 variant="outline"
@@ -163,6 +175,15 @@ export const CompactDocumentItem = ({
           </div>
         </div>
       </div>
+
+      {/* Document Viewer Modal */}
+      {showViewer && (
+        <DocumentViewer
+          document={document}
+          isOpen={showViewer}
+          onClose={() => setShowViewer(false)}
+        />
+      )}
 
       {/* Modal pour les détails */}
       {showDetails && (

@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAs
 import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
+import { getDocumentDownloadUrl } from "@/lib/utils";
 
 interface SearchFilters {
   query: string;
@@ -289,18 +289,13 @@ const Documents = () => {
     }
 
     try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(document.file_path!);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
+      // Use the new helper function
+      const downloadUrl = getDocumentDownloadUrl(document.file_path!);
+      
       const a = window.document.createElement('a');
-      a.href = url;
+      a.href = downloadUrl;
       a.download = document.ai_generated_name || document.original_name;
       a.click();
-      URL.revokeObjectURL(url);
     } catch (error: any) {
       toast({
         title: "Erreur",
