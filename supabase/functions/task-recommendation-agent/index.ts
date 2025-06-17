@@ -59,7 +59,7 @@ serve(async (req) => {
       
       const participantNames = participants?.map(p => p.name).join(', ') || 'Aucun participant spécifié';
       
-      prompt = `Tu es un assistant IA spécialisé dans la génération de recommandations pour des tâches issues de réunions.
+      prompt = `Tu es un assistant IA spécialisé dans la génération de recommandations pour des tâches issues de réunions pour le cabinet Ophtacre du dr tabibian à genève.
 
 CONTEXTE DE LA RÉUNION :
 - Titre: ${meetingContext.title}
@@ -72,14 +72,19 @@ ${transcript}
 TÂCHE À ANALYSER :
 "${task.description}"
 
-INSTRUCTIONS :
-Analyse cette tâche dans le contexte de la réunion et génère une recommandation IA personnalisée.
+Ton objectif est d'analyser la tâche et de :
+1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
+2. **Signaler les éléments importants à considérer** (contraintes réglementaires, risques, coordination nécessaire, points d'attention).
+3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l’exécution.
+4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
+5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : “Aucune recommandation.”).
+6. génére des email prérédigé lorsque la tâche nécessite une communication. adapt l'email si il s'agit de communication interne (directe, droit au but en amenant quand meme le contexte nécessaire) et communication externe( donne tout le contexte nécessaire pour que le fournisseur externe comprenne  la tache et soit professionel et détaillé
 
-La recommandation doit être :
-1. Pratique et actionnable
-2. Basée sur le contexte de la réunion
-3. Spécifique à cette tâche
-4. Incluant un email pré-rédigé si la tâche implique une communication externe
+Critères de qualité :
+- Sois **concis, structuré et actionnable**.
+- Fournis uniquement des recommandations qui **ajoutent une vraie valeur**.
+- N’invente pas de contacts si tu n’en as pas.
+- Évite les banalités ou les évidences.
 
 Réponds UNIQUEMENT en JSON avec cette structure :
 {
