@@ -8,12 +8,21 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  const requestStartTime = Date.now();
+  console.log(`🚀 [TASK-AGENT] DÉBUT traitement - ${new Date().toISOString()}`);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const requestBody = await req.json();
+    console.log(`📥 [TASK-AGENT] Données reçues:`, {
+      hasBatchPrompt: !!requestBody.batchPrompt,
+      tasksCount: requestBody.tasks?.length || 0,
+      transcriptLength: requestBody.transcript?.length || 0,
+      meetingContext: requestBody.meetingContext
+    });
     
     // Détecter si c'est un traitement batch ou individuel
     const isBatchRequest = requestBody.batchPrompt && requestBody.tasks;
@@ -22,6 +31,7 @@ serve(async (req) => {
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
+      console.error('❌ [TASK-AGENT] OpenAI API key not configured');
       throw new Error('OpenAI API key not configured');
     }
 
@@ -33,6 +43,12 @@ serve(async (req) => {
       prompt = requestBody.batchPrompt;
       temperature = 0.2; // Plus déterministe pour le batch
       console.log(`[TASK-AGENT] 🔄 Traitement batch pour ${requestBody.tasks.length} tâches`);
+      console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
+      
+      // Logger un aperçu du prompt pour debugging
+      const promptPreview = prompt.substring(0, 500) + (prompt.length > 500 ? '...' : '');
+      console.log(`[TASK-AGENT] 📄 Prompt preview:`, promptPreview);
+      
     } else {
       // Traitement individuel - garder l'ancien système
       const { task, transcript, meetingContext, participants } = requestBody;
@@ -72,6 +88,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
     }
 
     console.log('[TASK-AGENT] 🧠 Appel OpenAI...');
+    const openaiStartTime = Date.now();
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -87,6 +104,9 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       }),
     });
 
+    const openaiDuration = Date.now() - openaiStartTime;
+    console.log(`⏱️ [TASK-AGENT] Appel OpenAI terminé (${openaiDuration}ms)`);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[TASK-AGENT] ❌ Erreur OpenAI:', response.status, errorText);
@@ -97,6 +117,12 @@ Réponds UNIQUEMENT en JSON avec cette structure :
     const content = data.choices[0]?.message?.content;
     
     console.log('[TASK-AGENT] ✅ Réponse OpenAI reçue');
+    console.log(`[TASK-AGENT] 📏 Réponse length: ${content?.length || 0} characters`);
+    console.log(`[TASK-AGENT] 📊 Tokens utilisés: prompt=${data.usage?.prompt_tokens || 0}, completion=${data.usage?.completion_tokens || 0}, total=${data.usage?.total_tokens || 0}`);
+    
+    // Logger la réponse brute pour debugging (tronquée si trop longue)
+    const contentPreview = content?.substring(0, 1000) + (content?.length > 1000 ? '...' : '');
+    console.log(`[TASK-AGENT] 📄 Contenu brut reçu:`, contentPreview);
 
     let recommendation;
     try {
@@ -106,52 +132,92 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         .replace(/^```\s*/i, '')
         .replace(/\s*```\s*$/i, '');
       
+      console.log(`[TASK-AGENT] 🧹 Contenu nettoyé length: ${cleanedContent.length}`);
+      
       recommendation = JSON.parse(cleanedContent);
       
       if (isBatchRequest) {
-        console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendation.recommendations?.length || 0} recommandations`);
+        const recommendationsCount = recommendation.recommendations?.length || 0;
+        console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendationsCount} recommandations générées`);
+        
+        // Logger un aperçu des recommandations
+        if (recommendation.recommendations) {
+          recommendation.recommendations.forEach((rec, index) => {
+            console.log(`[TASK-AGENT] 📋 Recommandation ${index + 1}: taskId=${rec.taskId}, hasRec=${rec.hasRecommendation}, preview=${rec.recommendation?.substring(0, 100)}...`);
+          });
+        }
       } else {
         console.log(`[TASK-AGENT] ✅ Recommandation individuelle générée: ${recommendation.hasRecommendation ? 'Oui' : 'Non'}`);
       }
       
     } catch (parseError) {
       console.error('[TASK-AGENT] ❌ Erreur parsing JSON:', parseError);
-      console.log('[TASK-AGENT] 📄 Contenu brut:', content);
+      console.log('[TASK-AGENT] 📄 Contenu original complet:', content);
       
-      // Fallback pour le batch
-      if (isBatchRequest) {
-        recommendation = {
-          recommendations: requestBody.tasks.map(task => ({
-            taskIndex: task.index,
-            taskId: task.id,
+      // Essayer une extraction plus robuste
+      try {
+        console.log('[TASK-AGENT] 🔧 Tentative d\'extraction JSON alternative...');
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          recommendation = JSON.parse(jsonMatch[0]);
+          console.log('[TASK-AGENT] ✅ Extraction alternative réussie');
+        } else {
+          throw new Error('Aucun JSON trouvé dans la réponse');
+        }
+      } catch (altError) {
+        console.error('[TASK-AGENT] ❌ Extraction alternative échouée:', altError);
+        
+        // Fallback pour le batch
+        if (isBatchRequest) {
+          console.log('[TASK-AGENT] 🔧 Génération fallback pour batch...');
+          recommendation = {
+            recommendations: requestBody.tasks.map(task => ({
+              taskIndex: task.index,
+              taskId: task.id,
+              hasRecommendation: false,
+              recommendation: "Erreur lors de la génération de la recommandation",
+              emailDraft: null
+            }))
+          };
+        } else {
+          console.log('[TASK-AGENT] 🔧 Génération fallback pour individuel...');
+          recommendation = {
             hasRecommendation: false,
             recommendation: "Erreur lors de la génération de la recommandation",
             emailDraft: null
-          }))
-        };
-      } else {
-        recommendation = {
-          hasRecommendation: false,
-          recommendation: "Erreur lors de la génération de la recommandation",
-          emailDraft: null
-        };
+          };
+        }
       }
     }
 
+    const totalDuration = Date.now() - requestStartTime;
+    console.log(`🏁 [TASK-AGENT] Traitement terminé (${totalDuration}ms total)`);
+
     return new Response(JSON.stringify({
       recommendation,
-      success: true
+      success: true,
+      performance: {
+        totalDuration,
+        openaiDuration,
+        tokensUsed: data.usage?.total_tokens || 0
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('[TASK-AGENT] ❌ Erreur:', error);
+    const totalDuration = Date.now() - requestStartTime;
+    console.error(`❌ [TASK-AGENT] Erreur après ${totalDuration}ms:`, error);
+    console.error(`❌ [TASK-AGENT] Stack trace:`, error.stack);
     
     return new Response(JSON.stringify({
       error: error.message,
       recommendation: null,
-      success: false
+      success: false,
+      performance: {
+        totalDuration,
+        failed: true
+      }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
