@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -13,8 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { message, documentId } = await req.json();
+    const { message, documentId, conversationHistory = [] } = await req.json();
     console.log(`[DOCUMENT_CHAT] Processing message for document: ${documentId}`);
+    console.log(`[DOCUMENT_CHAT] Conversation history: ${conversationHistory.length} messages`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -46,7 +48,6 @@ serve(async (req) => {
     console.log(`[DOCUMENT_CHAT] Found document with ${document.extracted_text.length} characters of extracted text`);
 
     // Prepare context from extracted text
-    // If the text is very long, we might want to truncate it or use only relevant parts
     let context = document.extracted_text;
     
     // Truncate if text is too long (keep first 8000 characters to stay within token limits)
@@ -56,8 +57,19 @@ serve(async (req) => {
       console.log(`[DOCUMENT_CHAT] Truncated context to ${maxContextLength} characters`);
     }
 
-    // Generate response using OpenAI
-    console.log('[DOCUMENT_CHAT] Generating AI response...');
+    // Build conversation history for context
+    let conversationContext = '';
+    if (conversationHistory.length > 0) {
+      console.log('[DOCUMENT_CHAT] Building conversation context from history...');
+      conversationContext = '\n\nHISTORIQUE DE CONVERSATION RÉCENT:\n' + 
+        conversationHistory
+          .slice(-10) // Derniers 10 messages pour le contexte
+          .map((msg: any) => `${msg.isUser ? 'Utilisateur' : 'Assistant'}: ${msg.content}`)
+          .join('\n');
+    }
+
+    // Generate response using OpenAI with enhanced context
+    console.log('[DOCUMENT_CHAT] Generating AI response with conversation context...');
     const systemPrompt = `Tu es un assistant IA spécialisé dans l'analyse de documents. Tu réponds uniquement aux questions concernant le document "${document.ai_generated_name || document.original_name}".
 
 Règles importantes:
@@ -67,8 +79,12 @@ Règles importantes:
 - Cite les parties pertinentes du document quand c'est utile
 - Reste factuel et professionnel
 - Tu peux faire référence à des sections spécifiques du texte
+- MAINTIENS LE CONTEXTE de la conversation en cours
+- Si l'utilisateur fait référence à quelque chose mentionné précédemment, utilise l'historique pour comprendre
 
-Texte complet du document:
+${conversationContext}
+
+TEXTE COMPLET DU DOCUMENT:
 ${context}`;
 
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -95,12 +111,13 @@ ${context}`;
     const chatData = await chatResponse.json();
     const response = chatData.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
 
-    console.log('[DOCUMENT_CHAT] Response generated successfully');
+    console.log('[DOCUMENT_CHAT] Response generated successfully with conversation context');
 
     return new Response(JSON.stringify({ 
       response,
       hasExtractedText: true,
-      textLength: document.extracted_text.length
+      textLength: document.extracted_text.length,
+      conversationLength: conversationHistory.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

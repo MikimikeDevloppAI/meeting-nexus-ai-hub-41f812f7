@@ -1,19 +1,14 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Send, Bot, User, Loader2, X } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, X, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
-
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 
 interface TodoAIChatProps {
   todoId: string;
@@ -22,10 +17,18 @@ interface TodoAIChatProps {
 
 export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: `Je suis votre assistant IA spécialisé OphtaCare pour vous aider avec cette tâche : "${todoDescription}". 
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const { 
+    messages, 
+    addMessage, 
+    clearHistory, 
+    getFormattedHistory 
+  } = useUnifiedChatHistory({
+    storageKey: `todo-chat-${todoId}`,
+    initialMessage: `Je suis votre assistant IA spécialisé OphtaCare pour vous aider avec cette tâche : "${todoDescription}". 
 
 **Je peux vous assister pour :**
 • Analyser les étapes nécessaires pour accomplir cette tâche
@@ -35,38 +38,27 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
 • Répondre à vos questions spécifiques sur cette tâche
 
 Comment puis-je vous aider à accomplir cette tâche efficacement ?`,
-      isUser: false,
-      timestamp: new Date(),
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+    maxHistoryLength: 50,
+    maxSentHistory: 20
+  });
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage = {
       id: Date.now().toString(),
       content: inputMessage,
       isUser: true,
       timestamp: new Date(),
     };
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    addMessage(userMessage);
+    const currentMessage = inputMessage;
     setInputMessage("");
     setIsLoading(true);
 
     try {
-      // Historique de conversation optimisé (10 derniers messages)
-      const conversationHistory = updatedMessages
-        .slice(-11, -1)
-        .map(msg => ({
-          isUser: msg.isUser,
-          content: msg.content,
-          timestamp: msg.timestamp.toISOString()
-        }));
+      console.log('[TODO_AI_CHAT] 📤 Envoi avec historique:', getFormattedHistory().length, 'messages');
 
       // Message contextualisé pour assistance tâche OphtaCare
       const contextualizedMessage = `ASSISTANCE SPÉCIALISÉE TÂCHE OPHTACARE
@@ -78,7 +70,7 @@ CONTEXTE TÂCHE SPÉCIFIQUE :
 - Type : Assistance administrative pour accomplissement
 
 DEMANDE UTILISATEUR :
-${inputMessage}
+${currentMessage}
 
 INSTRUCTIONS ASSISTANT :
 Tu es l'assistant IA spécialisé OphtaCare pour aider à accomplir cette tâche spécifique.
@@ -91,7 +83,7 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
         body: { 
           message: contextualizedMessage,
           todoId: todoId,
-          conversationHistory: conversationHistory,
+          conversationHistory: getFormattedHistory(),
           taskContext: {
             todoId,
             description: todoDescription,
@@ -114,14 +106,15 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
         .replace(/\s*CONTEXTE TÂCHE SPÉCIFIQUE:.*$/gi, '')
         .trim();
 
-      const aiMessage: Message = {
+      const aiMessage = {
         id: (Date.now() + 1).toString(),
         content: cleanContent,
         isUser: false,
         timestamp: new Date(),
+        sources: data.sources || []
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      addMessage(aiMessage);
 
       // Toast informatif pour données utilisées
       if (data.searchMetrics?.totalDataPoints > 0) {
@@ -133,21 +126,21 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
       }
 
     } catch (error: any) {
-      console.error('Error sending message:', error);
+      console.error('[TODO_AI_CHAT] ❌ Erreur:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer le message. Réessayez.",
         variant: "destructive",
       });
 
-      const errorMessage: Message = {
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         content: "Désolé, je rencontre un problème technique temporaire. Pouvez-vous réessayer ? L'assistant OphtaCare reste disponible pour vous aider.",
         isUser: false,
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -185,14 +178,25 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
               Aide Tâche
             </Badge>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsOpen(false)}
-            className="h-6 w-6 p-0 hover:bg-red-50"
-          >
-            <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearHistory}
+              className="h-6 w-6 p-0 hover:bg-orange-50"
+              title="Effacer l'historique"
+            >
+              <Trash2 className="h-3 w-3 text-gray-500 hover:text-orange-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-6 w-6 p-0 hover:bg-red-50"
+            >
+              <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3 max-h-80 overflow-y-auto mb-3 pr-1">
@@ -225,6 +229,11 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
                       __html: sanitizeHtml(renderMessageWithLinks(message.content))
                     }}
                   />
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="mt-2 text-xs text-blue-600">
+                      📄 {message.sources.length} source(s) utilisée(s)
+                    </div>
+                  )}
                   <div className={`text-xs mt-2 ${
                     message.isUser ? 'text-blue-100' : 'text-gray-500'
                   }`}>
@@ -268,7 +277,7 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
         </div>
         
         <div className="text-xs text-gray-500 mt-2 text-center">
-          Assistant spécialisé cabinet OphtaCare • Dr Tabibian, Genève
+          Assistant spécialisé cabinet OphtaCare • {messages.length} message(s) en mémoire
         </div>
       </CardContent>
     </Card>

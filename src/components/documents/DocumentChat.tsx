@@ -4,16 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Loader2, X } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, X, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 
 interface DocumentChatProps {
   document: {
@@ -26,18 +20,24 @@ interface DocumentChatProps {
 }
 
 export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: `Bonjour ! Je suis votre assistant IA pour le document "${document.ai_generated_name || document.original_name}". Posez-moi toutes vos questions sur ce document !`,
-      isUser: false,
-      timestamp: new Date(),
-    }
-  ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const documentName = document.ai_generated_name || document.original_name;
+
+  const { 
+    messages, 
+    addMessage, 
+    clearHistory, 
+    getFormattedHistory 
+  } = useUnifiedChatHistory({
+    storageKey: `document-chat-${document.id}`,
+    initialMessage: `Bonjour ! Je suis votre assistant IA pour le document "${documentName}". Posez-moi toutes vos questions sur ce document !`,
+    maxHistoryLength: 50,
+    maxSentHistory: 20
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,22 +50,26 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage = {
       id: Date.now().toString(),
       content: inputMessage,
       isUser: true,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
+    const currentMessage = inputMessage;
     setInputMessage("");
     setIsLoading(true);
 
     try {
+      console.log('[DOCUMENT_CHAT] 📤 Envoi avec historique:', getFormattedHistory().length, 'messages');
+
       const { data, error } = await supabase.functions.invoke('document-chat', {
         body: { 
-          message: inputMessage,
-          documentId: document.id
+          message: currentMessage,
+          documentId: document.id,
+          conversationHistory: getFormattedHistory()
         }
       });
 
@@ -74,14 +78,24 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
         throw error;
       }
 
-      const aiMessage: Message = {
+      const aiMessage = {
         id: (Date.now() + 1).toString(),
         content: data.response || "Désolé, je n'ai pas pu traiter votre demande.",
         isUser: false,
         timestamp: new Date(),
+        sources: data.sources || []
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      addMessage(aiMessage);
+
+      // Toast informatif pour les sources
+      if (data.hasExtractedText) {
+        toast({
+          title: "Analyse effectuée",
+          description: `Texte analysé: ${data.textLength} caractères`,
+          variant: "default",
+        });
+      }
 
     } catch (error: any) {
       console.error('[DOCUMENT_CHAT] Error sending message:', error);
@@ -91,14 +105,14 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
         variant: "destructive",
       });
 
-      const errorMessage: Message = {
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         content: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?",
         isUser: false,
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -119,12 +133,22 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
             <MessageSquare className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Chat avec le document</CardTitle>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearHistory}
+              title="Effacer l'historique"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          {document.ai_generated_name || document.original_name}
+          {documentName} • {messages.length} message(s) en mémoire
         </p>
       </CardHeader>
 
@@ -155,6 +179,11 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
                     <div className="text-sm whitespace-pre-wrap">
                       {message.content}
                     </div>
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="text-xs opacity-70 mt-2">
+                        📄 {message.sources.length} source(s) utilisée(s)
+                      </div>
+                    )}
                     <div className="text-xs opacity-70 mt-2">
                       {message.timestamp.toLocaleTimeString()}
                     </div>
@@ -201,7 +230,7 @@ export const DocumentChat = ({ document, onClose }: DocumentChatProps) => {
         </div>
 
         <div className="mt-2 text-xs text-muted-foreground">
-          💡 Posez des questions spécifiques sur le contenu, demandez des résumés ou des clarifications.
+          💡 Contexte maintenu - Posez des questions spécifiques sur le contenu, demandez des résumés ou des clarifications.
         </div>
       </CardContent>
     </Card>

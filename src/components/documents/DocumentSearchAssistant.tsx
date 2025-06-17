@@ -1,215 +1,116 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Loader2, Search, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, Send, Bot, User, Loader2, X, Search, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SmartDocumentSources } from "./SmartDocumentSources";
-
-interface DocumentSource {
-  documentId: string;
-  documentName: string;
-  maxSimilarity: number;
-  chunksCount: number;
-  documentType?: string;
-  relevantChunks?: string[];
-}
-
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-  sources?: DocumentSource[];
-}
-
-const DOCUMENT_CHAT_HISTORY_KEY = 'document-search-assistant-history';
+import { useToast } from "@/hooks/use-toast";
+import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
+import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 
 export const DocumentSearchAssistant = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Charger l'historique au démarrage
-  useEffect(() => {
-    const savedHistory = localStorage.getItem(DOCUMENT_CHAT_HISTORY_KEY);
-    if (savedHistory) {
-      try {
-        const parsedHistory = JSON.parse(savedHistory);
-        // Reconvertir les timestamps en objets Date
-        const messagesWithDates = parsedHistory.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }));
-        setMessages(messagesWithDates);
-        console.log('[DOCUMENT_SEARCH] ✅ Historique chargé:', messagesWithDates.length, 'messages');
-      } catch (error) {
-        console.error('[DOCUMENT_SEARCH] ❌ Erreur chargement historique:', error);
-        // En cas d'erreur, démarrer avec un historique vide
-        setMessages([]);
-      }
-    }
-  }, []);
-
-  // Sauvegarder l'historique à chaque modification
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(DOCUMENT_CHAT_HISTORY_KEY, JSON.stringify(messages));
-      console.log('[DOCUMENT_SEARCH] 💾 Historique sauvegardé:', messages.length, 'messages');
-    }
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const clearChat = () => {
-    setMessages([]);
-    localStorage.removeItem(DOCUMENT_CHAT_HISTORY_KEY);
-    toast({
-      title: "Chat effacé",
-      description: "L'historique de la conversation a été supprimé.",
-    });
-    console.log('[DOCUMENT_SEARCH] 🗑️ Historique effacé');
-  };
-
-  const processDocumentSources = (sources: any[]): DocumentSource[] => {
-    if (!sources || sources.length === 0) return [];
-
-    // Grouper les sources par document et calculer les métriques
-    const documentsMap = new Map<string, DocumentSource>();
-
-    sources.forEach((source: any) => {
-      const docId = source.document_id || source.id;
-      const docName = source.document_name || 'Document inconnu';
-      const similarity = source.similarity || 0;
-      const chunkText = source.chunk_text || '';
-      
-      if (!documentsMap.has(docId)) {
-        documentsMap.set(docId, {
-          documentId: docId,
-          documentName: docName,
-          maxSimilarity: similarity,
-          chunksCount: 1,
-          documentType: source.type,
-          relevantChunks: [chunkText]
-        });
-      } else {
-        const existing = documentsMap.get(docId)!;
-        existing.maxSimilarity = Math.max(existing.maxSimilarity, similarity);
-        existing.chunksCount += 1;
-        existing.relevantChunks!.push(chunkText);
-      }
-    });
-
-    // Retourner tous les documents triés par pertinence
-    return Array.from(documentsMap.values())
-      .sort((a, b) => b.maxSimilarity - a.maxSimilarity);
-  };
+  const { 
+    messages, 
+    addMessage, 
+    clearHistory, 
+    getFormattedHistory 
+  } = useUnifiedChatHistory({
+    storageKey: 'document-search-assistant-history',
+    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire OphtaCare. Je peux vous aider à trouver des informations dans vos documents et meetings.\n\n**Je peux vous assister pour :**\n• Rechercher des informations dans vos documents uploadés\n• Analyser le contenu de vos meetings et transcripts\n• Retrouver des données spécifiques selon vos critères\n• Répondre à des questions sur le contenu de votre base documentaire\n\nQue recherchez-vous dans vos documents ?",
+    maxHistoryLength: 50,
+    maxSentHistory: 20
+  });
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage = {
       id: Date.now().toString(),
       content: inputMessage,
       isUser: true,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
+    const currentMessage = inputMessage;
     setInputMessage("");
     setIsLoading(true);
 
     try {
-      // Préparer l'historique de conversation COMPLET pour l'agent AI
-      const conversationHistory = messages.map(msg => ({
-        content: msg.content,
-        isUser: msg.isUser,
-        timestamp: msg.timestamp.toISOString()
-      }));
+      console.log('[DOCUMENT_SEARCH] 📤 Envoi avec historique:', getFormattedHistory().length, 'messages');
 
-      console.log('[DOCUMENT_SEARCH] Envoi requête avec historique COMPLET:', conversationHistory.length, 'messages précédents');
-      console.log('[DOCUMENT_SEARCH] Message actuel:', inputMessage);
-      console.log('[DOCUMENT_SEARCH] Contexte de conversation transmis:', conversationHistory);
-
-      // Utiliser l'agent AI avec recherche vectorielle UNIQUEMENT + historique complet
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          message: inputMessage,
+          message: currentMessage,
+          conversationHistory: getFormattedHistory(),
           context: {
-            // Force STRICTEMENT la recherche vectorielle uniquement
-            forceEmbeddingsPriority: true,
             documentSearchMode: true,
-            searchDocuments: true,
-            useEmbeddings: true,
-            // Désactiver complètement les autres sources
-            useDatabase: false,
-            useTasks: false,
-            useInternet: false,
-            // HISTORIQUE COMPLET pour la continuité de conversation
-            conversationHistory: conversationHistory,
-            // Configuration spécifique pour recherche documents avec seuils bas
-            minSimilarityThreshold: 0.005,
-            vectorSearchOnly: true,
-            // Ajout d'un flag pour indiquer que c'est l'assistant de recherche documentaire
-            isDocumentSearchAssistant: true
+            forceEmbeddingsPriority: true,
+            vectorSearchOnly: false // Permet la recherche hybride
           }
         }
       });
 
-      if (error) {
-        console.error('[DOCUMENT_SEARCH] Error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('[DOCUMENT_SEARCH] Réponse reçue avec contexte:', data);
+      let cleanContent = data.response || "Désolé, je n'ai pas pu traiter votre demande.";
+      
+      // Suppression des syntaxes techniques
+      cleanContent = cleanContent
+        .replace(/\[ACTION_TACHE:[^\]]*\]/gs, '')
+        .replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '')
+        .replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '')
+        .replace(/\s*CONTEXTE.*?:/gi, '')
+        .trim();
 
-      // Traiter toutes les sources de documents
-      let documentSources: DocumentSource[] = [];
-      if (data.sources && data.sources.length > 0) {
-        console.log('[DOCUMENT_SEARCH] Traitement de', data.sources.length, 'sources enrichies');
-        documentSources = processDocumentSources(data.sources);
-        console.log('[DOCUMENT_SEARCH] Documents sources traités:', documentSources);
-      } else {
-        console.log('[DOCUMENT_SEARCH] Aucune source trouvée');
-      }
-
-      const aiMessage: Message = {
+      const aiMessage = {
         id: (Date.now() + 1).toString(),
-        content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents pour répondre à votre question dans le contexte de notre conversation.",
+        content: cleanContent,
         isUser: false,
         timestamp: new Date(),
-        sources: documentSources.length > 0 ? documentSources : undefined
+        sources: data.sources || []
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      addMessage(aiMessage);
+
+      // Toast informatif pour données utilisées
+      if (data.searchMetrics?.totalDataPoints > 0) {
+        toast({
+          title: "Recherche effectuée",
+          description: `${data.searchMetrics.totalDataPoints} sources trouvées dans vos documents`,
+          variant: "default",
+        });
+      } else if (data.sources && data.sources.length > 0) {
+        toast({
+          title: "Documents trouvés",
+          description: `${data.sources.length} document(s) pertinent(s)`,
+          variant: "default",
+        });
+      }
 
     } catch (error: any) {
-      console.error('[DOCUMENT_SEARCH] Error sending message:', error);
+      console.error('[DOCUMENT_SEARCH] ❌ Erreur:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible d'effectuer la recherche",
+        description: "Impossible d'effectuer la recherche. Réessayez.",
         variant: "destructive",
       });
 
-      const errorMessage: Message = {
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: "Désolé, je rencontre un problème technique lors de la recherche. Pouvez-vous réessayer ? Je garde le contexte de notre conversation pour mieux vous aider.",
+        content: "Désolé, je rencontre un problème technique temporaire. Pouvez-vous réessayer ? L'assistant de recherche documentaire reste disponible.",
         isUser: false,
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -222,139 +123,131 @@ export const DocumentSearchAssistant = () => {
     }
   };
 
+  if (!isOpen) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200"
+      >
+        <Search className="h-4 w-4 text-purple-600" />
+        <span className="text-purple-700 font-medium">Assistant Recherche</span>
+      </Button>
+    );
+  }
+
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="mt-3 border-purple-200 shadow-lg">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            <CardTitle>Assistant de Recherche dans les Documents</CardTitle>
+            <Search className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-semibold text-purple-700">Assistant Recherche Documentaire</span>
+            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+              Contexte Maintenu
+            </Badge>
           </div>
-          {messages.length > 0 && (
+          <div className="flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={clearChat}
-              className="text-red-600 hover:text-red-700"
+              onClick={clearHistory}
+              className="h-6 w-6 p-0 hover:bg-orange-50"
+              title="Effacer l'historique"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Effacer
+              <FileText className="h-3 w-3 text-gray-500 hover:text-orange-600" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-6 w-6 p-0 hover:bg-red-50"
+            >
+              <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-3 max-h-80 overflow-y-auto mb-3 pr-1">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-2 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`flex gap-2 max-w-[90%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  message.isUser 
+                    ? 'bg-purple-500 shadow-md' 
+                    : 'bg-gradient-to-br from-purple-100 to-blue-100 border border-purple-200'
+                }`}>
+                  {message.isUser ? (
+                    <User className="h-3 w-3 text-white" />
+                  ) : (
+                    <Search className="h-3 w-3 text-purple-600" />
+                  )}
+                </div>
+                
+                <div className={`rounded-lg p-3 text-sm shadow-sm ${
+                  message.isUser 
+                    ? 'bg-purple-500 text-white' 
+                    : 'bg-gradient-to-br from-gray-50 to-purple-50 border border-gray-200'
+                }`}>
+                  <div 
+                    className="leading-relaxed"
+                    dangerouslySetInnerHTML={{ 
+                      __html: sanitizeHtml(renderMessageWithLinks(message.content))
+                    }}
+                  />
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="mt-2 text-xs text-purple-600">
+                      📄 {message.sources.length} source(s) utilisée(s)
+                    </div>
+                  )}
+                  <div className={`text-xs mt-2 ${
+                    message.isUser ? 'text-purple-100' : 'text-gray-500'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {isLoading && (
+            <div className="flex gap-2 justify-start">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 border border-purple-200 flex items-center justify-center flex-shrink-0">
+                <Search className="h-3 w-3 text-purple-600" />
+              </div>
+              <div className="bg-gradient-to-br from-gray-50 to-purple-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 shadow-sm">
+                <Loader2 className="h-3 w-3 animate-spin text-purple-600" />
+                <span className="text-sm text-purple-700">Recherche dans vos documents...</span>
+              </div>
+            </div>
           )}
         </div>
-        <CardDescription>
-          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les documents sources pertinents. 
-          {messages.length > 0 && (
-            <span className="text-blue-600 font-medium">
-              {" "}(Historique conservé : {messages.length} message{messages.length > 1 ? 's' : ''})
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="border rounded-lg h-96 flex flex-col">
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            {messages.length === 0 ? (
-              <div className="text-center text-sm text-muted-foreground py-8">
-                <div className="flex items-center justify-center mb-4">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground" />
-                </div>
-                <p className="mb-2">Posez une question pour rechercher dans vos documents</p>
-                <p className="text-xs">
-                  Exemples : "Que fait Émilie le jeudi ?" ou "Trouve-moi des informations sur les budgets"
-                </p>
-                <p className="text-xs mt-2 text-blue-600">
-                  💡 Votre historique de conversation sera conservé pour une meilleure continuité
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div key={message.id} className="space-y-2">
-                    <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`flex gap-3 max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          message.isUser ? 'bg-primary' : 'bg-secondary'
-                        }`}>
-                          {message.isUser ? (
-                            <User className="h-4 w-4 text-primary-foreground" />
-                          ) : (
-                            <Bot className="h-4 w-4" />
-                          )}
-                        </div>
-                        
-                        <div className={`rounded-lg p-3 ${
-                          message.isUser 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-muted'
-                        }`}>
-                          <div className="whitespace-pre-wrap text-sm">
-                            {message.content}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Affichage intelligent des documents sources */}
-                    {!message.isUser && message.sources && message.sources.length > 0 && (
-                      <div className="ml-11">
-                        <SmartDocumentSources 
-                          sources={message.sources}
-                          title={message.sources.length === 1 ? "Document source utilisé" : "Documents sources utilisés"}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {isLoading && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                      <Bot className="h-4 w-4" />
-                    </div>
-                    <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Recherche intelligente avec contexte...</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </ScrollArea>
-
-          {/* Input */}
-          <div className="p-4 border-t bg-muted/20">
-            <div className="flex gap-2">
-              <Input
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Rechercher dans vos documents..."
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button 
-                onClick={sendMessage} 
-                disabled={isLoading || !inputMessage.trim()}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              🔍 Recherche intelligente avec historique conservé • 
-              {messages.length > 0 && (
-                <span className="text-blue-600">
-                  {" "}{messages.length} message{messages.length > 1 ? 's' : ''} en contexte
-                </span>
-              )}
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <Input
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Recherchez dans vos documents..."
+            disabled={isLoading}
+            className="text-sm h-9 border-purple-200 focus:border-purple-400 focus:ring-purple-200"
+          />
+          <Button 
+            onClick={sendMessage} 
+            disabled={isLoading || !inputMessage.trim()}
+            size="sm"
+            className="h-9 px-3 bg-purple-500 hover:bg-purple-600 text-white shadow-md"
+          >
+            <Send className="h-3 w-3" />
+          </Button>
+        </div>
+        
+        <div className="text-xs text-gray-500 mt-2 text-center">
+          Assistant spécialisé recherche documentaire • {messages.length} message(s) en mémoire
         </div>
       </CardContent>
     </Card>
