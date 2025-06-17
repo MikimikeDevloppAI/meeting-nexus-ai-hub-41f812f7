@@ -34,6 +34,96 @@ const Documents = () => {
   // Utiliser le nouveau hook pour les données unifiées
   const { documents, isLoading, refetch } = useUnifiedDocuments();
 
+  // Upload mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fileId = crypto.randomUUID();
+      
+      // Nettoyer le nom de fichier pour éviter les caractères spéciaux
+      const cleanFileName = file.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+        .replace(/[^a-zA-Z0-9.-]/g, '_') // Remplacer les caractères spéciaux par _
+        .replace(/_{2,}/g, '_') // Éviter les underscores multiples
+        .toLowerCase();
+      
+      const filePath = `${fileId}-${cleanFileName}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Create document record
+      const { data: document, error: dbError } = await supabase
+        .from('uploaded_documents')
+        .insert({
+          original_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          content_type: file.type,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Process with AI if it's a supported file type
+      if ([
+        'application/pdf', 
+        'text/plain', 
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ].includes(file.type)) {
+        await supabase.functions.invoke('process-document', {
+          body: { documentId: document.id }
+        });
+      }
+
+      return document;
+    },
+    onSuccess: () => {
+      refetch();
+      toast({
+        title: "Document uploadé",
+        description: "Le traitement du document a démarré.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    acceptedFiles.forEach(file => {
+      uploadMutation.mutate(file);
+    });
+  }, [uploadMutation]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+    }
+  });
+
   // Écouter les mises à jour en temps réel pour les deux tables
   useEffect(() => {
     console.log('Setting up real-time subscription for unified documents...');
@@ -160,76 +250,6 @@ const Documents = () => {
     });
   }, [documents, searchFilters, selectedCategory]);
 
-  // Upload mutation
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const fileId = crypto.randomUUID();
-      
-      // Nettoyer le nom de fichier pour éviter les caractères spéciaux
-      const cleanFileName = file.name
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
-        .replace(/[^a-zA-Z0-9.-]/g, '_') // Remplacer les caractères spéciaux par _
-        .replace(/_{2,}/g, '_') // Éviter les underscores multiples
-        .toLowerCase();
-      
-      const filePath = `${fileId}-${cleanFileName}`;
-      
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Create document record
-      const { data: document, error: dbError } = await supabase
-        .from('uploaded_documents')
-        .insert({
-          original_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          content_type: file.type,
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Process with AI if it's a supported file type
-      if ([
-        'application/pdf', 
-        'text/plain', 
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      ].includes(file.type)) {
-        await supabase.functions.invoke('process-document', {
-          body: { documentId: document.id }
-        });
-      }
-
-      return document;
-    },
-    onSuccess: () => {
-      refetch();
-      toast({
-        title: "Document uploadé",
-        description: "Le traitement du document a démarré.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erreur",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
   // Delete mutation - seulement pour les documents
   const deleteMutation = useMutation({
     mutationFn: async (document: UnifiedDocumentItem) => {
@@ -258,26 +278,6 @@ const Documents = () => {
         title: "Document supprimé",
         description: "Le document a été supprimé avec succès.",
       });
-    }
-  });
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach(file => {
-      uploadMutation.mutate(file);
-    });
-  }, [uploadMutation]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     }
   });
 
@@ -316,58 +316,52 @@ const Documents = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Gestion des Documents & Meetings</h1>
         <p className="text-muted-foreground">
           Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
       </div>
 
-      {/* Assistant de recherche */}
-      <DocumentSearchAssistant />
-
-      {/* Upload Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
+      {/* Upload Section - Plus compact et en haut */}
+      <Card className="mb-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Upload className="h-4 w-4" />
             Télécharger des Documents
           </CardTitle>
-          <CardDescription>
-            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX, PPT, PPTX, XLS, XLSX) pour un traitement automatique avec extraction de texte complète.
+          <CardDescription className="text-sm">
+            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX, PPT, PPTX, XLS, XLSX) pour un traitement automatique.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
               ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
               ${uploadMutation.isPending ? 'pointer-events-none opacity-50' : ''}
             `}
           >
             <input {...getInputProps()} />
-            <div className="flex items-center justify-center mb-4">
-              <FileText className="h-12 w-12 text-muted-foreground" />
+            <div className="flex items-center justify-center mb-2">
+              <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
             {isDragActive ? (
-              <p>Déposez les fichiers ici...</p>
+              <p className="text-sm">Déposez les fichiers ici...</p>
             ) : (
               <div>
-                <p className="text-lg font-medium mb-2">
+                <p className="font-medium mb-1">
                   Glissez-déposez vos documents ici
                 </p>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   ou cliquez pour sélectionner des fichiers
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Supports: PDF, Word, PowerPoint, Excel, Texte
                 </p>
               </div>
             )}
           </div>
           {uploadMutation.isPending && (
-            <div className="mt-4">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="mt-3">
+              <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">Upload en cours...</span>
               </div>
@@ -375,6 +369,9 @@ const Documents = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Assistant de recherche */}
+      <DocumentSearchAssistant />
 
       {/* Search Section */}
       {documents && documents.length > 0 && (

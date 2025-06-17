@@ -46,7 +46,6 @@ export const SmartDocumentSources = ({ sources, title = "Document source utilis√
     extracted_text: source.relevantChunks?.join('\n\n') || '',
     ai_summary: '',
     taxonomy: {},
-    metadata: {},
     processed: true,
     created_at: new Date().toISOString(),
     created_by: null,
