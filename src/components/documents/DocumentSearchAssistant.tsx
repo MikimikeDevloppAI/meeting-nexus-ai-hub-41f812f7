@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
 import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
+import { SmartDocumentSources } from "./SmartDocumentSources";
 
 export const DocumentSearchAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -170,42 +171,51 @@ export const DocumentSearchAssistant = () => {
       <CardContent className="space-y-4">
         <div className="max-h-96 overflow-y-auto space-y-4">
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.isUser ? 'bg-primary' : 'bg-secondary'
-                }`}>
-                  {message.isUser ? (
-                    <User className="h-4 w-4 text-primary-foreground" />
-                  ) : (
-                    <Bot className="h-4 w-4" />
-                  )}
-                </div>
-                
-                <div className={`rounded-lg p-3 ${
-                  message.isUser 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted'
-                }`}>
-                  <div 
-                    className="text-sm whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ 
-                      __html: sanitizeHtml(renderMessageWithLinks(message.content))
-                    }}
-                  />
-                  {message.sources && message.sources.length > 0 && (
+            <div key={message.id} className="space-y-2">
+              <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    message.isUser ? 'bg-primary' : 'bg-secondary'
+                  }`}>
+                    {message.isUser ? (
+                      <User className="h-4 w-4 text-primary-foreground" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                  </div>
+                  
+                  <div className={`rounded-lg p-3 ${
+                    message.isUser 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted'
+                  }`}>
+                    <div 
+                      className="text-sm whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ 
+                        __html: sanitizeHtml(renderMessageWithLinks(message.content))
+                      }}
+                    />
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="text-xs opacity-70 mt-2">
+                        📄 {message.sources.length} source(s) utilisée(s)
+                      </div>
+                    )}
                     <div className="text-xs opacity-70 mt-2">
-                      📄 {message.sources.length} source(s) utilisée(s)
+                      {message.timestamp.toLocaleTimeString()}
                     </div>
-                  )}
-                  <div className="text-xs opacity-70 mt-2">
-                    {message.timestamp.toLocaleTimeString()}
                   </div>
                 </div>
               </div>
+              
+              {/* Affichage des documents sources pour les réponses de l'IA */}
+              {!message.isUser && message.sources && message.sources.length > 0 && (
+                <div className="ml-11">
+                  <SmartDocumentSources 
+                    sources={message.sources} 
+                    title="Documents utilisés"
+                  />
+                </div>
+              )}
             </div>
           ))}
           
