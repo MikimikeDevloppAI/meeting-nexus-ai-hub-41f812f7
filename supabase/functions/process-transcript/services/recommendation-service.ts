@@ -29,9 +29,17 @@ export async function processTaskRecommendations(
 
     console.log(`📝 Préparation du prompt pour ${tasksForPrompt.length} tâches`);
 
-    // Créer un prompt pour traiter toutes les tâches d'un coup
+    // Créer un prompt pour traiter toutes les tâches d'un coup avec instructions pour réponses détaillées
     const batchPrompt = `
-Tu es un assistant IA spécialisé dans la génération de recommandations pour des tâches issues de réunions.
+Tu es un assistant IA spécialisé dans la génération de recommandations TRÈS DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
+
+INSTRUCTIONS IMPORTANTES :
+- Fournis des recommandations EXTRÊMEMENT DÉTAILLÉES et COMPLÈTES
+- Développe tous les aspects pratiques et techniques
+- Sois EXHAUSTIF dans tes conseils et suggestions
+- Structure tes recommandations de manière claire et approfondie
+- N'hésite pas à donner des informations contextuelles supplémentaires
+- Fournis des exemples concrets et des étapes détaillées
 
 CONTEXTE DE LA RÉUNION :
 - Titre: ${meetingData.title || 'Réunion'}
@@ -47,20 +55,28 @@ ${task.index}. [ID: ${task.id}] ${task.description}
    - Assigné à: ${task.assigned_to}
 `).join('')}
 
-INSTRUCTIONS :
-Génère des recommandations IA personnalisées pour CHAQUE tâche listée ci-dessus.
-Pour chaque tâche, analyse le contexte de la réunion et génère une recommendation qui :
+INSTRUCTIONS DÉTAILLÉES :
+Génère des recommandations IA TRÈS DÉTAILLÉES et COMPLÈTES pour CHAQUE tâche listée ci-dessus.
+Pour chaque tâche, analyse le contexte de la réunion et génère une recommendation EXHAUSTIVE qui :
 
-1. Donner des **tips pratiques ou des alertes** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…).
-2. Proposer des **options ou choix concrets**, avec leurs avantages/inconvénients (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques).
-3. Suggérer des **outils numériques,fournisseur prestataires ou intégrations utiles** (ex. : plugin Outlook, service de réservation, site pour commander…) en sitant le nom des fournisseurs connus qui peuvent founrir le service sur genève.
-4. Alerter sur les **risques ou oublis fréquents** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés.
-5. Créer un plan d'action clair est structuré quand c'est nécessaire.
-6. Être **structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter et ne pas juste paraphraser la tache. il faut que les recommendations amène une vrai valeur ajouté.
-7. Un email pré-rédigé qui doit comprendre à qui doit etre fait la communication et adapté le ton si l'email doit etre envoyé en interne ou en externe. si l'email est pour l'interne soit directe si il est destiné à l'externe donne tout le contexte nécessaire pour que le fournisseur externe comprenne la demande et soit professionnel
+1. Donner des **tips pratiques DÉTAILLÉS ou des alertes COMPLÈTES** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…). Développe chaque aspect en profondeur.
+
+2. Proposer des **options ou choix concrets DÉTAILLÉS**, avec leurs avantages/inconvénients COMPLETS (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques). Explique chaque option en détail.
+
+3. Suggérer des **outils numériques, fournisseurs, prestataires ou intégrations utiles SPÉCIFIQUES** (ex. : plugin Outlook, service de réservation, site pour commander…) en citant le nom des fournisseurs connus qui peuvent fournir le service sur Genève. Donne des détails complets sur chaque suggestion.
+
+4. Alerter sur les **risques ou oublis fréquents DÉTAILLÉS** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés. Explique chaque risque en profondeur.
+
+5. Créer un plan d'action clair, TRÈS STRUCTURÉ et DÉTAILLÉ quand c'est nécessaire. Inclus toutes les étapes avec des explications complètes.
+
+6. Être **EXTRÊMEMENT structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter mais en développant au maximum quand c'est pertinent. Les recommandations doivent apporter une VRAIE valeur ajoutée DÉTAILLÉE.
+
+7. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
 
 IMPORTANT : 
 - Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
+- Sois EXTRÊMEMENT DÉTAILLÉ dans chaque recommandation
+- Développe tous les aspects pertinents en profondeur
 
 Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
 {
@@ -69,20 +85,20 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
       "taskIndex": 0,
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
-      "recommendation": "Recommandation détaillée pour la tâche...",
-      "emailDraft": "Email pré-rédigé  (optionnel masi fortement recommendé)"
+      "recommendation": "Recommandation TRÈS DÉTAILLÉE et COMPLÈTE pour la tâche...",
+      "emailDraft": "Email pré-rédigé COMPLET et DÉTAILLÉ (optionnel mais fortement recommandé)"
     },
     {
       "taskIndex": 1,
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
-      "recommendation": "Recommandation pour la tâche 2...",
+      "recommendation": "Recommandation TRÈS DÉTAILLÉE pour la tâche 2...",
       "emailDraft": null
     }
   ]
 }
 
-ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
+ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec des recommandations TRÈS DÉTAILLÉES.`;
 
     console.log(`⏳ Appel OpenAI pour ${tasks.length} tâches en batch...`);
 

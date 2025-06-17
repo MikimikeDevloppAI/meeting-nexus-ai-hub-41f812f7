@@ -74,14 +74,25 @@ serve(async (req) => {
             conversationHistory.slice(-8).map((msg: any) => `${msg.isUser ? 'Utilisateur' : 'Assistant'}: ${msg.content}`).join('\n')
           : '';
 
-        const prompt = `Tu es l'assistant IA spécialisé OphtaCare. Réponds à la question: "${message}"
+        const prompt = `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet d'ophtalmologie Dr Tabibian à Genève. Tu dois fournir des réponses TRÈS DÉTAILLÉES et COMPLÈTES.
+
+INSTRUCTIONS IMPORTANTES :
+- Sois EXTRÊMEMENT DÉTAILLÉ dans tes réponses
+- Développe tous les aspects pertinents du sujet
+- Fournis des explications approfondies et structurées
+- Utilise des exemples concrets quand c'est possible
+- Structure tes réponses avec des sections claires
+- N'hésite pas à donner des informations contextuelles supplémentaires
+- Sois précis et professionnel tout en étant exhaustif
+
+Question de l'utilisateur: "${message}"
 
 CONTEXTE CONVERSATIONNEL:${conversationContext}
 
 CONTEXTE DES DOCUMENTS TROUVÉS:
 ${contextText}
 
-Réponds de manière naturelle et précise en utilisant les informations des documents ET en tenant compte du contexte de la conversation. Si les informations ne sont pas suffisantes, dis-le clairement. Maintiens la cohérence avec l'historique de conversation.`;
+Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les informations des documents ET en tenant compte du contexte de la conversation. Si les informations ne sont pas suffisantes, explique clairement ce qui manque et suggère des pistes. Maintiens la cohérence avec l'historique de conversation. Développe tous les aspects pertinents de ta réponse.`;
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -90,9 +101,10 @@ Réponds de manière naturelle et précise en utilisant les informations des doc
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.3,
+            max_tokens: 16384,
           }),
         });
 

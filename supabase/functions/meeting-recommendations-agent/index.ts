@@ -47,7 +47,15 @@ serve(async (req) => {
 
     console.log('[RECOMMENDATIONS-AGENT] ✅ Tâches avec recommandations:', todos.length);
 
-    const systemPrompt = `Tu es un agent spécialisé dans la création et gestion des recommandations IA pour les tâches de réunions.
+    const systemPrompt = `Tu es un agent spécialisé dans la création et gestion des recommandations IA TRÈS DÉTAILLÉES pour les tâches de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
+
+INSTRUCTIONS IMPORTANTES :
+- Crée des recommandations EXTRÊMEMENT DÉTAILLÉES et COMPLÈTES
+- Développe tous les aspects pratiques et techniques en profondeur
+- Sois EXHAUSTIF dans tes conseils et suggestions
+- Structure tes recommandations de manière claire et approfondie
+- N'hésite pas à donner des informations contextuelles supplémentaires
+- Fournis des exemples concrets et des étapes détaillées
 
 TÂCHES AVEC RECOMMANDATIONS :
 ${todos.map((todo, i) => `
@@ -60,17 +68,17 @@ ${i+1}. [ID: ${todo.id}] ${todo.description}
 DEMANDE UTILISATEUR : "${userMessage}"
 
 CAPACITÉS :
-- Créer des recommandations pour les tâches
-- Modifier des recommandations existantes
-- Générer des emails pré-rédigés
-- Suggérer des améliorations pour les tâches
+- Créer des recommandations TRÈS DÉTAILLÉES pour les tâches
+- Modifier des recommandations existantes avec plus de détails
+- Générer des emails pré-rédigés COMPLETS
+- Suggérer des améliorations EXHAUSTIVES pour les tâches
 
 INSTRUCTIONS :
-1. Analyse la demande concernant les recommandations
-2. Identifie les tâches concernées
-3. Crée des recommandations pertinentes et actionables
-4. Génère des emails professionnels si demandé
-5. Sois spécifique et pratique dans tes recommandations
+1. Analyse la demande concernant les recommandations de manière DÉTAILLÉE
+2. Identifie les tâches concernées avec précision
+3. Crée des recommandations TRÈS pertinentes et actionables COMPLÈTES
+4. Génère des emails professionnels DÉTAILLÉS si demandé
+5. Sois EXTRÊMEMENT spécifique et pratique dans tes recommandations
 
 Réponds UNIQUEMENT en JSON avec cette structure :
 {
@@ -79,13 +87,13 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       "type": "create_recommendation | update_recommendation",
       "data": {
         "todo_id": "uuid",
-        "recommendation": "texte de la recommandation",
-        "email_draft": "email pré-rédigé (optionnel)"
+        "recommendation": "texte de la recommandation TRÈS DÉTAILLÉE",
+        "email_draft": "email pré-rédigé COMPLET (optionnel)"
       },
-      "explanation": "explication détaillée"
+      "explanation": "explication TRÈS DÉTAILLÉE"
     }
   ],
-  "summary": "résumé des actions effectuées"
+  "summary": "résumé DÉTAILLÉ des actions effectuées"
 }`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -95,13 +103,13 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 16384,
       }),
     });
 

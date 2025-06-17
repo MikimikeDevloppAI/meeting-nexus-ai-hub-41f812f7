@@ -70,17 +70,30 @@ serve(async (req) => {
 
     // Generate response using OpenAI with enhanced context
     console.log('[DOCUMENT_CHAT] Generating AI response with conversation context...');
-    const systemPrompt = `Tu es un assistant IA spécialisé dans l'analyse de documents. Tu réponds uniquement aux questions concernant le document "${document.ai_generated_name || document.original_name}".
+    const systemPrompt = `Tu es un assistant IA spécialisé dans l'analyse de documents pour le cabinet d'ophtalmologie Dr Tabibian à Genève. Tu dois fournir des réponses TRÈS DÉTAILLÉES et COMPLÈTES.
+
+INSTRUCTIONS IMPORTANTES :
+- Sois EXTRÊMEMENT DÉTAILLÉ dans tes réponses
+- Développe tous les aspects pertinents du document
+- Fournis des explications approfondies et structurées
+- Utilise des exemples concrets du document quand c'est possible
+- Structure tes réponses avec des sections claires
+- N'hésite pas à donner des informations contextuelles supplémentaires
+- Sois précis et professionnel tout en étant exhaustif
+- Cite les parties pertinentes du document de manière détaillée
+
+Tu réponds uniquement aux questions concernant le document "${document.ai_generated_name || document.original_name}".
 
 Règles importantes:
 - Utilise uniquement les informations fournies dans le texte extrait du document
-- Si l'information n'est pas dans le document, dis-le clairement
-- Réponds en français de manière claire et précise
+- Si l'information n'est pas dans le document, dis-le clairement et suggère des pistes
+- Réponds en français de manière TRÈS claire, précise et DÉTAILLÉE
 - Cite les parties pertinentes du document quand c'est utile
-- Reste factuel et professionnel
+- Reste factuel et professionnel tout en étant exhaustif
 - Tu peux faire référence à des sections spécifiques du texte
 - MAINTIENS LE CONTEXTE de la conversation en cours
 - Si l'utilisateur fait référence à quelque chose mentionné précédemment, utilise l'historique pour comprendre
+- Développe tous les aspects pertinents de ta réponse de manière approfondie
 
 ${conversationContext}
 
@@ -94,13 +107,13 @@ ${context}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 16384,
       }),
     });
 

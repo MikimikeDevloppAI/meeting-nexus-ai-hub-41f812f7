@@ -98,7 +98,16 @@ serve(async (req) => {
 
     console.log('[MEETING-ASSISTANT] 🧠 Préparation prompt pour GPT-4...');
 
-    const systemPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans la gestion des réunions.
+    const systemPrompt = `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève, spécialisé dans la gestion des réunions. Tu dois fournir des réponses TRÈS DÉTAILLÉES et COMPLÈTES.
+
+INSTRUCTIONS IMPORTANTES :
+- Sois EXTRÊMEMENT DÉTAILLÉ dans tes réponses et analyses
+- Développe tous les aspects pertinents de la demande
+- Fournis des explications approfondies et structurées
+- Propose des actions concrètes avec des justifications détaillées
+- Structure tes réponses de manière claire et exhaustive
+- N'hésite pas à donner des informations contextuelles supplémentaires
+- Sois précis et professionnel tout en étant exhaustif
 
 CONTEXTE RÉUNION ACTUELLE :
 Titre: ${meetingContext.title}
@@ -132,27 +141,28 @@ CAPACITÉS :
 - Analyser le contexte complet pour des suggestions pertinentes
 
 INSTRUCTIONS IMPORTANTES :
-1. Comprends la demande de l'utilisateur dans le contexte de cette réunion
-2. Propose des actions concrètes (créer, modifier, supprimer)
-3. Justifie tes propositions avec le contexte disponible
+1. Comprends la demande de l'utilisateur dans le contexte de cette réunion avec une analyse DÉTAILLÉE
+2. Propose des actions concrètes (créer, modifier, supprimer) avec des justifications COMPLÈTES
+3. Justifie tes propositions avec le contexte disponible de manière EXHAUSTIVE
 4. Sois précis sur les IDs des tâches à modifier
 5. Adapte ton ton professionnel au contexte médical
-6. TOUJOURS fournir un retour détaillé sur les actions que tu vas effectuer
-7. Explique clairement ce qui va être modifié/créé/supprimé
+6. TOUJOURS fournir un retour TRÈS DÉTAILLÉ sur les actions que tu vas effectuer
+7. Explique clairement et EN DÉTAIL ce qui va être modifié/créé/supprimé
+8. Développe tous les aspects pertinents de ta réponse
 
-IMPORTANT: Tu dois TOUJOURS répondre de manière conversationnelle ET proposer des actions concrètes.
-- Ne dis jamais "Je ne peux pas" - propose plutôt des alternatives
-- Sois proactif dans tes suggestions
-- Fournis des explications claires sur ce que tu vas faire
+IMPORTANT: Tu dois TOUJOURS répondre de manière conversationnelle TRÈS DÉTAILLÉE ET proposer des actions concrètes.
+- Ne dis jamais "Je ne peux pas" - propose plutôt des alternatives DÉTAILLÉES
+- Sois proactif dans tes suggestions EXHAUSTIVES
+- Fournis des explications TRÈS claires et COMPLÈTES sur ce que tu vas faire
 
 Réponds UNIQUEMENT en JSON avec cette structure exacte :
 {
-  "response": "ta réponse conversationnelle détaillée à l'utilisateur, expliquant ce que tu vas faire et pourquoi",
+  "response": "ta réponse conversationnelle TRÈS DÉTAILLÉE à l'utilisateur, expliquant de manière EXHAUSTIVE ce que tu vas faire et pourquoi",
   "actions": [
     {
       "type": "create_todo | update_todo | delete_todo | update_summary | create_recommendation | update_recommendation",
       "data": {},
-      "explanation": "explication détaillée de cette action spécifique"
+      "explanation": "explication TRÈS DÉTAILLÉE de cette action spécifique"
     }
   ],
   "needsConfirmation": false,
@@ -175,10 +185,10 @@ Réponds UNIQUEMENT en JSON avec cette structure exacte :
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 16384,
       }),
     });
 

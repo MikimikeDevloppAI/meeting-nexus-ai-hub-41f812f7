@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -16,7 +15,8 @@ serve(async (req) => {
   try {
     const { meetingId, userMessage } = await req.json();
     
-    console.log('[TODOS-CHAT] 📋 Gestion todos:', userMessage);
+    console.log('[TODOS-CHAT] 📝 Message reçu:', userMessage);
+    console.log('[TODOS-CHAT] 🆔 Meeting ID:', meetingId);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -27,169 +27,138 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer todos existants avec timeout
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database timeout')), 5000)
-    );
+    // Récupérer le transcript de la réunion
+    const { data: meeting, error: meetingError } = await supabase
+      .from('meetings')
+      .select('transcript')
+      .eq('id', meetingId)
+      .single();
 
-    const todosPromise = supabase
-      .from('todos')
-      .select('id, description, status')
-      .eq('meeting_id', meetingId)
-      .in('status', ['confirmed', 'completed']);
-
-    const { data: todos, error } = await Promise.race([todosPromise, timeoutPromise]) as any;
-
-    if (error) {
-      throw new Error(`Erreur récupération todos: ${error.message}`);
+    if (meetingError) {
+      throw meetingError;
     }
 
-    console.log('[TODOS-CHAT] ✅ Todos récupérés:', todos?.length || 0);
+    const transcript = meeting?.transcript || 'Pas de transcript disponible.';
 
-    const todosText = todos?.map(t => `${t.id}: ${t.description} (${t.status})`).join('\n') || 'Aucune tâche';
+    // Construire le prompt pour OpenAI
+    const systemPrompt = `Tu es un assistant spécialisé dans la gestion des tâches (todos) pour les réunions.
 
-    const systemPrompt = `Tu es un assistant spécialisé dans la gestion des tâches (todos) de réunions OphtaCare.
+TRANSCRIPT DE LA RÉUNION :
+${transcript}
 
-TÂCHES ACTUELLES:
-${todosText}
+INSTRUCTIONS :
+1. Analyse le message de l'utilisateur pour comprendre la demande concernant les tâches.
+2. Extraire les informations pertinentes pour créer, modifier ou supprimer des tâches.
+3. Retourne une réponse claire et concise sur les actions à effectuer.
 
-INSTRUCTION: "${userMessage}"
-
-Actions possibles:
-- CREATE: créer une nouvelle tâche
-- UPDATE: modifier une tâche existante  
-- DELETE: supprimer une tâche
-
-Réponds en JSON:
+Réponds UNIQUEMENT en JSON avec cette structure :
 {
-  "action": "CREATE|UPDATE|DELETE",
-  "todo_id": "id si UPDATE/DELETE",
-  "description": "description si CREATE/UPDATE",
-  "explanation": "ce qui sera fait"
+  "action": "create | update | delete",
+  "description": "description de la tâche",
+  "taskId": "uuid de la tâche à modifier ou supprimer (si applicable)"
 }`;
 
     console.log('[TODOS-CHAT] 🧠 Appel OpenAI...');
-
-    const openAIPromise = fetch('https://api.openai.com/v1/chat/completions', {
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.2,
-        max_tokens: 500,
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: systemPrompt }],
+        temperature: 0.3,
+        max_tokens: 16384,
       }),
     });
 
-    const openAITimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OpenAI timeout')), 15000)
-    );
-
-    const response = await Promise.race([openAIPromise, openAITimeout]) as Response;
-
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    const aiData = await response.json();
-    console.log('[TODOS-CHAT] ✅ Réponse OpenAI reçue');
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
 
-    let aiResponse;
+    console.log('[TODOS-CHAT] 🤖 Réponse OpenAI:', aiResponse);
+
+    let parsedResponse;
     try {
-      const aiContent = aiData.choices[0].message.content;
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        aiResponse = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found');
-      }
-    } catch (parseError) {
-      console.error('[TODOS-CHAT] ❌ Erreur parsing:', parseError);
-      return new Response(JSON.stringify({ 
-        error: "Impossible de comprendre la demande",
-        response: "Reformulez votre demande plus clairement.",
-        success: false
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Exécuter l'action
-    try {
-      let result;
-      
-      switch (aiResponse.action) {
-        case 'CREATE':
-          const { error: createError } = await supabase
-            .from('todos')
-            .insert({
-              meeting_id: meetingId,
-              description: aiResponse.description,
-              status: 'confirmed'
-            });
-          
-          if (createError) throw createError;
-          result = "Tâche créée avec succès";
-          break;
-          
-        case 'UPDATE':
-          const { error: updateError } = await supabase
-            .from('todos')
-            .update({ description: aiResponse.description })
-            .eq('id', aiResponse.todo_id);
-          
-          if (updateError) throw updateError;
-          result = "Tâche mise à jour avec succès";
-          break;
-          
-        case 'DELETE':
-          const { error: deleteError } = await supabase
-            .from('todos')
-            .delete()
-            .eq('id', aiResponse.todo_id);
-          
-          if (deleteError) throw deleteError;
-          result = "Tâche supprimée avec succès";
-          break;
-          
-        default:
-          throw new Error('Action non reconnue');
-      }
-
-      console.log('[TODOS-CHAT] ✅ Action exécutée:', aiResponse.action);
-
-      return new Response(JSON.stringify({
-        success: true,
-        action: aiResponse.action,
-        explanation: aiResponse.explanation,
-        response: `${aiResponse.explanation} - ${result}`
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
+      parsedResponse = JSON.parse(aiResponse);
     } catch (error) {
-      console.error('[TODOS-CHAT] ❌ Erreur action:', error);
-      throw error;
+      console.error('[TODOS-CHAT] ❌ Erreur parsing JSON:', error);
+      throw new Error('Erreur lors de l\'analyse de la réponse JSON.');
     }
+
+    // Exécuter les actions en base de données
+    let executedActions = [];
+    let finalResponse = "Action effectuée";
+
+    try {
+      if (parsedResponse.action === 'create') {
+        const { data: newTask, error: createError } = await supabase
+          .from('todos')
+          .insert({ meeting_id: meetingId, description: parsedResponse.description })
+          .select()
+          .single();
+
+        if (createError) {
+          throw createError;
+        }
+
+        executedActions.push({ type: 'create', taskId: newTask.id, description: newTask.description });
+        finalResponse = `Tâche créée: ${newTask.description}`;
+      } else if (parsedResponse.action === 'update') {
+        const { data: updatedTask, error: updateError } = await supabase
+          .from('todos')
+          .update({ description: parsedResponse.description })
+          .eq('id', parsedResponse.taskId)
+          .select()
+          .single();
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        executedActions.push({ type: 'update', taskId: updatedTask.id, description: updatedTask.description });
+        finalResponse = `Tâche modifiée: ${updatedTask.description}`;
+      } else if (parsedResponse.action === 'delete') {
+        const { error: deleteError } = await supabase
+          .from('todos')
+          .delete()
+          .eq('id', parsedResponse.taskId);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+
+        executedActions.push({ type: 'delete', taskId: parsedResponse.taskId });
+        finalResponse = `Tâche supprimée`;
+      }
+    } catch (dbError) {
+      console.error('[TODOS-CHAT] ❌ Erreur DB:', dbError);
+      throw new Error('Erreur lors de la modification de la base de données.');
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      response: finalResponse,
+      explanation: `Actions effectuées avec succès`,
+      actionsExecuted: executedActions.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    console.error('[TODOS-CHAT] ❌ ERREUR:', error);
+    console.error('[TODOS-CHAT] ❌ Erreur:', error);
     
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
+      success: false,
       error: error.message,
-      response: `Erreur: ${error.message}`,
-      success: false
+      response: "Une erreur s'est produite lors du traitement de votre demande."
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

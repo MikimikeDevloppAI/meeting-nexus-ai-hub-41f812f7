@@ -11,7 +11,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 16384,

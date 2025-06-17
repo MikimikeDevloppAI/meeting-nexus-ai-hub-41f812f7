@@ -80,10 +80,10 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature,
-        max_tokens: isBatchRequest ? 8000 : 2000, // Plus de tokens pour le batch
+        max_tokens: 16384,
       }),
     });
 
