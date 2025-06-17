@@ -26,12 +26,43 @@ interface Message {
   sources?: DocumentSource[];
 }
 
+const DOCUMENT_CHAT_HISTORY_KEY = 'document-search-assistant-history';
+
 export const DocumentSearchAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Charger l'historique au démarrage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(DOCUMENT_CHAT_HISTORY_KEY);
+    if (savedHistory) {
+      try {
+        const parsedHistory = JSON.parse(savedHistory);
+        // Reconvertir les timestamps en objets Date
+        const messagesWithDates = parsedHistory.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(messagesWithDates);
+        console.log('[DOCUMENT_SEARCH] ✅ Historique chargé:', messagesWithDates.length, 'messages');
+      } catch (error) {
+        console.error('[DOCUMENT_SEARCH] ❌ Erreur chargement historique:', error);
+        // En cas d'erreur, démarrer avec un historique vide
+        setMessages([]);
+      }
+    }
+  }, []);
+
+  // Sauvegarder l'historique à chaque modification
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(DOCUMENT_CHAT_HISTORY_KEY, JSON.stringify(messages));
+      console.log('[DOCUMENT_SEARCH] 💾 Historique sauvegardé:', messages.length, 'messages');
+    }
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,10 +74,12 @@ export const DocumentSearchAssistant = () => {
 
   const clearChat = () => {
     setMessages([]);
+    localStorage.removeItem(DOCUMENT_CHAT_HISTORY_KEY);
     toast({
       title: "Chat effacé",
       description: "L'historique de la conversation a été supprimé.",
     });
+    console.log('[DOCUMENT_SEARCH] 🗑️ Historique effacé');
   };
 
   const processDocumentSources = (sources: any[]): DocumentSource[] => {
@@ -98,17 +131,18 @@ export const DocumentSearchAssistant = () => {
     setIsLoading(true);
 
     try {
-      // Préparer l'historique de conversation pour l'agent AI
+      // Préparer l'historique de conversation COMPLET pour l'agent AI
       const conversationHistory = messages.map(msg => ({
         content: msg.content,
         isUser: msg.isUser,
         timestamp: msg.timestamp.toISOString()
       }));
 
-      console.log('[DOCUMENT_SEARCH] Envoi requête UNIQUEMENT recherche vectorielle:', inputMessage);
-      console.log('[DOCUMENT_SEARCH] Historique:', conversationHistory.length, 'messages');
+      console.log('[DOCUMENT_SEARCH] Envoi requête avec historique COMPLET:', conversationHistory.length, 'messages précédents');
+      console.log('[DOCUMENT_SEARCH] Message actuel:', inputMessage);
+      console.log('[DOCUMENT_SEARCH] Contexte de conversation transmis:', conversationHistory);
 
-      // Utiliser l'agent AI avec recherche vectorielle UNIQUEMENT
+      // Utiliser l'agent AI avec recherche vectorielle UNIQUEMENT + historique complet
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: inputMessage,
@@ -122,10 +156,13 @@ export const DocumentSearchAssistant = () => {
             useDatabase: false,
             useTasks: false,
             useInternet: false,
+            // HISTORIQUE COMPLET pour la continuité de conversation
             conversationHistory: conversationHistory,
             // Configuration spécifique pour recherche documents avec seuils bas
             minSimilarityThreshold: 0.005,
-            vectorSearchOnly: true
+            vectorSearchOnly: true,
+            // Ajout d'un flag pour indiquer que c'est l'assistant de recherche documentaire
+            isDocumentSearchAssistant: true
           }
         }
       });
@@ -135,7 +172,7 @@ export const DocumentSearchAssistant = () => {
         throw error;
       }
 
-      console.log('[DOCUMENT_SEARCH] Réponse reçue:', data);
+      console.log('[DOCUMENT_SEARCH] Réponse reçue avec contexte:', data);
 
       // Traiter toutes les sources de documents
       let documentSources: DocumentSource[] = [];
@@ -149,7 +186,7 @@ export const DocumentSearchAssistant = () => {
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents.",
+        content: data.response || "Désolé, je n'ai pas trouvé d'informations pertinentes dans vos documents pour répondre à votre question dans le contexte de notre conversation.",
         isUser: false,
         timestamp: new Date(),
         sources: documentSources.length > 0 ? documentSources : undefined
@@ -167,7 +204,7 @@ export const DocumentSearchAssistant = () => {
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: "Désolé, je rencontre un problème technique lors de la recherche. Pouvez-vous réessayer ?",
+        content: "Désolé, je rencontre un problème technique lors de la recherche. Pouvez-vous réessayer ? Je garde le contexte de notre conversation pour mieux vous aider.",
         isUser: false,
         timestamp: new Date(),
       };
@@ -206,7 +243,12 @@ export const DocumentSearchAssistant = () => {
           )}
         </div>
         <CardDescription>
-          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les documents sources pertinents.
+          Posez des questions et je rechercherai dans tous vos documents pour vous donner les meilleures réponses avec les documents sources pertinents. 
+          {messages.length > 0 && (
+            <span className="text-blue-600 font-medium">
+              {" "}(Historique conservé : {messages.length} message{messages.length > 1 ? 's' : ''})
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -221,6 +263,9 @@ export const DocumentSearchAssistant = () => {
                 <p className="mb-2">Posez une question pour rechercher dans vos documents</p>
                 <p className="text-xs">
                   Exemples : "Que fait Émilie le jeudi ?" ou "Trouve-moi des informations sur les budgets"
+                </p>
+                <p className="text-xs mt-2 text-blue-600">
+                  💡 Votre historique de conversation sera conservé pour une meilleure continuité
                 </p>
               </div>
             ) : (
@@ -270,7 +315,7 @@ export const DocumentSearchAssistant = () => {
                     </div>
                     <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Recherche intelligente dans les documents...</span>
+                      <span className="text-sm">Recherche intelligente avec contexte...</span>
                     </div>
                   </div>
                 )}
@@ -302,7 +347,12 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              🔍 Recherche intelligente avec affichage de tous les documents pertinents
+              🔍 Recherche intelligente avec historique conservé • 
+              {messages.length > 0 && (
+                <span className="text-blue-600">
+                  {" "}{messages.length} message{messages.length > 1 ? 's' : ''} en contexte
+                </span>
+              )}
             </div>
           </div>
         </div>
