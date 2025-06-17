@@ -37,11 +37,13 @@ serve(async (req) => {
 
     let prompt;
     let temperature = 0.3;
+    let maxTokens = 8192; // Réduire pour éviter les timeouts
 
     if (isBatchRequest) {
       // Traitement batch - utiliser le prompt pré-construit
       prompt = requestBody.batchPrompt;
       temperature = 0.2; // Plus déterministe pour le batch
+      maxTokens = 12288; // Un peu plus pour le batch mais pas trop
       console.log(`[TASK-AGENT] 🔄 Traitement batch pour ${requestBody.tasks.length} tâches`);
       console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
       
@@ -87,123 +89,172 @@ Réponds UNIQUEMENT en JSON avec cette structure :
 }`;
     }
 
-    console.log('[TASK-AGENT] 🧠 Appel OpenAI...');
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec gpt-4o-mini...');
     const openaiStartTime = Date.now();
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: 16384,
-      }),
-    });
-
-    const openaiDuration = Date.now() - openaiStartTime;
-    console.log(`⏱️ [TASK-AGENT] Appel OpenAI terminé (${openaiDuration}ms)`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[TASK-AGENT] ❌ Erreur OpenAI:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    // Créer un timeout personnalisé pour éviter les blocages
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ [TASK-AGENT] Timeout OpenAI après 45 secondes');
+      timeoutController.abort();
+    }, 45000); // 45 secondes max
     
-    console.log('[TASK-AGENT] ✅ Réponse OpenAI reçue');
-    console.log(`[TASK-AGENT] 📏 Réponse length: ${content?.length || 0} characters`);
-    console.log(`[TASK-AGENT] 📊 Tokens utilisés: prompt=${data.usage?.prompt_tokens || 0}, completion=${data.usage?.completion_tokens || 0}, total=${data.usage?.total_tokens || 0}`);
-    
-    // Logger la réponse brute pour debugging (tronquée si trop longue)
-    const contentPreview = content?.substring(0, 1000) + (content?.length > 1000 ? '...' : '');
-    console.log(`[TASK-AGENT] 📄 Contenu brut reçu:`, contentPreview);
-
-    let recommendation;
     try {
-      // Nettoyer la réponse et parser le JSON
-      const cleanedContent = content.trim()
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/\s*```\s*$/i, '');
-      
-      console.log(`[TASK-AGENT] 🧹 Contenu nettoyé length: ${cleanedContent.length}`);
-      
-      recommendation = JSON.parse(cleanedContent);
-      
-      if (isBatchRequest) {
-        const recommendationsCount = recommendation.recommendations?.length || 0;
-        console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendationsCount} recommandations générées`);
-        
-        // Logger un aperçu des recommandations
-        if (recommendation.recommendations) {
-          recommendation.recommendations.forEach((rec, index) => {
-            console.log(`[TASK-AGENT] 📋 Recommandation ${index + 1}: taskId=${rec.taskId}, hasRec=${rec.hasRecommendation}, preview=${rec.recommendation?.substring(0, 100)}...`);
-          });
-        }
-      } else {
-        console.log(`[TASK-AGENT] ✅ Recommandation individuelle générée: ${recommendation.hasRecommendation ? 'Oui' : 'Non'}`);
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', // Changé pour plus de rapidité
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+          max_tokens: maxTokens,
+        }),
+        signal: timeoutController.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const openaiDuration = Date.now() - openaiStartTime;
+      console.log(`⏱️ [TASK-AGENT] Appel OpenAI terminé (${openaiDuration}ms)`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[TASK-AGENT] ❌ Erreur OpenAI:', response.status, errorText);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
       
-    } catch (parseError) {
-      console.error('[TASK-AGENT] ❌ Erreur parsing JSON:', parseError);
-      console.log('[TASK-AGENT] 📄 Contenu original complet:', content);
+      console.log('[TASK-AGENT] ✅ Réponse OpenAI reçue');
+      console.log(`[TASK-AGENT] 📏 Réponse length: ${content?.length || 0} characters`);
+      console.log(`[TASK-AGENT] 📊 Tokens utilisés: prompt=${data.usage?.prompt_tokens || 0}, completion=${data.usage?.completion_tokens || 0}, total=${data.usage?.total_tokens || 0}`);
       
-      // Essayer une extraction plus robuste
+      // Logger la réponse brute pour debugging (tronquée si trop longue)
+      const contentPreview = content?.substring(0, 1000) + (content?.length > 1000 ? '...' : '');
+      console.log(`[TASK-AGENT] 📄 Contenu brut reçu:`, contentPreview);
+
+      let recommendation;
       try {
-        console.log('[TASK-AGENT] 🔧 Tentative d\'extraction JSON alternative...');
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          recommendation = JSON.parse(jsonMatch[0]);
-          console.log('[TASK-AGENT] ✅ Extraction alternative réussie');
-        } else {
-          throw new Error('Aucun JSON trouvé dans la réponse');
-        }
-      } catch (altError) {
-        console.error('[TASK-AGENT] ❌ Extraction alternative échouée:', altError);
+        // Nettoyer la réponse et parser le JSON
+        const cleanedContent = content.trim()
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/\s*```\s*$/i, '');
         
-        // Fallback pour le batch
+        console.log(`[TASK-AGENT] 🧹 Contenu nettoyé length: ${cleanedContent.length}`);
+        
+        recommendation = JSON.parse(cleanedContent);
+        
         if (isBatchRequest) {
-          console.log('[TASK-AGENT] 🔧 Génération fallback pour batch...');
-          recommendation = {
-            recommendations: requestBody.tasks.map(task => ({
-              taskIndex: task.index,
-              taskId: task.id,
-              hasRecommendation: false,
-              recommendation: "Erreur lors de la génération de la recommandation",
-              emailDraft: null
-            }))
-          };
+          const recommendationsCount = recommendation.recommendations?.length || 0;
+          console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendationsCount} recommandations générées`);
+          
+          // Logger un aperçu des recommandations
+          if (recommendation.recommendations) {
+            recommendation.recommendations.forEach((rec, index) => {
+              console.log(`[TASK-AGENT] 📋 Recommandation ${index + 1}: taskId=${rec.taskId}, hasRec=${rec.hasRecommendation}, preview=${rec.recommendation?.substring(0, 100)}...`);
+            });
+          }
         } else {
-          console.log('[TASK-AGENT] 🔧 Génération fallback pour individuel...');
-          recommendation = {
-            hasRecommendation: false,
-            recommendation: "Erreur lors de la génération de la recommandation",
-            emailDraft: null
-          };
+          console.log(`[TASK-AGENT] ✅ Recommandation individuelle générée: ${recommendation.hasRecommendation ? 'Oui' : 'Non'}`);
+        }
+        
+      } catch (parseError) {
+        console.error('[TASK-AGENT] ❌ Erreur parsing JSON:', parseError);
+        console.log('[TASK-AGENT] 📄 Contenu original complet:', content);
+        
+        // Essayer une extraction plus robuste
+        try {
+          console.log('[TASK-AGENT] 🔧 Tentative d\'extraction JSON alternative...');
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            recommendation = JSON.parse(jsonMatch[0]);
+            console.log('[TASK-AGENT] ✅ Extraction alternative réussie');
+          } else {
+            throw new Error('Aucun JSON trouvé dans la réponse');
+          }
+        } catch (altError) {
+          console.error('[TASK-AGENT] ❌ Extraction alternative échouée:', altError);
+          
+          // Fallback pour le batch
+          if (isBatchRequest) {
+            console.log('[TASK-AGENT] 🔧 Génération fallback pour batch...');
+            recommendation = {
+              recommendations: requestBody.tasks.map(task => ({
+                taskIndex: task.index,
+                taskId: task.id,
+                hasRecommendation: false,
+                recommendation: "Erreur lors de la génération de la recommandation - timeout ou erreur de parsing",
+                emailDraft: null
+              }))
+            };
+          } else {
+            console.log('[TASK-AGENT] 🔧 Génération fallback pour individuel...');
+            recommendation = {
+              hasRecommendation: false,
+              recommendation: "Erreur lors de la génération de la recommandation - timeout ou erreur de parsing",
+              emailDraft: null
+            };
+          }
         }
       }
-    }
 
-    const totalDuration = Date.now() - requestStartTime;
-    console.log(`🏁 [TASK-AGENT] Traitement terminé (${totalDuration}ms total)`);
+      const totalDuration = Date.now() - requestStartTime;
+      console.log(`🏁 [TASK-AGENT] Traitement terminé (${totalDuration}ms total)`);
 
-    return new Response(JSON.stringify({
-      recommendation,
-      success: true,
-      performance: {
-        totalDuration,
-        openaiDuration,
-        tokensUsed: data.usage?.total_tokens || 0
+      return new Response(JSON.stringify({
+        recommendation,
+        success: true,
+        performance: {
+          totalDuration,
+          openaiDuration,
+          tokensUsed: data.usage?.total_tokens || 0
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('⏰ [TASK-AGENT] Timeout lors de l\'appel OpenAI');
+        
+        // Réponse de fallback en cas de timeout
+        const fallbackRecommendation = isBatchRequest ? {
+          recommendations: requestBody.tasks.map(task => ({
+            taskIndex: task.index,
+            taskId: task.id,
+            hasRecommendation: false,
+            recommendation: "Timeout lors de la génération de la recommandation. Veuillez réessayer plus tard.",
+            emailDraft: null
+          }))
+        } : {
+          hasRecommendation: false,
+          recommendation: "Timeout lors de la génération de la recommandation. Veuillez réessayer plus tard.",
+          emailDraft: null
+        };
+
+        const totalDuration = Date.now() - requestStartTime;
+        return new Response(JSON.stringify({
+          recommendation: fallbackRecommendation,
+          success: false,
+          error: 'Timeout',
+          performance: {
+            totalDuration,
+            timeout: true
+          }
+        }), {
+          status: 408, // Request Timeout
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      
+      throw fetchError; // Re-throw si ce n'est pas un timeout
+    }
 
   } catch (error) {
     const totalDuration = Date.now() - requestStartTime;

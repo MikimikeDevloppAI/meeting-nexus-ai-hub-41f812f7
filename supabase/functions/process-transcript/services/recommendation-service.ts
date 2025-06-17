@@ -34,7 +34,7 @@ export async function processTaskRecommendations(
 
     // Créer un prompt pour traiter toutes les tâches d'un coup avec instructions pour réponses détaillées
     const batchPrompt = `
-Tu es un assistant IA spécialisé dans la génération de recommandations TRÈS DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
+Tu es un assistant IA spécialisé dans la génération de recommandations DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
 Ton objectif est d'analyser la tâche et de :
 1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
@@ -42,13 +42,14 @@ Ton objectif est d'analyser la tâche et de :
 3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l'exécution.
 4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
 5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : "Aucune recommandation.").
-6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
+6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe.
 
 Critères de qualité :
 - Sois **concis, structuré et actionnable**.
 - Fournis uniquement des recommandations qui **ajoutent une vraie valeur**.
 - N'invente pas de contacts si tu n'en as pas.
 - Évite les banalités ou les évidences.
+
 CONTEXTE DE LA RÉUNION :
 - Titre: ${meetingData.title || 'Réunion'}
 - Date: ${meetingData.created_at || new Date().toISOString()}
@@ -63,14 +64,10 @@ ${task.index}. [ID: ${task.id}] ${task.description}
    - Assigné à: ${task.assigned_to}
 `).join('')}
 
-
-
-7. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
-
 IMPORTANT : 
 - Traite TOUTES les tâches (indices 0 à ${tasks.length - 1})
-- Sois EXTRÊMEMENT DÉTAILLÉ dans chaque recommandation
-- Développe tous les aspects pertinents en profondeur
+- Sois DÉTAILLÉ dans chaque recommandation
+- Développe tous les aspects pertinents
 
 Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
 {
@@ -79,8 +76,8 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
       "taskIndex": 0,
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
-      "recommendation": "Recommandation ici...",
-      "emailDraft": "Email pré-rédigé COMPLET et DÉTAILLÉ (optionnel mais fortement recommandé)"
+      "recommendation": "Recommandation détaillée...",
+      "emailDraft": "Email pré-rédigé COMPLET et DÉTAILLÉ (optionnel)"
     },
     {
       "taskIndex": 1,
@@ -92,10 +89,10 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
   ]
 }
 
-ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec des recommandations TRÈS DÉTAILLÉES.`;
+ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse.`;
 
     console.log(`📏 [RECOMMENDATION-SERVICE] Prompt length: ${batchPrompt.length} characters`);
-    console.log(`⏳ [RECOMMENDATION-SERVICE] Appel OpenAI pour ${tasks.length} tâches en batch...`);
+    console.log(`⏳ [RECOMMENDATION-SERVICE] Appel task-recommendation-agent pour ${tasks.length} tâches en batch...`);
 
     // Préparer le payload pour task-recommendation-agent
     const payload = {
@@ -116,18 +113,20 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec de
       meetingContext: payload.meetingContext
     });
 
-    // Appel unique à OpenAI pour toutes les tâches
+    // Appel unique à OpenAI pour toutes les tâches avec timeout côté client
     const callStartTime = Date.now();
+    console.log(`🚀 [RECOMMENDATION-SERVICE] Lancement appel task-recommendation-agent...`);
+    
     const { data: batchResult, error: openaiError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
       body: payload
     });
+    
     const callDuration = Date.now() - callStartTime;
-
     console.log(`⏱️ [RECOMMENDATION-SERVICE] Appel task-recommendation-agent terminé (${callDuration}ms)`);
 
     if (openaiError) {
       console.error('❌ [RECOMMENDATION-SERVICE] Erreur lors de l\'appel OpenAI batch:', openaiError);
-      console.error('❌ [RECOMMENDATION-SERVICE] Payload qui a échoué:', JSON.stringify(payload, null, 2));
+      console.error('❌ [RECOMMENDATION-SERVICE] Détails erreur:', JSON.stringify(openaiError, null, 2));
       
       // En cas d'erreur, marquer quand même toutes les tâches comme traitées
       console.log('🔧 [RECOMMENDATION-SERVICE] Marquage des tâches comme traitées malgré l\'erreur...');
@@ -147,39 +146,77 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec de
     }
 
     console.log('✅ [RECOMMENDATION-SERVICE] Réponse OpenAI batch reçue');
-    console.log('📊 [RECOMMENDATION-SERVICE] Réponse brute:', JSON.stringify(batchResult, null, 2));
+    console.log('📊 [RECOMMENDATION-SERVICE] Réponse brute structure:', Object.keys(batchResult || {}));
+    console.log('📄 [RECOMMENDATION-SERVICE] Réponse complète:', JSON.stringify(batchResult, null, 2));
 
-    const recommendations = batchResult?.recommendation?.recommendations || [];
+    // CORRECTION : Extraction correcte des données selon la structure retournée
+    let recommendations = [];
+    
+    // Vérifier les différentes structures possibles
+    if (batchResult?.recommendation?.recommendations) {
+      recommendations = batchResult.recommendation.recommendations;
+      console.log(`📋 [RECOMMENDATION-SERVICE] Extraction réussie via batchResult.recommendation.recommendations: ${recommendations.length} recommandations`);
+    } else if (batchResult?.recommendations) {
+      recommendations = batchResult.recommendations;
+      console.log(`📋 [RECOMMENDATION-SERVICE] Extraction réussie via batchResult.recommendations: ${recommendations.length} recommandations`);
+    } else if (Array.isArray(batchResult)) {
+      recommendations = batchResult;
+      console.log(`📋 [RECOMMENDATION-SERVICE] Extraction réussie via tableau direct: ${recommendations.length} recommandations`);
+    } else {
+      console.error('❌ [RECOMMENDATION-SERVICE] Structure de réponse inattendue!');
+      console.log('📄 [RECOMMENDATION-SERVICE] Structure reçue:', Object.keys(batchResult || {}));
+      console.log('📄 [RECOMMENDATION-SERVICE] Contenu complet:', JSON.stringify(batchResult, null, 2));
+      recommendations = [];
+    }
+
     console.log(`📊 [RECOMMENDATION-SERVICE] ${recommendations.length} recommandations extraites pour ${tasks.length} tâches`);
 
     if (recommendations.length === 0) {
       console.error('❌ [RECOMMENDATION-SERVICE] Aucune recommandation reçue dans la réponse!');
-      console.log('📄 [RECOMMENDATION-SERVICE] Structure de la réponse reçue:', Object.keys(batchResult || {}));
+      console.log('📄 [RECOMMENDATION-SERVICE] Vérification de la structure reçue:', Object.keys(batchResult || {}));
+      
+      // Créer des recommandations par défaut si aucune n'a été trouvée
+      recommendations = tasks.map((task, index) => ({
+        taskIndex: index,
+        taskId: task.id,
+        hasRecommendation: false,
+        recommendation: "Aucune recommandation générée - erreur de structure de réponse",
+        emailDraft: null
+      }));
+      console.log(`🔧 [RECOMMENDATION-SERVICE] Créé ${recommendations.length} recommandations par défaut`);
     }
 
     // Traitement et sauvegarde des recommandations
     let successful = 0;
     let failed = 0;
 
+    console.log(`🔄 [RECOMMENDATION-SERVICE] Début sauvegarde des ${recommendations.length} recommandations...`);
+
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
       try {
         console.log(`🔄 [RECOMMENDATION-SERVICE] Traitement tâche ${i+1}/${tasks.length}: ${task.id}`);
         
-        // Trouver la recommandation correspondante par taskId
-        const recommendation = recommendations.find(rec => rec.taskId === task.id);
+        // Trouver la recommandation correspondante par taskId ou par index
+        let recommendation = recommendations.find(rec => rec.taskId === task.id);
         
-        if (recommendation && recommendation.hasRecommendation) {
+        if (!recommendation) {
+          // Fallback : chercher par index
+          recommendation = recommendations.find(rec => rec.taskIndex === i);
+          console.log(`⚠️ [RECOMMENDATION-SERVICE] Recommandation trouvée par index pour tâche ${task.id}`);
+        }
+        
+        if (recommendation && recommendation.hasRecommendation !== false) {
           console.log(`💾 [RECOMMENDATION-SERVICE] Sauvegarde recommandation pour tâche ${task.id}`);
           console.log(`📝 [RECOMMENDATION-SERVICE] Recommandation preview: ${recommendation.recommendation?.substring(0, 100)}...`);
-          console.log(`📧 [RECOMMENDATION-SERVICE] Email draft: ${recommendation.emailDraft ? 'Oui' : 'Non'}`);
+          console.log(`📧 [RECOMMENDATION-SERVICE] Email draft: ${recommendation.emailDraft ? 'Oui (' + recommendation.emailDraft.length + ' chars)' : 'Non'}`);
           
           // Sauvegarder la recommandation
           const { error: saveError } = await supabaseClient
             .from('todo_ai_recommendations')
             .insert({
               todo_id: task.id,
-              recommendation_text: recommendation.recommendation,
+              recommendation_text: recommendation.recommendation || "Recommandation générée avec succès",
               email_draft: recommendation.emailDraft || null
             });
           
@@ -193,7 +230,7 @@ ASSURE-TOI d'inclure TOUTES les ${tasks.length} tâches dans ta réponse avec de
           
         } else {
           console.log(`⚠️ [RECOMMENDATION-SERVICE] Pas de recommandation trouvée pour tâche ${task.id} - création d'une recommandation par défaut`);
-          console.log(`🔍 [RECOMMENDATION-SERVICE] Recommandations disponibles:`, recommendations.map(r => r.taskId));
+          console.log(`🔍 [RECOMMENDATION-SERVICE] Recommandations disponibles:`, recommendations.map(r => ({ taskId: r.taskId, taskIndex: r.taskIndex })));
           
           // Créer une recommandation par défaut pour éviter les blocages
           const { error: saveError } = await supabaseClient
