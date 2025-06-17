@@ -46,8 +46,7 @@ export const ensureDocumentsBucket = async () => {
     
     if (listError) {
       console.error('❌ Erreur lors de l\'accès en lecture:', listError);
-      console.log('Code d\'erreur:', listError.error);
-      console.log('Message:', listError.message);
+      console.log('Message d\'erreur:', listError.message);
       return false;
     }
 
