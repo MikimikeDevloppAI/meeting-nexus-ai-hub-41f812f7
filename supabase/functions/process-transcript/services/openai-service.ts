@@ -1,6 +1,7 @@
 
-export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3) {
+export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o') {
   console.log('🔄 Making OpenAI API call...')
+  console.log('🤖 Using model:', model)
   console.log('📏 Prompt length:', prompt.length, 'characters')
   
   try {
@@ -11,7 +12,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model,
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 16384,

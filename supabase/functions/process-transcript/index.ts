@@ -69,16 +69,16 @@ serve(async (req) => {
 
     const participantNames = allParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript
-    console.log('🧹 Cleaning transcript...');
+    // 1. Nettoyer le transcript - UTILISER GPT-4O-MINI
+    console.log('🧹 Cleaning transcript with gpt-4o-mini...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
-    const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1);
+    const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4o-mini');
     await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
 
-    // 2. Extraire les tâches
-    console.log('📋 Extracting tasks...');
+    // 2. Extraire les tâches - UTILISER GPT-4O-MINI
+    console.log('📋 Extracting tasks with gpt-4o-mini...');
     const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript);
-    const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3);
+    const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o-mini');
 
     let extractedTasks = [];
     try {
@@ -130,15 +130,15 @@ serve(async (req) => {
       console.log('⚠️ No tasks extracted from transcript');
     }
 
-    // 3. Générer le résumé
-    console.log('📝 Generating summary...');
+    // 3. Générer le résumé - UTILISER GPT-4O
+    console.log('📝 Generating summary with gpt-4o...');
     const summaryPrompt = createSummaryPrompt(
       meetingData.title,
       new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
       participantNames,
       cleanedTranscript
     );
-    const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2);
+    const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o');
     await saveSummary(supabaseClient, meetingId, summary);
 
     // 4. Traitement document avec embeddings
@@ -153,10 +153,10 @@ serve(async (req) => {
       chunks
     );
 
-    // 5. Générer les recommandations IA pour les tâches - ÉTAPE CRITIQUE
+    // 5. Générer les recommandations IA pour les tâches - UTILISER GPT-4O (via recommendation-service)
     let recommendationResults = null;
     if (savedTasks.length > 0) {
-      console.log(`⚡ DÉBUT génération des recommandations pour ${savedTasks.length} tâches`);
+      console.log(`⚡ DÉBUT génération des recommandations avec gpt-4o pour ${savedTasks.length} tâches`);
       try {
         recommendationResults = await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
         console.log(`✅ RECOMMANDATIONS COMPLÈTEMENT TERMINÉES:`, recommendationResults);
