@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { FileText, Upload, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +15,7 @@ import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { getDocumentDownloadUrl } from "@/lib/utils";
-import { ensureDocumentsBucket, getBucketInfo } from "@/lib/storage";
+import { ensureDocumentsBucket, getBucketInfo, diagnoseBucketPermissions } from "@/lib/storage";
 
 interface SearchFilters {
   query: string;
