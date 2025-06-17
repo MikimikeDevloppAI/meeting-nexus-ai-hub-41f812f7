@@ -1,9 +1,10 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText } from "lucide-react";
 import { DocumentViewer } from "./DocumentViewer";
 import { CompactDocumentItem } from "./CompactDocumentItem";
 import { UnifiedDocumentItem } from "@/types/unified-document";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DocumentSource {
   documentId: string;
@@ -22,57 +23,137 @@ interface SmartDocumentSourcesProps {
 export const SmartDocumentSources = ({ sources, title = "Documents sources utilisés" }: SmartDocumentSourcesProps) => {
   const [selectedDocument, setSelectedDocument] = useState<UnifiedDocumentItem | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [realDocuments, setRealDocuments] = useState<UnifiedDocumentItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   if (!sources || sources.length === 0) {
     return null;
   }
 
   // Filtrer pour garder uniquement les documents vraiment pertinents
-  // Seuil de similarité plus élevé pour éviter d'afficher tous les documents récupérés
   const relevantSources = sources.filter(source => source.maxSimilarity > 0.3);
-  
-  // Si aucun document n'atteint le seuil, prendre le meilleur
   const displaySources = relevantSources.length > 0 ? relevantSources : sources.slice(0, 1);
 
-  // Créer un objet UnifiedDocumentItem simulé pour le viewer avec catégorisation complète
-  const createDocumentFromSource = (source: DocumentSource): UnifiedDocumentItem => ({
-    id: source.documentId,
-    original_name: source.documentName,
-    ai_generated_name: source.documentName,
-    type: source.documentType === 'meeting' ? 'meeting' : 'document',
-    file_path: source.documentType !== 'meeting' ? `/api/documents/${source.documentId}/download` : undefined,
-    file_size: null,
-    content_type: source.documentType === 'meeting' ? 'audio/meeting' : 'application/pdf',
-    extracted_text: source.relevantChunks?.join('\n\n') || '',
-    ai_summary: '',
-    taxonomy: source.documentType === 'meeting' ? {
-      category: "Meeting",
-      subcategory: "Réunion transcrite", 
-      keywords: ["meeting", "réunion", "transcript"],
-      documentType: "Réunion transcrite"
-    } : {
-      category: "Document",
-      subcategory: "Document source",
-      keywords: ["document", "source"],
-      documentType: "Document recherché"
-    },
-    processed: true,
-    created_at: new Date().toISOString(),
-    created_by: '',
-    participants: source.documentType === 'meeting' ? [] : undefined,
-    audio_url: source.documentType === 'meeting' ? `/api/meetings/${source.documentId}/audio` : undefined,
-    meeting_id: source.documentType === 'meeting' ? source.documentId : undefined,
-    transcript: source.documentType === 'meeting' ? source.relevantChunks?.join('\n\n') : undefined,
-    summary: source.documentType === 'meeting' ? 'Résumé de la réunion' : undefined
-  });
+  // Fonction pour récupérer les détails complets des documents depuis Supabase
+  const fetchDocumentDetails = async (sources: DocumentSource[]): Promise<UnifiedDocumentItem[]> => {
+    const documents: UnifiedDocumentItem[] = [];
 
-  const handleDownloadDocument = (source: DocumentSource) => {
-    if (source.documentType === 'meeting') {
+    for (const source of sources) {
+      try {
+        if (source.documentType === 'meeting') {
+          // Récupérer les détails du meeting
+          const { data: meeting, error: meetingError } = await supabase
+            .from('meetings')
+            .select(`
+              *,
+              meeting_participants (
+                participants (
+                  name,
+                  email
+                )
+              )
+            `)
+            .eq('id', source.documentId)
+            .single();
+
+          if (meetingError) {
+            console.error('Error fetching meeting:', meetingError);
+            continue;
+          }
+
+          if (meeting) {
+            documents.push({
+              id: meeting.id,
+              type: 'meeting' as const,
+              original_name: meeting.title,
+              ai_generated_name: meeting.title,
+              file_path: undefined,
+              file_size: null,
+              content_type: 'audio/meeting',
+              taxonomy: {
+                category: "Meeting",
+                subcategory: "Réunion transcrite",
+                keywords: ["meeting", "réunion", "transcript"],
+                documentType: "Réunion transcrite"
+              },
+              ai_summary: meeting.summary,
+              processed: !!meeting.transcript,
+              created_at: meeting.created_at,
+              created_by: meeting.created_by,
+              extracted_text: meeting.transcript,
+              meeting_id: meeting.id,
+              audio_url: meeting.audio_url,
+              transcript: meeting.transcript,
+              summary: meeting.summary,
+              participants: meeting.meeting_participants?.map((mp: any) => mp.participants) || []
+            });
+          }
+        } else {
+          // Récupérer les détails du document uploadé
+          const { data: document, error: docError } = await supabase
+            .from('uploaded_documents')
+            .select('*')
+            .eq('id', source.documentId)
+            .single();
+
+          if (docError) {
+            console.error('Error fetching document:', docError);
+            continue;
+          }
+
+          if (document) {
+            documents.push({
+              id: document.id,
+              type: 'document' as const,
+              original_name: document.original_name,
+              ai_generated_name: document.ai_generated_name,
+              file_path: document.file_path,
+              file_size: document.file_size,
+              content_type: document.content_type,
+              taxonomy: document.taxonomy || {},
+              ai_summary: document.ai_summary,
+              processed: document.processed,
+              created_at: document.created_at,
+              created_by: document.created_by,
+              extracted_text: document.extracted_text,
+              participants: undefined
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching document details:', error);
+      }
+    }
+
+    return documents;
+  };
+
+  // Récupérer les détails des documents au chargement
+  useEffect(() => {
+    const loadDocuments = async () => {
+      setIsLoading(true);
+      try {
+        const documents = await fetchDocumentDetails(displaySources);
+        setRealDocuments(documents);
+      } catch (error) {
+        console.error('Error loading document details:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (displaySources.length > 0) {
+      loadDocuments();
+    }
+  }, [JSON.stringify(displaySources)]);
+
+  const handleDownloadDocument = (document: UnifiedDocumentItem) => {
+    if (document.type === 'meeting') {
       // Rediriger vers la page du meeting
-      window.open(`/meetings/${source.documentId}`, '_blank');
+      window.open(`/meetings/${document.meeting_id}`, '_blank');
     } else {
       // Télécharger le document
-      const downloadUrl = `/api/documents/${source.documentId}/download`;
+      const downloadUrl = `/api/documents/${document.id}/download`;
       window.open(downloadUrl, '_blank');
     }
   };
@@ -95,20 +176,22 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
         </div>
         
         <div className="space-y-3">
-          {displaySources.map((source, index) => {
-            const documentData = createDocumentFromSource(source);
-            
-            return (
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">
+              Chargement des détails des documents...
+            </div>
+          ) : (
+            realDocuments.map((document, index) => (
               <CompactDocumentItem
-                key={`${source.documentId}-${index}`}
-                document={documentData}
-                onDownload={() => handleDownloadDocument(source)}
+                key={`${document.type}-${document.id}-${index}`}
+                document={document}
+                onDownload={() => handleDownloadDocument(document)}
                 onDelete={handleDelete}
                 isDeleting={false}
                 onUpdate={handleUpdate}
               />
-            );
-          })}
+            ))
+          )}
         </div>
       </div>
 
