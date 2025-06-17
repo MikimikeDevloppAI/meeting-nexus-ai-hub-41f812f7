@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,25 @@ import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
 import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 import { SmartDocumentSources } from "./SmartDocumentSources";
+
+// Interface pour les sources brutes de l'Edge Function
+interface RawSource {
+  document_id: string;
+  document_name?: string;
+  similarity?: number;
+  document_type?: string;
+  chunk_text?: string;
+}
+
+// Interface pour les sources transformées
+interface TransformedSource {
+  documentId: string;
+  documentName: string;
+  maxSimilarity: number;
+  chunksCount: number;
+  documentType: string;
+  relevantChunks: string[];
+}
 
 export const DocumentSearchAssistant = () => {
   const [inputMessage, setInputMessage] = useState("");
@@ -28,11 +46,11 @@ export const DocumentSearchAssistant = () => {
   });
 
   // Fonction pour transformer les sources de l'Edge Function au format attendu par SmartDocumentSources
-  const transformSourcesForDisplay = (sources: any[]) => {
+  const transformSourcesForDisplay = (sources: RawSource[]): TransformedSource[] => {
     if (!sources || sources.length === 0) return [];
 
     // Grouper les chunks par document
-    const groupedByDocument = sources.reduce((acc, source) => {
+    const groupedByDocument = sources.reduce((acc: Record<string, TransformedSource>, source: RawSource) => {
       const docId = source.document_id;
       if (!acc[docId]) {
         acc[docId] = {
@@ -46,7 +64,7 @@ export const DocumentSearchAssistant = () => {
       }
       
       // Prendre la similarité maximale pour ce document
-      if (source.similarity > acc[docId].maxSimilarity) {
+      if (source.similarity && source.similarity > acc[docId].maxSimilarity) {
         acc[docId].maxSimilarity = source.similarity;
       }
       
@@ -59,7 +77,7 @@ export const DocumentSearchAssistant = () => {
     }, {});
 
     // Convertir en tableau et filtrer par similarité > 35%
-    return Object.values(groupedByDocument).filter(doc => 
+    return Object.values(groupedByDocument).filter((doc: TransformedSource) => 
       doc.maxSimilarity > 0.35
     );
   };
