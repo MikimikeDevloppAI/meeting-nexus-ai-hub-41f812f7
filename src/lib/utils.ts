@@ -30,3 +30,28 @@ export function getDocumentDownloadUrl(filePath: string): string {
   
   return data.publicUrl;
 }
+
+// Fonction pour vérifier si un fichier peut être prévisualisé directement
+export function canPreviewDirectly(contentType: string): boolean {
+  const previewableTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'text/plain'
+  ];
+  
+  return previewableTypes.includes(contentType);
+}
+
+// Fonction pour obtenir l'URL de fallback avec Google Docs Viewer
+export function getGoogleDocsViewerUrl(publicUrl: string): string {
+  return `https://docs.google.com/gview?url=${encodeURIComponent(publicUrl)}&embedded=true`;
+}
+
+// Fonction pour obtenir l'URL de fallback avec Office Online
+export function getOfficeOnlineViewerUrl(publicUrl: string): string {
+  return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(publicUrl)}`;
+}

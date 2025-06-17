@@ -4,7 +4,7 @@ import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X, Mic, U
 import { useState } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
-import { DocumentViewer } from "./DocumentViewer";
+import { DocumentPreview } from "./DocumentPreview";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 
 interface CompactDocumentItemProps {
@@ -23,7 +23,7 @@ export const CompactDocumentItem = ({
   onUpdate 
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [showViewer, setShowViewer] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return 'N/A';
@@ -133,13 +133,13 @@ export const CompactDocumentItem = ({
           </div>
           
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            {/* Eye button for viewing original document - only for non-meeting documents with file_path */}
+            {/* Bouton de prévisualisation pour les documents avec file_path */}
             {!isMeeting && document.file_path && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowViewer(true)}
-                title="Voir le document original"
+                onClick={() => setShowPreview(true)}
+                title="Prévisualiser le document"
               >
                 <Eye className="h-4 w-4" />
               </Button>
@@ -176,12 +176,12 @@ export const CompactDocumentItem = ({
         </div>
       </div>
 
-      {/* Document Viewer Modal */}
-      {showViewer && (
-        <DocumentViewer
+      {/* Nouveau composant de prévisualisation */}
+      {showPreview && (
+        <DocumentPreview
           document={document}
-          isOpen={showViewer}
-          onClose={() => setShowViewer(false)}
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
         />
       )}
 

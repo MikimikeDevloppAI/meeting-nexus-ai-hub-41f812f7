@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAs
 import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
-import { getDocumentDownloadUrl } from "@/lib/utils";
+import { getDocumentDownloadUrl, ensureDocumentsBucket } from "@/lib/storage";
 
 interface SearchFilters {
   query: string;
@@ -27,12 +28,31 @@ interface SearchFilters {
 const Documents = () => {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Utiliser le nouveau hook pour les données unifiées
   const { documents, isLoading, refetch } = useUnifiedDocuments();
+
+  // Vérifier le storage au chargement
+  useEffect(() => {
+    const checkStorage = async () => {
+      console.log('Vérification du storage Supabase...');
+      const ready = await ensureDocumentsBucket();
+      setStorageReady(ready);
+      
+      if (!ready) {
+        toast({
+          title: "Problème de storage",
+          description: "Le bucket documents n'est pas accessible. Certaines fonctionnalités peuvent ne pas marcher.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    checkStorage();
+  }, [toast]);
 
   // Upload mutation
   const uploadMutation = useMutation({
@@ -49,12 +69,19 @@ const Documents = () => {
       
       const filePath = `${fileId}-${cleanFileName}`;
       
+      console.log('Upload du fichier:', filePath);
+      
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Erreur upload storage:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Fichier uploadé, création de l\'enregistrement...');
 
       // Create document record
       const { data: document, error: dbError } = await supabase
@@ -68,7 +95,12 @@ const Documents = () => {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Erreur création document:', dbError);
+        throw dbError;
+      }
+
+      console.log('Document créé:', document);
 
       // Process with AI if it's a supported file type
       if ([
@@ -81,6 +113,7 @@ const Documents = () => {
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       ].includes(file.type)) {
+        console.log('Lancement du traitement AI...');
         await supabase.functions.invoke('process-document', {
           body: { documentId: document.id }
         });
@@ -96,19 +129,29 @@ const Documents = () => {
       });
     },
     onError: (error: any) => {
+      console.error('Erreur upload:', error);
       toast({
         title: "Erreur",
-        description: error.message,
+        description: error.message || "Erreur lors de l'upload",
         variant: "destructive",
       });
     }
   });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (!storageReady) {
+      toast({
+        title: "Storage non disponible",
+        description: "Le système de stockage n'est pas prêt. Veuillez réessayer plus tard.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     acceptedFiles.forEach(file => {
       uploadMutation.mutate(file);
     });
-  }, [uploadMutation]);
+  }, [uploadMutation, storageReady, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -141,7 +184,6 @@ const Documents = () => {
           console.log('Document updated via real-time:', payload);
           refetch();
           
-          // Show toast when a document is processed
           if (payload.eventType === 'UPDATE' && payload.new.processed && !payload.old?.processed) {
             toast({
               title: "Document traité",
@@ -165,7 +207,6 @@ const Documents = () => {
           console.log('Meeting updated via real-time:', payload);
           refetch();
           
-          // Show toast when a meeting is processed
           if (payload.eventType === 'UPDATE' && payload.new.transcript && !payload.old?.transcript) {
             toast({
               title: "Meeting traité",
@@ -188,7 +229,6 @@ const Documents = () => {
     if (!documents) return [];
     
     return documents.filter(doc => {
-      // Filtre par texte de recherche
       if (searchFilters.query) {
         const query = searchFilters.query.toLowerCase();
         const searchableText = [
@@ -202,22 +242,18 @@ const Documents = () => {
         if (!searchableText.includes(query)) return false;
       }
       
-      // Filtre par catégorie sélectionnée
       if (selectedCategory && doc.taxonomy?.category !== selectedCategory) {
         return false;
       }
       
-      // Filtre par catégorie des filtres de recherche
       if (searchFilters.category && doc.taxonomy?.category !== searchFilters.category) {
         return false;
       }
       
-      // Filtre par type de document
       if (searchFilters.documentType && doc.taxonomy?.documentType !== searchFilters.documentType) {
         return false;
       }
 
-      // Filtre par mots-clés
       if (searchFilters.keywords && searchFilters.keywords.length > 0) {
         const docKeywords = doc.taxonomy?.keywords || [];
         const hasMatchingKeyword = searchFilters.keywords.some(keyword => 
@@ -226,7 +262,6 @@ const Documents = () => {
         if (!hasMatchingKeyword) return false;
       }
       
-      // Filtre par date
       if (searchFilters.dateRange) {
         const docDate = new Date(doc.created_at);
         const now = new Date();
@@ -283,13 +318,12 @@ const Documents = () => {
 
   const handleDownload = async (document: UnifiedDocumentItem) => {
     if (document.type === 'meeting') {
-      // Rediriger vers la page du meeting
       navigate(`/meetings/${document.meeting_id}`);
       return;
     }
 
     try {
-      // Use the new helper function
+      console.log('Téléchargement du document:', document.file_path);
       const downloadUrl = getDocumentDownloadUrl(document.file_path!);
       
       const a = window.document.createElement('a');
@@ -297,6 +331,7 @@ const Documents = () => {
       a.download = document.ai_generated_name || document.original_name;
       a.click();
     } catch (error: any) {
+      console.error('Erreur téléchargement:', error);
       toast({
         title: "Erreur",
         description: "Impossible de télécharger le document",
@@ -316,6 +351,11 @@ const Documents = () => {
         <p className="text-muted-foreground">
           Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
+        {!storageReady && (
+          <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+            ⚠️ Problème de connexion au storage. Certaines fonctionnalités peuvent être limitées.
+          </div>
+        )}
       </div>
 
       {/* Upload Section - Plus compact et en haut */}
@@ -334,7 +374,7 @@ const Documents = () => {
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
               ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
-              ${uploadMutation.isPending ? 'pointer-events-none opacity-50' : ''}
+              ${uploadMutation.isPending || !storageReady ? 'pointer-events-none opacity-50' : ''}
             `}
           >
             <input {...getInputProps()} />
@@ -365,10 +405,8 @@ const Documents = () => {
         </CardContent>
       </Card>
 
-      {/* Assistant de recherche */}
       <DocumentSearchAssistant />
 
-      {/* Search Section */}
       {documents && documents.length > 0 && (
         <DocumentSearch 
           onSearch={setSearchFilters}
@@ -376,7 +414,6 @@ const Documents = () => {
         />
       )}
 
-      {/* Filtre par catégories */}
       {documents && documents.length > 0 && (
         <KeywordsDisplay 
           onCategoryClick={setSelectedCategory}
@@ -384,7 +421,6 @@ const Documents = () => {
         />
       )}
 
-      {/* Documents List */}
       <Card>
         <CardHeader>
           <CardTitle>
