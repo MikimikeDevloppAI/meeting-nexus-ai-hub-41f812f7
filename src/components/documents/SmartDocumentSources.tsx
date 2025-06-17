@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { DocumentViewer } from "./DocumentViewer";
@@ -32,18 +31,18 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
   const relevantSources = sources.filter(source => source.maxSimilarity > 0.3);
   const displaySources = relevantSources.length > 0 ? relevantSources : sources.slice(0, 1);
 
-  // Extract all document IDs from sources - we'll try to fetch them as both documents and meetings
+  // Extract all document IDs from sources - these are now the IDs from the documents table
   const documentIds = displaySources.map(source => source.documentId);
   
-  console.log('[SmartDocumentSources] Searching for document IDs:', documentIds);
+  console.log('[SmartDocumentSources] Searching for document IDs from documents table:', documentIds);
 
-  // Use the corrected hook to fetch real document data
+  // Use the corrected hook to fetch real document data via the documents bridge table
   const { documents: realDocuments, isLoading, error } = useDocumentsByIds({
     documentIds,
-    documentTypes: {} // We let the hook try both documents and meetings tables
+    documentTypes: {} // We let the hook handle the bridge logic
   });
 
-  console.log('[SmartDocumentSources] Real documents found:', realDocuments.length);
+  console.log('[SmartDocumentSources] Real documents found via bridge:', realDocuments.length);
 
   const handleDownloadDocument = (document: UnifiedDocumentItem) => {
     if (document.type === 'meeting') {
@@ -55,7 +54,7 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
         const downloadUrl = `/api/documents/${document.id}/download`;
         window.open(downloadUrl, '_blank');
       } else {
-        // For fallback documents, show details
+        // Show document details in viewer
         setSelectedDocument(document);
         setIsViewerOpen(true);
       }
@@ -70,29 +69,6 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
   const handleUpdate = () => {
     // Action not supported for sources  
   };
-
-  // Create fallback documents only if no real documents were found
-  const displayDocuments = realDocuments.length > 0 ? realDocuments : displaySources.map(source => ({
-    id: source.documentId,
-    type: 'document' as const,
-    original_name: source.documentName,
-    ai_generated_name: source.documentName,
-    file_path: undefined,
-    file_size: null,
-    content_type: 'application/octet-stream',
-    taxonomy: {
-      category: "Document",
-      subcategory: "Source de recherche",
-      keywords: ["recherche", "source"],
-      documentType: source.documentType || "Document"
-    },
-    ai_summary: `Document trouvé lors de la recherche avec ${source.chunksCount} chunk(s) pertinent(s) (similarité: ${(source.maxSimilarity * 100).toFixed(1)}%).`,
-    processed: true,
-    created_at: new Date().toISOString(),
-    created_by: '',
-    extracted_text: source.relevantChunks?.join('\n\n') || null,
-    participants: undefined
-  }));
 
   return (
     <>
@@ -111,14 +87,13 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
             <div className="text-sm text-red-600">
               Erreur lors du chargement des documents: {error}
             </div>
-          ) : displayDocuments.length === 0 ? (
+          ) : realDocuments.length === 0 ? (
             <div className="text-sm text-muted-foreground">
-              Aucun document trouvé
+              Aucun document trouvé dans les tables sources
             </div>
           ) : (
-            displayDocuments.map((document, index) => {
-              // Show similarity info for fallback documents
-              const isRealDocument = realDocuments.some(rd => rd.id === document.id);
+            realDocuments.map((document, index) => {
+              // Find corresponding source info for similarity display
               const sourceInfo = displaySources.find(s => s.documentId === document.id);
               
               return (
@@ -130,7 +105,7 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
                     isDeleting={false}
                     onUpdate={handleUpdate}
                   />
-                  {!isRealDocument && sourceInfo && (
+                  {sourceInfo && (
                     <div className="ml-4 mt-1 text-xs text-muted-foreground">
                       Similarité: {(sourceInfo.maxSimilarity * 100).toFixed(1)}% • {sourceInfo.chunksCount} chunk{sourceInfo.chunksCount > 1 ? 's' : ''} trouvé{sourceInfo.chunksCount > 1 ? 's' : ''}
                     </div>
