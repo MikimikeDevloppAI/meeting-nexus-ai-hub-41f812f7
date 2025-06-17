@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import { FileText, Upload, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +15,7 @@ import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { getDocumentDownloadUrl } from "@/lib/utils";
-import { ensureDocumentsBucket, getBucketInfo, diagnoseBucketPermissions } from "@/lib/storage";
+import { ensureDocumentsBucket } from "@/lib/storage";
 
 interface SearchFilters {
   query: string;
@@ -29,7 +29,6 @@ const Documents = () => {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
-  const [storageInfo, setStorageInfo] = useState<string>("");
   const [isCheckingStorage, setIsCheckingStorage] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -37,51 +36,25 @@ const Documents = () => {
 
   const { documents, isLoading, refetch } = useUnifiedDocuments();
 
-  // Vérifier le storage au chargement avec plus de détails
+  // Vérifier le storage au chargement
   useEffect(() => {
     const checkStorage = async () => {
       setIsCheckingStorage(true);
-      console.log('Vérification complète du storage Supabase...');
-      
-      try {
-        // Vérifier les informations du bucket
-        const bucketInfo = await getBucketInfo();
-        
-        if (!bucketInfo) {
-          setStorageInfo("Le bucket 'documents' n'existe pas ou n'est pas accessible");
-          setStorageReady(false);
-        } else {
-          console.log('Informations du bucket:', bucketInfo);
-          
-          // Vérifier l'accès au bucket
-          const ready = await ensureDocumentsBucket();
-          setStorageReady(ready);
-          
-          if (ready) {
-            setStorageInfo(`Bucket documents accessible (Public: ${bucketInfo.public ? 'Oui' : 'Non'})`);
-          } else {
-            setStorageInfo("Problème d'accès au bucket documents - vérifiez les permissions");
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de la vérification:', error);
-        setStorageInfo(`Erreur de connexion: ${error instanceof Error ? error.message : 'Inconnue'}`);
-        setStorageReady(false);
-      }
-      
+      const ready = await ensureDocumentsBucket();
+      setStorageReady(ready);
       setIsCheckingStorage(false);
       
-      if (!storageReady) {
+      if (!ready) {
         toast({
           title: "Problème de storage",
-          description: "Le système de stockage n'est pas entièrement accessible. Consultez les détails ci-dessus.",
+          description: "Le système de stockage n'est pas accessible. Vérifiez la console pour plus de détails.",
           variant: "destructive",
         });
       }
     };
     
     checkStorage();
-  }, [toast, storageReady]);
+  }, [toast]);
 
   // Upload mutation
   const uploadMutation = useMutation({
@@ -381,37 +354,24 @@ const Documents = () => {
           Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
         
-        {/* Statut du storage avec plus de détails */}
+        {/* Statut du storage simplifié */}
         <div className="mt-3 p-3 border rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             {isCheckingStorage ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : storageReady ? (
               <CheckCircle className="h-4 w-4 text-green-600" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-red-600" />
+              <div className="h-4 w-4 rounded-full bg-red-600" />
             )}
             <span className="font-medium text-sm">
-              Statut du Storage: {isCheckingStorage ? 'Vérification...' : storageReady ? 'Opérationnel' : 'Problème détecté'}
+              Storage: {isCheckingStorage ? 'Vérification...' : storageReady ? 'Opérationnel' : 'Non accessible'}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {storageInfo}
-          </p>
-          {!storageReady && !isCheckingStorage && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-2"
-              onClick={() => window.location.reload()}
-            >
-              Réessayer
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* Upload Section - Plus compact et en haut */}
+      {/* Upload Section */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -446,7 +406,7 @@ const Documents = () => {
                 </p>
                 {!storageReady && (
                   <p className="text-xs text-red-600 mt-2">
-                    ⚠️ Upload désactivé - problème de storage
+                    ⚠️ Upload désactivé - storage non accessible
                   </p>
                 )}
               </div>
