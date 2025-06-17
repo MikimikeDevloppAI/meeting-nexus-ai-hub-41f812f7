@@ -34,43 +34,56 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
   // Si aucun document n'atteint le seuil, prendre le meilleur
   const displaySources = relevantSources.length > 0 ? relevantSources : sources.slice(0, 1);
 
-  // Créer un objet UnifiedDocumentItem simulé pour le viewer
+  // Créer un objet UnifiedDocumentItem simulé pour le viewer avec catégorisation complète
   const createDocumentFromSource = (source: DocumentSource): UnifiedDocumentItem => ({
     id: source.documentId,
     original_name: source.documentName,
     ai_generated_name: source.documentName,
     type: source.documentType === 'meeting' ? 'meeting' : 'document',
-    file_path: `/api/documents/${source.documentId}/download`,
+    file_path: source.documentType !== 'meeting' ? `/api/documents/${source.documentId}/download` : undefined,
     file_size: null,
-    content_type: 'application/pdf',
+    content_type: source.documentType === 'meeting' ? 'audio/meeting' : 'application/pdf',
     extracted_text: source.relevantChunks?.join('\n\n') || '',
     ai_summary: '',
-    taxonomy: {},
+    taxonomy: source.documentType === 'meeting' ? {
+      category: "Meeting",
+      subcategory: "Réunion transcrite", 
+      keywords: ["meeting", "réunion", "transcript"],
+      documentType: "Réunion transcrite"
+    } : {
+      category: "Document",
+      subcategory: "Document source",
+      keywords: ["document", "source"],
+      documentType: "Document recherché"
+    },
     processed: true,
     created_at: new Date().toISOString(),
     created_by: '',
     participants: source.documentType === 'meeting' ? [] : undefined,
-    audio_url: source.documentType === 'meeting' ? `/api/meetings/${source.documentId}/audio` : undefined
+    audio_url: source.documentType === 'meeting' ? `/api/meetings/${source.documentId}/audio` : undefined,
+    meeting_id: source.documentType === 'meeting' ? source.documentId : undefined,
+    transcript: source.documentType === 'meeting' ? source.relevantChunks?.join('\n\n') : undefined,
+    summary: source.documentType === 'meeting' ? 'Résumé de la réunion' : undefined
   });
 
-  const handleViewDocument = (source: DocumentSource) => {
-    const documentData = createDocumentFromSource(source);
-    setSelectedDocument(documentData);
-    setIsViewerOpen(true);
-  };
-
   const handleDownloadDocument = (source: DocumentSource) => {
-    const downloadUrl = `/api/documents/${source.documentId}/download`;
-    window.open(downloadUrl, '_blank');
+    if (source.documentType === 'meeting') {
+      // Rediriger vers la page du meeting
+      window.open(`/meetings/${source.documentId}`, '_blank');
+    } else {
+      // Télécharger le document
+      const downloadUrl = `/api/documents/${source.documentId}/download`;
+      window.open(downloadUrl, '_blank');
+    }
   };
 
-  // Fonction vide pour les actions non supportées
+  // Fonction vide pour les actions non supportées dans le contexte des sources
   const handleDelete = () => {
     // Action non supportée pour les sources
   };
 
   const handleUpdate = () => {
-    // Action non supportée pour les sources
+    // Action non supportée pour les sources  
   };
 
   return (
