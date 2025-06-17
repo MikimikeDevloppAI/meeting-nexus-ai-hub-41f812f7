@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { DocumentViewer } from "./DocumentViewer";
@@ -31,18 +32,18 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
   const relevantSources = sources.filter(source => source.maxSimilarity > 0.3);
   const displaySources = relevantSources.length > 0 ? relevantSources : sources.slice(0, 1);
 
-  // Prepare document IDs and type mapping for the hook
+  // Extract all document IDs from sources - we'll try to fetch them as both documents and meetings
   const documentIds = displaySources.map(source => source.documentId);
-  const documentTypes = displaySources.reduce((acc, source) => {
-    acc[source.documentId] = source.documentType || 'document';
-    return acc;
-  }, {} as Record<string, string>);
+  
+  console.log('[SmartDocumentSources] Searching for document IDs:', documentIds);
 
-  // Use the new hook to fetch real document data
+  // Use the corrected hook to fetch real document data
   const { documents: realDocuments, isLoading, error } = useDocumentsByIds({
     documentIds,
-    documentTypes
+    documentTypes: {} // We let the hook try both documents and meetings tables
   });
+
+  console.log('[SmartDocumentSources] Real documents found:', realDocuments.length);
 
   const handleDownloadDocument = (document: UnifiedDocumentItem) => {
     if (document.type === 'meeting') {
@@ -70,7 +71,7 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
     // Action not supported for sources  
   };
 
-  // Create fallback documents if real ones couldn't be fetched
+  // Create fallback documents only if no real documents were found
   const displayDocuments = realDocuments.length > 0 ? realDocuments : displaySources.map(source => ({
     id: source.documentId,
     type: 'document' as const,
@@ -115,16 +116,28 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
               Aucun document trouvé
             </div>
           ) : (
-            displayDocuments.map((document, index) => (
-              <CompactDocumentItem
-                key={`${document.type}-${document.id}-${index}`}
-                document={document}
-                onDownload={() => handleDownloadDocument(document)}
-                onDelete={handleDelete}
-                isDeleting={false}
-                onUpdate={handleUpdate}
-              />
-            ))
+            displayDocuments.map((document, index) => {
+              // Show similarity info for fallback documents
+              const isRealDocument = realDocuments.some(rd => rd.id === document.id);
+              const sourceInfo = displaySources.find(s => s.documentId === document.id);
+              
+              return (
+                <div key={`${document.type}-${document.id}-${index}`}>
+                  <CompactDocumentItem
+                    document={document}
+                    onDownload={() => handleDownloadDocument(document)}
+                    onDelete={handleDelete}
+                    isDeleting={false}
+                    onUpdate={handleUpdate}
+                  />
+                  {!isRealDocument && sourceInfo && (
+                    <div className="ml-4 mt-1 text-xs text-muted-foreground">
+                      Similarité: {(sourceInfo.maxSimilarity * 100).toFixed(1)}% • {sourceInfo.chunksCount} chunk{sourceInfo.chunksCount > 1 ? 's' : ''} trouvé{sourceInfo.chunksCount > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>

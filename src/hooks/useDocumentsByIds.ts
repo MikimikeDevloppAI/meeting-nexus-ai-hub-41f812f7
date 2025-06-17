@@ -24,94 +24,85 @@ export const useDocumentsByIds = ({ documentIds, documentTypes = {} }: UseDocume
       setError(null);
 
       try {
+        console.log('[useDocumentsByIds] Fetching documents for IDs:', documentIds);
+        
+        // Try to fetch all IDs as uploaded documents first
+        const { data: uploadedDocs, error: docsError } = await supabase
+          .from('uploaded_documents')
+          .select('*')
+          .in('id', documentIds);
+
+        if (docsError) {
+          console.error('[useDocumentsByIds] Error fetching uploaded documents:', docsError);
+        }
+
+        // Try to fetch all IDs as meetings (with transcript) 
+        const { data: meetings, error: meetingsError } = await supabase
+          .from('meetings')
+          .select(`
+            *,
+            meeting_participants (
+              participants (
+                name,
+                email
+              )
+            )
+          `)
+          .in('id', documentIds)
+          .not('transcript', 'is', null);
+
+        if (meetingsError) {
+          console.error('[useDocumentsByIds] Error fetching meetings:', meetingsError);
+        }
+
         const unifiedDocuments: UnifiedDocumentItem[] = [];
 
-        // Separate meeting IDs from document IDs based on type mapping
-        const meetingIds = documentIds.filter(id => documentTypes[id] === 'meeting');
-        const uploadedDocIds = documentIds.filter(id => documentTypes[id] !== 'meeting');
-
-        // Fetch meetings
-        if (meetingIds.length > 0) {
-          const { data: meetings, error: meetingsError } = await supabase
-            .from('meetings')
-            .select(`
-              *,
-              meeting_participants (
-                participants (
-                  name,
-                  email
-                )
-              )
-            `)
-            .in('id', meetingIds);
-
-          if (meetingsError) {
-            console.error('Error fetching meetings:', meetingsError);
-          } else {
-            meetings?.forEach(meeting => {
-              unifiedDocuments.push({
-                id: meeting.id,
-                type: 'meeting',
-                original_name: meeting.title,
-                ai_generated_name: meeting.title,
-                file_path: undefined,
-                file_size: null,
-                content_type: 'audio/meeting',
-                taxonomy: {
-                  category: "Meeting",
-                  subcategory: "Réunion transcrite",
-                  keywords: ["meeting", "réunion", "transcript"],
-                  documentType: "Réunion transcrite"
-                },
-                ai_summary: meeting.summary,
-                processed: !!meeting.transcript,
-                created_at: meeting.created_at,
-                created_by: meeting.created_by,
-                extracted_text: meeting.transcript,
-                meeting_id: meeting.id,
-                audio_url: meeting.audio_url,
-                transcript: meeting.transcript,
-                summary: meeting.summary,
-                participants: meeting.meeting_participants?.map((mp: any) => mp.participants) || []
-              });
-            });
-          }
+        // Transform uploaded documents (exactly like useUnifiedDocuments)
+        if (uploadedDocs && uploadedDocs.length > 0) {
+          const transformedDocs: UnifiedDocumentItem[] = uploadedDocs.map(doc => ({
+            ...doc,
+            type: 'document' as const,
+          }));
+          unifiedDocuments.push(...transformedDocs);
+          console.log('[useDocumentsByIds] Found uploaded documents:', transformedDocs.length);
         }
 
-        // Fetch uploaded documents
-        if (uploadedDocIds.length > 0) {
-          const { data: documents, error: documentsError } = await supabase
-            .from('uploaded_documents')
-            .select('*')
-            .in('id', uploadedDocIds);
-
-          if (documentsError) {
-            console.error('Error fetching uploaded documents:', documentsError);
-          } else {
-            documents?.forEach(doc => {
-              unifiedDocuments.push({
-                id: doc.id,
-                type: 'document',
-                original_name: doc.original_name,
-                ai_generated_name: doc.ai_generated_name,
-                file_path: doc.file_path,
-                file_size: doc.file_size,
-                content_type: doc.content_type,
-                taxonomy: doc.taxonomy || {},
-                ai_summary: doc.ai_summary,
-                processed: doc.processed,
-                created_at: doc.created_at,
-                created_by: doc.created_by,
-                extracted_text: doc.extracted_text,
-                participants: undefined
-              });
-            });
-          }
+        // Transform meetings (exactly like useUnifiedDocuments)
+        if (meetings && meetings.length > 0) {
+          const transformedMeetings: UnifiedDocumentItem[] = meetings.map(meeting => ({
+            id: meeting.id,
+            type: 'meeting' as const,
+            original_name: meeting.title,
+            ai_generated_name: meeting.title,
+            file_path: undefined,
+            file_size: null,
+            content_type: 'audio/meeting',
+            taxonomy: {
+              category: "Meeting",
+              subcategory: "Réunion transcrite",
+              keywords: ["meeting", "réunion", "transcript"],
+              documentType: "Réunion transcrite"
+            },
+            ai_summary: meeting.summary,
+            processed: !!meeting.transcript,
+            created_at: meeting.created_at,
+            created_by: meeting.created_by,
+            extracted_text: meeting.transcript,
+            meeting_id: meeting.id,
+            audio_url: meeting.audio_url,
+            transcript: meeting.transcript,
+            summary: meeting.summary,
+            participants: meeting.meeting_participants?.map((mp: any) => mp.participants) || []
+          }));
+          unifiedDocuments.push(...transformedMeetings);
+          console.log('[useDocumentsByIds] Found meetings:', transformedMeetings.length);
         }
 
+        console.log('[useDocumentsByIds] Total unified documents found:', unifiedDocuments.length);
         setDocuments(unifiedDocuments);
+
       } catch (err) {
-        console.error('Error fetching documents by IDs:', err);
+        console.error('[useDocumentsByIds] Error fetching documents:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setIsLoading(false);
