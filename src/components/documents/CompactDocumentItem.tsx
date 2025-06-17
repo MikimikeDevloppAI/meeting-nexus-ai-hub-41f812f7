@@ -1,6 +1,7 @@
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, CheckCircle, Loader2, FileSearch, X, Mic, Users, Play, Eye } from "lucide-react";
+import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
 import { useState } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
@@ -69,22 +70,10 @@ export const CompactDocumentItem = ({
                   <Mic className="h-3 w-3 mr-1" />
                   Meeting
                 </Badge>
-              ) : document.processed ? (
-                <Badge variant="default" className="bg-green-500 text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Traité
-                </Badge>
-              ) : (
+              ) : document.processed ? null : (
                 <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   En traitement...
-                </Badge>
-              )}
-              
-              {document.extracted_text && (
-                <Badge variant="outline" className="bg-purple-50 text-xs">
-                  <FileSearch className="h-3 w-3 mr-1" />
-                  {isMeeting ? 'Transcript' : 'Texte extrait'}
                 </Badge>
               )}
 
@@ -270,7 +259,7 @@ export const CompactDocumentItem = ({
                 {document.extracted_text && (
                   <div>
                     <h4 className="font-medium mb-2">
-                      {isMeeting ? 'Transcript de la réunion' : 'Texte extrait'} ({document.extracted_text.length.toLocaleString()} caractères)
+                      {isMeeting ? 'Transcript de la réunion' : 'Contenu du document'} ({document.extracted_text.length.toLocaleString()} caractères)
                     </h4>
                     <div className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded max-h-60 overflow-y-auto">
                       {document.extracted_text}
