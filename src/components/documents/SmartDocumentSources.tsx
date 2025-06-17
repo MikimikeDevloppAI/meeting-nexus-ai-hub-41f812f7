@@ -40,8 +40,8 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
 
     for (const source of sources) {
       try {
+        // Essayer d'abord comme meeting
         if (source.documentType === 'meeting') {
-          // Récupérer les détails du meeting
           const { data: meeting, error: meetingError } = await supabase
             .from('meetings')
             .select(`
@@ -54,14 +54,9 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
               )
             `)
             .eq('id', source.documentId)
-            .single();
+            .maybeSingle();
 
-          if (meetingError) {
-            console.error('Error fetching meeting:', meetingError);
-            continue;
-          }
-
-          if (meeting) {
+          if (!meetingError && meeting) {
             documents.push({
               id: meeting.id,
               type: 'meeting' as const,
@@ -87,41 +82,86 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
               summary: meeting.summary,
               participants: meeting.meeting_participants?.map((mp: any) => mp.participants) || []
             });
-          }
-        } else {
-          // Récupérer les détails du document uploadé
-          const { data: document, error: docError } = await supabase
-            .from('uploaded_documents')
-            .select('*')
-            .eq('id', source.documentId)
-            .single();
-
-          if (docError) {
-            console.error('Error fetching document:', docError);
             continue;
           }
-
-          if (document) {
-            documents.push({
-              id: document.id,
-              type: 'document' as const,
-              original_name: document.original_name,
-              ai_generated_name: document.ai_generated_name,
-              file_path: document.file_path,
-              file_size: document.file_size,
-              content_type: document.content_type,
-              taxonomy: document.taxonomy || {},
-              ai_summary: document.ai_summary,
-              processed: document.processed,
-              created_at: document.created_at,
-              created_by: document.created_by,
-              extracted_text: document.extracted_text,
-              participants: undefined
-            });
-          }
         }
+
+        // Essayer comme document uploadé
+        const { data: document, error: docError } = await supabase
+          .from('uploaded_documents')
+          .select('*')
+          .eq('id', source.documentId)
+          .maybeSingle();
+
+        if (!docError && document) {
+          documents.push({
+            id: document.id,
+            type: 'document' as const,
+            original_name: document.original_name,
+            ai_generated_name: document.ai_generated_name,
+            file_path: document.file_path,
+            file_size: document.file_size,
+            content_type: document.content_type,
+            taxonomy: document.taxonomy || {},
+            ai_summary: document.ai_summary,
+            processed: document.processed,
+            created_at: document.created_at,
+            created_by: document.created_by,
+            extracted_text: document.extracted_text,
+            participants: undefined
+          });
+          continue;
+        }
+
+        // Si on n'a trouvé ni meeting ni document, créer un document fallback
+        console.warn(`Document avec ID ${source.documentId} non trouvé, utilisation des données de base`);
+        documents.push({
+          id: source.documentId,
+          type: 'document' as const,
+          original_name: source.documentName,
+          ai_generated_name: source.documentName,
+          file_path: undefined,
+          file_size: null,
+          content_type: 'application/octet-stream',
+          taxonomy: {
+            category: "Document",
+            subcategory: "Source de recherche",
+            keywords: ["recherche", "source"],
+            documentType: source.documentType || "Document"
+          },
+          ai_summary: `Document trouvé lors de la recherche avec ${source.chunksCount} chunk(s) pertinent(s).`,
+          processed: true,
+          created_at: new Date().toISOString(),
+          created_by: '',
+          extracted_text: source.relevantChunks?.join('\n\n') || null,
+          participants: undefined
+        });
+
       } catch (error) {
-        console.error('Error fetching document details:', error);
+        console.error(`Erreur lors de la récupération du document ${source.documentId}:`, error);
+        
+        // Créer un document fallback en cas d'erreur
+        documents.push({
+          id: source.documentId,
+          type: 'document' as const,
+          original_name: source.documentName,
+          ai_generated_name: source.documentName,
+          file_path: undefined,
+          file_size: null,
+          content_type: 'application/octet-stream',
+          taxonomy: {
+            category: "Document",
+            subcategory: "Source de recherche",
+            keywords: ["recherche", "source"],
+            documentType: source.documentType || "Document"
+          },
+          ai_summary: `Document trouvé lors de la recherche avec ${source.chunksCount} chunk(s) pertinent(s).`,
+          processed: true,
+          created_at: new Date().toISOString(),
+          created_by: '',
+          extracted_text: source.relevantChunks?.join('\n\n') || null,
+          participants: undefined
+        });
       }
     }
 
@@ -136,7 +176,32 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
         const documents = await fetchDocumentDetails(displaySources);
         setRealDocuments(documents);
       } catch (error) {
-        console.error('Error loading document details:', error);
+        console.error('Erreur générale lors du chargement des documents:', error);
+        
+        // En cas d'erreur générale, créer des documents fallback
+        const fallbackDocuments: UnifiedDocumentItem[] = displaySources.map(source => ({
+          id: source.documentId,
+          type: 'document' as const,
+          original_name: source.documentName,
+          ai_generated_name: source.documentName,
+          file_path: undefined,
+          file_size: null,
+          content_type: 'application/octet-stream',
+          taxonomy: {
+            category: "Document",
+            subcategory: "Source de recherche",
+            keywords: ["recherche", "source"],
+            documentType: source.documentType || "Document"
+          },
+          ai_summary: `Document trouvé lors de la recherche avec ${source.chunksCount} chunk(s) pertinent(s).`,
+          processed: true,
+          created_at: new Date().toISOString(),
+          created_by: '',
+          extracted_text: source.relevantChunks?.join('\n\n') || null,
+          participants: undefined
+        }));
+        
+        setRealDocuments(fallbackDocuments);
       } finally {
         setIsLoading(false);
       }
@@ -152,9 +217,15 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
       // Rediriger vers la page du meeting
       window.open(`/meetings/${document.meeting_id}`, '_blank');
     } else {
-      // Télécharger le document
-      const downloadUrl = `/api/documents/${document.id}/download`;
-      window.open(downloadUrl, '_blank');
+      // Pour les vrais documents, télécharger
+      if (document.file_path) {
+        const downloadUrl = `/api/documents/${document.id}/download`;
+        window.open(downloadUrl, '_blank');
+      } else {
+        // Pour les documents fallback, afficher les détails
+        setSelectedDocument(document);
+        setIsViewerOpen(true);
+      }
     }
   };
 
@@ -179,6 +250,10 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
           {isLoading ? (
             <div className="text-sm text-muted-foreground">
               Chargement des détails des documents...
+            </div>
+          ) : realDocuments.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Aucun document trouvé
             </div>
           ) : (
             realDocuments.map((document, index) => (
