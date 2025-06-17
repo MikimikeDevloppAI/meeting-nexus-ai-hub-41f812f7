@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Send, Bot, User, Loader2, X, Search, FileText } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, X, Search, FileText, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
@@ -129,85 +129,80 @@ export const DocumentSearchAssistant = () => {
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200"
+        className="flex items-center gap-2"
       >
-        <Search className="h-4 w-4 text-purple-600" />
-        <span className="text-purple-700 font-medium">Assistant Recherche</span>
+        <MessageSquare className="h-4 w-4" />
+        Assistant Recherche
       </Button>
     );
   }
 
   return (
-    <Card className="mt-3 border-purple-200 shadow-lg">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-3">
+    <Card className="mt-4 mb-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-semibold text-purple-700">Assistant Recherche Documentaire</span>
-            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-              Contexte Maintenu
+            <MessageSquare className="h-4 w-4 text-primary" />
+            <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
+            <Badge variant="secondary" className="text-xs">
+              Beta
             </Badge>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={clearHistory}
-              className="h-6 w-6 p-0 hover:bg-orange-50"
               title="Effacer l'historique"
             >
-              <FileText className="h-3 w-3 text-gray-500 hover:text-orange-600" />
+              <Trash2 className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(false)}
-              className="h-6 w-6 p-0 hover:bg-red-50"
-            >
-              <X className="h-3 w-3 text-gray-500 hover:text-red-600" />
+            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Recherchez dans vos documents et meetings avec contexte maintenu • {messages.length} message(s) en mémoire
+        </p>
+      </CardHeader>
 
-        <div className="space-y-3 max-h-80 overflow-y-auto mb-3 pr-1">
+      <CardContent className="space-y-4">
+        <div className="max-h-96 overflow-y-auto space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-2 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+              className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`flex gap-2 max-w-[90%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.isUser 
-                    ? 'bg-purple-500 shadow-md' 
-                    : 'bg-gradient-to-br from-purple-100 to-blue-100 border border-purple-200'
+              <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  message.isUser ? 'bg-primary' : 'bg-secondary'
                 }`}>
                   {message.isUser ? (
-                    <User className="h-3 w-3 text-white" />
+                    <User className="h-4 w-4 text-primary-foreground" />
                   ) : (
-                    <Search className="h-3 w-3 text-purple-600" />
+                    <Bot className="h-4 w-4" />
                   )}
                 </div>
                 
-                <div className={`rounded-lg p-3 text-sm shadow-sm ${
+                <div className={`rounded-lg p-3 ${
                   message.isUser 
-                    ? 'bg-purple-500 text-white' 
-                    : 'bg-gradient-to-br from-gray-50 to-purple-50 border border-gray-200'
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted'
                 }`}>
                   <div 
-                    className="leading-relaxed"
+                    className="text-sm whitespace-pre-wrap"
                     dangerouslySetInnerHTML={{ 
                       __html: sanitizeHtml(renderMessageWithLinks(message.content))
                     }}
                   />
                   {message.sources && message.sources.length > 0 && (
-                    <div className="mt-2 text-xs text-purple-600">
+                    <div className="text-xs opacity-70 mt-2">
                       📄 {message.sources.length} source(s) utilisée(s)
                     </div>
                   )}
-                  <div className={`text-xs mt-2 ${
-                    message.isUser ? 'text-purple-100' : 'text-gray-500'
-                  }`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="text-xs opacity-70 mt-2">
+                    {message.timestamp.toLocaleTimeString()}
                   </div>
                 </div>
               </div>
@@ -215,39 +210,42 @@ export const DocumentSearchAssistant = () => {
           ))}
           
           {isLoading && (
-            <div className="flex gap-2 justify-start">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 border border-purple-200 flex items-center justify-center flex-shrink-0">
-                <Search className="h-3 w-3 text-purple-600" />
+            <div className="flex gap-3 justify-start">
+              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                <Bot className="h-4 w-4" />
               </div>
-              <div className="bg-gradient-to-br from-gray-50 to-purple-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 shadow-sm">
-                <Loader2 className="h-3 w-3 animate-spin text-purple-600" />
-                <span className="text-sm text-purple-700">Recherche dans vos documents...</span>
+              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Recherche dans vos documents...</span>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-4 border-t">
           <Input
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Recherchez dans vos documents..."
             disabled={isLoading}
-            className="text-sm h-9 border-purple-200 focus:border-purple-400 focus:ring-purple-200"
+            className="flex-1"
           />
           <Button 
             onClick={sendMessage} 
             disabled={isLoading || !inputMessage.trim()}
-            size="sm"
-            className="h-9 px-3 bg-purple-500 hover:bg-purple-600 text-white shadow-md"
+            size="icon"
           >
-            <Send className="h-3 w-3" />
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
-        
-        <div className="text-xs text-gray-500 mt-2 text-center">
-          Assistant spécialisé recherche documentaire • {messages.length} message(s) en mémoire
+
+        <div className="text-xs text-muted-foreground text-center">
+          💡 Contexte maintenu - Posez des questions sur vos documents ou meetings
         </div>
       </CardContent>
     </Card>
