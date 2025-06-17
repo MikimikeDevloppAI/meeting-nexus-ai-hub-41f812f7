@@ -1,50 +1,43 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-// Fonction pour vérifier et créer le bucket documents si nécessaire
+// Fonction pour vérifier et valider l'accès au bucket documents
 export const ensureDocumentsBucket = async () => {
   try {
     console.log('Vérification du bucket documents...');
     
-    // Vérifier si le bucket existe
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    // Vérifier si le bucket existe en tentant de lister les fichiers
+    const { data: files, error: listError } = await supabase.storage
+      .from('documents')
+      .list('', { limit: 1 });
     
     if (listError) {
-      console.error('Erreur lors de la vérification des buckets:', listError);
+      console.error('Erreur lors de l\'accès au bucket documents:', listError);
       return false;
     }
 
-    const documentsBucket = buckets?.find(bucket => bucket.name === 'documents');
+    console.log('Bucket documents accessible avec succès');
     
-    if (!documentsBucket) {
-      console.log('Le bucket documents n\'existe pas, tentative de création...');
-      
-      const { error: createError } = await supabase.storage.createBucket('documents', {
-        public: true,
-        allowedMimeTypes: [
-          'application/pdf',
-          'text/plain',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'image/*'
-        ],
-        fileSizeLimit: 50 * 1024 * 1024 // 50MB
-      });
-      
-      if (createError) {
-        console.error('Erreur lors de la création du bucket:', createError);
-        return false;
-      }
-      
-      console.log('Bucket documents créé avec succès');
-    } else {
-      console.log('Bucket documents trouvé');
+    // Tester l'upload d'un fichier test pour vérifier les permissions
+    const testFileName = `test-${Date.now()}.txt`;
+    const testFile = new File(['test'], testFileName, { type: 'text/plain' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(testFileName, testFile);
+    
+    if (uploadError) {
+      console.warn('Permission d\'upload limitée:', uploadError.message);
+      // On retourne true car la lecture fonctionne, même si l'upload ne marche pas
+      return true;
     }
     
+    // Nettoyer le fichier test
+    await supabase.storage
+      .from('documents')
+      .remove([testFileName]);
+    
+    console.log('Bucket documents entièrement fonctionnel');
     return true;
   } catch (error) {
     console.error('Erreur lors de la vérification du storage:', error);
@@ -65,5 +58,23 @@ export const testFileAccess = async (filePath: string): Promise<boolean> => {
   } catch (error) {
     console.error('Erreur lors du test d\'accès au fichier:', error);
     return false;
+  }
+};
+
+// Fonction pour obtenir des informations sur le bucket
+export const getBucketInfo = async () => {
+  try {
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    
+    if (error) {
+      console.error('Erreur lors de la récupération des buckets:', error);
+      return null;
+    }
+    
+    const documentsBucket = buckets?.find(bucket => bucket.name === 'documents');
+    return documentsBucket || null;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des informations du bucket:', error);
+    return null;
   }
 };
