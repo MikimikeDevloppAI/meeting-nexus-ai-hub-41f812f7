@@ -33,14 +33,19 @@ export async function processTaskRecommendations(
     const batchPrompt = `
 Tu es un assistant IA spécialisé dans la génération de recommandations TRÈS DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
-INSTRUCTIONS IMPORTANTES :
-- Fournis des recommandations EXTRÊMEMENT DÉTAILLÉES et COMPLÈTES
-- Développe tous les aspects pratiques et techniques
-- Sois EXHAUSTIF dans tes conseils et suggestions
-- Structure tes recommandations de manière claire et approfondie
-- N'hésite pas à donner des informations contextuelles supplémentaires
-- Fournis des exemples concrets et des étapes détaillées
+Ton objectif est d'analyser la tâche et de :
+1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
+2. **Signaler les éléments importants à considérer** (contraintes réglementaires, risques, coordination nécessaire, points d'attention).
+3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l’exécution.
+4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
+5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : “Aucune recommandation.”).
+6. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
 
+Critères de qualité :
+- Sois **concis, structuré et actionnable**.
+- Fournis uniquement des recommandations qui **ajoutent une vraie valeur**.
+- N’invente pas de contacts si tu n’en as pas.
+- Évite les banalités ou les évidences.
 CONTEXTE DE LA RÉUNION :
 - Titre: ${meetingData.title || 'Réunion'}
 - Date: ${meetingData.created_at || new Date().toISOString()}
@@ -55,21 +60,7 @@ ${task.index}. [ID: ${task.id}] ${task.description}
    - Assigné à: ${task.assigned_to}
 `).join('')}
 
-INSTRUCTIONS DÉTAILLÉES :
-Génère des recommandations IA TRÈS DÉTAILLÉES et COMPLÈTES pour CHAQUE tâche listée ci-dessus.
-Pour chaque tâche, analyse le contexte de la réunion et génère une recommendation EXHAUSTIVE qui :
 
-1. Donner des **tips pratiques DÉTAILLÉS ou des alertes COMPLÈTES** sur ce à quoi il faut faire attention (technique, administratif, juridique, logistique…). Développe chaque aspect en profondeur.
-
-2. Proposer des **options ou choix concrets DÉTAILLÉS**, avec leurs avantages/inconvénients COMPLETS (ex. : deux types de fontaines à eau, ou trois options de bureaux ergonomiques). Explique chaque option en détail.
-
-3. Suggérer des **outils numériques, fournisseurs, prestataires ou intégrations utiles SPÉCIFIQUES** (ex. : plugin Outlook, service de réservation, site pour commander…) en citant le nom des fournisseurs connus qui peuvent fournir le service sur Genève. Donne des détails complets sur chaque suggestion.
-
-4. Alerter sur les **risques ou oublis fréquents DÉTAILLÉS** liés à cette tâche, même s'ils ne sont pas explicitement mentionnés. Explique chaque risque en profondeur.
-
-5. Créer un plan d'action clair, TRÈS STRUCTURÉ et DÉTAILLÉ quand c'est nécessaire. Inclus toutes les étapes avec des explications complètes.
-
-6. Être **EXTRÊMEMENT structuré et pertinent**, sans remplir s'il n'y a rien d'utile à ajouter mais en développant au maximum quand c'est pertinent. Les recommandations doivent apporter une VRAIE valeur ajoutée DÉTAILLÉE.
 
 7. Un email pré-rédigé COMPLET qui doit comprendre à qui doit être fait la communication et adapter le ton si l'email doit être envoyé en interne ou en externe. Si l'email est pour l'interne sois direct, si il est destiné à l'externe donne tout le contexte nécessaire DÉTAILLÉ pour que le fournisseur externe comprenne parfaitement la demande et soit professionnel.
 
@@ -85,14 +76,14 @@ Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
       "taskIndex": 0,
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
-      "recommendation": "Recommandation TRÈS DÉTAILLÉE et COMPLÈTE pour la tâche...",
+      "recommendation": "Recommandation ici...",
       "emailDraft": "Email pré-rédigé COMPLET et DÉTAILLÉ (optionnel mais fortement recommandé)"
     },
     {
       "taskIndex": 1,
       "taskId": "uuid-de-la-tache",
       "hasRecommendation": true,
-      "recommendation": "Recommandation TRÈS DÉTAILLÉE pour la tâche 2...",
+      "recommendation": "Recommandation DÉTAILLÉE pour la tâche 2...",
       "emailDraft": null
     }
   ]
