@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Send, Bot, User, Loader2, X, Search, FileText, Trash2 } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
@@ -12,7 +11,6 @@ import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 import { SmartDocumentSources } from "./SmartDocumentSources";
 
 export const DocumentSearchAssistant = () => {
-  const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -71,12 +69,17 @@ export const DocumentSearchAssistant = () => {
         .replace(/\s*CONTEXTE.*?:/gi, '')
         .trim();
 
+      // Filtrer les sources avec pertinence > 35%
+      const filteredSources = data.sources ? data.sources.filter(source => 
+        source.maxSimilarity && source.maxSimilarity > 0.35
+      ) : [];
+
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         content: cleanContent,
         isUser: false,
         timestamp: new Date(),
-        sources: data.sources || []
+        sources: filteredSources
       };
 
       addMessage(aiMessage);
@@ -88,10 +91,10 @@ export const DocumentSearchAssistant = () => {
           description: `${data.searchMetrics.totalDataPoints} sources trouvées dans vos documents`,
           variant: "default",
         });
-      } else if (data.sources && data.sources.length > 0) {
+      } else if (filteredSources.length > 0) {
         toast({
           title: "Documents trouvés",
-          description: `${data.sources.length} document(s) pertinent(s)`,
+          description: `${filteredSources.length} document(s) pertinent(s)`,
           variant: "default",
         });
       }
@@ -124,20 +127,6 @@ export const DocumentSearchAssistant = () => {
     }
   };
 
-  if (!isOpen) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2"
-      >
-        <MessageSquare className="h-4 w-4" />
-        Assistant Recherche
-      </Button>
-    );
-  }
-
   return (
     <Card className="mt-4 mb-4">
       <CardHeader className="pb-3">
@@ -145,9 +134,6 @@ export const DocumentSearchAssistant = () => {
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
             <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
-            <Badge variant="secondary" className="text-xs">
-              Beta
-            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -157,9 +143,6 @@ export const DocumentSearchAssistant = () => {
               title="Effacer l'historique"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
