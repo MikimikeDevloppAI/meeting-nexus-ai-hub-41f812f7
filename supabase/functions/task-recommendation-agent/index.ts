@@ -102,7 +102,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
     const timeoutId = setTimeout(() => {
       console.log('⏰ [TASK-AGENT] Timeout OpenAI après 45 secondes');
       timeoutController.abort();
-    }, 45000); // 45 secondes max
+    }, 65000); // 45 secondes max
     
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -112,10 +112,10 @@ Réponds UNIQUEMENT en JSON avec cette structure :
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini', // Changé pour plus de rapidité
+          model: 'gpt-4o', // Changé pour plus de rapidité
           messages: [{ role: 'user', content: prompt }],
           temperature,
-          max_tokens: maxTokens,
+          max_tokens: 128000,
         }),
         signal: timeoutController.signal,
       });
