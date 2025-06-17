@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface Participant {
 interface SimpleMeetingFormProps {
   isSubmitting: boolean;
   isComplete: boolean;
+  meetingStatus?: any;
   onSubmit: (
     title: string,
     audioBlob: Blob | null,
@@ -29,7 +31,12 @@ interface SimpleMeetingFormProps {
   ) => void;
 }
 
-export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: SimpleMeetingFormProps) => {
+export const SimpleMeetingForm = ({ 
+  isSubmitting, 
+  isComplete, 
+  meetingStatus,
+  onSubmit 
+}: SimpleMeetingFormProps) => {
   console.log('[SimpleMeetingForm] Rendered with props:', { isSubmitting, isComplete });
   
   const [title, setTitle] = useState("");
@@ -40,8 +47,19 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [isNewParticipantDialogOpen, setIsNewParticipantDialogOpen] = useState(false);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Extract meeting ID from URL if we're on a meeting page
+  useEffect(() => {
+    const path = window.location.pathname;
+    const meetingMatch = path.match(/\/meetings\/([^\/]+)/);
+    if (meetingMatch) {
+      setCurrentMeetingId(meetingMatch[1]);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -84,6 +102,12 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
   const handleParticipantAdded = (newParticipant: Participant) => {
     setParticipants(prev => [...prev, newParticipant]);
     setSelectedParticipantIds(prev => [...prev, newParticipant.id]);
+  };
+
+  const handleViewMeeting = () => {
+    if (currentMeetingId) {
+      navigate(`/meetings/${currentMeetingId}`);
+    }
   };
 
   const handleSubmit = () => {
@@ -146,7 +170,13 @@ export const SimpleMeetingForm = ({ isSubmitting, isComplete, onSubmit }: Simple
   // Show loading screen when submitting
   if (isSubmitting) {
     console.log('[SimpleMeetingForm] Showing loading screen');
-    return <SimpleLoadingScreen isComplete={isComplete} />;
+    return (
+      <SimpleLoadingScreen 
+        isComplete={isComplete} 
+        meetingStatus={meetingStatus}
+        onViewMeeting={handleViewMeeting}
+      />
+    );
   }
 
   console.log('[SimpleMeetingForm] Rendering form');
