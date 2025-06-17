@@ -88,106 +88,145 @@ serve(async (req) => {
     console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
     console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
 
-    // 2. Extraire les tâches - UTILISER GPT-4O-MINI
-    const tasksStartTime = Date.now();
-    console.log('📋 [PROCESS-TRANSCRIPT] Extracting tasks with gpt-4o-mini...');
+    // 2. TRAITEMENT EN PARALLÈLE : tâches, résumé, et embeddings
+    console.log('🔄 [PROCESS-TRANSCRIPT] Démarrage du traitement parallèle...');
+    
+    const parallelStartTime = Date.now();
+    
+    // Préparer les prompts
     const tasksPrompt = createTasksPrompt(participantNames, cleanedTranscript);
-    const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o-mini');
-
-    let extractedTasks = [];
-    try {
-      console.log('📄 [PROCESS-TRANSCRIPT] Raw tasks response length:', tasksResponse?.length || 0);
-      
-      // Nettoyer la réponse avant de parser
-      const cleanedResponse = cleanJsonResponse(tasksResponse);
-      console.log('🧹 [PROCESS-TRANSCRIPT] Cleaned tasks response preview:', cleanedResponse.substring(0, 200) + '...');
-      
-      const tasksData = JSON.parse(cleanedResponse);
-      extractedTasks = tasksData.tasks || [];
-      console.log(`📋 [PROCESS-TRANSCRIPT] Parsed ${extractedTasks.length} tasks successfully (${Date.now() - tasksStartTime}ms)`);
-    } catch (parseError) {
-      console.error('❌ [PROCESS-TRANSCRIPT] Error parsing tasks JSON:', parseError);
-      console.log('📄 [PROCESS-TRANSCRIPT] Raw tasks response:', tasksResponse);
-      console.log('📄 [PROCESS-TRANSCRIPT] Cleaned response was:', cleanJsonResponse(tasksResponse));
-      
-      // Essayer une extraction alternative plus robuste
-      try {
-        console.log('🔧 [PROCESS-TRANSCRIPT] Tentative d\'extraction alternative...');
-        const jsonMatch = tasksResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const tasksData = JSON.parse(jsonMatch[0]);
-          extractedTasks = tasksData.tasks || [];
-          console.log(`📋 [PROCESS-TRANSCRIPT] Alternative parsing réussi: ${extractedTasks.length} tasks`);
-        }
-      } catch (altError) {
-        console.error('❌ [PROCESS-TRANSCRIPT] Alternative parsing failed too:', altError);
-      }
-    }
-
-    // Sauvegarder les tâches
-    const savedTasks = [];
-    if (extractedTasks.length > 0) {
-      console.log(`💾 [PROCESS-TRANSCRIPT] Saving ${extractedTasks.length} tasks...`);
-      for (let i = 0; i < extractedTasks.length; i++) {
-        const task = extractedTasks[i];
-        try {
-          console.log(`💾 [PROCESS-TRANSCRIPT] Saving task ${i+1}/${extractedTasks.length}:`, task.description?.substring(0, 50) + '...');
-          const savedTask = await saveTask(supabaseClient, task, meetingId, meetingParticipants || []);
-          if (savedTask) {
-            savedTasks.push(savedTask);
-            console.log(`✅ [PROCESS-TRANSCRIPT] Task ${i+1} saved successfully with ID:`, savedTask.id);
-          }
-        } catch (taskError) {
-          console.error(`❌ [PROCESS-TRANSCRIPT] Error saving task ${i+1}:`, taskError);
-        }
-      }
-    } else {
-      console.log('⚠️ [PROCESS-TRANSCRIPT] No tasks extracted from transcript');
-    }
-
-    console.log(`📊 [PROCESS-TRANSCRIPT] TÂCHES SAUVEGARDÉES FINALES: ${savedTasks.length} tâches avec IDs:`, savedTasks.map(t => t.id));
-
-    // 3. Générer le résumé - UTILISER GPT-4O
-    const summaryStartTime = Date.now();
-    console.log('📝 [PROCESS-TRANSCRIPT] Generating summary with gpt-4o...');
     const summaryPrompt = createSummaryPrompt(
       meetingData.title,
       new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
       participantNames,
       cleanedTranscript
     );
-    const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o');
-    await saveSummary(supabaseClient, meetingId, summary);
-    console.log(`✅ [PROCESS-TRANSCRIPT] Summary generated and saved (${Date.now() - summaryStartTime}ms)`);
-
-    // 4. Traitement document avec embeddings
-    const embeddingsStartTime = Date.now();
-    console.log('🔗 [PROCESS-TRANSCRIPT] Processing document embeddings...');
     const chunks = chunkText(cleanedTranscript, 1000, 200);
-    const documentResult = await handleDocumentProcessing(
-      supabaseClient,
-      meetingId,
-      cleanedTranscript,
-      meetingData.title,
-      new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
-      chunks
-    );
-    console.log(`✅ [PROCESS-TRANSCRIPT] Document embeddings processed (${Date.now() - embeddingsStartTime}ms)`);
 
-    // 5. Générer les recommandations IA pour les tâches - UTILISER GPT-4O (via recommendation-service)
+    // Lancer les 3 opérations en parallèle
+    const [tasksResult, summaryResult, embeddingsResult] = await Promise.allSettled([
+      // Extraction des tâches
+      (async () => {
+        console.log('📋 [PARALLEL] Extracting tasks with gpt-4o-mini...');
+        const startTime = Date.now();
+        const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o-mini');
+        console.log(`✅ [PARALLEL] Tasks extraction completed (${Date.now() - startTime}ms)`);
+        return tasksResponse;
+      })(),
+      
+      // Génération du résumé
+      (async () => {
+        console.log('📝 [PARALLEL] Generating summary with gpt-4o...');
+        const startTime = Date.now();
+        const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o');
+        await saveSummary(supabaseClient, meetingId, summary);
+        console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
+        return summary;
+      })(),
+      
+      // Traitement des embeddings
+      (async () => {
+        console.log('🔗 [PARALLEL] Processing document embeddings...');
+        const startTime = Date.now();
+        const documentResult = await handleDocumentProcessing(
+          supabaseClient,
+          meetingId,
+          cleanedTranscript,
+          meetingData.title,
+          new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
+          chunks
+        );
+        console.log(`✅ [PARALLEL] Document embeddings processed (${Date.now() - startTime}ms)`);
+        return documentResult;
+      })()
+    ]);
+
+    console.log(`⏱️ [PROCESS-TRANSCRIPT] Traitement parallèle terminé (${Date.now() - parallelStartTime}ms)`);
+
+    // Traiter le résultat des tâches
+    let extractedTasks = [];
+    let savedTasks = [];
+    
+    if (tasksResult.status === 'fulfilled') {
+      try {
+        console.log('📄 [PROCESS-TRANSCRIPT] Raw tasks response length:', tasksResult.value?.length || 0);
+        
+        // Nettoyer la réponse avant de parser
+        const cleanedResponse = cleanJsonResponse(tasksResult.value);
+        console.log('🧹 [PROCESS-TRANSCRIPT] Cleaned tasks response preview:', cleanedResponse.substring(0, 200) + '...');
+        
+        const tasksData = JSON.parse(cleanedResponse);
+        extractedTasks = tasksData.tasks || [];
+        console.log(`📋 [PROCESS-TRANSCRIPT] Parsed ${extractedTasks.length} tasks successfully`);
+      } catch (parseError) {
+        console.error('❌ [PROCESS-TRANSCRIPT] Error parsing tasks JSON:', parseError);
+        console.log('📄 [PROCESS-TRANSCRIPT] Raw tasks response:', tasksResult.value);
+        
+        // Essayer une extraction alternative plus robuste
+        try {
+          console.log('🔧 [PROCESS-TRANSCRIPT] Tentative d\'extraction alternative...');
+          const jsonMatch = tasksResult.value.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const tasksData = JSON.parse(jsonMatch[0]);
+            extractedTasks = tasksData.tasks || [];
+            console.log(`📋 [PROCESS-TRANSCRIPT] Alternative parsing réussi: ${extractedTasks.length} tasks`);
+          }
+        } catch (altError) {
+          console.error('❌ [PROCESS-TRANSCRIPT] Alternative parsing failed too:', altError);
+        }
+      }
+
+      // Sauvegarder les tâches
+      if (extractedTasks.length > 0) {
+        console.log(`💾 [PROCESS-TRANSCRIPT] Saving ${extractedTasks.length} tasks...`);
+        for (let i = 0; i < extractedTasks.length; i++) {
+          const task = extractedTasks[i];
+          try {
+            console.log(`💾 [PROCESS-TRANSCRIPT] Saving task ${i+1}/${extractedTasks.length}:`, task.description?.substring(0, 50) + '...');
+            const savedTask = await saveTask(supabaseClient, task, meetingId, meetingParticipants || []);
+            if (savedTask) {
+              savedTasks.push(savedTask);
+              console.log(`✅ [PROCESS-TRANSCRIPT] Task ${i+1} saved successfully with ID:`, savedTask.id);
+            }
+          } catch (taskError) {
+            console.error(`❌ [PROCESS-TRANSCRIPT] Error saving task ${i+1}:`, taskError);
+          }
+        }
+      } else {
+        console.log('⚠️ [PROCESS-TRANSCRIPT] No tasks extracted from transcript');
+      }
+    } else {
+      console.error('❌ [PROCESS-TRANSCRIPT] Tasks extraction failed:', tasksResult.reason);
+    }
+
+    console.log(`📊 [PROCESS-TRANSCRIPT] TÂCHES SAUVEGARDÉES FINALES: ${savedTasks.length} tâches avec IDs:`, savedTasks.map(t => t.id));
+
+    // Vérifier les résultats des autres opérations parallèles
+    let summaryGenerated = false;
+    let documentProcessed = false;
+
+    if (summaryResult.status === 'fulfilled') {
+      summaryGenerated = true;
+      console.log('✅ [PROCESS-TRANSCRIPT] Summary generated successfully');
+    } else {
+      console.error('❌ [PROCESS-TRANSCRIPT] Summary generation failed:', summaryResult.reason);
+    }
+
+    if (embeddingsResult.status === 'fulfilled') {
+      documentProcessed = true;
+      console.log('✅ [PROCESS-TRANSCRIPT] Document embeddings processed successfully');
+    } else {
+      console.error('❌ [PROCESS-TRANSCRIPT] Document embeddings processing failed:', embeddingsResult.reason);
+    }
+
+    // 3. Générer les recommandations IA pour les tâches - EN ARRIÈRE-PLAN dès que les tâches sont sauvegardées
     let recommendationResults = null;
     if (savedTasks.length > 0) {
-      const recommendationsStartTime = Date.now();
       console.log(`⚡ [PROCESS-TRANSCRIPT] DÉBUT génération des recommandations avec gpt-4o pour ${savedTasks.length} tâches`);
       console.log(`🎯 [PROCESS-TRANSCRIPT] IDs des tâches à traiter:`, savedTasks.map(t => t.id));
       
-      // Vérifier l'état initial des tâches
-      console.log(`🔍 [PROCESS-TRANSCRIPT] Vérification état initial des tâches...`);
-      for (const task of savedTasks) {
-        console.log(`📋 [PROCESS-TRANSCRIPT] Tâche ${task.id}: ai_recommendation_generated = ${task.ai_recommendation_generated}`);
-      }
-      
       try {
+        const recommendationsStartTime = Date.now();
         console.log(`🚀 [PROCESS-TRANSCRIPT] Appel processTaskRecommendations...`);
         recommendationResults = await processTaskRecommendations(savedTasks, cleanedTranscript, meetingData, allParticipants);
         console.log(`✅ [PROCESS-TRANSCRIPT] RECOMMANDATIONS TERMINÉES (${Date.now() - recommendationsStartTime}ms):`, recommendationResults);
@@ -228,23 +267,28 @@ serve(async (req) => {
     }
 
     const totalTime = Date.now() - startTime;
-    console.log(`🏁 [PROCESS-TRANSCRIPT] TRAITEMENT COMPLÈTEMENT TERMINÉ (${totalTime}ms) - Toutes les recommandations sont prêtes`);
-    console.log(`📊 [PROCESS-TRANSCRIPT] RÉSUMÉ FINAL: ${savedTasks.length} tâches, ${recommendationResults?.successful || 0} recommandations`);
+    console.log(`🏁 [PROCESS-TRANSCRIPT] TRAITEMENT COMPLÈTEMENT TERMINÉ (${totalTime}ms) - Traitement parallèle optimisé`);
+    console.log(`📊 [PROCESS-TRANSCRIPT] RÉSUMÉ FINAL: ${savedTasks.length} tâches, ${recommendationResults?.successful || 0} recommandations, résumé: ${summaryGenerated ? 'OUI' : 'NON'}`);
 
     return new Response(JSON.stringify({
       success: true,
       tasksCreated: savedTasks.length,
-      documentProcessed: !!documentResult.id,
-      chunksProcessed: documentResult.chunksCount,
+      documentProcessed: documentProcessed,
+      chunksProcessed: embeddingsResult.status === 'fulfilled' ? embeddingsResult.value?.chunksCount || 0 : 0,
       transcriptCleaned: true,
-      summaryGenerated: true,
+      summaryGenerated: summaryGenerated,
       recommendationsGenerated: recommendationResults?.successful > 0,
       recommendationStats: {
         processed: recommendationResults?.processed || 0,
         successful: recommendationResults?.successful || 0,
         failed: recommendationResults?.failed || 0
       },
-      fullyCompleted: recommendationResults?.fullyCompleted || false // Signal critique pour le frontend
+      fullyCompleted: recommendationResults?.fullyCompleted || false,
+      parallelProcessing: {
+        tasksSuccess: tasksResult.status === 'fulfilled',
+        summarySuccess: summaryResult.status === 'fulfilled',
+        embeddingsSuccess: embeddingsResult.status === 'fulfilled'
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
