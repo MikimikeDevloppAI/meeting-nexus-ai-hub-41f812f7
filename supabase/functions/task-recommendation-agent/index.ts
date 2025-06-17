@@ -9,7 +9,7 @@ const corsHeaders = {
 
 serve(async (req) => {
   const requestStartTime = Date.now();
-  console.log(`🚀 [TASK-AGENT] DÉBUT traitement - ${new Date().toISOString()}`);
+  console.log(`🚀 [TASK-AGENT] DÉBUT traitement batch - ${new Date().toISOString()}`);
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,10 +24,25 @@ serve(async (req) => {
       meetingContext: requestBody.meetingContext
     });
     
-    // Détecter si c'est un traitement batch ou individuel
-    const isBatchRequest = requestBody.batchPrompt && requestBody.tasks;
+    // Vérifier que c'est bien une requête batch
+    if (!requestBody.batchPrompt || !requestBody.tasks || !Array.isArray(requestBody.tasks)) {
+      console.error('❌ [TASK-AGENT] Requête invalide - seul le mode batch est supporté');
+      throw new Error('Cette fonction ne supporte que le traitement batch. batchPrompt et tasks sont requis.');
+    }
     
-    console.log(`[TASK-AGENT] ${isBatchRequest ? 'Traitement BATCH' : 'Traitement INDIVIDUEL'}`);
+    const tasksCount = requestBody.tasks.length;
+    if (tasksCount === 0) {
+      console.log('⚠️ [TASK-AGENT] Aucune tâche à traiter');
+      return new Response(JSON.stringify({
+        recommendation: { recommendations: [] },
+        success: true,
+        performance: { totalDuration: Date.now() - requestStartTime }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`[TASK-AGENT] 🔄 Traitement BATCH pour ${tasksCount} tâches`);
     
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -35,74 +50,22 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    let prompt;
-    let temperature = 0.3;
-    let maxTokens = 8192; // Réduire pour éviter les timeouts
+    const prompt = requestBody.batchPrompt;
+    const temperature = 0.2; // Déterministe pour le batch
+    const maxTokens = 12288;
+    
+    console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
+    console.log(`[TASK-AGENT] 📄 Prompt preview:`, prompt.substring(0, 500) + (prompt.length > 500 ? '...' : ''));
 
-    if (isBatchRequest) {
-      // Traitement batch - utiliser le prompt pré-construit
-      prompt = requestBody.batchPrompt;
-      temperature = 0.2; // Plus déterministe pour le batch
-      maxTokens = 12288; // Un peu plus pour le batch mais pas trop
-      console.log(`[TASK-AGENT] 🔄 Traitement batch pour ${requestBody.tasks.length} tâches`);
-      console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
-      
-      // Logger un aperçu du prompt pour debugging
-      const promptPreview = prompt.substring(0, 500) + (prompt.length > 500 ? '...' : '');
-      console.log(`[TASK-AGENT] 📄 Prompt preview:`, promptPreview);
-      
-    } else {
-      // Traitement individuel - garder l'ancien système
-      const { task, transcript, meetingContext, participants } = requestBody;
-      
-      console.log(`[TASK-AGENT] 🎯 Analyse intelligente: ${task.description.substring(0, 50)}`);
-      
-      const participantNames = participants?.map(p => p.name).join(', ') || 'Aucun participant spécifié';
-      
-      prompt = `Tu es un assistant IA spécialisé dans la génération de recommandations pour des tâches issues de réunions pour le cabinet Ophtacre du dr tabibian à genève.
-
-CONTEXTE DE LA RÉUNION :
-- Titre: ${meetingContext.title}
-- Date: ${meetingContext.date}
-- Participants: ${meetingContext.participants}
-
-TRANSCRIPT DE LA RÉUNION :
-${transcript}
-
-TÂCHE À ANALYSER :
-"${task.description}"
-
-Ton objectif est d'analyser la tâche et de :
-1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
-2. **Signaler les éléments importants à considérer** (contraintes réglementaires, risques, coordination nécessaire, points d'attention).
-3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l’exécution.
-4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
-5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : “Aucune recommandation.”).
-6. génére des email prérédigé lorsque la tâche nécessite une communication. adapt l'email si il s'agit de communication interne (directe, droit au but en amenant quand meme le contexte nécessaire) et communication externe( donne tout le contexte nécessaire pour que le fournisseur externe comprenne  la tache et soit professionel et détaillé
-
-Critères de qualité :
-- Sois **concis, structuré et actionnable**.
-- Fournis uniquement des recommandations qui **ajoutent une vraie valeur**.
-- N’invente pas de contacts si tu n’en as pas.
-- Évite les banalités ou les évidences.
-
-Réponds UNIQUEMENT en JSON avec cette structure :
-{
-  "hasRecommendation": true,
-  "recommendation": "Recommandation détaillée...",
-  "emailDraft": "Email pré-rédigé si nécessaire (sinon null)"
-}`;
-    }
-
-    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec gpt-4o-mini...');
+    console.log('[TASK-AGENT] 🧠 Appel OpenAI avec gpt-4o...');
     const openaiStartTime = Date.now();
     
-    // Créer un timeout personnalisé pour éviter les blocages
+    // Créer un timeout pour éviter les blocages
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('⏰ [TASK-AGENT] Timeout OpenAI après 45 secondes');
+      console.log('⏰ [TASK-AGENT] Timeout OpenAI après 65 secondes');
       timeoutController.abort();
-    }, 65000); // 45 secondes max
+    }, 65000);
     
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -112,10 +75,10 @@ Réponds UNIQUEMENT en JSON avec cette structure :
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o', // Changé pour plus de rapidité
+          model: 'gpt-4o',
           messages: [{ role: 'user', content: prompt }],
           temperature,
-          max_tokens: 128000,
+          max_tokens: maxTokens,
         }),
         signal: timeoutController.signal,
       });
@@ -137,7 +100,6 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       console.log(`[TASK-AGENT] 📏 Réponse length: ${content?.length || 0} characters`);
       console.log(`[TASK-AGENT] 📊 Tokens utilisés: prompt=${data.usage?.prompt_tokens || 0}, completion=${data.usage?.completion_tokens || 0}, total=${data.usage?.total_tokens || 0}`);
       
-      // Logger la réponse brute pour debugging (tronquée si trop longue)
       const contentPreview = content?.substring(0, 1000) + (content?.length > 1000 ? '...' : '');
       console.log(`[TASK-AGENT] 📄 Contenu brut reçu:`, contentPreview);
 
@@ -153,18 +115,41 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         
         recommendation = JSON.parse(cleanedContent);
         
-        if (isBatchRequest) {
-          const recommendationsCount = recommendation.recommendations?.length || 0;
-          console.log(`[TASK-AGENT] ✅ Batch traité: ${recommendationsCount} recommandations générées`);
+        // Vérifier que nous avons le bon nombre de recommandations
+        const receivedCount = recommendation.recommendations?.length || 0;
+        console.log(`[TASK-AGENT] ✅ Batch traité: ${receivedCount} recommandations générées pour ${tasksCount} tâches`);
+        
+        if (receivedCount !== tasksCount) {
+          console.error(`[TASK-AGENT] ⚠️ ATTENTION: Nombre de recommandations (${receivedCount}) différent du nombre de tâches (${tasksCount})`);
           
-          // Logger un aperçu des recommandations
-          if (recommendation.recommendations) {
-            recommendation.recommendations.forEach((rec, index) => {
-              console.log(`[TASK-AGENT] 📋 Recommandation ${index + 1}: taskId=${rec.taskId}, hasRec=${rec.hasRecommendation}, preview=${rec.recommendation?.substring(0, 100)}...`);
-            });
+          // Compléter les recommandations manquantes
+          if (receivedCount < tasksCount) {
+            console.log(`[TASK-AGENT] 🔧 Génération de ${tasksCount - receivedCount} recommandations par défaut`);
+            
+            if (!recommendation.recommendations) {
+              recommendation.recommendations = [];
+            }
+            
+            for (let i = receivedCount; i < tasksCount; i++) {
+              const task = requestBody.tasks[i];
+              recommendation.recommendations.push({
+                taskIndex: i,
+                taskId: task.id,
+                hasRecommendation: false,
+                recommendation: "Recommandation non générée - complétée automatiquement",
+                emailDraft: null
+              });
+            }
+            
+            console.log(`[TASK-AGENT] ✅ Recommandations complétées: ${recommendation.recommendations.length} total`);
           }
-        } else {
-          console.log(`[TASK-AGENT] ✅ Recommandation individuelle générée: ${recommendation.hasRecommendation ? 'Oui' : 'Non'}`);
+        }
+        
+        // Logger un aperçu des recommandations
+        if (recommendation.recommendations) {
+          recommendation.recommendations.forEach((rec, index) => {
+            console.log(`[TASK-AGENT] 📋 Recommandation ${index + 1}: taskId=${rec.taskId}, hasRec=${rec.hasRecommendation}, preview=${rec.recommendation?.substring(0, 100)}...`);
+          });
         }
         
       } catch (parseError) {
@@ -184,31 +169,23 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         } catch (altError) {
           console.error('[TASK-AGENT] ❌ Extraction alternative échouée:', altError);
           
-          // Fallback pour le batch
-          if (isBatchRequest) {
-            console.log('[TASK-AGENT] 🔧 Génération fallback pour batch...');
-            recommendation = {
-              recommendations: requestBody.tasks.map(task => ({
-                taskIndex: task.index,
-                taskId: task.id,
-                hasRecommendation: false,
-                recommendation: "Erreur lors de la génération de la recommandation - timeout ou erreur de parsing",
-                emailDraft: null
-              }))
-            };
-          } else {
-            console.log('[TASK-AGENT] 🔧 Génération fallback pour individuel...');
-            recommendation = {
+          // Fallback avec recommandations par défaut pour toutes les tâches
+          console.log('[TASK-AGENT] 🔧 Génération fallback pour toutes les tâches...');
+          recommendation = {
+            recommendations: requestBody.tasks.map((task, index) => ({
+              taskIndex: index,
+              taskId: task.id,
               hasRecommendation: false,
               recommendation: "Erreur lors de la génération de la recommandation - timeout ou erreur de parsing",
               emailDraft: null
-            };
-          }
+            }))
+          };
+          console.log(`[TASK-AGENT] ✅ Fallback généré pour ${recommendation.recommendations.length} tâches`);
         }
       }
 
       const totalDuration = Date.now() - requestStartTime;
-      console.log(`🏁 [TASK-AGENT] Traitement terminé (${totalDuration}ms total)`);
+      console.log(`🏁 [TASK-AGENT] Traitement batch terminé (${totalDuration}ms total)`);
 
       return new Response(JSON.stringify({
         recommendation,
@@ -228,19 +205,15 @@ Réponds UNIQUEMENT en JSON avec cette structure :
       if (fetchError.name === 'AbortError') {
         console.error('⏰ [TASK-AGENT] Timeout lors de l\'appel OpenAI');
         
-        // Réponse de fallback en cas de timeout
-        const fallbackRecommendation = isBatchRequest ? {
-          recommendations: requestBody.tasks.map(task => ({
-            taskIndex: task.index,
+        // Réponse de fallback en cas de timeout pour toutes les tâches
+        const fallbackRecommendation = {
+          recommendations: requestBody.tasks.map((task, index) => ({
+            taskIndex: index,
             taskId: task.id,
             hasRecommendation: false,
             recommendation: "Timeout lors de la génération de la recommandation. Veuillez réessayer plus tard.",
             emailDraft: null
           }))
-        } : {
-          hasRecommendation: false,
-          recommendation: "Timeout lors de la génération de la recommandation. Veuillez réessayer plus tard.",
-          emailDraft: null
         };
 
         const totalDuration = Date.now() - requestStartTime;
@@ -266,9 +239,23 @@ Réponds UNIQUEMENT en JSON avec cette structure :
     console.error(`❌ [TASK-AGENT] Erreur après ${totalDuration}ms:`, error);
     console.error(`❌ [TASK-AGENT] Stack trace:`, error.stack);
     
+    // Fallback d'erreur pour toutes les tâches si on les a
+    let fallbackRecommendation = null;
+    if (requestBody?.tasks && Array.isArray(requestBody.tasks)) {
+      fallbackRecommendation = {
+        recommendations: requestBody.tasks.map((task, index) => ({
+          taskIndex: index,
+          taskId: task.id,
+          hasRecommendation: false,
+          recommendation: `Erreur lors de la génération: ${error.message}`,
+          emailDraft: null
+        }))
+      };
+    }
+    
     return new Response(JSON.stringify({
       error: error.message,
-      recommendation: null,
+      recommendation: fallbackRecommendation,
       success: false,
       performance: {
         totalDuration,
