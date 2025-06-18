@@ -9,7 +9,7 @@ export function createSummaryPrompt(
 
 Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
 
-Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point important discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
+Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
 
 🎯 CATÉGORIES À UTILISER (uniquement si pertinentes) avec emojis thématiques :
 - 👥 Suivi patient
