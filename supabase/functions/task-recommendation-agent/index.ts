@@ -51,8 +51,8 @@ serve(async (req) => {
     }
 
     const prompt = requestBody.batchPrompt;
-    const temperature = 0.2; // Déterministe pour le batch
-    const maxTokens = 12288;
+    const temperature = 0.7; // Déterministe pour le batch
+    const maxTokens = 42288;
     
     console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
     console.log(`[TASK-AGENT] 📄 Prompt preview:`, prompt.substring(0, 500) + (prompt.length > 500 ? '...' : ''));
