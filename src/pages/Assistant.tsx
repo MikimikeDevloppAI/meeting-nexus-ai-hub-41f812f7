@@ -137,20 +137,26 @@ const Assistant = () => {
   const isExplicitActionRequest = (userMessage: string): boolean => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // Mots-clés très explicites pour création de tâche
+    // Mots-clés très explicites pour création de tâche - élargi
     const taskKeywords = [
       'créé une tâche',
-      'créer une tâche',
+      'créer une tâche', 
+      'crée une tâche',
       'nouvelle tâche',
       'ajouter une tâche',
       'faire une tâche',
-      'crée une tâche'
+      'créé une action',
+      'créer une action',
+      'crée une action',
+      'peux tu créer',
+      'peux tu crée',
+      'tu peux créer'
     ];
     
     // Mots-clés très explicites pour ajout de point à la réunion
     const meetingKeywords = [
       'ajouter un point',
-      'ajoute un point',
+      'ajoute un point', 
       'point à la réunion',
       'point à l\'ordre du jour',
       'ordre du jour',
@@ -159,6 +165,14 @@ const Assistant = () => {
     
     const hasTaskKeyword = taskKeywords.some(keyword => lowerMessage.includes(keyword));
     const hasMeetingKeyword = meetingKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    console.log('[ASSISTANT] 🔍 Détection action explicite:', {
+      userMessage: lowerMessage,
+      hasTaskKeyword,
+      hasMeetingKeyword,
+      taskKeywords: taskKeywords.filter(k => lowerMessage.includes(k)),
+      meetingKeywords: meetingKeywords.filter(k => lowerMessage.includes(k))
+    });
     
     return hasTaskKeyword || hasMeetingKeyword;
   };
@@ -197,6 +211,10 @@ const Assistant = () => {
       // Utiliser l'historique formaté
       const formattedHistory = getFormattedHistory();
       
+      // DÉTECTER AVANT L'ENVOI si c'est une demande explicite
+      const isExplicitRequest = isExplicitActionRequest(userMessage);
+      console.log('[ASSISTANT] 🎯 Demande explicite détectée AVANT envoi:', isExplicitRequest);
+      
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
         {
@@ -219,36 +237,45 @@ const Assistant = () => {
 
       const data = await response.json();
       
-      console.log('[ASSISTANT] Réponse complète de l\'agent:', data);
+      console.log('[ASSISTANT] 📨 Réponse complète de l\'agent:', data);
       
-      // NOUVELLE LOGIQUE : Vérifier uniquement si l'utilisateur a fait une demande explicite
-      const isExplicitRequest = isExplicitActionRequest(userMessage);
-      
+      // TRAITEMENT SPÉCIAL pour demandes explicites
       if (isExplicitRequest) {
-        console.log('[ASSISTANT] Demande explicite détectée, vérification des actions...');
+        console.log('[ASSISTANT] ✅ Demande explicite confirmée, vérification des actions...');
         
         // Vérifier si une action doit être interceptée AVANT d'ajouter le message
         const responseText = data.response || '';
         
-        // 1. Vérifier les patterns d'action dans la réponse
-        const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
-        const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
+        console.log('[ASSISTANT] 🔍 Analyse réponse pour patterns d\'action:', responseText);
+        
+        // 1. Vérifier les patterns d'action dans la réponse - patterns plus larges
+        const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/) || 
+                         responseText.match(/\[ACTION_TASK:([^\]]+)\]/) ||
+                         responseText.includes('créer une tâche') ||
+                         responseText.includes('créé une tâche') ||
+                         responseText.includes('crée une tâche');
+        
+        const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/) || 
+                            responseText.match(/\[ACTION_MEETING:([^\]]+)\]/) ||
+                            responseText.includes('ajouter un point') ||
+                            responseText.includes('ordre du jour');
         
         // 2. Vérifier aussi les résultats des agents
         const hasTaskAction = data.taskContext?.taskCreated;
         const hasMeetingAction = data.meetingPreparationResult?.actionPerformed || data.meetingPreparationResult?.action === 'add';
         
-        console.log('[ASSISTANT] Détection d\'actions:', {
+        console.log('[ASSISTANT] 🔎 Détection d\'actions améliorée:', {
           taskMatch: !!taskMatch,
           meetingMatch: !!meetingMatch,
           hasTaskAction,
           hasMeetingAction,
-          meetingResult: data.meetingPreparationResult
+          responseContainsTask: responseText.includes('tâche'),
+          responseContainsMeeting: responseText.includes('réunion') || responseText.includes('ordre')
         });
         
         // 3. Gérer les actions détectées avec génération de contenu simplifié
-        if (taskMatch || hasTaskAction) {
-          console.log('[ASSISTANT] Action tâche détectée, génération de contenu...');
+        if (taskMatch || hasTaskAction || responseText.includes('tâche')) {
+          console.log('[ASSISTANT] ✅ Action tâche détectée, génération de contenu...');
           
           const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
           
@@ -259,11 +286,21 @@ const Assistant = () => {
           });
           setIsValidationDialogOpen(true);
           setIsLoading(false);
-          return; // Arrêter ici, ne pas ajouter le message
+          
+          // Ajouter un message de confirmation dans le chat
+          const confirmationMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            content: "Je vais créer une tâche. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+            isUser: false,
+            timestamp: new Date(),
+          };
+          addMessage(confirmationMessage);
+          
+          return; // Arrêter ici, ne pas ajouter le message complet
         }
         
-        if (meetingMatch || hasMeetingAction) {
-          console.log('[ASSISTANT] Action réunion détectée, génération de contenu...');
+        if (meetingMatch || hasMeetingAction || responseText.includes('ordre du jour')) {
+          console.log('[ASSISTANT] ✅ Action réunion détectée, génération de contenu...');
           
           const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
           
@@ -273,10 +310,20 @@ const Assistant = () => {
           });
           setIsValidationDialogOpen(true);
           setIsLoading(false);
-          return; // Arrêter ici, ne pas ajouter le message
+          
+          // Ajouter un message de confirmation dans le chat
+          const confirmationMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            content: "Je vais ajouter un point à l'ordre du jour. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+            isUser: false,
+            timestamp: new Date(),
+          };
+          addMessage(confirmationMessage);
+          
+          return; // Arrêter ici, ne pas ajouter le message complet
         }
       } else {
-        console.log('[ASSISTANT] Pas de demande explicite, traitement normal...');
+        console.log('[ASSISTANT] ➡️ Pas de demande explicite, traitement normal...');
       }
 
       // 4. Si aucune action détectée ou pas de demande explicite, ajouter le message normalement
@@ -284,7 +331,9 @@ const Assistant = () => {
       let cleanedResponse = data.response;
       if (cleanedResponse) {
         cleanedResponse = cleanedResponse.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
+        cleanedResponse = cleanedResponse.replace(/\[ACTION_TASK:[^\]]+\]/g, '');
         cleanedResponse = cleanedResponse.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
+        cleanedResponse = cleanedResponse.replace(/\[ACTION_MEETING:[^\]]+\]/g, '');
         cleanedResponse = cleanedResponse.replace(/\[ACTION:[^\]]+\]/g, '');
         cleanedResponse = cleanedResponse.trim();
       }
