@@ -345,7 +345,7 @@ const Assistant = () => {
     }
   };
 
-  const handleActionConfirm = async () => {
+  const handleActionConfirm = async (selectedParticipants?: string[]) => {
     if (!pendingAction) return;
 
     try {
@@ -353,20 +353,47 @@ const Assistant = () => {
       
       if (pendingAction.type === 'create_task') {
         // Créer la tâche en base de données
-        const { error } = await supabase
+        const { data: newTodo, error } = await supabase
           .from('todos')
           .insert([{
             description: pendingAction.description,
             status: 'confirmed',
             created_at: new Date().toISOString(),
             assigned_to: user?.id
-          }]);
+          }])
+          .select()
+          .single();
 
         if (error) throw error;
 
+        // Assigner les participants sélectionnés si il y en a
+        if (selectedParticipants && selectedParticipants.length > 0 && newTodo) {
+          // Créer les relations todo_participants
+          const participantInserts = selectedParticipants.map(participantId => ({
+            todo_id: newTodo.id,
+            participant_id: participantId
+          }));
+
+          const { error: participantError } = await supabase
+            .from('todo_participants')
+            .insert(participantInserts);
+
+          if (participantError) {
+            console.error('Erreur assignation participants:', participantError);
+          }
+
+          // Mettre à jour le assigned_to avec le premier participant s'il y en a
+          if (selectedParticipants.length > 0) {
+            await supabase
+              .from('todos')
+              .update({ assigned_to: selectedParticipants[0] })
+              .eq('id', newTodo.id);
+          }
+        }
+
         toast({
           title: "Tâche créée",
-          description: "La tâche a été créée avec succès",
+          description: `Tâche créée avec succès${selectedParticipants && selectedParticipants.length > 0 ? ` et assignée à ${selectedParticipants.length} participant(s)` : ''}`,
         });
       } else if (pendingAction.type === 'add_meeting_point') {
         // Ajouter le point à la préparation de réunion
