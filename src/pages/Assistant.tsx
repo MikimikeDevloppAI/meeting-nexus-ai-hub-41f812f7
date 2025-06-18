@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -8,6 +7,7 @@ import { useUnifiedChatHistory, ChatMessage } from "@/hooks/useUnifiedChatHistor
 import AssistantHeader from "@/components/assistant/AssistantHeader";
 import AssistantSettings from "@/components/assistant/AssistantSettings";
 import AssistantChat from "@/components/assistant/AssistantChat";
+import { PreAgent, PreAgentAnalysis } from "@/components/assistant/PreAgent";
 
 const Assistant = () => {
   const [inputMessage, setInputMessage] = useState("");
@@ -265,9 +265,68 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
+      // =================== ÉTAPE 1: PRÉ-AGENT ===================
+      console.log('[ASSISTANT] 🚀 Étape 1 - Analyse pré-agent');
+      const preAnalysis: PreAgentAnalysis = PreAgent.analyzeRequest(userMessage);
+      
+      console.log('[ASSISTANT] 📊 Résultat pré-agent:', preAnalysis);
+      
+      // =================== GESTION DIRECTE DES ACTIONS ===================
+      if (preAnalysis.type === 'task_creation' && preAnalysis.confidence > 0.8) {
+        console.log('[ASSISTANT] ⚡ CRÉATION TÂCHE - Traitement immédiat');
+        
+        const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
+        
+        setPendingAction({
+          type: 'create_task',
+          description: simplifiedDescription,
+          originalRequest: userMessage,
+          details: { preAgentAnalysis: preAnalysis }
+        });
+        setIsValidationDialogOpen(true);
+        setIsLoading(false);
+        
+        const confirmationMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          content: "🎯 **Création de tâche détectée**\n\nJe vais créer une tâche. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+          isUser: false,
+          timestamp: new Date(),
+        };
+        addMessage(confirmationMessage);
+        
+        return;
+      }
+      
+      if (preAnalysis.type === 'meeting_point' && preAnalysis.confidence > 0.8) {
+        console.log('[ASSISTANT] ⚡ POINT RÉUNION - Traitement immédiat');
+        
+        const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
+        
+        setPendingAction({
+          type: 'add_meeting_point',
+          description: simplifiedDescription,
+          originalRequest: userMessage,
+          details: { preAgentAnalysis: preAnalysis }
+        });
+        setIsValidationDialogOpen(true);
+        setIsLoading(false);
+        
+        const confirmationMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          content: "📅 **Point de réunion détecté**\n\nJe vais ajouter un point à l'ordre du jour. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+          isUser: false,
+          timestamp: new Date(),
+        };
+        addMessage(confirmationMessage);
+        
+        return;
+      }
+      
+      // =================== ÉTAPE 2: ASSISTANT NORMAL ===================
+      console.log('[ASSISTANT] 💬 Étape 2 - Assistant normal pour requête:', preAnalysis.type);
+      
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Construire le contexte avec les toggles activés
       const agentContext = {
         userId: user?.id,
         databaseSearch: databaseSearchEnabled,
@@ -275,87 +334,12 @@ const Assistant = () => {
         internetSearch: internetSearchEnabled,
         todoManagement: todoEnabled,
         meetingPoints: meetingPointsEnabled,
-        // Mode legacy pour compatibilité
-        documentSearchMode: documentSearchEnabled
+        documentSearchMode: documentSearchEnabled,
+        preAgentAnalysis: preAnalysis // Inclure l'analyse du pré-agent
       };
 
-      // Utiliser l'historique formaté
       const formattedHistory = getFormattedHistory();
       
-      // DÉTECTER AVANT L'ENVOI si c'est une demande explicite
-      const isExplicitRequest = isExplicitActionRequest(userMessage);
-      console.log('[ASSISTANT] 🎯 Demande explicite détectée AVANT envoi:', isExplicitRequest);
-      
-      // SI C'EST UNE DEMANDE EXPLICITE, on force l'interception AVANT même l'appel à l'agent
-      if (isExplicitRequest) {
-        console.log('[ASSISTANT] ⚡ INTERCEPTION IMMÉDIATE - Demande explicite détectée');
-        
-        // Détecter le type d'action demandée avec plus de flexibilité
-        const lowerMessage = userMessage.toLowerCase();
-        const normalizeText = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ');
-        const normalizedMessage = normalizeText(lowerMessage);
-        
-        // Détection plus intelligente du type
-        const taskIndicators = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier|emilie|david|leila|hortensia|acheter|achat|commander|faire|creer|créer|preparer|mettre|demander|dire|confier|assigner)/;
-        const meetingIndicators = /(?:reunion|point|ordre|agenda|meeting|prochaine)/;
-        
-        const isTaskRequest = taskIndicators.test(normalizedMessage);
-        const isMeetingRequest = meetingIndicators.test(normalizedMessage);
-        
-        // Prioriser les tâches si les deux sont détectés
-        if (isTaskRequest) {
-          console.log('[ASSISTANT] ✅ Action tâche détectée IMMÉDIATEMENT');
-          
-          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
-          
-          setPendingAction({
-            type: 'create_task',
-            description: simplifiedDescription,
-            originalRequest: userMessage,
-            details: {}
-          });
-          setIsValidationDialogOpen(true);
-          setIsLoading(false);
-          
-          // Ajouter un message de confirmation dans le chat
-          const confirmationMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            content: "Je vais créer une tâche. Veuillez confirmer dans la fenêtre qui s'ouvre.",
-            isUser: false,
-            timestamp: new Date(),
-          };
-          addMessage(confirmationMessage);
-          
-          return; // Arrêter ici, ne pas appeler l'agent
-        }
-        
-        if (isMeetingRequest) {
-          console.log('[ASSISTANT] ✅ Action réunion détectée IMMÉDIATEMENT');
-          
-          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
-          
-          setPendingAction({
-            type: 'add_meeting_point',
-            description: simplifiedDescription,
-            originalRequest: userMessage
-          });
-          setIsValidationDialogOpen(true);
-          setIsLoading(false);
-          
-          // Ajouter un message de confirmation dans le chat
-          const confirmationMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            content: "Je vais ajouter un point à l'ordre du jour. Veuillez confirmer dans la fenêtre qui s'ouvre.",
-            isUser: false,
-            timestamp: new Date(),
-          };
-          addMessage(confirmationMessage);
-          
-          return; // Arrêter ici, ne pas appeler l'agent
-        }
-      }
-      
-      // Si pas d'interception immédiate, continuer avec l'appel normal à l'agent
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
         {
@@ -380,7 +364,6 @@ const Assistant = () => {
       
       console.log('[ASSISTANT] 📨 Réponse complète de l\'agent:', data);
 
-      // Nettoyer la réponse des patterns d'action avant affichage
       let cleanedResponse = data.response;
       if (cleanedResponse) {
         cleanedResponse = cleanedResponse.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
@@ -391,12 +374,9 @@ const Assistant = () => {
         cleanedResponse = cleanedResponse.trim();
       }
 
-      // NOUVELLE LOGIQUE : Filtrer les sources comme dans DocumentSearchAssistant
       let transformedSources = [];
       
-      // Si des documents ont été explicitement utilisés, les filtrer
       if (data.actuallyUsedDocuments && data.actuallyUsedDocuments.length > 0 && data.sources) {
-        // Transformer les sources pour correspondre au format attendu
         const rawSources = data.sources.map((source: any) => ({
           documentId: source.document_id,
           documentName: source.document_name || 'Document inconnu',
@@ -406,7 +386,6 @@ const Assistant = () => {
           relevantChunks: source.chunk_text ? [source.chunk_text] : []
         }));
         
-        // Appliquer le même filtrage que DocumentSearchAssistant
         transformedSources = filterByActuallyUsedDocuments(rawSources, data.actuallyUsedDocuments);
         
         console.log('[ASSISTANT] Sources filtrées:', transformedSources.length, 'documents réellement utilisés');
@@ -420,7 +399,7 @@ const Assistant = () => {
         databaseContext: data.databaseContext,
         hasRelevantContext: data.hasRelevantContext,
         actuallyUsedDocuments: data.actuallyUsedDocuments,
-        sources: transformedSources // Utiliser les sources filtrées
+        sources: transformedSources
       };
 
       addMessage(assistantMessage);
@@ -442,27 +421,22 @@ const Assistant = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Utiliser la description modifiée ou celle par défaut
       const finalDescription = modifiedDescription || pendingAction.description;
       
       if (pendingAction.type === 'create_task') {
-        // Créer la tâche en base de données - Ne pas mettre assigned_to au moment de la création
         const { data: newTodo, error } = await supabase
           .from('todos')
           .insert([{
             description: finalDescription,
             status: 'confirmed',
             created_at: new Date().toISOString(),
-            // Ne pas mettre assigned_to ici pour éviter le conflit de contrainte
           }])
           .select()
           .single();
 
         if (error) throw error;
 
-        // Assigner les participants sélectionnés si il y en a
         if (selectedParticipants && selectedParticipants.length > 0 && newTodo) {
-          // Créer les relations todo_participants
           const participantInserts = selectedParticipants.map(participantId => ({
             todo_id: newTodo.id,
             participant_id: participantId
@@ -476,7 +450,6 @@ const Assistant = () => {
             console.error('Erreur assignation participants:', participantError);
           }
 
-          // Mettre à jour le assigned_to avec le premier participant seulement s'il existe dans la table participants
           if (selectedParticipants.length > 0) {
             await supabase
               .from('todos')
@@ -490,7 +463,6 @@ const Assistant = () => {
           description: `Tâche créée avec succès${selectedParticipants && selectedParticipants.length > 0 ? ` et assignée à ${selectedParticipants.length} participant(s)` : ''}`,
         });
       } else if (pendingAction.type === 'add_meeting_point') {
-        // Ajouter le point à la préparation de réunion
         const { error } = await supabase
           .from('meeting_preparation_custom_points')
           .insert([{
@@ -506,7 +478,6 @@ const Assistant = () => {
         });
       }
 
-      // Ajouter un message de succès au chat
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
         content: `✅ Action confirmée : ${pendingAction.type === 'create_task' ? 'Tâche créée' : 'Point ajouté à l\'ordre du jour'}`,
