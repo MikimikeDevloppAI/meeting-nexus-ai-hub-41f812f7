@@ -135,55 +135,93 @@ const Assistant = () => {
     return userRequest; // Fallback
   };
 
-  // Fonction pour détecter si l'utilisateur demande explicitement une action
+  // Fonction INTELLIGENTE pour détecter les demandes d'actions
   const isExplicitActionRequest = (userMessage: string): boolean => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // Mots-clés très explicites pour création de tâche - encore plus élargi
-    const taskKeywords = [
-      'créé une tâche',
-      'créer une tâche', 
-      'crée une tâche',
-      'nouvelle tâche',
-      'ajouter une tâche',
-      'faire une tâche',
-      'créé une action',
-      'créer une action',
-      'crée une action',
-      'peux tu créer',
-      'peux tu crée',
-      'tu peux créer',
-      'peux-tu créer',
-      'pourrais-tu créer',
-      'pourrait tu créer',
-      'peux tu faire une tâche',
-      'créer tâche',
-      'crée tâche',
-      'créé tâche'
+    // Normalisation pour éliminer la ponctuation et les accents
+    const normalizeText = (text: string) => {
+      return text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+        .replace(/[^a-z0-9\s]/g, ' ') // Remplace la ponctuation par des espaces
+        .replace(/\s+/g, ' ') // Remplace les espaces multiples par un seul
+        .trim();
+    };
+    
+    const normalizedMessage = normalizeText(lowerMessage);
+    
+    console.log('[ASSISTANT] 🔍 Message normalisé:', normalizedMessage);
+    
+    // Patterns TRÈS FLEXIBLES pour création de tâche
+    const taskPatterns = [
+      // Verbes d'action + tâche
+      /(?:peux tu|pourrais tu|pourrait tu|tu peux|peut tu|peus tu|peut on|peux on|pourrais on|pourrait on)\s+(?:cree|creer|faire|ajouter|crée|créer|mettre|donner|assigner).*(?:tache|task|travail|mission|action|activite|todo)/,
+      /(?:cree|creer|faire|ajouter|crée|créer|mettre|donner|assigner).*(?:tache|task|travail|mission|action|activite|todo)/,
+      /(?:nouvelle|nouveau|une)\s+(?:tache|task|travail|mission|action|activite|todo)/,
+      
+      // Patterns spécifiques avec noms
+      /(?:peux tu|pourrais tu|tu peux|peut tu|peus tu).*(?:dire|demander|donner|assigner|confier).*(?:emilie|david|leila|hortensia)/,
+      /(?:demander|dire|confier|assigner|donner).*(?:emilie|david|leila|hortensia).*(?:de|pour|faire)/,
+      
+      // Formation spécifique
+      /formation.*(?:ia|intelligence|ai|artificielle).*(?:personnel|equipe|tout le monde|tous)/,
+      /(?:emilie|david|leila|hortensia).*formation/,
+      
+      // Actions générales
+      /(?:organiser|planifier|preparer|mettre en place)/,
     ];
     
-    // Mots-clés très explicites pour ajout de point à la réunion
-    const meetingKeywords = [
-      'ajouter un point',
-      'ajoute un point', 
-      'point à la réunion',
-      'point à l\'ordre du jour',
-      'ordre du jour',
-      'prochaine réunion'
+    // Patterns TRÈS FLEXIBLES pour points de réunion
+    const meetingPatterns = [
+      /(?:peux tu|pourrais tu|tu peux|peut tu|peus tu)\s+(?:ajouter|mettre|noter|inscrire).*(?:point|sujet|ordre|agenda|reunion)/,
+      /(?:ajouter|mettre|noter|inscrire|rajouter).*(?:point|sujet|ordre|agenda|reunion)/,
+      /(?:point|sujet|ordre|agenda).*(?:reunion|prochaine|suivante)/,
+      /ordre\s+du\s+jour/,
+      /prochaine\s+reunion/,
     ];
     
-    const hasTaskKeyword = taskKeywords.some(keyword => lowerMessage.includes(keyword));
-    const hasMeetingKeyword = meetingKeywords.some(keyword => lowerMessage.includes(keyword));
-    
-    console.log('[ASSISTANT] 🔍 Détection action explicite:', {
-      userMessage: lowerMessage,
-      hasTaskKeyword,
-      hasMeetingKeyword,
-      taskKeywords: taskKeywords.filter(k => lowerMessage.includes(k)),
-      meetingKeywords: meetingKeywords.filter(k => lowerMessage.includes(k))
+    // Test des patterns pour tâches
+    const hasTaskPattern = taskPatterns.some(pattern => {
+      const match = pattern.test(normalizedMessage);
+      if (match) {
+        console.log('[ASSISTANT] ✅ Pattern tâche trouvé:', pattern.source);
+      }
+      return match;
     });
     
-    return hasTaskKeyword || hasMeetingKeyword;
+    // Test des patterns pour réunions
+    const hasMeetingPattern = meetingPatterns.some(pattern => {
+      const match = pattern.test(normalizedMessage);
+      if (match) {
+        console.log('[ASSISTANT] ✅ Pattern réunion trouvé:', pattern.source);
+      }
+      return match;
+    });
+    
+    // Mots-clés additionnels pour renforcer la détection
+    const hasTaskKeywords = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier)/.test(normalizedMessage);
+    const hasMeetingKeywords = /(?:reunion|point|ordre|agenda|meeting)/.test(normalizedMessage);
+    const hasActionVerbs = /(?:peux|peut|pourrais|pourrait|cree|creer|faire|ajouter|dire|demander|donner|assigner|confier|organiser|planifier)/.test(normalizedMessage);
+    const hasPersonNames = /(?:emilie|david|leila|hortensia|personnel|equipe)/.test(normalizedMessage);
+    
+    // Logique de détection intelligente
+    const isTaskRequest = hasTaskPattern || (hasTaskKeywords && hasActionVerbs);
+    const isMeetingRequest = hasMeetingPattern || (hasMeetingKeywords && hasActionVerbs);
+    
+    console.log('[ASSISTANT] 🧠 Analyse intelligente:', {
+      normalizedMessage,
+      hasTaskPattern,
+      hasMeetingPattern,
+      hasTaskKeywords,
+      hasMeetingKeywords,
+      hasActionVerbs,
+      hasPersonNames,
+      isTaskRequest,
+      isMeetingRequest
+    });
+    
+    return isTaskRequest || isMeetingRequest;
   };
 
   const handleSendMessage = async () => {
@@ -228,11 +266,19 @@ const Assistant = () => {
       if (isExplicitRequest) {
         console.log('[ASSISTANT] ⚡ INTERCEPTION IMMÉDIATE - Demande explicite détectée');
         
-        // Détecter le type d'action demandée
+        // Détecter le type d'action demandée avec plus de flexibilité
         const lowerMessage = userMessage.toLowerCase();
-        const isTaskRequest = ['créé une tâche', 'créer une tâche', 'crée une tâche', 'peux tu créer', 'nouvelle tâche', 'ajouter une tâche'].some(k => lowerMessage.includes(k));
-        const isMeetingRequest = ['ajouter un point', 'ordre du jour', 'point à la réunion'].some(k => lowerMessage.includes(k));
+        const normalizeText = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ');
+        const normalizedMessage = normalizeText(lowerMessage);
         
+        // Détection plus intelligente du type
+        const taskIndicators = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier|emilie|david|leila|hortensia)/;
+        const meetingIndicators = /(?:reunion|point|ordre|agenda|meeting|prochaine)/;
+        
+        const isTaskRequest = taskIndicators.test(normalizedMessage);
+        const isMeetingRequest = meetingIndicators.test(normalizedMessage);
+        
+        // Prioriser les tâches si les deux sont détectés
         if (isTaskRequest) {
           console.log('[ASSISTANT] ✅ Action tâche détectée IMMÉDIATEMENT');
           
