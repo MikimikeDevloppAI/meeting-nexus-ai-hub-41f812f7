@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,7 +208,7 @@ export const DocumentSearchAssistant = () => {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="max-h-[800px] overflow-y-auto space-y-4">
+        <div className="max-h-[2000px] overflow-y-auto space-y-4">
           {messages.map((message) => (
             <div key={message.id} className="space-y-2">
               <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
@@ -302,4 +300,3 @@ export const DocumentSearchAssistant = () => {
     </Card>
   );
 };
-
