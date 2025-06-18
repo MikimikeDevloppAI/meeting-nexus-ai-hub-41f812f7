@@ -68,10 +68,19 @@ const Assistant = () => {
       const prompt = actionType === 'task' 
         ? `Génère une description détaillée de tâche basée sur cette demande: "${userRequest}". 
            Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
-           Format: Description claire et actionnable avec étapes concrètes si nécessaire.`
+           Format: Description claire et actionnable avec étapes concrètes si nécessaire.
+           IMPORTANT: Réponds UNIQUEMENT avec la description de la tâche, sans aucun pattern d'action comme [ACTION_TACHE:...] ou autres balises.`
         : `Génère un point d'ordre du jour détaillé basé sur cette demande: "${userRequest}".
            Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
-           Format: Titre clair + description structurée avec objectifs et points à discuter.`;
+           Format: Utilise un markdown structuré avec :
+           # Titre du point
+           ## Description
+           ## Objectifs
+           ## Points à discuter
+           - Point 1
+           - Point 2
+           etc.
+           IMPORTANT: Réponds UNIQUEMENT avec le contenu markdown structuré, sans aucun pattern d'action comme [ACTION_REUNION:...] ou autres balises.`;
 
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
@@ -95,7 +104,15 @@ const Assistant = () => {
 
       if (response.ok) {
         const data = await response.json();
-        return data.response || userRequest;
+        let cleanedContent = data.response || userRequest;
+        
+        // Nettoyage exhaustif des patterns d'action
+        cleanedContent = cleanedContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
+        cleanedContent = cleanedContent.trim();
+        
+        return cleanedContent;
       }
     } catch (error) {
       console.error('Erreur génération contenu:', error);
@@ -256,6 +273,7 @@ const Assistant = () => {
       if (cleanedResponse) {
         cleanedResponse = cleanedResponse.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
         cleanedResponse = cleanedResponse.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
+        cleanedResponse = cleanedResponse.replace(/\[ACTION:[^\]]+\]/g, '');
         cleanedResponse = cleanedResponse.trim();
       }
 
