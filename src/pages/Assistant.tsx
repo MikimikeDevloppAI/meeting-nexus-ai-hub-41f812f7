@@ -117,39 +117,59 @@ const Assistant = () => {
 
       const data = await response.json();
       
-      // Check if there's a pending action that needs validation
-      if (data.meetingPreparationResult?.actionPerformed || data.taskContext?.taskCreated) {
-        // Parse the response to check for action requests
-        const responseText = data.response || '';
+      console.log('[ASSISTANT] Réponse complète de l\'agent:', data);
+      
+      // Vérifier si une action doit être interceptée AVANT d'ajouter le message
+      const responseText = data.response || '';
+      
+      // 1. Vérifier les patterns d'action dans la réponse
+      const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
+      const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
+      
+      // 2. Vérifier aussi les résultats des agents
+      const hasTaskAction = data.taskContext?.taskCreated;
+      const hasMeetingAction = data.meetingPreparationResult?.actionPerformed || data.meetingPreparationResult?.action === 'add';
+      
+      console.log('[ASSISTANT] Détection d\'actions:', {
+        taskMatch: !!taskMatch,
+        meetingMatch: !!meetingMatch,
+        hasTaskAction,
+        hasMeetingAction,
+        meetingResult: data.meetingPreparationResult
+      });
+      
+      // 3. Gérer les actions détectées
+      if (taskMatch || hasTaskAction) {
+        const description = taskMatch ? taskMatch[1].trim() : 'Tâche créée par l\'assistant';
+        console.log('[ASSISTANT] Action tâche détectée:', description);
         
-        // Check for task creation pattern
-        if (responseText.includes('[ACTION_TACHE:') || data.taskContext?.taskCreated) {
-          const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
-          if (taskMatch) {
-            setPendingAction({
-              type: 'create_task',
-              description: taskMatch[1].trim(),
-              details: data.taskContext
-            });
-            setIsValidationDialogOpen(true);
-            return; // Don't add the message yet
-          }
-        }
+        setPendingAction({
+          type: 'create_task',
+          description: description,
+          details: data.taskContext
+        });
+        setIsValidationDialogOpen(true);
+        setIsLoading(false);
+        return; // Arrêter ici, ne pas ajouter le message
+      }
+      
+      if (meetingMatch || hasMeetingAction) {
+        const description = meetingMatch ? 
+          meetingMatch[1].trim() : 
+          (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
         
-        // Check for meeting point addition - Fix: check for action type 'add'
-        if (responseText.includes('[ACTION_REUNION:') || (data.meetingPreparationResult?.action === 'add' && data.meetingPreparationResult?.actionPerformed)) {
-          const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
-          const description = meetingMatch ? meetingMatch[1].trim() : (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
-          
-          setPendingAction({
-            type: 'add_meeting_point',
-            description: description
-          });
-          setIsValidationDialogOpen(true);
-          return; // Don't add the message yet
-        }
+        console.log('[ASSISTANT] Action réunion détectée:', description);
+        
+        setPendingAction({
+          type: 'add_meeting_point',
+          description: description
+        });
+        setIsValidationDialogOpen(true);
+        setIsLoading(false);
+        return; // Arrêter ici, ne pas ajouter le message
       }
 
+      // 4. Si aucune action détectée, ajouter le message normalement
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         content: data.response,
@@ -182,7 +202,7 @@ const Assistant = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (pendingAction.type === 'create_task') {
-        // Create the task in the database
+        // Créer la tâche en base de données
         const { error } = await supabase
           .from('todos')
           .insert([{
@@ -199,7 +219,7 @@ const Assistant = () => {
           description: `La tâche "${pendingAction.description}" a été créée avec succès`,
         });
       } else if (pendingAction.type === 'add_meeting_point') {
-        // Add point to meeting preparation
+        // Ajouter le point à la préparation de réunion
         const { error } = await supabase
           .from('meeting_preparation_custom_points')
           .insert([{
@@ -215,7 +235,7 @@ const Assistant = () => {
         });
       }
 
-      // Add success message to chat
+      // Ajouter un message de succès au chat
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
         content: `✅ Action confirmée : ${pendingAction.description}`,
