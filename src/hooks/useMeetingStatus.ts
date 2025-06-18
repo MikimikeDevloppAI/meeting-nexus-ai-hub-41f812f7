@@ -27,8 +27,8 @@ export const useMeetingStatus = (meetingId: string | null) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const checkMeetingStatus = async () => {
-    if (!meetingId) return;
+  const checkMeetingStatus = async (): Promise<MeetingStatus | null> => {
+    if (!meetingId) return null;
 
     try {
       console.log('[MeetingStatus] Checking status for meeting:', meetingId);
@@ -42,7 +42,7 @@ export const useMeetingStatus = (meetingId: string | null) => {
 
       if (meetingError) {
         console.error('[MeetingStatus] Error fetching meeting:', meetingError);
-        return;
+        return null;
       }
 
       // Count tasks
@@ -53,7 +53,7 @@ export const useMeetingStatus = (meetingId: string | null) => {
 
       if (taskError) {
         console.error('[MeetingStatus] Error counting tasks:', taskError);
-        return;
+        return null;
       }
 
       // First get todos for this meeting, then count recommendations
@@ -64,7 +64,7 @@ export const useMeetingStatus = (meetingId: string | null) => {
 
       if (todoError) {
         console.error('[MeetingStatus] Error fetching todo IDs:', todoError);
-        return;
+        return null;
       }
 
       let recommendationCount = 0;
@@ -78,7 +78,7 @@ export const useMeetingStatus = (meetingId: string | null) => {
 
         if (recError) {
           console.error('[MeetingStatus] Error counting recommendations:', recError);
-          return;
+          return null;
         }
 
         recommendationCount = recCount || 0;
@@ -127,12 +127,13 @@ export const useMeetingStatus = (meetingId: string | null) => {
         currentStep,
       };
 
-      console.log('[MeetingStatus] Status updated:', newStatus);
+      console.log('[MeetingStatus] Status calculated:', newStatus);
       setStatus(newStatus);
 
       return newStatus;
     } catch (error) {
       console.error('[MeetingStatus] Error checking status:', error);
+      return null;
     }
   };
 

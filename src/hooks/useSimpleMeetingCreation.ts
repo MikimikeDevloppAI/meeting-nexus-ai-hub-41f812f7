@@ -17,7 +17,7 @@ export const useSimpleMeetingCreation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { status: meetingStatus, startPolling, stopPolling } = useMeetingStatus(currentMeetingId);
+  const { status: meetingStatus, startPolling, stopPolling, checkStatus } = useMeetingStatus(currentMeetingId);
 
   console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
 
@@ -79,7 +79,7 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided
+      // Step 2: Process audio if provided and WAIT for complete processing
       if (hasAudio) {
         console.log('[AUDIO] Processing audio...');
         
@@ -133,31 +133,61 @@ export const useSimpleMeetingCreation = () => {
             console.error('[PROCESS] ❌ AI processing error:', error);
           });
 
-          // Wait for processing to complete by monitoring status
-          console.log('[MONITOR] 🔄 Waiting for processing completion...');
+          // Wait for processing to complete using direct status checks
+          console.log('[MONITOR] 🔄 Waiting for processing completion with direct status checks...');
           
-          // Set up a promise that resolves when processing is complete
           const waitForCompletion = new Promise<boolean>((resolve) => {
-            const checkInterval = setInterval(() => {
+            let pollCount = 0;
+            const maxPolls = 100; // 5 minutes at 3-second intervals
+            
+            const checkCompletion = async () => {
               if (!isMountedRef.current) {
-                clearInterval(checkInterval);
+                console.log('[MONITOR] Component unmounted during polling');
                 resolve(false);
                 return;
               }
 
-              if (meetingStatus.isComplete) {
-                console.log('[MONITOR] ✅ Processing completed!');
-                clearInterval(checkInterval);
-                resolve(true);
-              }
-            }, 1000);
+              pollCount++;
+              console.log(`[MONITOR] 🔍 Checking completion status (poll ${pollCount}/${maxPolls})...`);
+              
+              try {
+                // Use direct status check instead of React state
+                const currentStatus = await checkStatus();
+                
+                if (currentStatus) {
+                  console.log(`[MONITOR] 📊 Current status:`, {
+                    hasSummary: currentStatus.hasSummary,
+                    hasCleanedTranscript: currentStatus.hasCleanedTranscript,
+                    taskCount: currentStatus.taskCount,
+                    recommendationCount: currentStatus.recommendationCount,
+                    isComplete: currentStatus.isComplete,
+                    progressPercentage: currentStatus.progressPercentage
+                  });
 
-            // Timeout after 5 minutes
-            setTimeout(() => {
-              console.log('[MONITOR] ⏰ Timeout reached');
-              clearInterval(checkInterval);
-              resolve(false);
-            }, 5 * 60 * 1000);
+                  if (currentStatus.isComplete) {
+                    console.log('[MONITOR] ✅ Processing FULLY completed! All tasks have recommendations.');
+                    resolve(true);
+                    return;
+                  }
+                }
+                
+                if (pollCount >= maxPolls) {
+                  console.log('[MONITOR] ⏰ Max polling attempts reached');
+                  resolve(false);
+                  return;
+                }
+
+                // Continue polling
+                setTimeout(checkCompletion, 3000);
+                
+              } catch (error) {
+                console.error('[MONITOR] ❌ Error checking status:', error);
+                setTimeout(checkCompletion, 3000);
+              }
+            };
+
+            // Start the polling
+            checkCompletion();
           });
 
           const processingCompleted = await waitForCompletion;
@@ -168,9 +198,9 @@ export const useSimpleMeetingCreation = () => {
           }
 
           if (processingCompleted) {
-            console.log('[SUCCESS] ✅ All processing completed');
+            console.log('[SUCCESS] ✅ All processing completed - ready for redirection');
           } else {
-            console.log('[WARNING] ⚠️ Processing timeout or interrupted');
+            console.log('[WARNING] ⚠️ Processing timeout - redirecting anyway');
           }
           
         } catch (audioError) {
@@ -186,17 +216,13 @@ export const useSimpleMeetingCreation = () => {
 
       // Final redirection after everything is complete
       if (isMountedRef.current) {
-        console.log('[SUCCESS] Setting isComplete to true');
+        console.log('[SUCCESS] All processing finished - setting completion state and redirecting');
         setIsComplete(true);
         stopPolling();
         
         let description = "Votre réunion a été créée avec succès";
         if (hasAudio) {
-          if (meetingStatus.isComplete) {
-            description = "Votre réunion a été créée et toutes les tâches ont été traitées";
-          } else {
-            description = "Votre réunion a été créée, le traitement continue en arrière-plan";
-          }
+          description = "Votre réunion a été créée et toutes les tâches ont été traitées";
         }
         
         toast({
@@ -205,7 +231,13 @@ export const useSimpleMeetingCreation = () => {
         });
 
         console.log('[SUCCESS] Redirection vers la réunion:', meetingId);
-        navigate(`/meetings/${meetingId}`);
+        
+        // Small delay to ensure the UI shows completion
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            navigate(`/meetings/${meetingId}`);
+          }
+        }, 1000);
       }
 
     } catch (error: any) {
