@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
@@ -44,11 +43,18 @@ serve(async (req) => {
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
     console.log('[AI-AGENT-CABINET-MEDICAL] 👤 Context utilisateur:', context.userId || 'Non fourni');
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🔧 Fonctionnalités activées:', {
+      database: context.databaseSearch !== false,
+      documents: context.documentSearch !== false,
+      internet: context.internetSearch !== false,
+      todo: context.todoManagement !== false,
+      meetingPoints: context.meetingPoints !== false
+    });
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
 
     // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle (conservé pour compatibilité)
-    if (context.documentSearchMode || context.forceEmbeddingsPriority || context.vectorSearchOnly) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE - Restrictions STRICTES activées');
+    if (context.documentSearchMode && !context.databaseSearch && !context.internetSearch && !context.todoManagement && !context.meetingPoints) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE UNIQUEMENT - Restrictions STRICTES activées');
       
       const embeddingsResult = await embeddings.searchEmbeddings(message, {
         priority: 'embeddings',
@@ -220,8 +226,8 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       );
     }
 
-    // 🚀 NOUVEAU SYSTÈME : EXÉCUTION OBLIGATOIRE DE TOUS LES AGENTS
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🚀 NOUVEAU SYSTÈME: Exécution complète de tous les agents');
+    // 🚀 NOUVEAU SYSTÈME : EXÉCUTION CONDITIONNELLE DES AGENTS SELON LES TOGGLES
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🚀 SYSTÈME TOGGLE: Exécution conditionnelle des agents');
 
     // Phase 1: Analyse initiale
     console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente avec historique');
@@ -235,82 +241,100 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       historyLength: conversationHistory.length
     })}`);
 
-    // Phase 1.5: NOUVELLE FONCTIONNALITÉ - Détection et gestion des points de préparation
-    console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Phase 1.5: Vérification points préparation réunion');
-    const lowerMessage = message.toLowerCase();
-    const isMeetingPreparationQuery = lowerMessage.includes('ordre du jour') || 
-                                     lowerMessage.includes('points') || 
-                                     lowerMessage.includes('préparation') ||
-                                     lowerMessage.includes('réunion') ||
-                                     (lowerMessage.includes('ajouter') && lowerMessage.includes('point')) ||
-                                     (lowerMessage.includes('supprimer') && lowerMessage.includes('point'));
-
+    // Phase 1.5: Détection et gestion des points de préparation (si activé)
     let meetingPreparationResult = null;
-    if (isMeetingPreparationQuery) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Requête points préparation détectée');
-      const userId = context.userId || 'system';
-      meetingPreparationResult = await database.handleMeetingPreparationRequest(message, userId);
-      console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Résultat préparation:', meetingPreparationResult);
+    if (context.meetingPoints !== false) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Phase 1.5: Vérification points préparation réunion');
+      const lowerMessage = message.toLowerCase();
+      const isMeetingPreparationQuery = lowerMessage.includes('ordre du jour') || 
+                                       lowerMessage.includes('points') || 
+                                       lowerMessage.includes('préparation') ||
+                                       lowerMessage.includes('réunion') ||
+                                       (lowerMessage.includes('ajouter') && lowerMessage.includes('point')) ||
+                                       (lowerMessage.includes('supprimer') && lowerMessage.includes('point'));
+
+      if (isMeetingPreparationQuery) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Requête points préparation détectée');
+        const userId = context.userId || 'system';
+        meetingPreparationResult = await database.handleMeetingPreparationRequest(message, userId);
+        console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Résultat préparation:', meetingPreparationResult);
+      }
     }
 
-    // Phase 2: EXÉCUTION FORCÉE DE TOUS LES AGENTS
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🔄 Phase 2: Exécution FORCÉE de tous les agents');
+    // Phase 2: EXÉCUTION CONDITIONNELLE DES AGENTS
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🔄 Phase 2: Exécution CONDITIONNELLE des agents');
 
-    // 2a: Recherche vectorielle (TOUJOURS)
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2a: Recherche vectorielle FORCÉE');
-    const embeddingsResult = await embeddings.searchEmbeddings(message, {
-      ...analysis,
-      embeddings: true
-    }, [], conversationHistory);
+    // 2a: Recherche vectorielle (si activée)
+    let embeddingsResult = { chunks: [], sources: [], hasRelevantContext: false };
+    if (context.documentSearch !== false) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2a: Recherche vectorielle ACTIVÉE');
+      embeddingsResult = await embeddings.searchEmbeddings(message, {
+        ...analysis,
+        embeddings: true
+      }, [], conversationHistory);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Embeddings: ${embeddingsResult.chunks?.length || 0} chunks trouvés`);
+    } else {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2a: Recherche vectorielle DÉSACTIVÉE');
+    }
 
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Embeddings: ${embeddingsResult.chunks?.length || 0} chunks trouvés`);
+    // 2b: Recherche base de données (si activée)
+    let databaseContext = { meetings: [], documents: [], participants: [] };
+    if (context.databaseSearch !== false) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2b: Recherche base de données ACTIVÉE');
+      databaseContext = await database.searchContext(message);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Database: ${databaseContext.meetings?.length || 0} réunions, ${databaseContext.documents?.length || 0} documents, ${databaseContext.participants?.length || 0} participants`);
+    } else {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2b: Recherche base de données DÉSACTIVÉE');
+    }
 
-    // 2b: Recherche base de données (TOUJOURS)
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2b: Recherche base de données FORCÉE');
-    const databaseContext = await database.searchContext(message);
+    // 2c: Gestion des tâches (si activée)
+    let taskContext = { currentTasks: [], taskCreated: false };
+    if (context.todoManagement !== false) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 2c: Gestion tâches ACTIVÉE');
+      taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
+      console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Tasks: ${taskContext.currentTasks?.length || 0} tâches trouvées, création: ${taskContext.taskCreated ? 'OUI' : 'NON'}`);
+    } else {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 2c: Gestion tâches DÉSACTIVÉE');
+    }
 
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Database: ${databaseContext.meetings?.length || 0} réunions, ${databaseContext.documents?.length || 0} documents, ${databaseContext.participants?.length || 0} participants`);
-
-    // 2c: Gestion des tâches (TOUJOURS)
-    console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 2c: Gestion tâches FORCÉE');
-    const taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
-
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Tasks: ${taskContext.currentTasks?.length || 0} tâches trouvées, création: ${taskContext.taskCreated ? 'OUI' : 'NON'}`);
-
-    // 2d: NOUVEAU - Recherche internet (ACTIVÉE)
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 2d: Recherche internet ACTIVÉE');
+    // 2d: Recherche internet (si activée)
     let internetContext = { hasContent: false, content: '', sources: [] };
-    
-    // Détection du besoin de recherche internet
-    const needsInternet = analysis.requiresInternet || 
-                         analysis.queryType === 'contact_search' ||
-                         lowerMessage.includes('recherche') || 
-                         lowerMessage.includes('internet') || 
-                         lowerMessage.includes('web') ||
-                         lowerMessage.includes('contact') ||
-                         lowerMessage.includes('coordonnées') ||
-                         lowerMessage.includes('fournisseur') ||
-                         lowerMessage.includes('trouve') ||
-                         (!embeddingsResult.hasRelevantContext && !databaseContext.meetings?.length && !taskContext.currentTasks?.length);
+    if (context.internetSearch !== false) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 2d: Recherche internet ACTIVÉE');
+      
+      // Détection du besoin de recherche internet
+      const needsInternet = analysis.requiresInternet || 
+                           analysis.queryType === 'contact_search' ||
+                           message.toLowerCase().includes('recherche') || 
+                           message.toLowerCase().includes('internet') || 
+                           message.toLowerCase().includes('web') ||
+                           message.toLowerCase().includes('contact') ||
+                           message.toLowerCase().includes('coordonnées') ||
+                           message.toLowerCase().includes('fournisseur') ||
+                           message.toLowerCase().includes('trouve') ||
+                           (!embeddingsResult.hasRelevantContext && !databaseContext.meetings?.length && !taskContext.currentTasks?.length);
 
-    if (needsInternet && perplexityApiKey) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Exécution recherche internet avec Perplexity');
-      try {
-        internetContext = await internet.searchInternet(
-          message, 
-          analysis, 
-          embeddingsResult.hasRelevantContext || databaseContext.meetings?.length > 0 || taskContext.currentTasks?.length > 0
-        );
-        console.log(`[AI-AGENT-CABINET-MEDICAL] 🌐 Internet: ${internetContext.hasContent ? 'Contenu trouvé' : 'Pas de contenu'}`);
-      } catch (error) {
-        console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur recherche internet:', error);
+      if (needsInternet && perplexityApiKey) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Exécution recherche internet avec Perplexity');
+        try {
+          internetContext = await internet.searchInternet(
+            message, 
+            analysis, 
+            embeddingsResult.hasRelevantContext || databaseContext.meetings?.length > 0 || taskContext.currentTasks?.length > 0
+          );
+          console.log(`[AI-AGENT-CABINET-MEDICAL] 🌐 Internet: ${internetContext.hasContent ? 'Contenu trouvé' : 'Pas de contenu'}`);
+        } catch (error) {
+          console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur recherche internet:', error);
+        }
+      } else {
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Recherche internet ignorée:', { needsInternet, hasPerplexityKey: !!perplexityApiKey });
       }
     } else {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Recherche internet ignorée:', { needsInternet, hasPerplexityKey: !!perplexityApiKey });
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 2d: Recherche internet DÉSACTIVÉE');
     }
 
-    // Phase 3: Synthèse complète avec TOUS les résultats
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Phase 3: Synthèse COMPLÈTE avec tous les agents');
+    // Phase 3: Synthèse complète avec les résultats disponibles
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Phase 3: Synthèse avec les agents activés');
 
     const response = await synthesis.synthesizeResponse(
       message,
@@ -350,8 +374,15 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
           taskCount: taskContext.currentTasks?.length || 0,
           internetUsed: internetContext.hasContent,
           meetingPreparationAction: meetingPreparationResult?.action || 'none',
-          executionMode: 'ALL_AGENTS_FORCED_WITH_INTERNET',
-          userId: context.userId || 'not_provided'
+          executionMode: 'SELECTIVE_AGENTS_WITH_TOGGLES',
+          userId: context.userId || 'not_provided',
+          enabledFeatures: {
+            database: context.databaseSearch !== false,
+            documents: context.documentSearch !== false,
+            internet: context.internetSearch !== false,
+            todo: context.todoManagement !== false,
+            meetingPoints: context.meetingPoints !== false
+          }
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
