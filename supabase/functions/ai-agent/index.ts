@@ -5,6 +5,7 @@ import { EmbeddingsAgent } from './agents/embeddings.ts';
 import { TaskAgent } from './agents/tasks.ts';
 import { CoordinatorAgent } from './agents/coordinator.ts';
 import { SynthesisAgent } from './agents/synthesis.ts';
+import { InternetAgent } from './agents/internet.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,7 @@ const corsHeaders = {
 };
 
 const apiKey = Deno.env.get('OPENAI_API_KEY');
+const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
 
@@ -38,6 +40,7 @@ serve(async (req) => {
     const taskAgent = new TaskAgent(supabaseClient);
     const coordinator = new CoordinatorAgent(apiKey);
     const synthesis = new SynthesisAgent(apiKey);
+    const internet = new InternetAgent(perplexityApiKey || '');
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
@@ -244,8 +247,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
     let meetingPreparationResult = null;
     if (isMeetingPreparationQuery) {
       console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Requête points préparation détectée');
-      // Récupérer l'ID utilisateur depuis le contexte ou l'historique
-      const userId = context.userId || 'system'; // TODO: Améliorer la récupération de l'ID utilisateur
+      const userId = context.userId || 'system';
       meetingPreparationResult = await database.handleMeetingPreparationRequest(message, userId);
       console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Résultat préparation:', meetingPreparationResult);
     }
@@ -274,6 +276,38 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
 
     console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Tasks: ${taskContext.currentTasks?.length || 0} tâches trouvées, création: ${taskContext.taskCreated ? 'OUI' : 'NON'}`);
 
+    // 2d: NOUVEAU - Recherche internet (ACTIVÉE)
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Phase 2d: Recherche internet ACTIVÉE');
+    let internetContext = { hasContent: false, content: '', sources: [] };
+    
+    // Détection du besoin de recherche internet
+    const needsInternet = analysis.requiresInternet || 
+                         analysis.queryType === 'contact_search' ||
+                         lowerMessage.includes('recherche') || 
+                         lowerMessage.includes('internet') || 
+                         lowerMessage.includes('web') ||
+                         lowerMessage.includes('contact') ||
+                         lowerMessage.includes('coordonnées') ||
+                         lowerMessage.includes('fournisseur') ||
+                         lowerMessage.includes('trouve') ||
+                         (!embeddingsResult.hasRelevantContext && !databaseContext.meetings?.length && !taskContext.currentTasks?.length);
+
+    if (needsInternet && perplexityApiKey) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Exécution recherche internet avec Perplexity');
+      try {
+        internetContext = await internet.searchInternet(
+          message, 
+          analysis, 
+          embeddingsResult.hasRelevantContext || databaseContext.meetings?.length > 0 || taskContext.currentTasks?.length > 0
+        );
+        console.log(`[AI-AGENT-CABINET-MEDICAL] 🌐 Internet: ${internetContext.hasContent ? 'Contenu trouvé' : 'Pas de contenu'}`);
+      } catch (error) {
+        console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur recherche internet:', error);
+      }
+    } else {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🌐 Recherche internet ignorée:', { needsInternet, hasPerplexityKey: !!perplexityApiKey });
+    }
+
     // Phase 3: Synthèse complète avec TOUS les résultats
     console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Phase 3: Synthèse COMPLÈTE avec tous les agents');
 
@@ -282,10 +316,10 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       conversationHistory,
       databaseContext,
       embeddingsResult,
-      { hasContent: false }, // Internet context
+      internetContext, // VRAIE recherche internet maintenant
       analysis,
       taskContext,
-      meetingPreparationResult // Nouveau paramètre
+      meetingPreparationResult
     );
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✅ Réponse synthétisée complète:', response.substring(0, 200));
@@ -293,6 +327,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
     // Combiner toutes les sources
     let combinedSources = [
       ...embeddingsResult.sources || [],
+      ...internetContext.sources || []
     ];
 
     return new Response(
@@ -302,17 +337,19 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
         taskContext,
         databaseContext,
         meetingPreparationResult,
+        internetContext,
         analysis,
         conversationLength: conversationHistory.length,
         hasRelevantContext: embeddingsResult.hasRelevantContext,
-        contextFound: (embeddingsResult.chunks?.length > 0) || (databaseContext.meetings?.length > 0) || (taskContext.currentTasks?.length > 0),
+        contextFound: (embeddingsResult.chunks?.length > 0) || (databaseContext.meetings?.length > 0) || (taskContext.currentTasks?.length > 0) || internetContext.hasContent,
         debugInfo: {
           embeddingsChunks: embeddingsResult.chunks?.length || 0,
           databaseMeetings: databaseContext.meetings?.length || 0,
           databaseDocuments: databaseContext.documents?.length || 0,
           taskCount: taskContext.currentTasks?.length || 0,
+          internetUsed: internetContext.hasContent,
           meetingPreparationAction: meetingPreparationResult?.action || 'none',
-          executionMode: 'ALL_AGENTS_FORCED'
+          executionMode: 'ALL_AGENTS_FORCED_WITH_INTERNET'
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
