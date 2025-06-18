@@ -353,22 +353,6 @@ const Documents = () => {
         <p className="text-muted-foreground">
           Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
-        
-        {/* Statut du storage simplifié */}
-        <div className="mt-3 p-3 border rounded-lg">
-          <div className="flex items-center gap-2">
-            {isCheckingStorage ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : storageReady ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            ) : (
-              <div className="h-4 w-4 rounded-full bg-red-600" />
-            )}
-            <span className="font-medium text-sm">
-              Storage: {isCheckingStorage ? 'Vérification...' : storageReady ? 'Opérationnel' : 'Non accessible'}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Upload Section */}
