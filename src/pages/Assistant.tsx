@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AIActionValidationDialog } from "@/components/AIActionValidationDialog";
 import { useUnifiedChatHistory, ChatMessage } from "@/hooks/useUnifiedChatHistory";
+import { SmartDocumentSources } from "@/components/documents/SmartDocumentSources";
 
 interface Task {
   id: string;
@@ -277,6 +278,16 @@ const Assistant = () => {
         cleanedResponse = cleanedResponse.trim();
       }
 
+      // Transformer les sources pour l'affichage des documents
+      const transformedSources = data.sources ? data.sources.map((source: any) => ({
+        documentId: source.document_id,
+        documentName: source.document_name || 'Document inconnu',
+        maxSimilarity: source.similarity || 0,
+        chunksCount: 1,
+        documentType: source.document_type || 'document',
+        relevantChunks: source.chunk_text ? [source.chunk_text] : []
+      })) : [];
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         content: cleanedResponse,
@@ -285,7 +296,8 @@ const Assistant = () => {
         taskContext: data.taskContext,
         databaseContext: data.databaseContext,
         hasRelevantContext: data.hasRelevantContext,
-        actuallyUsedDocuments: data.actuallyUsedDocuments
+        actuallyUsedDocuments: data.actuallyUsedDocuments,
+        sources: transformedSources
       };
 
       addMessage(assistantMessage);
@@ -544,31 +556,43 @@ const Assistant = () => {
               )}
               
               {messages.map((message) => (
-                <div key={message.id} className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      message.isUser ? 'bg-primary' : 'bg-secondary'
-                    }`}>
-                      {message.isUser ? (
-                        <User className="h-4 w-4 text-primary-foreground" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </div>
-                    
-                    <div className={`rounded-lg p-3 ${
-                      message.isUser 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}>
-                      <div className="text-sm whitespace-pre-wrap">
-                        {message.content}
+                <div key={message.id} className="space-y-2">
+                  <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        message.isUser ? 'bg-primary' : 'bg-secondary'
+                      }`}>
+                        {message.isUser ? (
+                          <User className="h-4 w-4 text-primary-foreground" />
+                        ) : (
+                          <Bot className="h-4 w-4" />
+                        )}
                       </div>
-                      <div className="text-xs opacity-70 mt-2">
-                        {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                      
+                      <div className={`rounded-lg p-3 break-words overflow-hidden ${
+                        message.isUser 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted'
+                      }`}>
+                        <div className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </div>
+                        <div className="text-xs opacity-70 mt-2">
+                          {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Affichage des documents sources pour les réponses de l'IA */}
+                  {!message.isUser && message.sources && message.sources.length > 0 && (
+                    <div className="ml-11">
+                      <SmartDocumentSources 
+                        sources={message.sources} 
+                        title="Documents du cabinet utilisés par l'IA"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
               
