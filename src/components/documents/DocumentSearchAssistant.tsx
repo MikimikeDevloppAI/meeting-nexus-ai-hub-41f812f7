@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,7 @@ export const DocumentSearchAssistant = () => {
     getFormattedHistory 
   } = useUnifiedChatHistory({
     storageKey: 'document-search-assistant-history',
-    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire OphtaCare. Je peux vous aider à trouver des informations dans vos documents et meetings.\n\n**Je peux vous assister pour :**\n• Rechercher des informations dans vos documents uploadés\n• Analyser le contenu de vos meetings et transcripts\n• Retrouver des données spécifiques selon vos critères\n• Répondre à des questions sur le contenu de votre base documentaire\n\nQue recherchez-vous dans vos documents ?",
+    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire . Je peux vous aider à trouver des informations dans vos documents et meetings.",
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
