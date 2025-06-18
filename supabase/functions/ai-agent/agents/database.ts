@@ -422,6 +422,7 @@ export class DatabaseAgent {
 
   async handleMeetingPreparationRequest(message: string, userId: string): Promise<any> {
     console.log('[DATABASE] 📝 Gestion points préparation réunion pour:', message);
+    console.log('[DATABASE] 👤 Utilisateur ID:', userId);
     
     const lowerMessage = message.toLowerCase();
     
@@ -439,29 +440,21 @@ export class DatabaseAgent {
       success: false,
       message: '',
       points: [],
-      actionPerformed: false
+      actionPerformed: false,
+      needsValidation: false
     };
 
     try {
-      // Action : Ajouter un point
+      // Action : Ajouter un point (NÉCESSITE VALIDATION)
       if (isAddAction && !isDeleteAction) {
         const pointText = this.extractPointText(message);
         if (pointText) {
-          const { data, error } = await this.supabase
-            .from('meeting_preparation_custom_points')
-            .insert([{
-              point_text: pointText,
-              created_by: userId
-            }])
-            .select();
-
-          if (!error && data) {
-            result.action = 'add';
-            result.success = true;
-            result.message = `Point ajouté avec succès : "${pointText}"`;
-            result.actionPerformed = true;
-            console.log('[DATABASE] ✅ Point ajouté:', pointText);
-          }
+          result.action = 'add_pending';
+          result.success = true;
+          result.message = `Point à ajouter (en attente de validation) : "${pointText}"`;
+          result.needsValidation = true;
+          result.actionPerformed = false; // Pas encore effectué, en attente
+          console.log('[DATABASE] ⏳ Point en attente de validation:', pointText);
         }
       }
 
@@ -481,7 +474,7 @@ export class DatabaseAgent {
         }
       }
 
-      // Action : Supprimer un point spécifique (par ID ou contenu)
+      // Action : Supprimer un point spécifique
       else if (isDeleteAction) {
         const pointToDelete = this.extractPointText(message);
         if (pointToDelete) {

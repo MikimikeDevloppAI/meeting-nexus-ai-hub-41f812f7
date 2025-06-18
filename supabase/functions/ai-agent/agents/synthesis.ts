@@ -154,11 +154,26 @@ INSTRUCTIONS IMPÉRATIVES POUR LES RÉPONSES :
 - Utilise des listes à puces pour organiser les informations
 - Inclus TOUS les détails disponibles (dates, participants, statuts, priorités, etc.)
 
+NOUVELLES INSTRUCTIONS POUR ACTIONS NÉCESSITANT VALIDATION :
+${needsTaskCreation ? `
+🎯 CRÉATION DE TÂCHE DÉTECTÉE :
+- Si l'utilisateur demande de créer une tâche, utilise le format : [ACTION_TACHE: description de la tâche]
+- Cette action nécessitera une validation de l'utilisateur
+- Explique que tu vas proposer la création de cette tâche
+` : ''}
+
+${needsMeetingPointAddition ? `
+📝 AJOUT POINT RÉUNION DÉTECTÉ :
+- Si l'utilisateur demande d'ajouter un point à l'ordre du jour, propose l'ajout
+- Cette action nécessitera une validation de l'utilisateur  
+- Explique que tu vas proposer l'ajout de ce point
+` : ''}
+
 CAPACITÉS SPÉCIALES :
 - Recherche dans les documents vectorisés du cabinet
-- Gestion des tâches (création, suivi, attribution)
+- Gestion des tâches (création, suivi, attribution) avec validation utilisateur
 - Accès aux informations des réunions et participants
-- Gestion des points de préparation de réunion (ajout, suppression, liste)
+- Gestion des points de préparation de réunion (ajout, suppression, liste) avec validation
 - Recherche internet pour informations complémentaires (contacts, fournisseurs, etc.)
 
 GESTION DES POINTS DE PRÉPARATION DE RÉUNION :
@@ -179,6 +194,8 @@ ANALYSE DE LA REQUÊTE :
 - Référence précédente: ${isReferencingPrevious ? 'Oui' : 'Non'}
 - Continuation: ${isContinuation ? 'Oui' : 'Non'}
 - Source principale: ${primarySource}
+- Création tâche requise: ${needsTaskCreation ? 'Oui' : 'Non'}
+- Point réunion requis: ${needsMeetingPointAddition ? 'Oui' : 'Non'}
 
 INSTRUCTIONS SPÉCIALES SELON LE CONTEXTE :
 ${this.getSpecialInstructions(userMessage, taskContext, internetContext, meetingPreparationResult)}
@@ -293,6 +310,37 @@ Réponds en tant qu'OphtaCare, l'assistant du cabinet Dr Tabibian avec une répo
     ];
 
     return continuationKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  private detectTaskCreationRequest(userMessage: string): boolean {
+    const lowerMessage = userMessage.toLowerCase();
+    const taskCreationKeywords = [
+      'créer une tâche',
+      'créer la tâche',
+      'ajouter une tâche',
+      'nouvelle tâche',
+      'créer todo',
+      'ajouter todo',
+      'assigner une tâche',
+      'créer une nouvelle tâche'
+    ];
+    
+    return taskCreationKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  private detectMeetingPointRequest(userMessage: string): boolean {
+    const lowerMessage = userMessage.toLowerCase();
+    const meetingPointKeywords = [
+      'ajouter un point',
+      'ajouter le point',
+      'nouveau point',
+      'point à l\'ordre du jour',
+      'ordre du jour',
+      'point de réunion',
+      'ajouter au planning'
+    ];
+    
+    return meetingPointKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 
   private analyzeContextType(userMessage: string, conversationHistory: any[]): any {

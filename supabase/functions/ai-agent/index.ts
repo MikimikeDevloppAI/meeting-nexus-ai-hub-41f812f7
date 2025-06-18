@@ -43,6 +43,7 @@ serve(async (req) => {
     const internet = new InternetAgent(perplexityApiKey || '');
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
+    console.log('[AI-AGENT-CABINET-MEDICAL] 👤 Context utilisateur:', context.userId || 'Non fourni');
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
 
     // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle (conservé pour compatibilité)
@@ -316,7 +317,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       conversationHistory,
       databaseContext,
       embeddingsResult,
-      internetContext, // VRAIE recherche internet maintenant
+      internetContext,
       analysis,
       taskContext,
       meetingPreparationResult
@@ -349,7 +350,8 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
           taskCount: taskContext.currentTasks?.length || 0,
           internetUsed: internetContext.hasContent,
           meetingPreparationAction: meetingPreparationResult?.action || 'none',
-          executionMode: 'ALL_AGENTS_FORCED_WITH_INTERNET'
+          executionMode: 'ALL_AGENTS_FORCED_WITH_INTERNET',
+          userId: context.userId || 'not_provided'
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -1,600 +1,416 @@
-import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Bot, User, Globe, Database, Loader2, ExternalLink, Trash2, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, File, Paperclip, CheckCircle, AlertCircle, Plus, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import EditableTaskValidationDialog from "@/components/EditableTaskValidationDialog";
-import { renderMessageWithLinks } from "@/utils/linkRenderer";
-import { useChatHistory } from "@/hooks/useChatHistory";
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { AIActionValidationDialog } from "@/components/AIActionValidationDialog";
 
-interface TaskAction {
-  type: 'create' | 'update' | 'delete' | 'complete';
-  data: {
-    description?: string;
-    assigned_to?: string;
-    due_date?: string;
-    meeting_id?: string;
-    status?: string;
-    id?: string;
-  };
-}
-
-interface Message {
+interface ChatMessage {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
   sources?: any[];
-  internetSources?: any[];
-  hasInternetContext?: boolean;
-  contextFound?: boolean;
-  taskAction?: TaskAction;
+  taskContext?: any;
+  databaseContext?: any;
+  hasRelevantContext?: boolean;
+  actuallyUsedDocuments?: string[];
+}
+
+interface Task {
+  id: string;
+  description: string;
+  status: string;
+  assigned_to: string;
+  due_date: string | null;
 }
 
 const Assistant = () => {
-  const { messages, setMessages, addMessage, clearHistory } = useChatHistory();
   const [inputMessage, setInputMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingTaskAction, setPendingTaskAction] = useState<TaskAction | null>(null);
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [users, setUsers] = useState<{id: string, name: string, email: string}[]>([]);
-  const [participants, setParticipants] = useState<{id: string, name: string, email: string}[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [documentSearchMode, setDocumentSearchMode] = useState(false);
   const { toast } = useToast();
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const { user } = useAuth();
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'create_task' | 'add_meeting_point';
+    description: string;
+    details?: any;
+  } | null>(null);
+  const [isValidationDialogOpen, setIsValidationDialogOpen] = useState(false);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    fetchUsers();
-    fetchParticipants();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name, email")
-        .eq("approved", true)
-        .order("name");
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error: any) {
-      console.error("Error fetching users:", error);
+    // Scroll to bottom on new message
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  };
+  }, [chatHistory]);
 
-  const fetchParticipants = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("participants")
-        .select("id, name, email")
-        .order("name");
-
-      if (error) throw error;
-      setParticipants(data || []);
-    } catch (error: any) {
-      console.error("Error fetching participants:", error);
-    }
-  };
-
-  const clearChatHistory = () => {
-    clearHistory();
-    
-    toast({
-      title: "Historique effacé",
-      description: "La conversation a été remise à zéro avec l'assistant amélioré.",
-    });
-  };
-
-  const findParticipantByName = (name: string) => {
-    if (!name) return null;
-    
-    const lowerName = name.toLowerCase();
-    return participants.find(p => 
-      p.name.toLowerCase().includes(lowerName) ||
-      lowerName.includes(p.name.toLowerCase()) ||
-      p.email.toLowerCase().includes(lowerName)
-    );
-  };
-
-  const parseTaskAction = (content: string): TaskAction | null => {
-    console.log('Parsing task action from content:', content);
-    
-    // Improved regex to handle the syntax properly
-    const actionMatch = content.match(/\[ACTION_TACHE:\s*TYPE=([^,\]]+)(?:,\s*(.+?))?\]/s);
-    if (!actionMatch) {
-      console.log('No action match found');
-      return null;
-    }
-
-    const type = actionMatch[1].trim() as TaskAction['type'];
-    let paramsStr = actionMatch[2] || '';
-    
-    console.log('Found action type:', type);
-    console.log('Params string:', paramsStr);
-    
-    const data: TaskAction['data'] = {};
-    
-    if (paramsStr) {
-      // Clean the params string by removing CONTEXT_PARTICIPANTS
-      paramsStr = paramsStr.replace(/\s*CONTEXT_PARTICIPANTS:[^,}]*(?:,|$)/gi, '');
-      
-      // Handle both key="value" and key=value formats
-      const paramRegex = /(\w+)=(?:"([^"]*)"|([^,\]]+))/g;
-      let match;
-      
-      while ((match = paramRegex.exec(paramsStr)) !== null) {
-        const key = match[1].toLowerCase();
-        let value = match[2] || match[3] || '';
-        
-        console.log(`Found param: ${key} = ${value}`);
-        
-        // Clean up description
-        if (key === 'description') {
-          value = value.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
-          value = value.replace(/\n+/g, ' ').trim();
-        }
-        
-        // Handle assigned_to specially - try to find participant by name first
-        if (key === 'assigned_to') {
-          const participant = findParticipantByName(value);
-          if (participant) {
-            console.log(`Found participant for assignment: ${participant.name} (${participant.id})`);
-            data[key as keyof TaskAction['data']] = participant.id;
-          } else {
-            const lowerValue = value.toLowerCase();
-            const user = users.find(u => 
-              u.name.toLowerCase().includes(lowerValue) ||
-              u.email.toLowerCase().includes(lowerValue) ||
-              lowerValue.includes(u.name.toLowerCase())
-            );
-            
-            if (user) {
-              console.log(`Found user for assignment: ${user.name} (${user.id})`);
-              data[key as keyof TaskAction['data']] = user.id;
-            } else {
-              console.log(`No participant or user found for: ${value}, keeping as text`);
-              data[key as keyof TaskAction['data']] = value;
-            }
-          }
-        } else {
-          data[key as keyof TaskAction['data']] = value;
-        }
-      }
-    }
-
-    const taskAction = { type, data };
-    console.log('Final parsed task action:', taskAction);
-    return taskAction;
-  };
-
-  const executeTaskAction = async (action: TaskAction) => {
-    try {
-      console.log('Executing task action:', action);
-      
-      switch (action.type) {
-        case 'create':
-          const { data: newTodo, error: createError } = await supabase
-            .from('todos')
-            .insert({
-              description: action.data.description!,
-              assigned_to: action.data.assigned_to,
-              due_date: action.data.due_date,
-              meeting_id: action.data.meeting_id,
-              status: action.data.status || 'pending'
-            })
-            .select()
-            .single();
-            
-          if (createError) {
-            console.error('Error creating todo:', createError);
-            throw createError;
-          }
-          
-          console.log('Todo created successfully:', newTodo);
-          break;
-          
-        case 'update':
-          const { error: updateError } = await supabase
-            .from('todos')
-            .update({
-              description: action.data.description,
-              assigned_to: action.data.assigned_to,
-              due_date: action.data.due_date,
-              status: action.data.status
-            })
-            .eq('id', action.data.id!);
-          if (updateError) throw updateError;
-          break;
-          
-        case 'delete':
-          const { error: deleteError } = await supabase
-            .from('todos')
-            .delete()
-            .eq('id', action.data.id!);
-          if (deleteError) throw deleteError;
-          break;
-          
-        case 'complete':
-          const { error: completeError } = await supabase
-            .from('todos')
-            .update({ status: 'completed' })
-            .eq('id', action.data.id!);
-          if (completeError) throw completeError;
-          break;
-      }
-      
-      toast({
-        title: "Tâche mise à jour",
-        description: `L'action "${action.type}" a été exécutée avec succès.`,
-      });
-      
-      // Add confirmation message
-      const confirmationMessage: Message = {
-        id: Date.now().toString(),
-        content: `✅ Action validée et exécutée : ${action.type === 'create' ? 'Tâche créée' : 
-                  action.type === 'update' ? 'Tâche modifiée' : 
-                  action.type === 'delete' ? 'Tâche supprimée' : 
-                  'Tâche marquée comme terminée'} avec succès.`,
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, confirmationMessage]);
-      
-    } catch (error: any) {
-      console.error('Error executing task action:', error);
-      toast({
-        title: "Erreur",
-        description: error.message || "Impossible d'exécuter l'action sur la tâche",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const sendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage = inputMessage;
+    setInputMessage("");
+    
+    const newUserMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: inputMessage,
+      content: userMessage,
       isUser: true,
       timestamp: new Date(),
     };
 
-    addMessage(userMessage);
-    const currentMessage = inputMessage;
-    setInputMessage("");
+    const updatedHistory = [...chatHistory, newUserMessage];
+    setChatHistory(updatedHistory);
     setIsLoading(true);
 
     try {
-      // Prendre les 10 derniers messages COMPLETS pour l'historique
-      const conversationHistory = messages
-        .slice(-10)
-        .map(msg => ({
-          isUser: msg.isUser,
-          content: msg.content,
-          timestamp: msg.timestamp.toISOString()
-        }));
-
-      console.log('[ASSISTANT] 📜 Envoi de l\'historique persisté:', {
-        messageCount: conversationHistory.length,
-        currentMessage: currentMessage.substring(0, 50) + '...',
-        fullHistory: conversationHistory.map(m => ({
-          type: m.isUser ? 'USER' : 'ASSISTANT',
-          preview: m.content.substring(0, 50) + '...'
-        }))
-      });
-
-      // Inclure les participants dans le contexte pour l'AI
-      const contextMessage = `${currentMessage}\n\nCONTEXT_PARTICIPANTS: ${participants.map(p => `${p.name} (${p.email}, ID: ${p.id})`).join(', ')}`;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await supabase.functions.invoke('ai-agent', {
-        body: { 
-          message: contextMessage,
-          conversationHistory: conversationHistory,
-          context: {
-            searchDocuments: true,
-            useEmbeddings: true
+      const response = await fetch(
+        "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabase.supabaseKey}`,
+          },
+          body: JSON.stringify({
+            message: userMessage,
+            context: { 
+              userId: user?.id,
+              documentSearchMode: documentSearchMode 
+            },
+            conversationHistory: updatedHistory.map(msg => ({
+              content: msg.content,
+              isUser: msg.isUser,
+              timestamp: msg.timestamp
+            }))
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Check if there's a pending action that needs validation
+      if (data.meetingPreparationResult?.actionPerformed || data.taskContext?.taskCreated) {
+        // Parse the response to check for action requests
+        const responseText = data.response || '';
+        
+        // Check for task creation pattern
+        if (responseText.includes('[ACTION_TACHE:') || data.taskContext?.taskCreated) {
+          const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
+          if (taskMatch) {
+            setPendingAction({
+              type: 'create_task',
+              description: taskMatch[1].trim(),
+              details: data.taskContext
+            });
+            setIsValidationDialogOpen(true);
+            return; // Don't add the message yet
           }
         }
-      });
-
-      if (error) {
-        console.error('[ASSISTANT] Error:', error);
-        throw error;
+        
+        // Check for meeting point addition
+        if (data.meetingPreparationResult?.action === 'add' && data.meetingPreparationResult?.actionPerformed) {
+          setPendingAction({
+            type: 'add_meeting_point',
+            description: data.meetingPreparationResult.message || 'Point ajouté à l\'ordre du jour'
+          });
+          setIsValidationDialogOpen(true);
+          return; // Don't add the message yet
+        }
       }
 
-      console.log('[ASSISTANT] Response data:', data);
-
-      // Parse task action from response
-      const taskAction = parseTaskAction(data.response);
-      
-      // Clean the response content
-      let cleanContent = data.response;
-      if (taskAction) {
-        cleanContent = cleanContent.replace(/\[ACTION_TACHE:[^\]]*\]/gs, '').trim();
-      }
-      cleanContent = cleanContent.replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '').trim();
-
-      const aiMessage: Message = {
+      const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: cleanContent || "Désolé, je n'ai pas pu traiter votre demande.",
+        content: data.response,
         isUser: false,
         timestamp: new Date(),
         sources: data.sources || [],
-        internetSources: data.internetSources || [],
-        hasInternetContext: data.hasInternetContext,
-        contextFound: data.contextFound,
-        taskAction: taskAction,
+        taskContext: data.taskContext,
+        databaseContext: data.databaseContext,
+        hasRelevantContext: data.hasRelevantContext,
+        actuallyUsedDocuments: data.actuallyUsedDocuments
       };
 
-      addMessage(aiMessage);
-
-      // If there's a task action, show validation dialog
-      if (taskAction) {
-        console.log('[ASSISTANT] Found task action, opening dialog:', taskAction);
-        setPendingTaskAction(taskAction);
-        setIsTaskDialogOpen(true);
-      }
-
-    } catch (error: any) {
-      console.error('[ASSISTANT] Error sending message:', error);
+      setChatHistory(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Error sending message:", error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible d'envoyer le message",
+        description: "Une erreur est survenue lors de l'envoi du message",
         variant: "destructive",
       });
-
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "Désolé, je rencontre un problème technique. Pouvez-vous réessayer ?",
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      addMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const handleActionConfirm = async () => {
+    if (!pendingAction) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (pendingAction.type === 'create_task') {
+        // Create the task in the database
+        const { error } = await supabase
+          .from('todos')
+          .insert([{
+            description: pendingAction.description,
+            status: 'confirmed',
+            created_at: new Date().toISOString(),
+            assigned_to: user?.id
+          }]);
+
+        if (error) throw error;
+
+        toast({
+          title: "Tâche créée",
+          description: `La tâche "${pendingAction.description}" a été créée avec succès`,
+        });
+      } else if (pendingAction.type === 'add_meeting_point') {
+        // Add point to meeting preparation
+        const { error } = await supabase
+          .from('meeting_preparation_custom_points')
+          .insert([{
+            point_text: pendingAction.description,
+            created_by: user?.id
+          }]);
+
+        if (error) throw error;
+
+        toast({
+          title: "Point ajouté",
+          description: `Le point "${pendingAction.description}" a été ajouté à l'ordre du jour`,
+        });
+      }
+
+      // Add success message to chat
+      const successMessage: ChatMessage = {
+        id: Date.now().toString(),
+        content: `✅ Action confirmée : ${pendingAction.description}`,
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setChatHistory(prev => [...prev, successMessage]);
+
+    } catch (error) {
+      console.error('Error confirming action:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la confirmation de l'action",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleTaskValidation = (action: TaskAction) => {
-    executeTaskAction(action);
-    setIsTaskDialogOpen(false);
-    setPendingTaskAction(null);
-  };
+  const handleActionReject = () => {
+    if (!pendingAction) return;
 
-  const handleTaskRejection = () => {
-    const rejectionMessage: Message = {
+    const rejectMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: "❌ Action annulée par l'utilisateur.",
+      content: `❌ Action rejetée : ${pendingAction.description}`,
       isUser: false,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, rejectionMessage]);
+
+    setChatHistory(prev => [...prev, rejectMessage]);
     
     toast({
-      title: "Action annulée",
-      description: "L'action sur la tâche a été annulée.",
+      title: "Action rejetée",
+      description: "L'action proposée par l'assistant a été rejetée",
     });
-    
-    setIsTaskDialogOpen(false);
-    setPendingTaskAction(null);
   };
 
   return (
-    <div className="animate-fade-in h-full flex flex-col">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Assistant IA OphtaCare</h1>
-        <p className="text-muted-foreground">
-          Assistant IA spécialisé avec accès aux transcripts de réunions, gestion des tâches, recherche documentaire améliorée et historique persistant
-        </p>
+    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <header className="bg-white shadow-md p-4">
+        <div className="container mx-auto flex items-center justify-between">
+          <h1 className="text-xl font-semibold">Assistant IA - Cabinet Médical</h1>
+          <div className="flex items-center space-x-4">
+            <Label htmlFor="document-search-mode" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Mode recherche documents
+            </Label>
+            <Switch id="document-search-mode" checked={documentSearchMode} onCheckedChange={(checked) => setDocumentSearchMode(checked)} />
+            {user ? (
+              <Avatar>
+                <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} />
+                <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <p>Non connecté</p>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 p-4 container mx-auto overflow-hidden">
+        <ScrollArea className="h-full rounded-md border p-4" ref={chatContainerRef}>
+          <div className="flex flex-col space-y-4">
+            {chatHistory.map((message) => (
+              <div key={message.id} className={`flex flex-col ${message.isUser ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-3/4 rounded-lg p-3 ${message.isUser ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                  <p className="text-sm whitespace-pre-line">{message.content}</p>
+                  <div className="text-xs text-gray-500 mt-2">
+                    {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                  </div>
+                </div>
+
+                {/* Sources d'information */}
+                {message.sources && message.sources.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold">Sources :</p>
+                    <ul className="list-disc pl-4">
+                      {message.sources.map((source, index) => (
+                        <li key={index} className="text-xs">
+                          <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                            {source.title || source.url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Documents utilisés */}
+                {message.actuallyUsedDocuments && message.actuallyUsedDocuments.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold">Documents utilisés :</p>
+                    <ul className="list-disc pl-4">
+                      {message.actuallyUsedDocuments.map((docId, index) => (
+                        <li key={index} className="text-xs">
+                          Document ID: {docId}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Contexte des tâches */}
+                {message.taskContext && message.taskContext.currentTasks && message.taskContext.currentTasks.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold">Tâches associées :</p>
+                    <ul className="list-disc pl-4">
+                      {message.taskContext.currentTasks.map((task: Task) => (
+                        <li key={task.id} className="text-xs">
+                          {task.description} (Status: {task.status}, Assigné à: {task.assigned_to})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Contexte de la base de données */}
+                {message.databaseContext && (
+                  <div className="mt-2">
+                    {message.databaseContext.meetings && message.databaseContext.meetings.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold">Réunions associées :</p>
+                        <ul className="list-disc pl-4">
+                          {message.databaseContext.meetings.map((meeting: any) => (
+                            <li key={meeting.id} className="text-xs">
+                              {meeting.title} (Créée le: {format(new Date(meeting.created_at), "d MMM yyyy", { locale: fr })})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {message.databaseContext.documents && message.databaseContext.documents.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold">Documents associés :</p>
+                        <ul className="list-disc pl-4">
+                          {message.databaseContext.documents.map((document: any) => (
+                            <li key={document.id} className="text-xs">
+                              {document.ai_generated_name || document.original_name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
 
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              <CardTitle>Assistant OphtaCare</CardTitle>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearChatHistory}
-                className="flex items-center gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Effacer
-              </Button>
-            </div>
-          </div>
-          <CardDescription>
-            Assistant IA avec historique persistant et recherche vectorielle améliorée dans vos documents
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      message.isUser ? 'bg-primary' : 'bg-secondary'
-                    }`}>
-                      {message.isUser ? (
-                        <User className="h-4 w-4 text-primary-foreground" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </div>
-                    
-                    <div className={`rounded-lg p-3 ${
-                      message.isUser 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}>
-                      <div 
-                        className="text-sm whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ 
-                          __html: message.isUser ? message.content : renderMessageWithLinks(message.content)
-                        }}
-                      />
-                      
-                      {/* Task Action Buttons */}
-                      {!message.isUser && message.taskAction && (
-                        <div className="mt-3 pt-2 border-t border-gray-200">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Action proposée:
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {message.taskAction.type === 'create' ? 'Créer tâche' :
-                               message.taskAction.type === 'update' ? 'Modifier tâche' :
-                               message.taskAction.type === 'delete' ? 'Supprimer tâche' :
-                               'Terminer tâche'}
-                            </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setPendingTaskAction(message.taskAction!);
-                                setIsTaskDialogOpen(true);
-                              }}
-                              className="ml-2"
-                            >
-                              Valider
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {!message.isUser && (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex flex-wrap gap-1">
-                            {message.contextFound && (
-                              <Badge variant="outline" className="text-xs">
-                                <Database className="h-3 w-3 mr-1" />
-                                OphtaCare
-                              </Badge>
-                            )}
-                            {message.hasInternetContext && (
-                              <Badge variant="outline" className="text-xs">
-                                <Globe className="h-3 w-3 mr-1" />
-                                Enrichi
-                              </Badge>
-                            )}
-                            {message.sources && message.sources.length > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {message.sources.length} source(s) interne(s)
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          {message.internetSources && message.internetSources.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-gray-200">
-                              <div className="text-xs font-medium mb-1 text-muted-foreground">
-                                Sources consultées :
-                              </div>
-                              <div className="space-y-1">
-                                {message.internetSources.map((source: any, index: number) => (
-                                  <div key={index} className="text-xs">
-                                    <a 
-                                      href={source.url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                      {source.title || source.url}
-                                    </a>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="text-xs opacity-70 mt-2">
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                  <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Assistant OphtaCare optimisé...</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div ref={messagesEndRef} />
-          </ScrollArea>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Tapez votre message..."
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button 
-              onClick={sendMessage} 
-              disabled={isLoading || !inputMessage.trim()}
-              size="icon"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <EditableTaskValidationDialog
-        isOpen={isTaskDialogOpen}
+      <footer className="bg-white border-t p-4">
+        <div className="container mx-auto flex items-center">
+          <Input
+            type="text"
+            placeholder="Envoyer un message..."
+            className="flex-1 rounded-l-md"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSendMessage();
+              }
+            }}
+          />
+          <Button
+            onClick={handleSendMessage}
+            className="rounded-r-md"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Envoyer
+          </Button>
+        </div>
+      </footer>
+      
+      <AIActionValidationDialog
+        isOpen={isValidationDialogOpen}
         onClose={() => {
-          setIsTaskDialogOpen(false);
-          setPendingTaskAction(null);
+          setIsValidationDialogOpen(false);
+          setPendingAction(null);
         }}
-        taskAction={pendingTaskAction}
-        onValidate={handleTaskValidation}
-        onReject={handleTaskRejection}
+        action={pendingAction}
+        onConfirm={handleActionConfirm}
+        onReject={handleActionReject}
       />
     </div>
   );
