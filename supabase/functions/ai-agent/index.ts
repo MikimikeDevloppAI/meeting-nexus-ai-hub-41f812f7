@@ -3,6 +3,7 @@ import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
 import { TaskAgent } from './agents/tasks.ts';
 import { CoordinatorAgent } from './agents/coordinator.ts';
+import { SynthesisAgent } from './agents/synthesis.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,14 +36,12 @@ serve(async (req) => {
     const embeddings = new EmbeddingsAgent(apiKey, supabaseClient);
     const taskAgent = new TaskAgent(supabaseClient);
     const coordinator = new CoordinatorAgent(apiKey);
+    const synthesis = new SynthesisAgent(apiKey);
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
 
-    // Enrich message with conversation history for analysis
-    const enrichedMessage = `${message}\n\n${conversationHistory.slice(-5).map((msg: any) => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}`;
-
-    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle
+    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle (conservé pour compatibilité)
     if (context.documentSearchMode || context.forceEmbeddingsPriority || context.vectorSearchOnly) {
       console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE - Restrictions STRICTES activées');
       
@@ -216,118 +215,64 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       );
     }
 
+    // 🚀 NOUVEAU SYSTÈME : EXÉCUTION OBLIGATOIRE DE TOUS LES AGENTS
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🚀 NOUVEAU SYSTÈME: Exécution complète de tous les agents');
+
+    // Phase 1: Analyse initiale
     console.log('[AI-AGENT-CABINET-MEDICAL] 🧠 Phase 1: Analyse intelligente avec historique');
-    const analysis = await coordinator.analyzeQuery(enrichedMessage, conversationHistory);
+    const analysis = await coordinator.analyzeQuery(message, conversationHistory);
     
-    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Analyse optimisée: ${JSON.stringify({
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Analyse: ${JSON.stringify({
       queryType: analysis.queryType,
       priority: analysis.priority,
       confidence: analysis.confidence,
       temporalRef: analysis.temporalRef,
-      isSimple: analysis.queryType === 'simple',
-      embeddings: analysis.embeddings,
-      database: analysis.database,
-      tasks: analysis.tasks,
-      internet: analysis.internet,
       historyLength: conversationHistory.length
     })}`);
 
-    let embeddingsResult = { chunks: [], sources: [], hasRelevantContext: false };
-    let taskContext = { currentTasks: [], hasTaskContext: false };
-    let databaseContext = { meetings: [], documents: [], participants: [], todos: [] };
+    // Phase 2: EXÉCUTION FORCÉE DE TOUS LES AGENTS
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🔄 Phase 2: Exécution FORCÉE de tous les agents');
 
-    // 🎯 TRAITEMENT SPÉCIAL: Recherche vectorielle + tâches prioritaire
-    if (analysis.priority === 'embeddings_and_tasks') {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 Phase spéciale: RECHERCHE VECTORIELLE + TÂCHES COMBINÉE');
-      
-      // Phase 1: Recherche vectorielle avec historique
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 1a: Recherche vectorielle avec historique');
-      embeddingsResult = await embeddings.searchEmbeddings(message, analysis, [], conversationHistory);
-      
-      // Phase 1: Recherche tâches spécialisée avec historique
-      console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 1b: Recherche tâches avec historique');
-      taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
-      
-      // Phase 2: Recherche database complémentaire
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2: Recherche database complémentaire');
-      databaseContext = await database.searchContext(enrichedMessage);
-    }
-    // Traitement existant pour les autres priorités
-    else if (analysis.priority === 'direct') {
-      console.log('[AI-AGENT-CABINET-MEDICAL] ✨ Phase Direct: Réponse directe sans recherche');
-      return new Response(
-        JSON.stringify({ 
-          response: 'Bonjour ! Comment puis-je vous aider ?',
-          conversationLength: conversationHistory.length
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    else {
-      // Phase 2: Recherche embeddings si nécessaire avec historique
-      if (analysis.embeddings) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2: Recherche embeddings avec historique');
-        embeddingsResult = await embeddings.searchEmbeddings(message, analysis, [], conversationHistory);
-      }
+    // 2a: Recherche vectorielle (TOUJOURS)
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Phase 2a: Recherche vectorielle FORCÉE');
+    const embeddingsResult = await embeddings.searchEmbeddings(message, {
+      ...analysis,
+      embeddings: true
+    }, [], conversationHistory);
 
-      // Phase 3: Recherche database complémentaire
-      if (analysis.database) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 3: Recherche database complémentaire');
-        databaseContext = await database.searchContext(enrichedMessage);
-      }
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Embeddings: ${embeddingsResult.chunks?.length || 0} chunks trouvés`);
 
-      // Phase 4: Gestion spécialisée des tâches avec historique
-      if (analysis.tasks) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 4: Gestion tâches avec historique');
-        taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
-      }
-    }
+    // 2b: Recherche base de données (TOUJOURS)
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🗄️ Phase 2b: Recherche base de données FORCÉE');
+    const databaseContext = await database.searchContext(message);
 
-    // Synthèse et réponse avec prise en compte de l'historique
-    console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Synthèse réponse avec historique...');
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Database: ${databaseContext.meetings?.length || 0} réunions, ${databaseContext.documents?.length || 0} documents, ${databaseContext.participants?.length || 0} participants`);
+
+    // 2c: Gestion des tâches (TOUJOURS)
+    console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Phase 2c: Gestion tâches FORCÉE');
+    const taskContext = await taskAgent.handleTaskRequest(message, analysis, conversationHistory);
+
+    console.log(`[AI-AGENT-CABINET-MEDICAL] 📊 Tasks: ${taskContext.currentTasks?.length || 0} tâches trouvées, création: ${taskContext.taskCreated ? 'OUI' : 'NON'}`);
+
+    // Phase 3: Synthèse complète avec TOUS les résultats
+    console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Phase 3: Synthèse COMPLÈTE avec tous les agents');
+
+    const response = await synthesis.synthesizeResponse(
+      message,
+      conversationHistory,
+      databaseContext,
+      embeddingsResult,
+      { hasContent: false }, // Internet context
+      analysis,
+      taskContext
+    );
+
+    console.log('[AI-AGENT-CABINET-MEDICAL] ✅ Réponse synthétisée complète:', response.substring(0, 200));
+
+    // Combiner toutes les sources
     let combinedSources = [
       ...embeddingsResult.sources || [],
     ];
-
-    // Ajouter les participants au contexte pour les assigner aux tâches
-    let contextParticipants = '';
-    if (databaseContext.participants && databaseContext.participants.length > 0) {
-      contextParticipants = `CONTEXT_PARTICIPANTS: ${databaseContext.participants.map(p => `${p.name} (${p.email} ID: ${p.id})`).join(', ')}`;
-    }
-
-    // Construire la réponse avec contexte d'historique
-    let response = '';
-
-    if (embeddingsResult.hasRelevantContext) {
-      response += '🔍 Contexte pertinent trouvé dans vos documents.\n';
-    }
-
-    if (taskContext.hasTaskContext && taskContext.currentTasks.length > 0) {
-      response += '✅ Tâches correspondantes trouvées :\n';
-      taskContext.currentTasks.forEach((task: any) => {
-        response += `- ${task.description} (ID: ${task.id})\n`;
-      });
-    }
-
-    if (databaseContext.meetings && databaseContext.meetings.length > 0) {
-      response += '📅 Réunions correspondantes trouvées :\n';
-      databaseContext.meetings.forEach((meeting: any) => {
-        response += `- ${meeting.name} (ID: ${meeting.id})\n`;
-      });
-    }
-
-    if (taskContext.pendingTaskCreation && taskContext.pendingTaskCreation.waitingForAssignment) {
-      response = `D'accord, je vais créer la tâche "${taskContext.pendingTaskCreation.description}". À qui devrais-je assigner cette tâche ? ${contextParticipants}`;
-    } else if (taskContext.taskCreated) {
-      response = `Parfait ! J'ai créé la tâche "${taskContext.taskCreated.description}".`;
-    } else if (response === '') {
-      response = 'Désolé, je n\'ai pas trouvé d\'informations pertinentes. Pouvez-vous reformuler votre question ?';
-    }
-
-    // Ajouter le contexte des participants à la réponse
-    response += `\n${contextParticipants}`;
-
-    console.log('[AI-AGENT-CABINET-MEDICAL] ✅ Réponse synthétisée avec historique:', response.substring(0, 200));
 
     return new Response(
       JSON.stringify({ 
@@ -336,7 +281,16 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
         taskContext,
         databaseContext,
         analysis,
-        conversationLength: conversationHistory.length
+        conversationLength: conversationHistory.length,
+        hasRelevantContext: embeddingsResult.hasRelevantContext,
+        contextFound: (embeddingsResult.chunks?.length > 0) || (databaseContext.meetings?.length > 0) || (taskContext.currentTasks?.length > 0),
+        debugInfo: {
+          embeddingsChunks: embeddingsResult.chunks?.length || 0,
+          databaseMeetings: databaseContext.meetings?.length || 0,
+          databaseDocuments: databaseContext.documents?.length || 0,
+          taskCount: taskContext.currentTasks?.length || 0,
+          executionMode: 'ALL_AGENTS_FORCED'
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
