@@ -283,30 +283,6 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex gap-2">
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              Toutes
-            </Button>
-            <Button
-              variant={statusFilter === "confirmed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("confirmed")}
-            >
-              En cours
-            </Button>
-            <Button
-              variant={statusFilter === "completed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("completed")}
-            >
-              Terminées
-            </Button>
-          </div>
-          
           <Select value={participantFilter} onValueChange={setParticipantFilter}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filtrer par participant" />
