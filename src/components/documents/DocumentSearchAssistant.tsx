@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Send, Bot, User, Loader2, Trash2, Bug } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
@@ -217,14 +217,6 @@ export const DocumentSearchAssistant = () => {
             <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDebugMode(!debugMode)}
-              title="Mode debug"
-            >
-              <Bug className={`h-4 w-4 ${debugMode ? 'text-orange-500' : ''}`} />
-            </Button>
             <Button
               variant="ghost"
               size="sm"
