@@ -135,7 +135,7 @@ const Assistant = () => {
     return userRequest; // Fallback
   };
 
-  // Fonction INTELLIGENTE pour détecter les demandes d'actions
+  // Fonction ULTRA-INTELLIGENTE pour détecter les demandes d'actions
   const isExplicitActionRequest = (userMessage: string): boolean => {
     const lowerMessage = userMessage.toLowerCase();
     
@@ -153,26 +153,32 @@ const Assistant = () => {
     
     console.log('[ASSISTANT] 🔍 Message normalisé:', normalizedMessage);
     
-    // Patterns TRÈS FLEXIBLES pour création de tâche
+    // =================== PATTERNS TÂCHES ===================
     const taskPatterns = [
-      // Verbes d'action + tâche
-      /(?:peux tu|pourrais tu|pourrait tu|tu peux|peut tu|peus tu|peut on|peux on|pourrais on|pourrait on)\s+(?:cree|creer|faire|ajouter|crée|créer|mettre|donner|assigner).*(?:tache|task|travail|mission|action|activite|todo)/,
-      /(?:cree|creer|faire|ajouter|crée|créer|mettre|donner|assigner).*(?:tache|task|travail|mission|action|activite|todo)/,
+      // Demandes directes avec verbes d'action
+      /(?:peux tu|pourrais tu|pourrait tu|tu peux|peut tu|peus tu|peut on|peux on|pourrais on|pourrait on)\s+(?:cree|creer|faire|ajouter|crée|créer|mettre|donner|assigner|demander|dire)/,
+      
+      // Formulations avec "demander à" + prénom
+      /(?:demander|dire|confier|assigner|donner|prevenir|rappeler|informer)\s+(?:a|à)\s+(?:emilie|david|leila|hortensia)/,
+      
+      // Actions vers des personnes spécifiques
+      /(?:emilie|david|leila|hortensia)\s+(?:doit|devrait|peut|pourrait|va|dois)\s+(?:faire|acheter|organiser|preparer|mettre|donner|creer|créer)/,
+      
+      // Demandes d'achat/action spécifiques
+      /(?:acheter|achat|commander|commande|organiser|preparer|faire|creer|créer)\s+(?:du|de la|des|le|la|les|un|une)/,
+      
+      // Patterns généraux d'action
       /(?:nouvelle|nouveau|une)\s+(?:tache|task|travail|mission|action|activite|todo)/,
+      /(?:formation|reunion|meeting|rendez vous|rdv).*(?:personnel|equipe|tout le monde|tous)/,
       
-      // Patterns spécifiques avec noms
-      /(?:peux tu|pourrais tu|tu peux|peut tu|peus tu).*(?:dire|demander|donner|assigner|confier).*(?:emilie|david|leila|hortensia)/,
-      /(?:demander|dire|confier|assigner|donner).*(?:emilie|david|leila|hortensia).*(?:de|pour|faire)/,
+      // Patterns avec infinitifs
+      /(?:faire|organiser|planifier|preparer|mettre en place|acheter|commander|creer|créer|ajouter)/,
       
-      // Formation spécifique
-      /formation.*(?:ia|intelligence|ai|artificielle).*(?:personnel|equipe|tout le monde|tous)/,
-      /(?:emilie|david|leila|hortensia).*formation/,
-      
-      // Actions générales
-      /(?:organiser|planifier|preparer|mettre en place)/,
+      // Patterns très flexibles pour toute action
+      /(?:il faut|faut|devrait|doit|peut|pourrait).*(?:faire|acheter|organiser|preparer|creer|créer|preparer|mettre|demander|dire|confier|assigner)/
     ];
     
-    // Patterns TRÈS FLEXIBLES pour points de réunion
+    // =================== PATTERNS RÉUNIONS ===================
     const meetingPatterns = [
       /(?:peux tu|pourrais tu|tu peux|peut tu|peus tu)\s+(?:ajouter|mettre|noter|inscrire).*(?:point|sujet|ordre|agenda|reunion)/,
       /(?:ajouter|mettre|noter|inscrire|rajouter).*(?:point|sujet|ordre|agenda|reunion)/,
@@ -199,17 +205,57 @@ const Assistant = () => {
       return match;
     });
     
-    // Mots-clés additionnels pour renforcer la détection
-    const hasTaskKeywords = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier)/.test(normalizedMessage);
-    const hasMeetingKeywords = /(?:reunion|point|ordre|agenda|meeting)/.test(normalizedMessage);
-    const hasActionVerbs = /(?:peux|peut|pourrais|pourrait|cree|creer|faire|ajouter|dire|demander|donner|assigner|confier|organiser|planifier)/.test(normalizedMessage);
-    const hasPersonNames = /(?:emilie|david|leila|hortensia|personnel|equipe)/.test(normalizedMessage);
+    // =================== ANALYSE CONTEXTUELLE ===================
     
-    // Logique de détection intelligente
-    const isTaskRequest = hasTaskPattern || (hasTaskKeywords && hasActionVerbs);
-    const isMeetingRequest = hasMeetingPattern || (hasMeetingKeywords && hasActionVerbs);
+    // Mots-clés pour les tâches (plus large)
+    const taskKeywords = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier|acheter|achat|commander|commande|faire|creer|créer|preparer|mettre)/;
     
-    console.log('[ASSISTANT] 🧠 Analyse intelligente:', {
+    // Mots-clés pour les réunions
+    const meetingKeywords = /(?:reunion|point|ordre|agenda|meeting)/;
+    
+    // Verbes d'action généraux
+    const actionVerbs = /(?:peux|peut|pourrais|pourrait|demander|dire|confier|assigner|donner|prevenir|rappeler|informer|doit|devrait|va|dois|acheter|organiser|faire|creer|créer|ajouter|mettre|noter|inscrire)/;
+    
+    // Noms de personnes du cabinet
+    const personNames = /(?:emilie|david|leila|hortensia|personnel|equipe)/;
+    
+    // Indicateurs d'urgence ou d'importance
+    const urgencyIndicators = /(?:urgent|important|rapidement|vite|asap|bientot|maintenant|aujourd hui|demain)/;
+    
+    // =================== LOGIQUE DE DÉTECTION INTELLIGENTE ===================
+    
+    const hasTaskKeywords = taskKeywords.test(normalizedMessage);
+    const hasMeetingKeywords = meetingKeywords.test(normalizedMessage);
+    const hasActionVerbs = actionVerbs.test(normalizedMessage);
+    const hasPersonNames = personNames.test(normalizedMessage);
+    const hasUrgencyIndicators = urgencyIndicators.test(normalizedMessage);
+    
+    // Logique de décision intelligente
+    let isTaskRequest = hasTaskPattern;
+    let isMeetingRequest = hasMeetingPattern;
+    
+    // Si pas de pattern direct mais combinaison d'indicateurs
+    if (!isTaskRequest && !isMeetingRequest) {
+      // Forte probabilité de tâche si action + personne + verbe
+      if (hasActionVerbs && hasPersonNames && (hasTaskKeywords || hasUrgencyIndicators)) {
+        isTaskRequest = true;
+        console.log('[ASSISTANT] 🧠 Tâche détectée par analyse contextuelle (action + personne + contexte)');
+      }
+      
+      // Forte probabilité de tâche si verbe d'action seul avec contexte clair
+      if (hasActionVerbs && hasTaskKeywords && !hasMeetingKeywords) {
+        isTaskRequest = true;
+        console.log('[ASSISTANT] 🧠 Tâche détectée par analyse contextuelle (action + contexte tâche)');
+      }
+      
+      // Forte probabilité de réunion si contexte réunion
+      if (hasActionVerbs && hasMeetingKeywords && !hasTaskKeywords) {
+        isMeetingRequest = true;
+        console.log('[ASSISTANT] 🧠 Réunion détectée par analyse contextuelle (action + contexte réunion)');
+      }
+    }
+    
+    console.log('[ASSISTANT] 🧠 Analyse intelligente complète:', {
       normalizedMessage,
       hasTaskPattern,
       hasMeetingPattern,
@@ -217,6 +263,7 @@ const Assistant = () => {
       hasMeetingKeywords,
       hasActionVerbs,
       hasPersonNames,
+      hasUrgencyIndicators,
       isTaskRequest,
       isMeetingRequest
     });
@@ -272,7 +319,7 @@ const Assistant = () => {
         const normalizedMessage = normalizeText(lowerMessage);
         
         // Détection plus intelligente du type
-        const taskIndicators = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier|emilie|david|leila|hortensia)/;
+        const taskIndicators = /(?:tache|task|travail|mission|action|activite|todo|formation|organiser|planifier|emilie|david|leila|hortensia|acheter|achat|commander|faire|creer|créer|preparer|mettre|demander|dire|confier|assigner)/;
         const meetingIndicators = /(?:reunion|point|ordre|agenda|meeting|prochaine)/;
         
         const isTaskRequest = taskIndicators.test(normalizedMessage);
