@@ -66,12 +66,27 @@ const Assistant = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const prompt = actionType === 'task' 
-        ? `Reformule cette demande de tâche de façon concise et claire: "${userRequest}". 
-           Garde le contenu court et précis, sans ajouter d'informations supplémentaires.
-           Réponds UNIQUEMENT avec la description de la tâche reformulée.`
-        : `Reformule ce point de réunion de façon concise: "${userRequest}".
-           Format simple markdown avec titre et description courte.
-           Réponds UNIQUEMENT avec le contenu reformulé.`;
+        ? `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
+           
+           L'utilisateur demande de créer une tâche avec cette demande: "${userRequest}"
+           
+           Reformule cette demande en une description de tâche claire et concise pour le cabinet médical.
+           - Garde un ton professionnel mais accessible
+           - Sois précis et actionnable
+           - Maximum 2-3 phrases
+           - Si une personne est mentionnée (Émilie, David, Leïla, etc.), inclus-la dans la description
+           
+           Réponds UNIQUEMENT avec la description de la tâche reformulée, sans préambule.`
+        : `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
+           
+           L'utilisateur demande d'ajouter un point à l'ordre du jour avec: "${userRequest}"
+           
+           Reformule ce point en un élément d'agenda clair et structuré pour une réunion de cabinet médical.
+           - Format markdown simple avec titre et description
+           - Sois professionnel et concis
+           - Maximum 2-3 phrases
+           
+           Réponds UNIQUEMENT avec le contenu reformulé du point d'agenda.`;
 
       console.log('[ASSISTANT] 📝 Prompt envoyé:', prompt);
 
@@ -88,7 +103,8 @@ const Assistant = () => {
             context: { 
               userId: user?.id,
               contentGeneration: true,
-              actionType: actionType
+              actionType: actionType,
+              directReformulation: true
             },
             conversationHistory: []
           }),
@@ -107,6 +123,11 @@ const Assistant = () => {
         cleanedContent = cleanedContent.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION_MEETING:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
+        
+        // Nettoyage des phrases introductives communes
+        cleanedContent = cleanedContent.replace(/^(voici|voilà|description de la tâche|tâche reformulée|point d'agenda)[\s:]+/i, '');
+        cleanedContent = cleanedContent.replace(/^(.*reformulée?[\s:]+)/i, '');
+        
         cleanedContent = cleanedContent.trim();
         
         console.log('[ASSISTANT] ✅ Contenu nettoyé final:', cleanedContent);
