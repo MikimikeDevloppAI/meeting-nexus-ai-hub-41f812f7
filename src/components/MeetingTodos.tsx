@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
+import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
 import { useForm } from "react-hook-form";
@@ -417,8 +418,17 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                     </div>
                   </div>
 
-                  {/* AI Recommendation */}
+                  {/* AI Recommendation - moved before AI Assistant */}
                   <TodoAIRecommendation todoId={todo.id} />
+
+                  {/* AI Assistant integrated inside the todo card */}
+                  <div className="pl-0.5">
+                    <TodoAssistant 
+                      todoId={todo.id} 
+                      todoDescription={todo.description}
+                      onUpdate={fetchTodos}
+                    />
+                  </div>
 
                   {/* Inline Comments section */}
                   <TodoComments todoId={todo.id} />
