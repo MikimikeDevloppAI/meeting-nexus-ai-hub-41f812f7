@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -82,32 +81,27 @@ const Assistant = () => {
     return filteredSources;
   };
 
-  // Fonction pour générer du contenu enrichi pour les actions
-  const generateEnrichedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
+  // Fonction pour générer du contenu simplifié pour les actions
+  const generateSimplifiedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       const prompt = actionType === 'task' 
-        ? `Génère une description détaillée de tâche basée sur cette demande: "${userRequest}". 
-           Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
-           Format: Description claire et actionnable avec étapes concrètes si nécessaire.
-           IMPORTANT: Réponds UNIQUEMENT avec la description de la tâche, sans aucun pattern d'action comme [ACTION_TACHE:...] ou autres balises.`
-        : `Génère un point d'ordre du jour détaillé basé sur cette demande: "${userRequest}".
-           Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
-           Format: Utilise un markdown structuré avec :
-           # Titre du point
-           ## Description
-           ## Objectifs
-           ## Points à discuter
-           - Point 1
-           - Point 2
-           etc.
-           IMPORTANT: Réponds UNIQUEMENT avec le contenu markdown structuré, sans aucun pattern d'action comme [ACTION_REUNION:...] ou autres balises.`;
+        ? `Reformule cette demande de tâche de façon concise et claire: "${userRequest}". 
+           Garde le contenu court et précis, sans ajouter d'informations supplémentaires.
+           Réponds UNIQUEMENT avec la description de la tâche reformulée.`
+        : `Reformule ce point de réunion de façon concise: "${userRequest}".
+           Format simple markdown avec titre et description courte.
+           Réponds UNIQUEMENT avec le contenu reformulé.`;
 
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+          },
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
@@ -128,7 +122,7 @@ const Assistant = () => {
         const data = await response.json();
         let cleanedContent = data.response || userRequest;
         
-        // Nettoyage exhaustif des patterns d'action
+        // Nettoyage des patterns d'action
         cleanedContent = cleanedContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
@@ -256,15 +250,15 @@ const Assistant = () => {
           meetingResult: data.meetingPreparationResult
         });
         
-        // 3. Gérer les actions détectées avec génération de contenu enrichi
+        // 3. Gérer les actions détectées avec génération de contenu simplifié
         if (taskMatch || hasTaskAction) {
           console.log('[ASSISTANT] Action tâche détectée, génération de contenu...');
           
-          const enrichedDescription = await generateEnrichedContent(userMessage, 'task');
+          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
           
           setPendingAction({
             type: 'create_task',
-            description: enrichedDescription,
+            description: simplifiedDescription,
             details: data.taskContext
           });
           setIsValidationDialogOpen(true);
@@ -275,11 +269,11 @@ const Assistant = () => {
         if (meetingMatch || hasMeetingAction) {
           console.log('[ASSISTANT] Action réunion détectée, génération de contenu...');
           
-          const enrichedDescription = await generateEnrichedContent(userMessage, 'meeting_point');
+          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
           
           setPendingAction({
             type: 'add_meeting_point',
-            description: enrichedDescription
+            description: simplifiedDescription
           });
           setIsValidationDialogOpen(true);
           setIsLoading(false);
@@ -325,7 +319,6 @@ const Assistant = () => {
         content: cleanedResponse,
         isUser: false,
         timestamp: new Date(),
-        taskContext: data.taskContext,
         databaseContext: data.databaseContext,
         hasRelevantContext: data.hasRelevantContext,
         actuallyUsedDocuments: data.actuallyUsedDocuments,
@@ -352,14 +345,14 @@ const Assistant = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (pendingAction.type === 'create_task') {
-        // Créer la tâche en base de données
+        // Créer la tâche en base de données - Ne pas mettre assigned_to au moment de la création
         const { data: newTodo, error } = await supabase
           .from('todos')
           .insert([{
             description: pendingAction.description,
             status: 'confirmed',
             created_at: new Date().toISOString(),
-            assigned_to: user?.id
+            // Ne pas mettre assigned_to ici pour éviter le conflit de contrainte
           }])
           .select()
           .single();
@@ -382,7 +375,7 @@ const Assistant = () => {
             console.error('Erreur assignation participants:', participantError);
           }
 
-          // Mettre à jour le assigned_to avec le premier participant s'il y en a
+          // Mettre à jour le assigned_to avec le premier participant seulement s'il existe dans la table participants
           if (selectedParticipants.length > 0) {
             await supabase
               .from('todos')
