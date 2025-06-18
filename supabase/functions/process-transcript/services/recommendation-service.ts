@@ -59,12 +59,20 @@ ${task.index}. [ID: ${task.id}] ${task.description}
 
 INSTRUCTIONS :
 Pour chaque tâche, génère une recommandation DÉTAILLÉE qui :
-1. Propose un **plan d'exécution clair** si complexe
-2. **Signale les éléments importants** (contraintes, risques, coordination)
-3. **Suggère des prestataires/outils** utiles
-4. **Challenge les décisions** si nécessaire
-5. Génère un email pré-rédigé si communication nécessaire
-6. Répond "Aucune recommandation." si la tâche est évidente
+1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
+2. **Signaler les éléments importants à considérer** (contraintes réglementaires, risques, coordination nécessaire, points d'attention).
+3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l’exécution.
+4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
+5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : “Aucune recommandation.”).
+6. Génère un email pré-rédigé si communication nécessaire. si c'est une communication interne soit directe et concis. Pour les communications externe soit plus professionel et mets tout le contexte pour que l'email soit clair.
+ 
+Critères de qualité à respecter:
+- Sois **concis, structuré et actionnable**.
+- Fournis uniquement des recommandations qui **ajoutent une vraie valeur**. ne pas paraphraser la Tache
+- N’invente pas de contacts si tu n’en as pas.
+- Évite les banalités ou les évidences.
+
+
 
 Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
 {
