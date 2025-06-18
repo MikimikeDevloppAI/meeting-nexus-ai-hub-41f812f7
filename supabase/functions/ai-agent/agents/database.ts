@@ -1,4 +1,3 @@
-
 export interface DatabaseContext {
   meetings: any[];
   documents: any[];
@@ -419,5 +418,156 @@ export class DatabaseAgent {
       meetingIds: relevantMeetings.slice(0, 8).map(m => m.id),
       todoIds: relevantTodos.slice(0, 10).map(t => t.id)
     };
+  }
+
+  async handleMeetingPreparationRequest(message: string, userId: string): Promise<any> {
+    console.log('[DATABASE] 📝 Gestion points préparation réunion pour:', message);
+    
+    const lowerMessage = message.toLowerCase();
+    
+    // Détection des actions sur les points de préparation
+    const isAddAction = lowerMessage.includes('ajouter') || lowerMessage.includes('créer') || 
+                       lowerMessage.includes('nouveau point') || lowerMessage.includes('ajoute');
+    const isDeleteAction = lowerMessage.includes('supprimer') || lowerMessage.includes('effacer') || 
+                          lowerMessage.includes('retirer') || lowerMessage.includes('enlever');
+    const isListAction = lowerMessage.includes('lister') || lowerMessage.includes('voir') || 
+                        lowerMessage.includes('points') || lowerMessage.includes('ordre du jour');
+    const isClearAction = lowerMessage.includes('effacer tout') || lowerMessage.includes('supprimer tout');
+
+    let result = {
+      action: 'none',
+      success: false,
+      message: '',
+      points: [],
+      actionPerformed: false
+    };
+
+    try {
+      // Action : Ajouter un point
+      if (isAddAction && !isDeleteAction) {
+        const pointText = this.extractPointText(message);
+        if (pointText) {
+          const { data, error } = await this.supabase
+            .from('meeting_preparation_custom_points')
+            .insert([{
+              point_text: pointText,
+              created_by: userId
+            }])
+            .select();
+
+          if (!error && data) {
+            result.action = 'add';
+            result.success = true;
+            result.message = `Point ajouté avec succès : "${pointText}"`;
+            result.actionPerformed = true;
+            console.log('[DATABASE] ✅ Point ajouté:', pointText);
+          }
+        }
+      }
+
+      // Action : Supprimer tous les points
+      else if (isClearAction) {
+        const { error } = await this.supabase
+          .from('meeting_preparation_custom_points')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (!error) {
+          result.action = 'clear';
+          result.success = true;
+          result.message = 'Tous les points de l\'ordre du jour ont été supprimés';
+          result.actionPerformed = true;
+          console.log('[DATABASE] ✅ Tous les points supprimés');
+        }
+      }
+
+      // Action : Supprimer un point spécifique (par ID ou contenu)
+      else if (isDeleteAction) {
+        const pointToDelete = this.extractPointText(message);
+        if (pointToDelete) {
+          const { data: existingPoints } = await this.supabase
+            .from('meeting_preparation_custom_points')
+            .select('*')
+            .ilike('point_text', `%${pointToDelete}%`)
+            .limit(1);
+
+          if (existingPoints && existingPoints.length > 0) {
+            const { error } = await this.supabase
+              .from('meeting_preparation_custom_points')
+              .delete()
+              .eq('id', existingPoints[0].id);
+
+            if (!error) {
+              result.action = 'delete';
+              result.success = true;
+              result.message = `Point supprimé : "${existingPoints[0].point_text}"`;
+              result.actionPerformed = true;
+              console.log('[DATABASE] ✅ Point supprimé:', existingPoints[0].point_text);
+            }
+          }
+        }
+      }
+
+      // Toujours récupérer la liste actuelle des points
+      const { data: allPoints } = await this.supabase
+        .from('meeting_preparation_custom_points')
+        .select(`
+          *,
+          users!meeting_preparation_custom_points_created_by_fkey(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      result.points = allPoints || [];
+      
+      if (!result.actionPerformed && isListAction) {
+        result.action = 'list';
+        result.success = true;
+        result.message = `${result.points.length} point(s) trouvé(s) dans l'ordre du jour`;
+      }
+
+    } catch (error: any) {
+      console.error('[DATABASE] ❌ Erreur points préparation:', error);
+      result.success = false;
+      result.message = 'Erreur lors de la gestion des points de préparation';
+    }
+
+    return result;
+  }
+
+  private extractPointText(message: string): string {
+    // Extraction du texte du point à partir du message
+    const lowerMessage = message.toLowerCase();
+    
+    // Patterns pour extraire le contenu après les mots-clés
+    const addPatterns = [
+      /(?:ajouter|créer|nouveau point|ajoute)(?:\s+le\s+point\s+)?[:\s]+(.+)/i,
+      /point[:\s]+(.+)/i,
+      /"([^"]+)"/i, // Texte entre guillemets
+      /'([^']+)'/i  // Texte entre apostrophes
+    ];
+
+    const deletePatterns = [
+      /(?:supprimer|effacer|retirer|enlever)(?:\s+le\s+point\s+)?[:\s]+(.+)/i,
+      /"([^"]+)"/i,
+      /'([^']+)'/i
+    ];
+
+    const patterns = lowerMessage.includes('supprimer') || lowerMessage.includes('effacer') ? 
+                    deletePatterns : addPatterns;
+
+    for (const pattern of patterns) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    // Fallback : prendre tout après le premier ":"
+    const colonMatch = message.match(/:\s*(.+)/);
+    if (colonMatch && colonMatch[1]) {
+      return colonMatch[1].trim();
+    }
+
+    return '';
   }
 }

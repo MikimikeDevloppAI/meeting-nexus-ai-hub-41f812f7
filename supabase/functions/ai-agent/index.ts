@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
@@ -230,6 +231,25 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       historyLength: conversationHistory.length
     })}`);
 
+    // Phase 1.5: NOUVELLE FONCTIONNALITÉ - Détection et gestion des points de préparation
+    console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Phase 1.5: Vérification points préparation réunion');
+    const lowerMessage = message.toLowerCase();
+    const isMeetingPreparationQuery = lowerMessage.includes('ordre du jour') || 
+                                     lowerMessage.includes('points') || 
+                                     lowerMessage.includes('préparation') ||
+                                     lowerMessage.includes('réunion') ||
+                                     (lowerMessage.includes('ajouter') && lowerMessage.includes('point')) ||
+                                     (lowerMessage.includes('supprimer') && lowerMessage.includes('point'));
+
+    let meetingPreparationResult = null;
+    if (isMeetingPreparationQuery) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Requête points préparation détectée');
+      // Récupérer l'ID utilisateur depuis le contexte ou l'historique
+      const userId = context.userId || 'system'; // TODO: Améliorer la récupération de l'ID utilisateur
+      meetingPreparationResult = await database.handleMeetingPreparationRequest(message, userId);
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Résultat préparation:', meetingPreparationResult);
+    }
+
     // Phase 2: EXÉCUTION FORCÉE DE TOUS LES AGENTS
     console.log('[AI-AGENT-CABINET-MEDICAL] 🔄 Phase 2: Exécution FORCÉE de tous les agents');
 
@@ -264,7 +284,8 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
       embeddingsResult,
       { hasContent: false }, // Internet context
       analysis,
-      taskContext
+      taskContext,
+      meetingPreparationResult // Nouveau paramètre
     );
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✅ Réponse synthétisée complète:', response.substring(0, 200));
@@ -280,6 +301,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
         sources: combinedSources,
         taskContext,
         databaseContext,
+        meetingPreparationResult,
         analysis,
         conversationLength: conversationHistory.length,
         hasRelevantContext: embeddingsResult.hasRelevantContext,
@@ -289,6 +311,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
           databaseMeetings: databaseContext.meetings?.length || 0,
           databaseDocuments: databaseContext.documents?.length || 0,
           taskCount: taskContext.currentTasks?.length || 0,
+          meetingPreparationAction: meetingPreparationResult?.action || 'none',
           executionMode: 'ALL_AGENTS_FORCED'
         }
       }),
