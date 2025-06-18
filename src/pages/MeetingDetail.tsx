@@ -1,10 +1,11 @@
+
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, FileText } from "lucide-react";
-import { MeetingTodosWithRecommendations } from "@/components/MeetingTodosWithRecommendations";
+import { MeetingTodos } from "@/components/MeetingTodos";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { TodosChat } from "@/components/meeting/TodosChat";
@@ -169,7 +170,7 @@ export default function MeetingDetail() {
         </Card>
       )}
 
-      {/* Todos with Chat Inside */}
+      {/* Todos with Chat Inside - Using MeetingTodos component */}
       <Card data-updated>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -183,8 +184,8 @@ export default function MeetingDetail() {
             <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
           </div>
           
-          {/* Liste des Todos avec recommandations IA */}
-          <MeetingTodosWithRecommendations meetingId={meeting.id} />
+          {/* Liste des Todos avec toutes les fonctionnalités identiques à la page Todos */}
+          <MeetingTodos meetingId={meeting.id} />
         </CardContent>
       </Card>
 
