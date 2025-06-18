@@ -42,7 +42,7 @@ export const DocumentSearchAssistant = () => {
     getFormattedHistory 
   } = useUnifiedChatHistory({
     storageKey: 'document-search-assistant-history',
-    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire . Je peux vous aider à trouver des informations dans vos documents et meetings.",
+    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire. Je peux uniquement vous aider à trouver des informations dans vos documents du cabinet. Je ne peux pas donner de conseils médicaux généraux.",
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
@@ -168,15 +168,15 @@ export const DocumentSearchAssistant = () => {
       if (transformedSources.length > 0) {
         toast({
           title: "Documents utilisés",
-          description: `L'IA a consulté ${transformedSources.length} document(s) pour sa réponse`,
+          description: `L'IA a consulté ${transformedSources.length} document(s) du cabinet pour sa réponse`,
           variant: "default",
         });
       } else if (actuallyUsedDocuments.length === 0) {
         toast({
-          title: "Aucun document utilisé",
-          description: data.debugInfo ? 
-            `Chunks trouvés: ${data.debugInfo.totalChunks || 0}, mais aucun explicitement utilisé` :
-            "L'IA n'a pas eu besoin de consulter de documents spécifiques",
+          title: "Réponse basée sur les documents uniquement",
+          description: data.debugInfo?.restrictionMode === 'STRICT_DOCUMENTS_ONLY' ? 
+            "L'IA n'a pas trouvé d'informations dans les documents du cabinet" :
+            "L'IA se limite aux informations des documents disponibles",
           variant: "default",
         });
       }
@@ -191,7 +191,7 @@ export const DocumentSearchAssistant = () => {
 
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: "Désolé, je rencontre un problème technique temporaire. Pouvez-vous réessayer ? L'assistant de recherche documentaire reste disponible.",
+        content: "Désolé, je rencontre un problème technique temporaire. L'assistant de recherche documentaire reste disponible pour consulter vos documents.",
         isUser: false,
         timestamp: new Date(),
       };
@@ -237,7 +237,7 @@ export const DocumentSearchAssistant = () => {
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          Recherchez dans vos documents et meetings avec contexte maintenu • {messages.length} message(s) en mémoire
+          🔒 Mode strict : Recherche UNIQUEMENT dans vos documents du cabinet • {messages.length} message(s) en mémoire
           {debugMode && <span className="text-orange-500"> • Mode debug activé</span>}
         </p>
       </CardHeader>
@@ -271,7 +271,7 @@ export const DocumentSearchAssistant = () => {
                     />
                     {message.sources && message.sources.length > 0 && (
                       <div className="text-xs opacity-70 mt-2">
-                        📄 {message.sources.length} document(s) réellement utilisé(s)
+                        📄 {message.sources.length} document(s) du cabinet utilisé(s)
                       </div>
                     )}
                     {debugMode && message.debugInfo && (
@@ -291,7 +291,7 @@ export const DocumentSearchAssistant = () => {
                 <div className="ml-11">
                   <SmartDocumentSources 
                     sources={message.sources} 
-                    title="Documents réellement utilisés par l'IA"
+                    title="Documents du cabinet utilisés par l'IA"
                   />
                 </div>
               )}
@@ -305,7 +305,7 @@ export const DocumentSearchAssistant = () => {
               </div>
               <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Recherche dans vos documents...</span>
+                <span className="text-sm">Recherche dans vos documents du cabinet...</span>
               </div>
             </div>
           )}
@@ -316,7 +316,7 @@ export const DocumentSearchAssistant = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Recherchez dans vos documents..."
+            placeholder="Recherchez dans vos documents du cabinet..."
             disabled={isLoading}
             className="flex-1"
           />
@@ -334,7 +334,7 @@ export const DocumentSearchAssistant = () => {
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          💡 Contexte maintenu - Posez des questions sur vos documents ou meetings
+          🔒 Recherche stricte dans vos documents du cabinet uniquement - Aucune connaissance générale utilisée
         </div>
       </CardContent>
     </Card>

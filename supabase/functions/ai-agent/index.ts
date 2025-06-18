@@ -44,7 +44,7 @@ serve(async (req) => {
 
     // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle
     if (context.documentSearchMode || context.forceEmbeddingsPriority || context.vectorSearchOnly) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE - Historique transmis');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE - Restrictions STRICTES activées');
       
       const embeddingsResult = await embeddings.searchEmbeddings(message, {
         priority: 'embeddings',
@@ -58,52 +58,79 @@ serve(async (req) => {
 
       console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Résultats embeddings:', embeddingsResult.chunks?.length || 0, 'chunks trouvés');
 
-      // Générer une réponse directe en utilisant OpenAI avec historique
       let response = '';
       let actuallyUsedDocuments: string[] = [];
       
-      if (embeddingsResult.hasRelevantContext && embeddingsResult.chunks.length > 0) {
-        // Construire le contexte pour OpenAI avec les IDs des documents
-        const contextText = embeddingsResult.chunks.slice(0, 5).map((chunk, index) => {
-          return `Document ID: ${chunk.document_id}\nDocument: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
-        }).join('\n\n---\n\n');
+      // VÉRIFICATION STRICTE : Si pas de chunks pertinents, réponse standard
+      if (!embeddingsResult.hasRelevantContext || embeddingsResult.chunks.length === 0) {
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ AUCUN CHUNK PERTINENT - Réponse standard');
+        response = 'Je n\'ai pas trouvé d\'informations pertinentes dans les documents du cabinet pour répondre à cette question. Les documents disponibles ne contiennent pas les informations recherchées.';
+        
+        return new Response(
+          JSON.stringify({ 
+            response,
+            sources: [],
+            actuallyUsedDocuments: [],
+            hasRelevantContext: false,
+            searchIterations: embeddingsResult.searchIterations || 0,
+            conversationLength: conversationHistory.length,
+            debugInfo: {
+              totalChunks: 0,
+              totalSources: 0,
+              usedDocsCount: 0,
+              restrictionMode: 'STRICT_DOCUMENTS_ONLY'
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-        // Construire l'historique de conversation
-        const conversationContext = conversationHistory.length > 0
-          ? '\n\nHISTORIQUE DE CONVERSATION:\n' + 
-            conversationHistory.slice(-8).map((msg: any) => `${msg.isUser ? 'Utilisateur' : 'Assistant'}: ${msg.content}`).join('\n')
-          : '';
+      // Construire le contexte pour OpenAI avec les IDs des documents
+      const contextText = embeddingsResult.chunks.slice(0, 5).map((chunk, index) => {
+        return `Document ID: ${chunk.document_id}\nDocument: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
+      }).join('\n\n---\n\n');
 
-        const prompt = `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet d'ophtalmologie Dr Tabibian à Genève. Tu dois fournir des réponses TRÈS DÉTAILLÉES et COMPLÈTES.
+      // Construire l'historique de conversation
+      const conversationContext = conversationHistory.length > 0
+        ? '\n\nHISTORIQUE DE CONVERSATION:\n' + 
+          conversationHistory.slice(-8).map((msg: any) => `${msg.isUser ? 'Utilisateur' : 'Assistant'}: ${msg.content}`).join('\n')
+        : '';
 
-INSTRUCTIONS IMPORTANTES :
-- Sois EXTRÊMEMENT DÉTAILLÉ dans tes réponses
-- Développe tous les aspects pertinents du sujet
-- Fournis des explications approfondies et structurées
-- Utilise des exemples concrets quand c'est possible
-- Structure tes réponses avec des sections claires
-- N'hésite pas à donner des informations contextuelles supplémentaires
-- Sois précis et professionnel tout en étant exhaustif
+      // PROMPT ULTRA-STRICT pour empêcher l'invention
+      const prompt = `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet d'ophtalmologie Dr Tabibian à Genève.
+
+🔒 RÈGLES ABSOLUES - INTERDICTION TOTALE :
+- Tu es FORMELLEMENT INTERDIT d'utiliser tes connaissances générales
+- Tu ne peux répondre qu'en te basant EXCLUSIVEMENT sur le contenu des documents fournis ci-dessous
+- Si les documents fournis ne contiennent pas la réponse à la question, tu DOIS répondre : "Les documents du cabinet ne contiennent pas d'informations sur ce sujet"
+- Tu ne peux PAS inventer, déduire ou extrapoler au-delà du contenu exact des documents
+- Tu ne peux PAS donner de conseils médicaux généraux non présents dans les documents
+
+✅ CE QUE TU PEUX FAIRE :
+- Citer EXACTEMENT le contenu des documents fournis
+- Reformuler les informations présentes dans les documents
+- Structurer les informations trouvées dans les documents
+- Mentionner que les informations proviennent des documents du cabinet
 
 IMPORTANT POUR LES SOURCES - FORMAT OBLIGATOIRE :
-À la fin de ta réponse, tu DOIS ajouter une section qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format EXACT (copie-colle exactement) :
+À la fin de ta réponse, tu DOIS ajouter une section qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format EXACT :
 
 DOCS_USED:
 id1,id2,id3
 END_DOCS
 
-Ne liste que les documents dont tu as vraiment lu et utilisé le contenu pour ta réponse. Si tu n'as utilisé aucun document spécifique, écris DOCS_USED:none END_DOCS
+⚠️ ATTENTION : Si tu n'as PAS utilisé de documents spécifiques pour ta réponse (ce qui ne devrait JAMAIS arriver car tu ne peux répondre que basé sur les documents), écris DOCS_USED:none END_DOCS
 
 Question de l'utilisateur: "${message}"
 
 CONTEXTE CONVERSATIONNEL:${conversationContext}
 
-CONTEXTE DES DOCUMENTS TROUVÉS:
+CONTEXTE DES DOCUMENTS DU CABINET (SEULE SOURCE AUTORISÉE):
 ${contextText}
 
-Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les informations des documents ET en tenant compte du contexte de la conversation. Si les informations ne sont pas suffisantes, explique clairement ce qui manque et suggères des pistes. Maintiens la cohérence avec l'historique de conversation. Développe tous les aspects pertinents de ta réponse.`;
+Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-dessus. Si ces documents ne contiennent pas l'information demandée, dis-le clairement.`;
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Envoi à OpenAI avec prompt enrichi');
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🔒 Envoi à OpenAI avec prompt ULTRA-STRICT');
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -114,19 +141,19 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
+            temperature: 0.1, // Température très basse pour éviter l'invention
             max_tokens: 16384,
           }),
         });
 
         if (openaiResponse.ok) {
           const data = await openaiResponse.json();
-          const fullResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
+          const fullResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse basée sur les documents.';
           
           console.log('[AI-AGENT-CABINET-MEDICAL] 📝 RÉPONSE COMPLÈTE D\'OPENAI:');
           console.log(fullResponse);
           
-          // Extraction robuste des documents utilisés avec le nouveau format
+          // Extraction robuste des documents utilisés
           const docsUsedMatch = fullResponse.match(/DOCS_USED:\s*(.*?)\s*END_DOCS/s);
           console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Match trouvé:', docsUsedMatch);
           
@@ -134,35 +161,40 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
             const docsSection = docsUsedMatch[1].trim();
             console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Section docs extraite:', docsSection);
             
-            if (docsSection !== 'none' && docsSection !== '') {
+            // VÉRIFICATION STRICTE : Si l'IA dit "none", on force une réponse standard
+            if (docsSection === 'none' || docsSection === '') {
+              console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ IA A RÉPONDU "none" - FORÇAGE RÉPONSE STANDARD');
+              response = 'Les documents du cabinet ne contiennent pas d\'informations spécifiques sur ce sujet. Pouvez-vous reformuler votre question ou demander des informations présentes dans nos documents ?';
+              actuallyUsedDocuments = [];
+            } else {
               // Séparer les IDs par virgule et nettoyer
               actuallyUsedDocuments = docsSection
                 .split(',')
                 .map(id => id.trim())
                 .filter(id => id && id !== '');
+                
+              // Nettoyer la réponse en supprimant la section des documents utilisés
+              response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
             }
-            
-            // Nettoyer la réponse en supprimant la section des documents utilisés
-            response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
           } else {
-            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match trouvé pour DOCS_USED');
-            response = fullResponse;
+            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match DOCS_USED trouvé - FORÇAGE RÉPONSE STANDARD');
+            response = 'Les documents du cabinet ne contiennent pas d\'informations spécifiques sur ce sujet. Pouvez-vous reformuler votre question ?';
+            actuallyUsedDocuments = [];
           }
           
           console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés extraits:', actuallyUsedDocuments);
           console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Réponse nettoyée (premiers 200 chars):', response.substring(0, 200));
         } else {
           console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur OpenAI:', await openaiResponse.text());
-          response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents, mais je n'ai pas pu générer une réponse détaillée.`;
+          response = 'Je n\'ai pas pu traiter votre demande en me basant sur les documents disponibles. Veuillez réessayer.';
+          actuallyUsedDocuments = [];
         }
-      } else {
-        response = 'Je n\'ai pas trouvé d\'informations pertinentes dans vos documents pour cette requête. Essayez de reformuler votre question ou vérifiez que les documents contiennent les informations recherchées.';
-      }
 
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 RÉSULTAT FINAL:');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 RÉSULTAT FINAL STRICT:');
       console.log('- Documents utilisés:', actuallyUsedDocuments.length);
       console.log('- Sources disponibles:', embeddingsResult.sources?.length || 0);
       console.log('- Chunks trouvés:', embeddingsResult.chunks?.length || 0);
+      console.log('- Mode restriction:', 'DOCUMENTS_ONLY');
 
       return new Response(
         JSON.stringify({ 
@@ -175,7 +207,9 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
           debugInfo: {
             totalChunks: embeddingsResult.chunks?.length || 0,
             totalSources: embeddingsResult.sources?.length || 0,
-            usedDocsCount: actuallyUsedDocuments.length
+            usedDocsCount: actuallyUsedDocuments.length,
+            restrictionMode: 'STRICT_DOCUMENTS_ONLY',
+            promptUsed: 'ULTRA_STRICT'
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
