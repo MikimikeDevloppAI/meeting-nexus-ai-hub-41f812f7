@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -93,9 +92,9 @@ const Assistant = () => {
               internetSearch: false,
               todoManagement: false,
               meetingPoints: false,
-              reformulationMode: true // Mode spécial pour reformulation
+              reformulationMode: true
             },
-            conversationHistory: formattedHistory // AJOUT DE L'HISTORIQUE !
+            conversationHistory: formattedHistory
           }),
         }
       );
@@ -106,19 +105,16 @@ const Assistant = () => {
         
         console.log('[ASSISTANT] 📨 Réponse agent principal reçue:', reformulatedContent);
         
-        // NETTOYAGE COMPLET des balises d'action et formatage indésirable
         reformulatedContent = reformulatedContent.replace(/\[ACTION_TACHE:[^\]]*\]/g, '');
         reformulatedContent = reformulatedContent.replace(/\[ACTION_TASK:[^\]]*\]/g, '');
         reformulatedContent = reformulatedContent.replace(/\[ACTION_REUNION:[^\]]*\]/g, '');
         reformulatedContent = reformulatedContent.replace(/\[ACTION_MEETING:[^\]]*\]/g, '');
         reformulatedContent = reformulatedContent.replace(/\[ACTION:[^\]]*\]/g, '');
         
-        // Nettoyage pour s'assurer qu'on n'a que le contenu reformulé
         reformulatedContent = reformulatedContent.replace(/^(voici|voilà|description|tâche|point|agenda|reformulé|reformulée)[\s:.-]+/i, '');
         reformulatedContent = reformulatedContent.replace(/^["'`]+|["'`]+$/g, '');
         reformulatedContent = reformulatedContent.trim();
         
-        // Si après nettoyage il ne reste rien, extraire le contenu des balises
         if (!reformulatedContent) {
           const match = data.response.match(/\[ACTION_[^:]+:([^\]]+)\]/);
           if (match) {
@@ -293,15 +289,15 @@ const Assistant = () => {
     setIsLoading(true);
 
     try {
-      // =================== ÉTAPE 1: PRÉ-AGENT ===================
-      console.log('[ASSISTANT] 🚀 Étape 1 - Analyse pré-agent');
+      // =================== ÉTAPE 1: PRÉ-AGENT ULTRA-STRICT ===================
+      console.log('[ASSISTANT] 🚀 Étape 1 - Analyse pré-agent ULTRA-STRICTE');
       const preAnalysis: PreAgentAnalysis = PreAgent.analyzeRequest(userMessage);
       
       console.log('[ASSISTANT] 📊 Résultat pré-agent:', preAnalysis);
       
-      // =================== GESTION DIRECTE DES ACTIONS ===================
-      if (preAnalysis.type === 'task_creation' && preAnalysis.confidence > 0.8) {
-        console.log('[ASSISTANT] ⚡ CRÉATION TÂCHE - Traitement immédiat');
+      // =================== GESTION DIRECTE DES ACTIONS - SEUIL TRÈS ÉLEVÉ ===================
+      if (preAnalysis.type === 'task_creation' && preAnalysis.confidence > 0.95) {
+        console.log('[ASSISTANT] ⚡ CRÉATION TÂCHE - Demande TRÈS explicite détectée');
         
         const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
         console.log('[ASSISTANT] 🎯 Description simplifiée générée:', simplifiedDescription);
@@ -326,8 +322,8 @@ const Assistant = () => {
         return;
       }
       
-      if (preAnalysis.type === 'meeting_point' && preAnalysis.confidence > 0.8) {
-        console.log('[ASSISTANT] ⚡ POINT RÉUNION - Traitement immédiat');
+      if (preAnalysis.type === 'meeting_point' && preAnalysis.confidence > 0.95) {
+        console.log('[ASSISTANT] ⚡ POINT RÉUNION - Demande TRÈS explicite détectée');
         
         const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
         console.log('[ASSISTANT] 🎯 Description simplifiée générée:', simplifiedDescription);
@@ -365,7 +361,7 @@ const Assistant = () => {
         todoManagement: todoEnabled,
         meetingPoints: meetingPointsEnabled,
         documentSearchMode: documentSearchEnabled,
-        preAgentAnalysis: preAnalysis // Inclure l'analyse du pré-agent
+        preAgentAnalysis: preAnalysis
       };
 
       const formattedHistory = getFormattedHistory();

@@ -51,17 +51,17 @@ export class CoordinatorAgent {
   }
 
   async analyzeQuery(message: string, conversationHistory: any[] = []): Promise<any> {
-    console.log('[COORDINATOR] 🧠 ANALYSE INTELLIGENTE CABINET OPHTALMOLOGIE:', message);
+    console.log('[COORDINATOR] 🧠 ANALYSE CONSERVATIVE CABINET OPHTALMOLOGIE:', message);
     
     const lowerMessage = message.toLowerCase();
     
-    // 🎯 DÉTECTION PRIORITAIRE: Questions sur tâches récurrentes/personnes spécifiques
+    // 🎯 DÉTECTION CONSERVATIVE: Ne plus forcer les actions automatiques
     const isRecurringTaskQuery = this.isRecurringPersonTaskQuery(message);
     if (isRecurringTaskQuery) {
       console.log('[COORDINATOR] 🔍 Analyse requête récurrente:', { hasRecurring: true, hasPerson: true, hasTask: true });
       return {
         queryType: 'recurring_tasks',
-        priority: 'embeddings_and_tasks', // Nouvelle priorité combinée
+        priority: 'embeddings_and_tasks',
         confidence: 0.9,
         temporalRef: this.extractTemporalReference(message),
         embeddings: true,
@@ -73,7 +73,7 @@ export class CoordinatorAgent {
       };
     }
 
-    // Analyse existante pour les autres types de requêtes
+    // Analyse existante pour les autres types de requêtes - SANS FORCER LES ACTIONS
     if (this.isSimpleQuery(message)) {
       return {
         queryType: 'simple',
@@ -86,14 +86,14 @@ export class CoordinatorAgent {
       };
     }
 
-    // Pour les autres demandes, analyser intelligemment
-    return this.performIntelligentAnalysis(message, conversationHistory);
+    // Pour les autres demandes, analyser intelligemment SANS ACTION AUTOMATIQUE
+    return this.performConservativeAnalysis(message, conversationHistory);
   }
 
   private isRecurringPersonTaskQuery(message: string): boolean {
     const lowerMessage = message.toLowerCase();
     
-    // Patterns spécifiques pour tâches récurrentes avec personne
+    // Patterns spécifiques pour tâches récurrentes avec personne - PLUS STRICTS
     const recurringPatterns = [
       'tous les', 'chaque', 'toutes les', 'régulièrement',
       'hebdomadaire', 'quotidien', 'mensuel', 'habituellement'
@@ -149,188 +149,9 @@ export class CoordinatorAgent {
     return null;
   }
 
-  private quickTaskDetection(message: string): { isTask: boolean; action: 'list' | 'create' | 'update' | 'complete' } {
-    const lowerMessage = message.toLowerCase();
-    
-    // Mots-clés de création de tâches
-    const createKeywords = [
-      'créer une tâche', 'nouvelle tâche', 'ajouter une tâche', 'créé une tache',
-      'créer tâche', 'faire une tâche', 'tâche pour'
-    ];
-    
-    // Mots-clés de listing de tâches
-    const listKeywords = [
-      'mes tâches', 'tâches en cours', 'liste des tâches', 'voir les tâches',
-      'tâches actuelles', 'que dois-je faire'
-    ];
-    
-    // Mots-clés de modification/complétion
-    const updateKeywords = [
-      'terminer tâche', 'compléter tâche', 'marquer terminé', 'tâche terminée',
-      'modifier tâche', 'changer tâche'
-    ];
-
-    if (createKeywords.some(keyword => lowerMessage.includes(keyword))) {
-      return { isTask: true, action: 'create' };
-    }
-    
-    if (listKeywords.some(keyword => lowerMessage.includes(keyword))) {
-      return { isTask: true, action: 'list' };
-    }
-    
-    if (updateKeywords.some(keyword => lowerMessage.includes(keyword))) {
-      return { isTask: true, action: 'complete' };
-    }
-
-    return { isTask: false, action: 'list' };
-  }
-
-  private quickTranscriptDetection(message: string): { isTranscript: boolean; specificMeeting?: string; temporal?: string } {
-    const lowerMessage = message.toLowerCase();
-    
-    const transcriptKeywords = [
-      'transcript', 'transcription', 'transcript de', 'transcription de',
-      'contenu de la réunion', 'ce qui a été dit', 'enregistrement de'
-    ];
-    
-    const isTranscript = transcriptKeywords.some(keyword => lowerMessage.includes(keyword));
-    
-    if (isTranscript) {
-      // Détecter des références spécifiques
-      let specificMeeting = null;
-      let temporal = null;
-      
-      if (lowerMessage.includes('dernière') || lowerMessage.includes('dernier')) {
-        temporal = 'last';
-      } else if (lowerMessage.includes('juin')) {
-        temporal = 'juin';
-      } else if (lowerMessage.includes('mars')) {
-        temporal = 'mars';
-      }
-      
-      return { isTranscript: true, specificMeeting, temporal };
-    }
-    
-    return { isTranscript: false };
-  }
-
-  private quickSummaryDetection(message: string): { isSummary: boolean; specificMeeting?: string; temporal?: string } {
-    const lowerMessage = message.toLowerCase();
-    
-    const summaryKeywords = [
-      'résumé', 'summary', 'résumé de', 'synthèse de',
-      'points clés', 'principales décisions', 'que s\'est-il passé'
-    ];
-    
-    const isSummary = summaryKeywords.some(keyword => lowerMessage.includes(keyword));
-    
-    if (isSummary) {
-      let temporal = null;
-      
-      if (lowerMessage.includes('dernière') || lowerMessage.includes('dernier')) {
-        temporal = 'last';
-      } else if (lowerMessage.includes('juin')) {
-        temporal = 'juin';
-      } else if (lowerMessage.includes('mars')) {
-        temporal = 'mars';
-      }
-      
-      return { isSummary: true, temporal };
-    }
-    
-    return { isSummary: false };
-  }
-
-  private createTaskOnlyAnalysis(message: string, conversationHistory: any[], action: 'list' | 'create' | 'update' | 'complete'): QueryAnalysis {
-    return {
-      requiresDatabase: false,
-      requiresEmbeddings: false,
-      requiresInternet: false,
-      requiresTasks: true,
-      queryType: 'task',
-      specificEntities: [],
-      timeContext: null,
-      priority: 'tasks',
-      searchTerms: [message],
-      synonyms: [],
-      iterativeSearch: false,
-      fuzzyMatching: false,
-      actionDetected: {
-        type: action === 'create' ? 'create' : action === 'complete' ? 'update' : 'list',
-        target: message
-      },
-      medicalContext: true,
-      administrativeContext: true,
-      requiresClarification: false,
-      taskAction: action,
-      confidenceLevel: 0.95,
-      needsIterativeRefinement: false,
-      isSimpleRequest: true
-    };
-  }
-
-  private createTranscriptOnlyAnalysis(message: string, detection: any): QueryAnalysis {
-    const temporalReference = detection.temporal ? {
-      type: detection.temporal === 'last' ? 'last' : 'specific_month',
-      value: detection.temporal !== 'last' ? detection.temporal : undefined,
-      needs_database_lookup: true
-    } : undefined;
-
-    return {
-      requiresDatabase: true,
-      requiresEmbeddings: false,
-      requiresInternet: false,
-      requiresTasks: false,
-      queryType: 'transcript',
-      specificEntities: [],
-      timeContext: detection.temporal || 'récent',
-      temporalReference,
-      priority: 'database',
-      searchTerms: [message],
-      synonyms: [],
-      iterativeSearch: false,
-      fuzzyMatching: false,
-      medicalContext: true,
-      administrativeContext: true,
-      requiresClarification: false,
-      confidenceLevel: 0.9,
-      needsIterativeRefinement: false,
-      isSimpleRequest: true
-    };
-  }
-
-  private createSummaryOnlyAnalysis(message: string, detection: any): QueryAnalysis {
-    const temporalReference = detection.temporal ? {
-      type: detection.temporal === 'last' ? 'last' : 'specific_month',
-      value: detection.temporal !== 'last' ? detection.temporal : undefined,
-      needs_database_lookup: true
-    } : undefined;
-
-    return {
-      requiresDatabase: true,
-      requiresEmbeddings: false,
-      requiresInternet: false,
-      requiresTasks: false,
-      queryType: 'summary',
-      specificEntities: [],
-      timeContext: detection.temporal || 'récent',
-      temporalReference,
-      priority: 'database',
-      searchTerms: [message],
-      synonyms: [],
-      iterativeSearch: false,
-      fuzzyMatching: false,
-      medicalContext: true,
-      administrativeContext: true,
-      requiresClarification: false,
-      confidenceLevel: 0.9,
-      needsIterativeRefinement: false,
-      isSimpleRequest: true
-    };
-  }
-
-  private async performIntelligentAnalysis(message: string, conversationHistory: any[]): QueryAnalysis {
-    console.log('[COORDINATOR] 🔍 Analyse approfondie nécessaire - recherche complexe');
+  // NOUVELLE FONCTION CONSERVATIVE - Ne force plus les actions
+  private async performConservativeAnalysis(message: string, conversationHistory: any[]): QueryAnalysis {
+    console.log('[COORDINATOR] 🔍 Analyse CONSERVATIVE - pas de création d\'action automatique');
 
     const analysisPrompt = `Tu es le coordinateur expert OphtaCare pour le cabinet d'ophtalmologie du Dr Tabibian à Genève. 
 
@@ -343,11 +164,12 @@ CONTEXTE MÉDICAL ADMINISTRATIF :
 
 QUESTION UTILISATEUR: "${message}"
 
-RÈGLES D'ANALYSE OPTIMISÉES :
-1. **PRIORITÉ RECHERCHE VECTORIELLE** : Pour les questions complexes nécessitant recherche sémantique
-2. **RECHERCHE DATABASE** : Seulement si les données structurées sont nécessaires en complément
-3. **ÉVITER LES RECHERCHES INUTILES** : Si une seule source suffit, ne pas chercher ailleurs
-4. **DÉTECTION TEMPORELLE INTELLIGENTE** :
+RÈGLES D'ANALYSE CONSERVATIVE :
+1. **NE PAS FORCER LES ACTIONS** : Ne pas détecter d'actions automatiques sauf demande TRÈS explicite
+2. **PRIORITÉ RECHERCHE VECTORIELLE** : Pour les questions complexes nécessitant recherche sémantique
+3. **RECHERCHE DATABASE** : Seulement si les données structurées sont nécessaires en complément
+4. **ÉVITER LES RECHERCHES INUTILES** : Si une seule source suffit, ne pas chercher ailleurs
+5. **DÉTECTION TEMPORELLE INTELLIGENTE** :
    - "dernière réunion" = requiresDatabase=true avec temporalReference
    - "réunion de juin" = requiresDatabase=true + temporalReference
    - Questions générales = requiresEmbeddings=true en priorité
@@ -358,7 +180,7 @@ PRIORITÉS INTELLIGENTES :
 - Données structurées récentes → priority="database", requiresDatabase=true
 - Informations générales → priority="internet", requiresInternet=true
 
-JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
+JSON OBLIGATOIRE - ANALYSE CONSERVATIVE :
 {
   "requiresDatabase": boolean,
   "requiresEmbeddings": boolean, 
@@ -412,11 +234,11 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
         analysis.synonyms = analysis.synonyms || [];
         analysis.specificEntities = analysis.specificEntities || [];
         analysis.confidenceLevel = analysis.confidenceLevel || 0.8;
-        analysis.needsIterativeRefinement = false; // Réduire les raffinements
+        analysis.needsIterativeRefinement = false;
         analysis.administrativeContext = analysis.administrativeContext || true;
         analysis.isSimpleRequest = false;
         
-        console.log('[COORDINATOR] ✅ Analyse complexe complète:', {
+        console.log('[COORDINATOR] ✅ Analyse conservative complète:', {
           queryType: analysis.queryType,
           priority: analysis.priority,
           confidence: analysis.confidenceLevel,
@@ -428,18 +250,18 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
         return analysis;
       }
       
-      return this.getOptimizedFallbackAnalysis(message);
+      return this.getConservativeFallbackAnalysis(message);
       
     } catch (error) {
       console.error('[COORDINATOR] ❌ Erreur analyse:', error);
-      return this.getOptimizedFallbackAnalysis(message);
+      return this.getConservativeFallbackAnalysis(message);
     }
   }
 
-  private getOptimizedFallbackAnalysis(message: string): QueryAnalysis {
+  private getConservativeFallbackAnalysis(message: string): QueryAnalysis {
     const lowerMessage = message.toLowerCase();
     
-    // Détection intelligente prioritaire vectorielle
+    // Détection intelligente prioritaire vectorielle SANS ACTIONS AUTOMATIQUES
     const isSemanticQuery = ['trouve', 'cherche', 'information', 'dit', 'parlé', 'contenu', 'sujet'].some(term => lowerMessage.includes(term));
     const isMeetingQuery = ['meeting', 'réunion', 'compte rendu', 'résumé'].some(term => lowerMessage.includes(term));
     const needsInternet = ['conseil', 'recommandation', 'aide', 'comment', 'que faire', 'traitement général'].some(term => lowerMessage.includes(term));
@@ -460,12 +282,10 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
     let requiresInternet = false;
 
     if (isSemanticQuery) {
-      // Priorité vectorielle pour recherche sémantique
       priority = 'embeddings';
       requiresEmbeddings = true;
-      requiresDatabase = temporalReference ? true : false; // Database seulement si référence temporelle
+      requiresDatabase = temporalReference ? true : false;
     } else if (isMeetingQuery && temporalReference) {
-      // Meeting avec référence temporelle = database en priorité
       priority = 'database';
       requiresDatabase = true;
       requiresEmbeddings = false;
@@ -488,7 +308,7 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
       priority,
       searchTerms: [message],
       synonyms: [],
-      iterativeSearch: false, // Réduire l'itératif
+      iterativeSearch: false,
       fuzzyMatching: true,
       actionDetected: {
         type: 'help',
@@ -498,7 +318,7 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
       administrativeContext: true,
       requiresClarification: false,
       confidenceLevel: 0.7,
-      needsIterativeRefinement: false, // Pas de raffinement pour fallback
+      needsIterativeRefinement: false,
       isSimpleRequest: false
     };
   }
@@ -513,19 +333,18 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
     );
     
     let confidenceScore = 0;
-    if (searchResults.chunks?.length > 0) confidenceScore += 0.5; // Priorité vectorielle
+    if (searchResults.chunks?.length > 0) confidenceScore += 0.5;
     if (searchResults.meetings?.length > 0) confidenceScore += 0.3;
     if (searchResults.documents?.length > 0) confidenceScore += 0.15;
     if (searchResults.todos?.length > 0) confidenceScore += 0.05;
     
-    // Logique optimisée pour éviter les recherches inutiles
     const shouldTryInternet = !hasRelevantContent && analysis.requiresInternet;
     
     if (!hasRelevantContent && !analysis.isSimpleRequest) {
       return {
         success: false,
         foundRelevant: false,
-        needsExpansion: false, // Réduire l'expansion
+        needsExpansion: false,
         missingContext: 'Recherche plus ciblée nécessaire',
         shouldTryInternet,
         confidenceScore: 0.1
@@ -536,7 +355,7 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
       success: true,
       foundRelevant: true,
       needsExpansion: false,
-      shouldTryInternet: false, // Éviter internet si on a déjà du contenu
+      shouldTryInternet: false,
       confidenceScore
     };
   }
@@ -544,7 +363,6 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
   async refineAnalysisWithResults(originalAnalysis: QueryAnalysis, searchResults: any, originalQuery: string): Promise<QueryAnalysis> {
     console.log('[COORDINATOR] 🔄 Affinement minimal avec résultats');
     
-    // Logique de raffinement réduite pour éviter les boucles
     if (!searchResults || (!searchResults.meetings?.length && !searchResults.chunks?.length)) {
       if (!originalAnalysis.requiresInternet) {
         const refinedAnalysis = { ...originalAnalysis };
@@ -592,7 +410,7 @@ JSON OBLIGATOIRE - ANALYSE OPTIMISÉE :
   }
 
   private calculateConfidence(message: string, queryType: string): number {
-    return 0.8; // Confiance par défaut
+    return 0.8;
   }
 
   private extractTemporalReference(message: string): string | null {
