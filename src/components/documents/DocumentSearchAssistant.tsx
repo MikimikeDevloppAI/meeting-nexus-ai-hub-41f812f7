@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,117 +210,119 @@ export const DocumentSearchAssistant = () => {
   };
 
   return (
-    <Card className="mt-4 mb-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
+    <div className="max-w-[1000px] mx-auto">
+      <Card className="mt-4 mb-4">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearHistory}
+                title="Effacer l'historique"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearHistory}
-              title="Effacer l'historique"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="max-h-[2000px] overflow-y-auto space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className="space-y-2">
-              <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.isUser ? 'bg-primary' : 'bg-secondary'
-                  }`}>
-                    {message.isUser ? (
-                      <User className="h-4 w-4 text-primary-foreground" />
-                    ) : (
-                      <Bot className="h-4 w-4" />
-                    )}
-                  </div>
-                  
-                  <div className={`rounded-lg p-3 ${
-                    message.isUser 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted'
-                  }`}>
-                    <div 
-                      className="text-sm whitespace-pre-wrap"
-                      dangerouslySetInnerHTML={{ 
-                        __html: sanitizeHtml(renderMessageWithLinks(message.content))
-                      }}
-                    />
-                    {message.sources && message.sources.length > 0 && (
+        <CardContent className="space-y-4">
+          <div className="max-h-[2000px] overflow-y-auto space-y-4">
+            {messages.map((message) => (
+              <div key={message.id} className="space-y-2">
+                <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      message.isUser ? 'bg-primary' : 'bg-secondary'
+                    }`}>
+                      {message.isUser ? (
+                        <User className="h-4 w-4 text-primary-foreground" />
+                      ) : (
+                        <Bot className="h-4 w-4" />
+                      )}
+                    </div>
+                    
+                    <div className={`rounded-lg p-3 ${
+                      message.isUser 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted'
+                    }`}>
+                      <div 
+                        className="text-sm whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ 
+                          __html: sanitizeHtml(renderMessageWithLinks(message.content))
+                        }}
+                      />
+                      {message.sources && message.sources.length > 0 && (
+                        <div className="text-xs opacity-70 mt-2">
+                          📄 {message.sources.length} document(s) du cabinet utilisé(s)
+                        </div>
+                      )}
+                      {debugMode && message.debugInfo && (
+                        <div className="text-xs opacity-70 mt-2 bg-orange-100 dark:bg-orange-900 p-2 rounded">
+                          <strong>Debug:</strong> {JSON.stringify(message.debugInfo)}
+                        </div>
+                      )}
                       <div className="text-xs opacity-70 mt-2">
-                        📄 {message.sources.length} document(s) du cabinet utilisé(s)
+                        {message.timestamp.toLocaleTimeString()}
                       </div>
-                    )}
-                    {debugMode && message.debugInfo && (
-                      <div className="text-xs opacity-70 mt-2 bg-orange-100 dark:bg-orange-900 p-2 rounded">
-                        <strong>Debug:</strong> {JSON.stringify(message.debugInfo)}
-                      </div>
-                    )}
-                    <div className="text-xs opacity-70 mt-2">
-                      {message.timestamp.toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
+                
+                {/* Affichage des documents sources pour les réponses de l'IA avec le même visuel que Documents et Meetings */}
+                {!message.isUser && message.sources && message.sources.length > 0 && (
+                  <div className="ml-11">
+                    <SmartDocumentSources 
+                      sources={message.sources} 
+                      title="Documents du cabinet utilisés par l'IA"
+                    />
+                  </div>
+                )}
               </div>
-              
-              {/* Affichage des documents sources pour les réponses de l'IA avec le même visuel que Documents et Meetings */}
-              {!message.isUser && message.sources && message.sources.length > 0 && (
-                <div className="ml-11">
-                  <SmartDocumentSources 
-                    sources={message.sources} 
-                    title="Documents du cabinet utilisés par l'IA"
-                  />
+            ))}
+            
+            {isLoading && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4" />
                 </div>
-              )}
-            </div>
-          ))}
-          
-          {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4" />
+                <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Recherche dans vos documents du cabinet...</span>
+                </div>
               </div>
-              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Recherche dans vos documents du cabinet...</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 pt-4 border-t">
-          <Input
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Recherchez dans vos documents du cabinet..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button 
-            onClick={sendMessage} 
-            disabled={isLoading || !inputMessage.trim()}
-            size="icon"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
             )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+
+          <div className="flex gap-2 pt-4 border-t">
+            <Input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Recherchez dans vos documents du cabinet..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button 
+              onClick={sendMessage} 
+              disabled={isLoading || !inputMessage.trim()}
+              size="icon"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
