@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -69,9 +70,12 @@ const Assistant = () => {
         ? `Reformule cette demande en une description de tâche claire et professionnelle pour un cabinet médical : "${userRequest}"`
         : `Reformule ce point en un point d'ordre du jour clair pour une réunion médicale : "${userRequest}"`;
 
-      console.log('[ASSISTANT] 📝 Utilisation de l\'agent principal pour reformulation');
+      console.log('[ASSISTANT] 📝 Utilisation de l\'agent principal pour reformulation avec historique');
 
-      // Utiliser l'agent principal comme pour les autres requêtes
+      // Obtenir l'historique formaté pour le contexte
+      const formattedHistory = getFormattedHistory();
+
+      // Utiliser l'agent principal comme pour les autres requêtes AVEC l'historique
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
         {
@@ -91,7 +95,7 @@ const Assistant = () => {
               meetingPoints: false,
               reformulationMode: true // Mode spécial pour reformulation
             },
-            conversationHistory: []
+            conversationHistory: formattedHistory // AJOUT DE L'HISTORIQUE !
           }),
         }
       );
