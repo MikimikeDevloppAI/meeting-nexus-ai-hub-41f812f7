@@ -62,17 +62,28 @@ export async function handleDocumentProcessing(
     
     console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés`);
 
-    // NOUVEAU: Améliorer le nommage du document avec plus de contexte
-    const currentDate = new Date().toLocaleDateString('fr-FR');
-    const currentTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const participantInfo = chunks.length > 0 ? 
-      ` - ${cleanedChunks.length} segments` : '';
-    
-    // Extraire quelques mots-clés du contenu pour différencier
+    // NOUVEAU: Améliorer le nommage du document avec plus de contexte significatif
     const keywords = extractKeywords(cleanedTranscript);
-    const keywordSuffix = keywords.length > 0 ? ` (${keywords.slice(0, 3).join(', ')})` : '';
+    const participantInfo = extractParticipantInfo(cleanedTranscript);
+    const topicInfo = extractTopicInfo(cleanedTranscript);
     
-    const enhancedTitle = `${meetingName} - ${meetingDate} à ${currentTime}${participantInfo}${keywordSuffix}`;
+    // Construire un titre enrichi avec contexte métier
+    let enhancedTitle = `${meetingName} - ${meetingDate}`;
+    
+    // Ajouter les informations de participants si disponibles
+    if (participantInfo) {
+      enhancedTitle += ` (${participantInfo})`;
+    }
+    
+    // Ajouter les sujets principaux si identifiés
+    if (topicInfo) {
+      enhancedTitle += ` - ${topicInfo}`;
+    }
+    
+    // Ajouter des mots-clés pour différencier
+    if (keywords.length > 0) {
+      enhancedTitle += ` [${keywords.slice(0, 3).join(', ')}]`;
+    }
 
     // Sauvegarder le document avec embeddings
     const { data: documentResult, error: storeError } = await supabaseClient.rpc(
@@ -90,6 +101,8 @@ export async function handleDocumentProcessing(
           chunkCount: cleanedChunks.length,
           originalChunkCount: chunks.length,
           keywords: keywords,
+          participantInfo: participantInfo,
+          topicInfo: topicInfo,
           processedAt: new Date().toISOString()
         },
         p_meeting_id: meetingId
@@ -155,4 +168,74 @@ function extractKeywords(text: string): string[] {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(entry => entry[0]);
+}
+
+// NOUVEAU: Fonction pour extraire des informations sur les participants
+function extractParticipantInfo(text: string): string | null {
+  const lowerText = text.toLowerCase();
+  
+  // Rechercher des noms propres ou des rôles
+  const participantPatterns = [
+    /\b(dr|docteur|professeur|pr)\s+([a-zàâäéèêëïîôöùûüÿç]+)/gi,
+    /\b([a-zàâäéèêëïîôöùûüÿç]{3,})\s+(dit|a dit|propose|suggère)/gi,
+    /\bémilie\b/gi,
+    /\btabibian\b/gi
+  ];
+  
+  const participants = new Set<string>();
+  
+  for (const pattern of participantPatterns) {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[2]) {
+        participants.add(`${match[1]} ${match[2]}`);
+      } else if (match[1]) {
+        participants.add(match[1]);
+      }
+    }
+  }
+  
+  if (participants.size > 0) {
+    return Array.from(participants).slice(0, 2).join(', ');
+  }
+  
+  return null;
+}
+
+// NOUVEAU: Fonction pour extraire des informations sur les sujets principaux
+function extractTopicInfo(text: string): string | null {
+  const lowerText = text.toLowerCase();
+  
+  // Identifier les sujets principaux
+  const topics = [];
+  
+  if (lowerText.includes('planning') || lowerText.includes('organisation')) {
+    topics.push('Planning');
+  }
+  
+  if (lowerText.includes('patient') || lowerText.includes('consultation')) {
+    topics.push('Consultations');
+  }
+  
+  if (lowerText.includes('ophtalmologie') || lowerText.includes('œil') || lowerText.includes('vision')) {
+    topics.push('Ophtalmologie');
+  }
+  
+  if (lowerText.includes('budget') || lowerText.includes('finance') || lowerText.includes('coût')) {
+    topics.push('Finances');
+  }
+  
+  if (lowerText.includes('équipe') || lowerText.includes('personnel') || lowerText.includes('ressources')) {
+    topics.push('Équipe');
+  }
+  
+  if (lowerText.includes('urgence') || lowerText.includes('urgent')) {
+    topics.push('Urgences');
+  }
+  
+  if (topics.length > 0) {
+    return topics.slice(0, 2).join(' & ');
+  }
+  
+  return null;
 }
