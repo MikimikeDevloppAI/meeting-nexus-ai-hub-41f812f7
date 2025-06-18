@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Trash2, Pen, Plus } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Pen, Users, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -42,10 +42,13 @@ interface Participant {
 export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [participantFilter, setParticipantFilter] = useState<string>("all");
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const form = useForm<NewTodoForm>({
@@ -80,6 +83,7 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         .from("todos")
         .select(`
           *,
+          meetings(title),
           participants(name),
           todo_participants(
             participant_id,
@@ -232,6 +236,11 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     }
   };
 
+  const startEditingTodo = (todoId: string) => {
+    console.log("Starting to edit todo:", todoId);
+    setEditingTodoId(todoId);
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -250,6 +259,16 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     );
   };
 
+  const filteredTodos = todos.filter(todo => {
+    const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
+    const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
+    
+    const participantMatch = participantFilter === "all" || 
+      todo.todo_participants?.some(tp => tp.participant_id === participantFilter);
+    
+    return statusMatch && participantMatch;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -259,109 +278,166 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Tâches extraites ({todos.length})</h3>
-        <Button
-          onClick={() => setShowNewTodoDialog(true)}
-          variant="outline"
-          size="sm"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Nouvelle tâche
-        </Button>
-      </div>
-      
-      {todos.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">Aucune tâche trouvée pour cette réunion</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Tâches de la réunion</h1>
+          <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+            >
+              Toutes
+            </Button>
+            <Button
+              variant={statusFilter === "confirmed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("confirmed")}
+            >
+              En cours
+            </Button>
+            <Button
+              variant={statusFilter === "completed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("completed")}
+            >
+              Terminées
+            </Button>
+          </div>
+          
+          <Select value={participantFilter} onValueChange={setParticipantFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filtrer par participant" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les participants</SelectItem>
+              {participants.map((participant) => (
+                <SelectItem key={participant.id} value={participant.id}>
+                  {participant.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button
+            onClick={() => setShowNewTodoDialog(true)}
+            variant="default"
+            size="sm"
+            className="ml-4"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Nouvelle tâche
+          </Button>
+        </div>
+      </div>
+
+      {filteredTodos.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">Aucune tâche trouvée</p>
+          </CardContent>
+        </Card>
       ) : (
-        todos.map((todo) => (
-          <Card key={todo.id} className="hover:shadow-sm transition-shadow">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                {/* Task header with edit and delete buttons - edit on left, delete on right */}
-                <div className="flex justify-between items-start">
-                  <div className="text-sm font-medium flex-grow mr-2">
-                    <EditableContent
-                      content={todo.description}
-                      onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                      type="todo"
-                      id={todo.id}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 hover:bg-blue-100 hover:text-blue-800"
-                    >
-                      <Pen className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteTodo(todo.id)}
-                      className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Status, participants and actions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(todo.status)}
-                    <div className="text-xs text-gray-600 flex items-center gap-2">
-                      <TodoParticipantManager
-                        todoId={todo.id}
-                        currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                        onParticipantsUpdate={fetchTodos}
-                        compact={true}
+        <div className="space-y-6">
+          {filteredTodos.map((todo) => (
+            <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  {/* Task header with edit, complete and delete buttons */}
+                  <div className="flex justify-between items-start">
+                    <div className="text-lg flex-grow mr-2">
+                      <EditableContent
+                        content={todo.description}
+                        onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                        type="todo"
+                        id={todo.id}
+                        isEditing={editingTodoId === todo.id}
+                        onStartEdit={() => setEditingTodoId(todo.id)}
+                        onStopEdit={() => setEditingTodoId(null)}
                       />
-                      <Button 
-                        onClick={() => openParticipantManager(todo.id)}
-                        variant="ghost"
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
                         size="sm"
-                        className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                        onClick={() => startEditingTodo(todo.id)}
+                        className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Pen className="h-4 w-4" />
+                      </Button>
+                      {todo.status !== 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => completeTodo(todo.id)}
+                          className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteTodo(todo.id)}
+                        className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    {todo.status !== 'completed' && (
-                      <Button
-                        size="sm"
-                        onClick={() => completeTodo(todo.id)}
-                        className="h-7 px-3 bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Terminer
-                      </Button>
-                    )}
+                  {/* Status, meeting and participants */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {getStatusBadge(todo.status)}
+                      {todo.meetings?.[0] && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {todo.meetings[0].title}
+                        </Badge>
+                      )}
+                      <div className="text-xs text-gray-600 flex items-center gap-2">
+                        <TodoParticipantManager
+                          todoId={todo.id}
+                          currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
+                          onParticipantsUpdate={fetchTodos}
+                          compact={true}
+                        />
+                        <Button 
+                          onClick={() => openParticipantManager(todo.id)}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* AI Recommendation - moved before AI Assistant */}
+                  <TodoAIRecommendation todoId={todo.id} />
+
+                  {/* AI Assistant integrated inside the todo card */}
+                  <div className="pl-0.5">
+                    <TodoAssistant 
+                      todoId={todo.id} 
+                      todoDescription={todo.description}
+                      onUpdate={fetchTodos}
+                    />
+                  </div>
+
+                  {/* Inline Comments section */}
+                  <TodoComments todoId={todo.id} />
                 </div>
-
-                {/* AI Recommendation - displayed prominently */}
-                <TodoAIRecommendation todoId={todo.id} />
-
-                {/* Todo Assistant - New component */}
-                <TodoAssistant 
-                  todoId={todo.id} 
-                  todoDescription={todo.description}
-                  onUpdate={fetchTodos}
-                />
-
-                {/* Comments section */}
-                <TodoComments todoId={todo.id} />
-              </div>
-            </CardContent>
-          </Card>
-        ))
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Dialog for managing participants */}
@@ -383,6 +459,7 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         </DialogContent>
       </Dialog>
       
+      {/* Dialog for creating new todo with participant selection */}
       <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
