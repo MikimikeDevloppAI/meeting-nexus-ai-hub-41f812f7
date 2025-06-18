@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -32,6 +33,7 @@ const Assistant = () => {
   const [pendingAction, setPendingAction] = useState<{
     type: 'create_task' | 'add_meeting_point';
     description: string;
+    originalRequest?: string;
     details?: any;
   } | null>(null);
   const [isValidationDialogOpen, setIsValidationDialogOpen] = useState(false);
@@ -309,6 +311,7 @@ const Assistant = () => {
           setPendingAction({
             type: 'create_task',
             description: simplifiedDescription,
+            originalRequest: userMessage,
             details: {}
           });
           setIsValidationDialogOpen(true);
@@ -333,7 +336,8 @@ const Assistant = () => {
           
           setPendingAction({
             type: 'add_meeting_point',
-            description: simplifiedDescription
+            description: simplifiedDescription,
+            originalRequest: userMessage
           });
           setIsValidationDialogOpen(true);
           setIsLoading(false);
@@ -432,18 +436,21 @@ const Assistant = () => {
     }
   };
 
-  const handleActionConfirm = async (selectedParticipants?: string[]) => {
+  const handleActionConfirm = async (selectedParticipants?: string[], modifiedDescription?: string) => {
     if (!pendingAction) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Utiliser la description modifiée ou celle par défaut
+      const finalDescription = modifiedDescription || pendingAction.description;
       
       if (pendingAction.type === 'create_task') {
         // Créer la tâche en base de données - Ne pas mettre assigned_to au moment de la création
         const { data: newTodo, error } = await supabase
           .from('todos')
           .insert([{
-            description: pendingAction.description,
+            description: finalDescription,
             status: 'confirmed',
             created_at: new Date().toISOString(),
             // Ne pas mettre assigned_to ici pour éviter le conflit de contrainte
@@ -487,7 +494,7 @@ const Assistant = () => {
         const { error } = await supabase
           .from('meeting_preparation_custom_points')
           .insert([{
-            point_text: pendingAction.description,
+            point_text: finalDescription,
             created_by: user?.id
           }]);
 

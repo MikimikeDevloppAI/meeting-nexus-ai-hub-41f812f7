@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Plus, Calendar, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Participant {
@@ -21,7 +23,7 @@ interface AIActionValidationDialogProps {
     description: string;
     details?: any;
   } | null;
-  onConfirm: (selectedParticipants?: string[]) => void;
+  onConfirm: (selectedParticipants?: string[], modifiedDescription?: string) => void;
   onReject: () => void;
 }
 
@@ -36,13 +38,17 @@ export const AIActionValidationDialog = ({
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [modifiedDescription, setModifiedDescription] = useState("");
 
-  // Charger les participants quand on ouvre le dialog pour créer une tâche
+  // Charger les participants et initialiser la description quand on ouvre le dialog
   useEffect(() => {
-    if (isOpen && action?.type === 'create_task') {
-      loadParticipants();
+    if (isOpen && action) {
+      setModifiedDescription(action.description);
+      if (action.type === 'create_task') {
+        loadParticipants();
+      }
     }
-  }, [isOpen, action?.type]);
+  }, [isOpen, action]);
 
   const loadParticipants = async () => {
     setLoadingParticipants(true);
@@ -73,9 +79,9 @@ export const AIActionValidationDialog = ({
     setIsProcessing(true);
     try {
       if (action?.type === 'create_task') {
-        await onConfirm(selectedParticipants);
+        await onConfirm(selectedParticipants, modifiedDescription);
       } else {
-        await onConfirm();
+        await onConfirm(undefined, modifiedDescription);
       }
       onClose();
     } catch (error) {
@@ -92,6 +98,7 @@ export const AIActionValidationDialog = ({
 
   const handleClose = () => {
     setSelectedParticipants([]);
+    setModifiedDescription("");
     onClose();
   };
 
@@ -119,17 +126,6 @@ export const AIActionValidationDialog = ({
     }
   };
 
-  const getActionDescription = () => {
-    switch (action.type) {
-      case 'create_task':
-        return `L'assistant IA souhaite créer la tâche suivante : "${action.description}"`;
-      case 'add_meeting_point':
-        return `L'assistant IA souhaite ajouter le point suivant à l'ordre du jour : "${action.description}"`;
-      default:
-        return action.description;
-    }
-  };
-
   const getSelectedParticipantNames = () => {
     return selectedParticipants
       .map(id => participants.find(p => p.id === id)?.name)
@@ -148,35 +144,23 @@ export const AIActionValidationDialog = ({
             </AlertDialogTitle>
           </div>
           <AlertDialogDescription className="text-sm text-muted-foreground">
-            {getActionDescription()}
+            Vérifiez et modifiez si nécessaire la description ci-dessous :
           </AlertDialogDescription>
-          
-          {action.details && (
-            <div className="mt-3 p-3 bg-muted rounded-lg">
-              <h4 className="font-medium text-sm mb-2">Détails supplémentaires :</h4>
-              <div className="text-xs space-y-1">
-                {action.details.participants && (
-                  <div>
-                    <span className="font-medium">Participants : </span>
-                    {action.details.participants.join(', ')}
-                  </div>
-                )}
-                {action.details.dueDate && (
-                  <div>
-                    <span className="font-medium">Échéance : </span>
-                    {new Date(action.details.dueDate).toLocaleDateString('fr-FR')}
-                  </div>
-                )}
-                {action.details.priority && (
-                  <div>
-                    <span className="font-medium">Priorité : </span>
-                    {action.details.priority}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </AlertDialogHeader>
+
+        {/* Section d'édition de la description */}
+        <div className="my-4">
+          <Label htmlFor="description" className="text-sm font-medium">
+            Description :
+          </Label>
+          <Textarea
+            id="description"
+            value={modifiedDescription}
+            onChange={(e) => setModifiedDescription(e.target.value)}
+            className="mt-2 min-h-[100px]"
+            placeholder="Entrez la description..."
+          />
+        </div>
 
         {/* Section de sélection des participants pour les tâches */}
         {action.type === 'create_task' && (
@@ -240,7 +224,7 @@ export const AIActionValidationDialog = ({
           </AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleConfirm} 
-            disabled={isProcessing}
+            disabled={isProcessing || !modifiedDescription.trim()}
             className="bg-primary hover:bg-primary/90"
           >
             {isProcessing ? (
