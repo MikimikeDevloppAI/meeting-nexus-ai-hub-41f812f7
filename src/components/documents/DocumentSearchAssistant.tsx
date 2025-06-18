@@ -283,9 +283,6 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            🔄 Recherche contextuelle améliorée • Synonymes médicaux automatiques • Seuils assouplis
-          </p>
         </CardHeader>
 
         <CardContent className="space-y-4">
