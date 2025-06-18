@@ -12,14 +12,15 @@ Tâches à effectuer UNIQUEMENT :
 - Corriger les erreurs de transcription évidentes (mots mal transcrits)
 - Enlever les mots d'hésitation ("euh", "hm", "ben", etc.) 
 - Supprimer les répétitions inutiles et les faux départs
-- Remplacer "Speaker 1", "Speaker 2", etc. par les vrais noms des participants
+- Remplacer "Speaker 1", "Speaker 2", etc. par les vrais noms des participants fournjis ci-dessous
 - Améliorer la ponctuation pour la lisibilité
 - Structurer en paragraphes cohérents
+- Reortographie les mots suivant si ils sont mal écrit: Ophtacare, Liris
 
 INTERDICTIONS ABSOLUES :
 - NE PAS résumer ou condenser le contenu
 - NE PAS omettre des passages ou conversations
-- NE PAS paraphraser les propos
+- tu peux paraphraser les propos pour les rendres plus clair
 - NE PAS réorganiser l'ordre chronologique
 - NE PAS supprimer des détails qui semblent répétitifs mais importants
 
