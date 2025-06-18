@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,26 @@ const Assistant = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Fonction pour filtrer les sources par documents explicitement utilisés par l'IA (même logique que DocumentSearchAssistant)
+  const filterByActuallyUsedDocuments = (sources: any[], actuallyUsedDocuments: string[]) => {
+    if (!sources || sources.length === 0 || !actuallyUsedDocuments || actuallyUsedDocuments.length === 0) {
+      console.log('[ASSISTANT] ⚠️ Pas de documents explicitement utilisés ou pas de sources');
+      return [];
+    }
+
+    console.log('[ASSISTANT] 🎯 Documents explicitement utilisés par l\'IA:', actuallyUsedDocuments);
+    console.log('[ASSISTANT] 📄 Sources disponibles:', sources.length);
+
+    // Filtrer les sources pour ne garder que celles explicitement utilisées
+    const filteredSources = sources.filter(source => 
+      actuallyUsedDocuments.includes(source.documentId || source.document_id)
+    );
+
+    console.log('[ASSISTANT] ✅ Sources filtrées par utilisation réelle:', filteredSources.length);
+
+    return filteredSources;
+  };
 
   // Fonction pour générer du contenu enrichi pour les actions
   const generateEnrichedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
@@ -278,15 +299,26 @@ const Assistant = () => {
         cleanedResponse = cleanedResponse.trim();
       }
 
-      // Transformer les sources pour l'affichage des documents
-      const transformedSources = data.sources ? data.sources.map((source: any) => ({
-        documentId: source.document_id,
-        documentName: source.document_name || 'Document inconnu',
-        maxSimilarity: source.similarity || 0,
-        chunksCount: 1,
-        documentType: source.document_type || 'document',
-        relevantChunks: source.chunk_text ? [source.chunk_text] : []
-      })) : [];
+      // NOUVELLE LOGIQUE : Filtrer les sources comme dans DocumentSearchAssistant
+      let transformedSources = [];
+      
+      // Si des documents ont été explicitement utilisés, les filtrer
+      if (data.actuallyUsedDocuments && data.actuallyUsedDocuments.length > 0 && data.sources) {
+        // Transformer les sources pour correspondre au format attendu
+        const rawSources = data.sources.map((source: any) => ({
+          documentId: source.document_id,
+          documentName: source.document_name || 'Document inconnu',
+          maxSimilarity: source.similarity || 0,
+          chunksCount: 1,
+          documentType: source.document_type || 'document',
+          relevantChunks: source.chunk_text ? [source.chunk_text] : []
+        }));
+        
+        // Appliquer le même filtrage que DocumentSearchAssistant
+        transformedSources = filterByActuallyUsedDocuments(rawSources, data.actuallyUsedDocuments);
+        
+        console.log('[ASSISTANT] Sources filtrées:', transformedSources.length, 'documents réellement utilisés');
+      }
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -297,7 +329,7 @@ const Assistant = () => {
         databaseContext: data.databaseContext,
         hasRelevantContext: data.hasRelevantContext,
         actuallyUsedDocuments: data.actuallyUsedDocuments,
-        sources: transformedSources
+        sources: transformedSources // Utiliser les sources filtrées
       };
 
       addMessage(assistantMessage);
@@ -519,9 +551,9 @@ const Assistant = () => {
         </CardContent>
       </Card>
 
-      {/* Chat Card */}
+      {/* Chat Card avec meilleur affichage */}
       <Card className="h-[600px] flex flex-col">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-4 flex-shrink-0">
           <div className="flex items-center gap-2 justify-between">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
@@ -542,7 +574,7 @@ const Assistant = () => {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="flex-1 flex flex-col p-4">
+        <CardContent className="flex-1 flex flex-col p-4 min-h-0">
           <ScrollArea className="flex-1 pr-4 mb-4" ref={chatContainerRef}>
             <div className="space-y-4">
               {messages.length === 0 && (
@@ -558,7 +590,7 @@ const Assistant = () => {
               {messages.map((message) => (
                 <div key={message.id} className="space-y-2">
                   <div className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`flex gap-3 max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         message.isUser ? 'bg-primary' : 'bg-secondary'
                       }`}>
@@ -569,12 +601,12 @@ const Assistant = () => {
                         )}
                       </div>
                       
-                      <div className={`rounded-lg p-3 break-words overflow-hidden ${
+                      <div className={`rounded-lg p-3 break-words ${
                         message.isUser 
                           ? 'bg-primary text-primary-foreground' 
                           : 'bg-muted'
                       }`}>
-                        <div className="text-sm whitespace-pre-wrap break-words">
+                        <div className="text-sm whitespace-pre-wrap break-words word-wrap overflow-wrap-anywhere">
                           {message.content}
                         </div>
                         <div className="text-xs opacity-70 mt-2">
@@ -584,7 +616,7 @@ const Assistant = () => {
                     </div>
                   </div>
 
-                  {/* Affichage des documents sources pour les réponses de l'IA */}
+                  {/* Affichage des documents sources pour les réponses de l'IA - SEULEMENT si réellement utilisés */}
                   {!message.isUser && message.sources && message.sources.length > 0 && (
                     <div className="ml-11">
                       <SmartDocumentSources 
@@ -610,7 +642,7 @@ const Assistant = () => {
             </div>
           </ScrollArea>
 
-          <div className="flex gap-2 pt-4 border-t">
+          <div className="flex gap-2 pt-4 border-t flex-shrink-0">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
