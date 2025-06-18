@@ -120,7 +120,9 @@ const Assistant = () => {
         
         // Nettoyage des patterns d'action
         cleanedContent = cleanedContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[ACTION_TASK:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[ACTION_MEETING:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.trim();
         
@@ -137,7 +139,7 @@ const Assistant = () => {
   const isExplicitActionRequest = (userMessage: string): boolean => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // Mots-clés très explicites pour création de tâche - élargi
+    // Mots-clés très explicites pour création de tâche - encore plus élargi
     const taskKeywords = [
       'créé une tâche',
       'créer une tâche', 
@@ -150,7 +152,14 @@ const Assistant = () => {
       'crée une action',
       'peux tu créer',
       'peux tu crée',
-      'tu peux créer'
+      'tu peux créer',
+      'peux-tu créer',
+      'pourrais-tu créer',
+      'pourrait tu créer',
+      'peux tu faire une tâche',
+      'créer tâche',
+      'crée tâche',
+      'créé tâche'
     ];
     
     // Mots-clés très explicites pour ajout de point à la réunion
@@ -215,6 +224,66 @@ const Assistant = () => {
       const isExplicitRequest = isExplicitActionRequest(userMessage);
       console.log('[ASSISTANT] 🎯 Demande explicite détectée AVANT envoi:', isExplicitRequest);
       
+      // SI C'EST UNE DEMANDE EXPLICITE, on force l'interception AVANT même l'appel à l'agent
+      if (isExplicitRequest) {
+        console.log('[ASSISTANT] ⚡ INTERCEPTION IMMÉDIATE - Demande explicite détectée');
+        
+        // Détecter le type d'action demandée
+        const lowerMessage = userMessage.toLowerCase();
+        const isTaskRequest = ['créé une tâche', 'créer une tâche', 'crée une tâche', 'peux tu créer', 'nouvelle tâche', 'ajouter une tâche'].some(k => lowerMessage.includes(k));
+        const isMeetingRequest = ['ajouter un point', 'ordre du jour', 'point à la réunion'].some(k => lowerMessage.includes(k));
+        
+        if (isTaskRequest) {
+          console.log('[ASSISTANT] ✅ Action tâche détectée IMMÉDIATEMENT');
+          
+          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
+          
+          setPendingAction({
+            type: 'create_task',
+            description: simplifiedDescription,
+            details: {}
+          });
+          setIsValidationDialogOpen(true);
+          setIsLoading(false);
+          
+          // Ajouter un message de confirmation dans le chat
+          const confirmationMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            content: "Je vais créer une tâche. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+            isUser: false,
+            timestamp: new Date(),
+          };
+          addMessage(confirmationMessage);
+          
+          return; // Arrêter ici, ne pas appeler l'agent
+        }
+        
+        if (isMeetingRequest) {
+          console.log('[ASSISTANT] ✅ Action réunion détectée IMMÉDIATEMENT');
+          
+          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
+          
+          setPendingAction({
+            type: 'add_meeting_point',
+            description: simplifiedDescription
+          });
+          setIsValidationDialogOpen(true);
+          setIsLoading(false);
+          
+          // Ajouter un message de confirmation dans le chat
+          const confirmationMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            content: "Je vais ajouter un point à l'ordre du jour. Veuillez confirmer dans la fenêtre qui s'ouvre.",
+            isUser: false,
+            timestamp: new Date(),
+          };
+          addMessage(confirmationMessage);
+          
+          return; // Arrêter ici, ne pas appeler l'agent
+        }
+      }
+      
+      // Si pas d'interception immédiate, continuer avec l'appel normal à l'agent
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
         {
@@ -238,95 +307,7 @@ const Assistant = () => {
       const data = await response.json();
       
       console.log('[ASSISTANT] 📨 Réponse complète de l\'agent:', data);
-      
-      // TRAITEMENT SPÉCIAL pour demandes explicites
-      if (isExplicitRequest) {
-        console.log('[ASSISTANT] ✅ Demande explicite confirmée, vérification des actions...');
-        
-        // Vérifier si une action doit être interceptée AVANT d'ajouter le message
-        const responseText = data.response || '';
-        
-        console.log('[ASSISTANT] 🔍 Analyse réponse pour patterns d\'action:', responseText);
-        
-        // 1. Vérifier les patterns d'action dans la réponse - patterns plus larges
-        const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/) || 
-                         responseText.match(/\[ACTION_TASK:([^\]]+)\]/) ||
-                         responseText.includes('créer une tâche') ||
-                         responseText.includes('créé une tâche') ||
-                         responseText.includes('crée une tâche');
-        
-        const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/) || 
-                            responseText.match(/\[ACTION_MEETING:([^\]]+)\]/) ||
-                            responseText.includes('ajouter un point') ||
-                            responseText.includes('ordre du jour');
-        
-        // 2. Vérifier aussi les résultats des agents
-        const hasTaskAction = data.taskContext?.taskCreated;
-        const hasMeetingAction = data.meetingPreparationResult?.actionPerformed || data.meetingPreparationResult?.action === 'add';
-        
-        console.log('[ASSISTANT] 🔎 Détection d\'actions améliorée:', {
-          taskMatch: !!taskMatch,
-          meetingMatch: !!meetingMatch,
-          hasTaskAction,
-          hasMeetingAction,
-          responseContainsTask: responseText.includes('tâche'),
-          responseContainsMeeting: responseText.includes('réunion') || responseText.includes('ordre')
-        });
-        
-        // 3. Gérer les actions détectées avec génération de contenu simplifié
-        if (taskMatch || hasTaskAction || responseText.includes('tâche')) {
-          console.log('[ASSISTANT] ✅ Action tâche détectée, génération de contenu...');
-          
-          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
-          
-          setPendingAction({
-            type: 'create_task',
-            description: simplifiedDescription,
-            details: data.taskContext
-          });
-          setIsValidationDialogOpen(true);
-          setIsLoading(false);
-          
-          // Ajouter un message de confirmation dans le chat
-          const confirmationMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            content: "Je vais créer une tâche. Veuillez confirmer dans la fenêtre qui s'ouvre.",
-            isUser: false,
-            timestamp: new Date(),
-          };
-          addMessage(confirmationMessage);
-          
-          return; // Arrêter ici, ne pas ajouter le message complet
-        }
-        
-        if (meetingMatch || hasMeetingAction || responseText.includes('ordre du jour')) {
-          console.log('[ASSISTANT] ✅ Action réunion détectée, génération de contenu...');
-          
-          const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
-          
-          setPendingAction({
-            type: 'add_meeting_point',
-            description: simplifiedDescription
-          });
-          setIsValidationDialogOpen(true);
-          setIsLoading(false);
-          
-          // Ajouter un message de confirmation dans le chat
-          const confirmationMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            content: "Je vais ajouter un point à l'ordre du jour. Veuillez confirmer dans la fenêtre qui s'ouvre.",
-            isUser: false,
-            timestamp: new Date(),
-          };
-          addMessage(confirmationMessage);
-          
-          return; // Arrêter ici, ne pas ajouter le message complet
-        }
-      } else {
-        console.log('[ASSISTANT] ➡️ Pas de demande explicite, traitement normal...');
-      }
 
-      // 4. Si aucune action détectée ou pas de demande explicite, ajouter le message normalement
       // Nettoyer la réponse des patterns d'action avant affichage
       let cleanedResponse = data.response;
       if (cleanedResponse) {
