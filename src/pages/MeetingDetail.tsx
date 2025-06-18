@@ -8,7 +8,6 @@ import { Calendar, Users, FileText } from "lucide-react";
 import { MeetingTodos } from "@/components/MeetingTodos";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
-import { TodosChat } from "@/components/meeting/TodosChat";
 import { useState } from "react";
 
 interface Participant {
@@ -170,7 +169,7 @@ export default function MeetingDetail() {
         </Card>
       )}
 
-      {/* Todos with Chat Inside - Using MeetingTodos component */}
+      {/* Todos without Chat - Using MeetingTodos component */}
       <Card data-updated>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -178,12 +177,7 @@ export default function MeetingDetail() {
             Tâches de la réunion
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Chat Todos à l'intérieur */}
-          <div className="pl-0.5">
-            <TodosChat meetingId={meeting.id} onTodosUpdate={handleDataUpdate} />
-          </div>
-          
+        <CardContent>
           {/* Liste des Todos avec toutes les fonctionnalités identiques à la page Todos */}
           <MeetingTodos meetingId={meeting.id} />
         </CardContent>
