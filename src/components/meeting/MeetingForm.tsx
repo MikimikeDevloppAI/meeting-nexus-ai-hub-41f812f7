@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,22 @@ interface ProcessingStep {
   id: string;
   title: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
+}
+
+interface Task {
+  id: string;
+  description: string;
+  status: 'pending' | 'confirmed' | 'completed';
+  assignedTo?: string;
+  recommendation?: string;
+  todo_participants?: Array<{
+    participant_id: string;
+    participants: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 interface MeetingFormProps {
@@ -49,7 +66,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
   const [meetingResults, setMeetingResults] = useState<{
     transcript?: string;
     summary?: string;
-    tasks?: Array<{ description: string; assignedTo?: string; recommendation?: string }>;
+    tasks?: Task[];
   }>({});
   
   const { toast } = useToast();
