@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -461,82 +460,6 @@ const Assistant = () => {
                       <div className="text-xs opacity-70 mt-2">
                         {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
                       </div>
-
-                      {/* Sources d'information */}
-                      {message.sources && message.sources.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-opacity-20">
-                          <p className="text-xs font-semibold mb-1">Sources :</p>
-                          <ul className="list-disc pl-4 text-xs space-y-1">
-                            {message.sources.map((source, index) => (
-                              <li key={index}>
-                                <a href={source.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                  {source.title || source.url}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Documents utilisés */}
-                      {message.actuallyUsedDocuments && message.actuallyUsedDocuments.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-opacity-20">
-                          <p className="text-xs font-semibold mb-1">Documents utilisés :</p>
-                          <div className="flex flex-wrap gap-1">
-                            {message.actuallyUsedDocuments.map((docId, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                Doc {docId}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Contexte des tâches */}
-                      {message.taskContext && message.taskContext.currentTasks && message.taskContext.currentTasks.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-opacity-20">
-                          <p className="text-xs font-semibold mb-1">Tâches associées :</p>
-                          <ul className="list-disc pl-4 text-xs space-y-1">
-                            {message.taskContext.currentTasks.map((task: Task) => (
-                              <li key={task.id}>
-                                {task.description} <Badge variant="secondary" className="text-xs ml-1">{task.status}</Badge>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Contexte de la base de données */}
-                      {message.databaseContext && (
-                        <div className="mt-2 pt-2 border-t border-opacity-20">
-                          {message.databaseContext.meetings && message.databaseContext.meetings.length > 0 && (
-                            <div className="mb-2">
-                              <p className="text-xs font-semibold mb-1">Réunions associées :</p>
-                              <ul className="list-disc pl-4 text-xs space-y-1">
-                                {message.databaseContext.meetings.map((meeting: any) => (
-                                  <li key={meeting.id}>
-                                    {meeting.title} <Badge variant="outline" className="text-xs ml-1">
-                                      {format(new Date(meeting.created_at), "d MMM", { locale: fr })}
-                                    </Badge>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {message.databaseContext.documents && message.databaseContext.documents.length > 0 && (
-                            <div>
-                              <p className="text-xs font-semibold mb-1">Documents associés :</p>
-                              <ul className="list-disc pl-4 text-xs space-y-1">
-                                {message.databaseContext.documents.map((document: any) => (
-                                  <li key={document.id}>
-                                    {document.ai_generated_name || document.original_name}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
