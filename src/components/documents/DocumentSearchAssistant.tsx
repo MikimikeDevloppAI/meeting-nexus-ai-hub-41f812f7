@@ -41,7 +41,7 @@ export const DocumentSearchAssistant = () => {
     getFormattedHistory 
   } = useUnifiedChatHistory({
     storageKey: 'document-search-assistant-history',
-    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire amélioré. Je peux maintenant faire des liens contextuels intelligents et trouver des informations connexes dans vos documents (ex: yeux/paupières, chirurgie/laser). Posez-moi vos questions !",
+    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire. Je peux maintenant faire des liens contextuels intelligents et trouver des informations connexes dans vos documents (ex: yeux/paupières, chirurgie/laser). Posez-moi vos questions !",
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
@@ -348,7 +348,7 @@ export const DocumentSearchAssistant = () => {
                 </div>
                 <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Recherche contextuelle améliorée en cours...</span>
+                  <span className="text-sm">Recherche contextuelle en cours...</span>
                 </div>
               </div>
             )}
@@ -359,7 +359,7 @@ export const DocumentSearchAssistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Recherchez avec plus de flexibilité (ex: yeux, chirurgie, laser)..."
+              placeholder="Recherchez dans vos documents..."
               disabled={isLoading}
               className="flex-1"
             />
