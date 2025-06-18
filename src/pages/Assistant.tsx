@@ -60,6 +60,8 @@ const Assistant = () => {
 
   // Fonction pour générer du contenu simplifié pour les actions
   const generateSimplifiedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
+    console.log('[ASSISTANT] 🎯 Génération contenu pour:', actionType, 'demande:', userRequest);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -70,6 +72,8 @@ const Assistant = () => {
         : `Reformule ce point de réunion de façon concise: "${userRequest}".
            Format simple markdown avec titre et description courte.
            Réponds UNIQUEMENT avec le contenu reformulé.`;
+
+      console.log('[ASSISTANT] 📝 Prompt envoyé:', prompt);
 
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
@@ -95,6 +99,8 @@ const Assistant = () => {
         const data = await response.json();
         let cleanedContent = data.response || userRequest;
         
+        console.log('[ASSISTANT] 📨 Réponse brute reçue:', data.response);
+        
         // Nettoyage des patterns d'action
         cleanedContent = cleanedContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.replace(/\[ACTION_TASK:[^\]]+\]/g, '');
@@ -103,13 +109,21 @@ const Assistant = () => {
         cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
         cleanedContent = cleanedContent.trim();
         
-        return cleanedContent;
+        console.log('[ASSISTANT] ✅ Contenu nettoyé final:', cleanedContent);
+        
+        // S'assurer qu'on retourne au moins la demande originale si le contenu est vide
+        const finalContent = cleanedContent || userRequest;
+        console.log('[ASSISTANT] 🎯 Contenu final retourné:', finalContent);
+        
+        return finalContent;
+      } else {
+        console.log('[ASSISTANT] ⚠️ Erreur API, fallback vers demande originale');
+        return userRequest;
       }
     } catch (error) {
-      console.error('Erreur génération contenu:', error);
+      console.error('[ASSISTANT] ❌ Erreur génération contenu:', error);
+      return userRequest; // Fallback vers la demande originale
     }
-    
-    return userRequest; // Fallback
   };
 
   // Fonction ULTRA-INTELLIGENTE pour détecter les demandes d'actions
@@ -276,6 +290,7 @@ const Assistant = () => {
         console.log('[ASSISTANT] ⚡ CRÉATION TÂCHE - Traitement immédiat');
         
         const simplifiedDescription = await generateSimplifiedContent(userMessage, 'task');
+        console.log('[ASSISTANT] 🎯 Description simplifiée générée:', simplifiedDescription);
         
         setPendingAction({
           type: 'create_task',
@@ -301,6 +316,7 @@ const Assistant = () => {
         console.log('[ASSISTANT] ⚡ POINT RÉUNION - Traitement immédiat');
         
         const simplifiedDescription = await generateSimplifiedContent(userMessage, 'meeting_point');
+        console.log('[ASSISTANT] 🎯 Description simplifiée générée:', simplifiedDescription);
         
         setPendingAction({
           type: 'add_meeting_point',

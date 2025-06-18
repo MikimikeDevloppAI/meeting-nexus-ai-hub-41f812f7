@@ -43,12 +43,28 @@ export const AIActionValidationDialog = ({
   // Charger les participants et initialiser la description quand on ouvre le dialog
   useEffect(() => {
     if (isOpen && action) {
-      setModifiedDescription(action.description);
+      console.log('[DIALOG] 🎯 Initialisation avec action:', action);
+      console.log('[DIALOG] 📝 Description reçue:', action.description);
+      
+      // S'assurer que la description est bien définie et non vide
+      const initialDescription = action.description || "";
+      setModifiedDescription(initialDescription);
+      
+      console.log('[DIALOG] ✅ Description initialisée:', initialDescription);
+      
       if (action.type === 'create_task') {
         loadParticipants();
       }
     }
   }, [isOpen, action]);
+
+  // Reset quand on ferme le dialog
+  useEffect(() => {
+    if (!isOpen) {
+      setModifiedDescription("");
+      setSelectedParticipants([]);
+    }
+  }, [isOpen]);
 
   const loadParticipants = async () => {
     setLoadingParticipants(true);
@@ -78,6 +94,8 @@ export const AIActionValidationDialog = ({
   const handleConfirm = async () => {
     setIsProcessing(true);
     try {
+      console.log('[DIALOG] 🚀 Confirmation avec description:', modifiedDescription);
+      
       if (action?.type === 'create_task') {
         await onConfirm(selectedParticipants, modifiedDescription);
       } else {
@@ -160,6 +178,12 @@ export const AIActionValidationDialog = ({
             className="mt-2 min-h-[100px]"
             placeholder="Entrez la description..."
           />
+          {/* Debug info - à supprimer après test */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-2 text-xs text-gray-500">
+              Debug: "{modifiedDescription}" (length: {modifiedDescription.length})
+            </div>
+          )}
         </div>
 
         {/* Section de sélection des participants pour les tâches */}
