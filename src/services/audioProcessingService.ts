@@ -11,10 +11,26 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
 
   console.log(`[CHUNKING] Processing text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
   
+  // NOUVEAU: Nettoyer le texte en supprimant les lignes vides et normalisant les espaces
+  const cleanedText = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanedText) {
+    console.log('[CHUNKING] ⚠️ Text became empty after cleaning');
+    return [];
+  }
+
+  console.log(`[CHUNKING] Text cleaned: ${text.length} -> ${cleanedText.length} characters`);
+  
   const chunks: string[] = [];
   
   // Split by sentences using proper sentence endings
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  const sentences = cleanedText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
   
   for (const sentence of sentences) {
@@ -64,7 +80,7 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
     return chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
   }).join(' ');
   
-  const originalLength = text.trim().length;
+  const originalLength = cleanedText.length; // Utiliser le texte nettoyé comme référence
   const reconstructedLength = reconstructedText.length;
   const coveragePercentage = (reconstructedLength / originalLength) * 100;
   
@@ -93,14 +109,34 @@ const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: numbe
 const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
   console.log('[EMBEDDINGS] Generating embeddings for', texts.length, 'unique chunks');
   
-  // Log first few characters of each chunk to verify they're different
-  texts.forEach((text, index) => {
-    console.log(`[EMBEDDINGS] Chunk ${index + 1} preview:`, text.substring(0, 100) + '...');
+  // NOUVEAU: Nettoyer les chunks avant l'embedding
+  const cleanedTexts = texts
+    .map(text => {
+      return text
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    })
+    .filter(text => text.length > 0);
+
+  console.log(`[EMBEDDINGS] Cleaned texts: ${texts.length} -> ${cleanedTexts.length} (removed empty content)`);
+  
+  // Log first few characters of each cleaned chunk
+  cleanedTexts.forEach((text, index) => {
+    console.log(`[EMBEDDINGS] Cleaned chunk ${index + 1} preview:`, text.substring(0, 100) + '...');
   });
+  
+  if (cleanedTexts.length === 0) {
+    console.warn('[EMBEDDINGS] ⚠️ No valid texts after cleaning');
+    return [];
+  }
   
   try {
     const { data: functionResult, error: functionError } = await supabase.functions.invoke('generate-embeddings', {
-      body: { texts }
+      body: { texts: cleanedTexts }
     });
 
     if (functionError) {

@@ -1,3 +1,4 @@
+
 // Embeddings generation utilities
 
 export async function generateEmbeddings(chunks: string[], openaiApiKey: string): Promise<number[][]> {
@@ -91,10 +92,26 @@ export function chunkText(text: string, minChunkSize: number = 300, maxChunkSize
 
   console.log(`📝 Chunking text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
 
+  // NOUVEAU: Nettoyer le texte en supprimant les lignes vides et les espaces inutiles
+  const cleanedText = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanedText) {
+    console.log('⚠️ Text became empty after cleaning');
+    return [];
+  }
+
+  console.log(`📝 Text cleaned: ${text.length} -> ${cleanedText.length} characters`);
+
   const chunks = [];
   
   // Split by sentences using proper sentence endings
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  const sentences = cleanedText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
 
   for (const sentence of sentences) {
@@ -137,12 +154,12 @@ export function chunkText(text: string, minChunkSize: number = 300, maxChunkSize
     }
   }
 
-  // Verify we haven't lost any text
+  // Verify we haven't lost any text (après nettoyage)
   const totalChunkLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const originalLength = text.trim().length;
+  const originalLength = cleanedText.length;
   
   if (Math.abs(totalChunkLength - originalLength) > originalLength * 0.05) { // Allow 5% variance for spacing
-    console.warn(`⚠️ Possible text loss detected: original ${originalLength} chars, chunks total ${totalChunkLength} chars`);
+    console.warn(`⚠️ Possible text loss detected: cleaned ${originalLength} chars, chunks total ${totalChunkLength} chars`);
   }
 
   // Log statistics

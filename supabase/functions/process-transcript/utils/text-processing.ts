@@ -1,3 +1,4 @@
+
 // Helper function to clean JSON response from OpenAI
 export function cleanJSONResponse(content: string): string {
   // Remove markdown code blocks
@@ -38,10 +39,26 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
 
   console.log(`[CHUNKING] Processing text of ${text.length} characters with min: ${minChunkSize}, max: ${maxChunkSize}`);
   
+  // NOUVEAU: Nettoyer le texte en supprimant les lignes vides et normalisant les espaces
+  const cleanedText = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanedText) {
+    console.log('[CHUNKING] ⚠️ Text became empty after cleaning');
+    return [];
+  }
+
+  console.log(`[CHUNKING] Text cleaned: ${text.length} -> ${cleanedText.length} characters`);
+  
   const chunks: string[] = [];
   
   // Split by sentences using proper sentence endings
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  const sentences = cleanedText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
   
   for (const sentence of sentences) {
@@ -91,7 +108,7 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
     return chunk.replace(/^\[(?:Segment|Final-segment|Single-segment).*?\]\s*/, '');
   }).join(' ');
   
-  const originalText = text.trim();
+  const originalText = cleanedText; // Utiliser le texte nettoyé comme référence
   const coverageRatio = totalChunkText.length / originalText.length;
   
   if (coverageRatio < 0.95) { // Less than 95% coverage indicates potential text loss
@@ -108,7 +125,7 @@ export const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize
   
   console.log(`[CHUNKING] Final result: ${chunks.length} chunks with complete coverage`);
   console.log(`[CHUNKING] Size distribution: min=${Math.min(...chunkSizes)}, max=${Math.max(...chunkSizes)}, avg=${avgSize}`);
-  console.log(`[CHUNKING] Text coverage: ${(coverageRatio * 100).toFixed(1)}% of original text preserved`);
+  console.log(`[CHUNKING] Text coverage: ${(coverageRatio * 100).toFixed(1)}% of cleaned text preserved`);
   
   return chunks;
 };
