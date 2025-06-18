@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -276,15 +275,6 @@ const Assistant = () => {
                 Mode recherche documents
               </Label>
             </div>
-            {user && (
-              <div className="flex items-center space-x-2 ml-auto">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} />
-                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-muted-foreground">{user?.email}</span>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
