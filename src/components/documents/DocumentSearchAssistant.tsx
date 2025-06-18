@@ -235,10 +235,6 @@ export const DocumentSearchAssistant = () => {
             </Button>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          🔒 Mode strict : Recherche UNIQUEMENT dans vos documents du cabinet • {messages.length} message(s) en mémoire
-          {debugMode && <span className="text-orange-500"> • Mode debug activé</span>}
-        </p>
       </CardHeader>
 
       <CardContent className="space-y-4">
