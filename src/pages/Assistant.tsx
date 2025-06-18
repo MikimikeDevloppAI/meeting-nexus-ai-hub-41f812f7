@@ -102,10 +102,25 @@ const Assistant = () => {
         
         console.log('[ASSISTANT] 📨 Réponse agent principal reçue:', reformulatedContent);
         
+        // NETTOYAGE COMPLET des balises d'action et formatage indésirable
+        reformulatedContent = reformulatedContent.replace(/\[ACTION_TACHE:[^\]]*\]/g, '');
+        reformulatedContent = reformulatedContent.replace(/\[ACTION_TASK:[^\]]*\]/g, '');
+        reformulatedContent = reformulatedContent.replace(/\[ACTION_REUNION:[^\]]*\]/g, '');
+        reformulatedContent = reformulatedContent.replace(/\[ACTION_MEETING:[^\]]*\]/g, '');
+        reformulatedContent = reformulatedContent.replace(/\[ACTION:[^\]]*\]/g, '');
+        
         // Nettoyage pour s'assurer qu'on n'a que le contenu reformulé
         reformulatedContent = reformulatedContent.replace(/^(voici|voilà|description|tâche|point|agenda|reformulé|reformulée)[\s:.-]+/i, '');
         reformulatedContent = reformulatedContent.replace(/^["'`]+|["'`]+$/g, '');
         reformulatedContent = reformulatedContent.trim();
+        
+        // Si après nettoyage il ne reste rien, extraire le contenu des balises
+        if (!reformulatedContent) {
+          const match = data.response.match(/\[ACTION_[^:]+:([^\]]+)\]/);
+          if (match) {
+            reformulatedContent = match[1].trim();
+          }
+        }
         
         console.log('[ASSISTANT] ✅ Contenu reformulé final:', reformulatedContent);
         
