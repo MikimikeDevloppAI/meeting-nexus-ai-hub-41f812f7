@@ -85,16 +85,14 @@ INSTRUCTIONS IMPORTANTES :
 - N'hésite pas à donner des informations contextuelles supplémentaires
 - Sois précis et professionnel tout en étant exhaustif
 
-IMPORTANT POUR LES SOURCES :
-À la fin de ta réponse, tu DOIS ajouter une section spéciale qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format exact :
+IMPORTANT POUR LES SOURCES - FORMAT OBLIGATOIRE :
+À la fin de ta réponse, tu DOIS ajouter une section qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format EXACT (copie-colle exactement) :
 
-[DOCUMENTS_UTILISÉS]
-- ID_DU_DOCUMENT_1
-- ID_DU_DOCUMENT_2
-(etc.)
-[/DOCUMENTS_UTILISÉS]
+DOCS_USED:
+id1,id2,id3
+END_DOCS
 
-Ne liste que les documents dont tu as vraiment lu et utilisé le contenu pour ta réponse. Si tu n'as utilisé aucun document spécifique, écris [DOCUMENTS_UTILISÉS]Aucun[/DOCUMENTS_UTILISÉS]
+Ne liste que les documents dont tu as vraiment lu et utilisé le contenu pour ta réponse. Si tu n'as utilisé aucun document spécifique, écris DOCS_USED:none END_DOCS
 
 Question de l'utilisateur: "${message}"
 
@@ -103,7 +101,9 @@ CONTEXTE CONVERSATIONNEL:${conversationContext}
 CONTEXTE DES DOCUMENTS TROUVÉS:
 ${contextText}
 
-Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les informations des documents ET en tenant compte du contexte de la conversation. Si les informations ne sont pas suffisantes, explique clairement ce qui manque et suggère des pistes. Maintiens la cohérence avec l'historique de conversation. Développe tous les aspects pertinents de ta réponse.`;
+Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les informations des documents ET en tenant compte du contexte de la conversation. Si les informations ne sont pas suffisantes, explique clairement ce qui manque et suggères des pistes. Maintiens la cohérence avec l'historique de conversation. Développe tous les aspects pertinents de ta réponse.`;
+
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🤖 Envoi à OpenAI avec prompt enrichi');
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -123,30 +123,46 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
           const data = await openaiResponse.json();
           const fullResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
           
-          // Extraire la liste des documents utilisés
-          const usedDocsMatch = fullResponse.match(/\[DOCUMENTS_UTILISÉS\](.*?)\[\/DOCUMENTS_UTILISÉS\]/s);
-          if (usedDocsMatch) {
-            const usedDocsSection = usedDocsMatch[1].trim();
-            if (usedDocsSection !== 'Aucun') {
-              // Extraire les IDs des documents
-              actuallyUsedDocuments = usedDocsSection
-                .split('\n')
-                .map(line => line.replace(/^- /, '').trim())
+          console.log('[AI-AGENT-CABINET-MEDICAL] 📝 RÉPONSE COMPLÈTE D\'OPENAI:');
+          console.log(fullResponse);
+          
+          // Extraction robuste des documents utilisés avec le nouveau format
+          const docsUsedMatch = fullResponse.match(/DOCS_USED:\s*(.*?)\s*END_DOCS/s);
+          console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Match trouvé:', docsUsedMatch);
+          
+          if (docsUsedMatch) {
+            const docsSection = docsUsedMatch[1].trim();
+            console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Section docs extraite:', docsSection);
+            
+            if (docsSection !== 'none' && docsSection !== '') {
+              // Séparer les IDs par virgule et nettoyer
+              actuallyUsedDocuments = docsSection
+                .split(',')
+                .map(id => id.trim())
                 .filter(id => id && id !== '');
             }
+            
             // Nettoyer la réponse en supprimant la section des documents utilisés
-            response = fullResponse.replace(/\[DOCUMENTS_UTILISÉS\].*?\[\/DOCUMENTS_UTILISÉS\]/s, '').trim();
+            response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
           } else {
+            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match trouvé pour DOCS_USED');
             response = fullResponse;
           }
           
-          console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés:', actuallyUsedDocuments);
+          console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés extraits:', actuallyUsedDocuments);
+          console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Réponse nettoyée (premiers 200 chars):', response.substring(0, 200));
         } else {
+          console.error('[AI-AGENT-CABINET-MEDICAL] ❌ Erreur OpenAI:', await openaiResponse.text());
           response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents, mais je n'ai pas pu générer une réponse détaillée.`;
         }
       } else {
         response = 'Je n\'ai pas trouvé d\'informations pertinentes dans vos documents pour cette requête. Essayez de reformuler votre question ou vérifiez que les documents contiennent les informations recherchées.';
       }
+
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 RÉSULTAT FINAL:');
+      console.log('- Documents utilisés:', actuallyUsedDocuments.length);
+      console.log('- Sources disponibles:', embeddingsResult.sources?.length || 0);
+      console.log('- Chunks trouvés:', embeddingsResult.chunks?.length || 0);
 
       return new Response(
         JSON.stringify({ 
@@ -155,7 +171,12 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
           actuallyUsedDocuments,
           hasRelevantContext: embeddingsResult.hasRelevantContext,
           searchIterations: embeddingsResult.searchIterations || 0,
-          conversationLength: conversationHistory.length
+          conversationLength: conversationHistory.length,
+          debugInfo: {
+            totalChunks: embeddingsResult.chunks?.length || 0,
+            totalSources: embeddingsResult.sources?.length || 0,
+            usedDocsCount: actuallyUsedDocuments.length
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

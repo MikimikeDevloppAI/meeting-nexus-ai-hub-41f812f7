@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Send, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { MessageSquare, Send, Bot, User, Loader2, Trash2, Bug } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { renderMessageWithLinks, sanitizeHtml } from "@/utils/linkRenderer";
@@ -32,6 +32,7 @@ interface TransformedSource {
 export const DocumentSearchAssistant = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   const { toast } = useToast();
 
   const { 
@@ -49,6 +50,10 @@ export const DocumentSearchAssistant = () => {
   // Fonction pour filtrer les sources par documents explicitement utilisés par l'IA
   const filterByActuallyUsedDocuments = (sources: RawSource[], actuallyUsedDocuments: string[]): TransformedSource[] => {
     if (!sources || sources.length === 0 || !actuallyUsedDocuments || actuallyUsedDocuments.length === 0) {
+      console.log('[DOCUMENT_SEARCH] ⚠️ Filtrage impossible:', {
+        sourcesLength: sources?.length || 0,
+        usedDocsLength: actuallyUsedDocuments?.length || 0
+      });
       return [];
     }
 
@@ -125,6 +130,8 @@ export const DocumentSearchAssistant = () => {
 
       if (error) throw error;
 
+      console.log('[DOCUMENT_SEARCH] 📋 DONNÉES BRUTES REÇUES:', data);
+
       let cleanContent = data.response || "Désolé, je n'ai pas pu traiter votre demande.";
       
       // Suppression des syntaxes techniques
@@ -133,22 +140,26 @@ export const DocumentSearchAssistant = () => {
         .replace(/\s*CONTEXT_PARTICIPANTS:.*$/gi, '')
         .replace(/\s*CONTEXT_UTILISATEURS:.*$/gi, '')
         .replace(/\s*CONTEXTE.*?:/gi, '')
+        .replace(/DOCS_USED:.*?END_DOCS/gs, '')
         .trim();
 
       // Utiliser la nouvelle logique basée sur les documents explicitement utilisés
       const actuallyUsedDocuments = data.actuallyUsedDocuments || [];
       const transformedSources = filterByActuallyUsedDocuments(data.sources || [], actuallyUsedDocuments);
 
-      console.log('[DOCUMENT_SEARCH] 📊 Sources originales:', data.sources?.length || 0);
-      console.log('[DOCUMENT_SEARCH] 🎯 Documents explicitement utilisés:', actuallyUsedDocuments.length);
-      console.log('[DOCUMENT_SEARCH] 📋 Sources finales affichées:', transformedSources.length);
+      console.log('[DOCUMENT_SEARCH] 📊 RÉSUMÉ DE L\'ANALYSE:');
+      console.log('- Sources originales:', data.sources?.length || 0);
+      console.log('- Documents explicitement utilisés:', actuallyUsedDocuments.length);
+      console.log('- Sources finales affichées:', transformedSources.length);
+      console.log('- Debug info:', data.debugInfo);
 
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         content: cleanContent,
         isUser: false,
         timestamp: new Date(),
-        sources: transformedSources
+        sources: transformedSources,
+        debugInfo: debugMode ? data.debugInfo : undefined
       };
 
       addMessage(aiMessage);
@@ -163,7 +174,9 @@ export const DocumentSearchAssistant = () => {
       } else if (actuallyUsedDocuments.length === 0) {
         toast({
           title: "Aucun document utilisé",
-          description: "L'IA n'a pas eu besoin de consulter de documents spécifiques",
+          description: data.debugInfo ? 
+            `Chunks trouvés: ${data.debugInfo.totalChunks || 0}, mais aucun explicitement utilisé` :
+            "L'IA n'a pas eu besoin de consulter de documents spécifiques",
           variant: "default",
         });
       }
@@ -208,6 +221,14 @@ export const DocumentSearchAssistant = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setDebugMode(!debugMode)}
+              title="Mode debug"
+            >
+              <Bug className={`h-4 w-4 ${debugMode ? 'text-orange-500' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={clearHistory}
               title="Effacer l'historique"
             >
@@ -217,6 +238,7 @@ export const DocumentSearchAssistant = () => {
         </div>
         <p className="text-sm text-muted-foreground">
           Recherchez dans vos documents et meetings avec contexte maintenu • {messages.length} message(s) en mémoire
+          {debugMode && <span className="text-orange-500"> • Mode debug activé</span>}
         </p>
       </CardHeader>
 
@@ -250,6 +272,11 @@ export const DocumentSearchAssistant = () => {
                     {message.sources && message.sources.length > 0 && (
                       <div className="text-xs opacity-70 mt-2">
                         📄 {message.sources.length} document(s) réellement utilisé(s)
+                      </div>
+                    )}
+                    {debugMode && message.debugInfo && (
+                      <div className="text-xs opacity-70 mt-2 bg-orange-100 dark:bg-orange-900 p-2 rounded">
+                        <strong>Debug:</strong> {JSON.stringify(message.debugInfo)}
                       </div>
                     )}
                     <div className="text-xs opacity-70 mt-2">
