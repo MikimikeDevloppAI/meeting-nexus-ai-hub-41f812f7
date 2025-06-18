@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -331,10 +330,6 @@ export const DocumentSearchAssistant = () => {
               <Send className="h-4 w-4" />
             )}
           </Button>
-        </div>
-
-        <div className="text-xs text-muted-foreground text-center">
-          🔒 Recherche stricte dans vos documents du cabinet uniquement - Aucune connaissance générale utilisée
         </div>
       </CardContent>
     </Card>
