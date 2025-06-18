@@ -280,7 +280,6 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Tâches de la réunion</h1>
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
         <div className="flex items-center gap-2">
