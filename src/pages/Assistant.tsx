@@ -66,79 +66,71 @@ const Assistant = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const prompt = actionType === 'task' 
-        ? `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
-           
-           L'utilisateur demande de créer une tâche avec cette demande: "${userRequest}"
-           
-           Reformule cette demande en une description de tâche claire et concise pour le cabinet médical.
-           - Garde un ton professionnel mais accessible
-           - Sois précis et actionnable
-           - Maximum 2-3 phrases
-           - Si une personne est mentionnée (Émilie, David, Leïla, etc.), inclus-la dans la description
-           
-           Réponds UNIQUEMENT avec la description de la tâche reformulée, sans préambule.`
-        : `Tu es l'assistant IA du cabinet d'ophtalmologie Dr Tabibian à Genève.
-           
-           L'utilisateur demande d'ajouter un point à l'ordre du jour avec: "${userRequest}"
-           
-           Reformule ce point en un élément d'agenda clair et structuré pour une réunion de cabinet médical.
-           - Format markdown simple avec titre et description
-           - Sois professionnel et concis
-           - Maximum 2-3 phrases
-           
-           Réponds UNIQUEMENT avec le contenu reformulé du point d'agenda.`;
+        ? `Tu es un assistant IA pour un cabinet médical d'ophtalmologie. 
 
-      console.log('[ASSISTANT] 📝 Prompt envoyé:', prompt);
+CONSIGNE STRICTE: Reformule cette demande de tâche en français professionnel et clair.
 
-      const response = await fetch(
-        "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
-          },
-          body: JSON.stringify({
-            message: prompt,
-            context: { 
-              userId: user?.id,
-              contentGeneration: true,
-              actionType: actionType,
-              directReformulation: true
-            },
-            conversationHistory: []
-          }),
-        }
-      );
+Demande originale: "${userRequest}"
+
+Instructions:
+- Reformule en une description de tâche claire et professionnelle
+- Utilise un langage approprié pour un cabinet médical
+- Sois concis mais précis (1-2 phrases maximum)
+- Si une personne est mentionnée (Émilie, David, Leïla, etc.), inclus-la clairement
+- N'ajoute AUCUN préambule, commentaire ou explication
+
+IMPORTANT: Réponds UNIQUEMENT avec la description reformulée, rien d'autre.`
+        : `Tu es un assistant IA pour un cabinet médical d'ophtalmologie.
+
+CONSIGNE STRICTE: Reformule ce point d'ordre du jour en français professionnel.
+
+Demande originale: "${userRequest}"
+
+Instructions:
+- Reformule en un point d'agenda clair pour une réunion médicale
+- Utilise un format simple et professionnel
+- Sois concis mais complet (1-2 phrases maximum)
+- N'ajoute AUCUN préambule, commentaire ou explication
+
+IMPORTANT: Réponds UNIQUEMENT avec le point reformulé, rien d'autre.`;
+
+      console.log('[ASSISTANT] 📝 Prompt spécialisé envoyé pour reformulation');
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer sk-proj-VfYLvzXZ2tLMepO5OpMSjSPRGWvVo7nMWTR7vGrwxPXF-RYqg6tqcw3LZYHfqkdKW2rKaWlJGzT3BlbkFJwY_8bNGYaQnLN9RhH9iIqtyaJOUO_rlIjFGhWGVlKeFacrOYOUvJoF-JR7mFOpZVGa0EA`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 200,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
-        let cleanedContent = data.response || userRequest;
+        let reformulatedContent = data.choices[0]?.message?.content || userRequest;
         
-        console.log('[ASSISTANT] 📨 Réponse brute reçue:', data.response);
+        console.log('[ASSISTANT] 📨 Réponse OpenAI brute reçue:', reformulatedContent);
         
-        // Nettoyage des patterns d'action
-        cleanedContent = cleanedContent.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
-        cleanedContent = cleanedContent.replace(/\[ACTION_TASK:[^\]]+\]/g, '');
-        cleanedContent = cleanedContent.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
-        cleanedContent = cleanedContent.replace(/\[ACTION_MEETING:[^\]]+\]/g, '');
-        cleanedContent = cleanedContent.replace(/\[ACTION:[^\]]+\]/g, '');
+        // Nettoyage plus agressif pour s'assurer qu'on n'a que le contenu reformulé
+        reformulatedContent = reformulatedContent.replace(/^(voici|voilà|description|tâche|point|agenda|reformulé|reformulée)[\s:.-]+/i, '');
+        reformulatedContent = reformulatedContent.replace(/^["'`]+|["'`]+$/g, ''); // Supprimer les guillemets en début/fin
+        reformulatedContent = reformulatedContent.trim();
         
-        // Nettoyage des phrases introductives communes
-        cleanedContent = cleanedContent.replace(/^(voici|voilà|description de la tâche|tâche reformulée|point d'agenda)[\s:]+/i, '');
-        cleanedContent = cleanedContent.replace(/^(.*reformulée?[\s:]+)/i, '');
+        console.log('[ASSISTANT] ✅ Contenu reformulé final:', reformulatedContent);
         
-        cleanedContent = cleanedContent.trim();
-        
-        console.log('[ASSISTANT] ✅ Contenu nettoyé final:', cleanedContent);
-        
-        // S'assurer qu'on retourne au moins la demande originale si le contenu est vide
-        const finalContent = cleanedContent || userRequest;
+        // S'assurer qu'on retourne quelque chose de meaningful
+        const finalContent = reformulatedContent || userRequest;
         console.log('[ASSISTANT] 🎯 Contenu final retourné:', finalContent);
         
         return finalContent;
       } else {
-        console.log('[ASSISTANT] ⚠️ Erreur API, fallback vers demande originale');
+        const errorText = await response.text();
+        console.error('[ASSISTANT] ❌ Erreur OpenAI:', errorText);
         return userRequest;
       }
     } catch (error) {
