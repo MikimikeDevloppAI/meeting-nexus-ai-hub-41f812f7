@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, File, Paperclip, CheckCircle, AlertCircle, Plus, Calendar, Bot, User, Loader2, Database, FileText, Globe, ListTodo, Users } from "lucide-react";
+import { Send, File, Paperclip, CheckCircle, AlertCircle, Plus, Calendar, Bot, User, Loader2, Database, FileText, Globe, ListTodo, Users, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,18 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AIActionValidationDialog } from "@/components/AIActionValidationDialog";
-
-interface ChatMessage {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-  sources?: any[];
-  taskContext?: any;
-  databaseContext?: any;
-  hasRelevantContext?: boolean;
-  actuallyUsedDocuments?: string[];
-}
+import { useUnifiedChatHistory, ChatMessage } from "@/hooks/useUnifiedChatHistory";
 
 interface Task {
   id: string;
@@ -37,9 +27,16 @@ interface Task {
 
 const Assistant = () => {
   const [inputMessage, setInputMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Utilisation du hook unifié pour l'historique
+  const { messages, addMessage, clearHistory, getFormattedHistory } = useUnifiedChatHistory({
+    storageKey: 'assistant-chat-history',
+    initialMessage: "Bonjour ! Je suis l'assistant IA spécialisé du cabinet OphtaCare du Dr Tabibian à Genève.\n\nComment puis-je vous aider aujourd'hui ?",
+    maxHistoryLength: 100,
+    maxSentHistory: 20
+  });
   
   // Nouveaux états pour les toggles (tous activés par défaut)
   const [databaseSearchEnabled, setDatabaseSearchEnabled] = useState(true);
@@ -62,7 +59,7 @@ const Assistant = () => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -77,8 +74,7 @@ const Assistant = () => {
       timestamp: new Date(),
     };
 
-    const updatedHistory = [...chatHistory, newUserMessage];
-    setChatHistory(updatedHistory);
+    addMessage(newUserMessage);
     setIsLoading(true);
 
     try {
@@ -95,6 +91,9 @@ const Assistant = () => {
         // Mode legacy pour compatibilité
         documentSearchMode: documentSearchEnabled
       };
+
+      // Utiliser l'historique formaté
+      const formattedHistory = getFormattedHistory();
       
       const response = await fetch(
         "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
@@ -107,11 +106,7 @@ const Assistant = () => {
           body: JSON.stringify({
             message: userMessage,
             context: agentContext,
-            conversationHistory: updatedHistory.map(msg => ({
-              content: msg.content,
-              isUser: msg.isUser,
-              timestamp: msg.timestamp
-            }))
+            conversationHistory: formattedHistory
           }),
         }
       );
@@ -141,11 +136,14 @@ const Assistant = () => {
           }
         }
         
-        // Check for meeting point addition
-        if (data.meetingPreparationResult?.action === 'add' && data.meetingPreparationResult?.actionPerformed) {
+        // Check for meeting point addition - Fix: check for action type 'add'
+        if (responseText.includes('[ACTION_REUNION:') || (data.meetingPreparationResult?.action === 'add' && data.meetingPreparationResult?.actionPerformed)) {
+          const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
+          const description = meetingMatch ? meetingMatch[1].trim() : (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
+          
           setPendingAction({
             type: 'add_meeting_point',
-            description: data.meetingPreparationResult.message || 'Point ajouté à l\'ordre du jour'
+            description: description
           });
           setIsValidationDialogOpen(true);
           return; // Don't add the message yet
@@ -164,7 +162,7 @@ const Assistant = () => {
         actuallyUsedDocuments: data.actuallyUsedDocuments
       };
 
-      setChatHistory(prev => [...prev, assistantMessage]);
+      addMessage(assistantMessage);
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -225,7 +223,7 @@ const Assistant = () => {
         timestamp: new Date(),
       };
 
-      setChatHistory(prev => [...prev, successMessage]);
+      addMessage(successMessage);
 
     } catch (error) {
       console.error('Error confirming action:', error);
@@ -247,11 +245,19 @@ const Assistant = () => {
       timestamp: new Date(),
     };
 
-    setChatHistory(prev => [...prev, rejectMessage]);
+    addMessage(rejectMessage);
     
     toast({
       title: "Action rejetée",
       description: "L'action proposée par l'assistant a été rejetée",
+    });
+  };
+
+  const handleClearHistory = () => {
+    clearHistory();
+    toast({
+      title: "Historique effacé",
+      description: "L'historique de la conversation a été supprimé",
     });
   };
 
@@ -378,9 +384,20 @@ const Assistant = () => {
       {/* Chat Card */}
       <Card className="h-[600px] flex flex-col">
         <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Conversation avec l'assistant</CardTitle>
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Conversation avec l'assistant</CardTitle>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearHistory}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Effacer l'historique
+            </Button>
           </div>
           <CardDescription>
             Posez vos questions et gérez vos tâches avec l'assistant IA.
@@ -390,7 +407,7 @@ const Assistant = () => {
         <CardContent className="flex-1 flex flex-col p-4">
           <ScrollArea className="flex-1 pr-4 mb-4" ref={chatContainerRef}>
             <div className="space-y-4">
-              {chatHistory.length === 0 && (
+              {messages.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">Bonjour ! Comment puis-je vous aider ?</p>
@@ -400,7 +417,7 @@ const Assistant = () => {
                 </div>
               )}
               
-              {chatHistory.map((message) => (
+              {messages.map((message) => (
                 <div key={message.id} className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
