@@ -58,7 +58,7 @@ const Assistant = () => {
     return filteredSources;
   };
 
-  // Fonction pour générer du contenu simplifié pour les actions
+  // Fonction pour générer du contenu simplifié pour les actions via l'agent principal
   const generateSimplifiedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
     console.log('[ASSISTANT] 🎯 Génération contenu pour:', actionType, 'demande:', userRequest);
     
@@ -66,71 +66,53 @@ const Assistant = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const prompt = actionType === 'task' 
-        ? `Tu es un assistant IA pour un cabinet médical d'ophtalmologie. 
+        ? `Reformule cette demande en une description de tâche claire et professionnelle pour un cabinet médical : "${userRequest}"`
+        : `Reformule ce point en un point d'ordre du jour clair pour une réunion médicale : "${userRequest}"`;
 
-CONSIGNE STRICTE: Reformule cette demande de tâche en français professionnel et clair.
+      console.log('[ASSISTANT] 📝 Utilisation de l\'agent principal pour reformulation');
 
-Demande originale: "${userRequest}"
-
-Instructions:
-- Reformule en une description de tâche claire et professionnelle
-- Utilise un langage approprié pour un cabinet médical
-- Sois concis mais précis (1-2 phrases maximum)
-- Si une personne est mentionnée (Émilie, David, Leïla, etc.), inclus-la clairement
-- N'ajoute AUCUN préambule, commentaire ou explication
-
-IMPORTANT: Réponds UNIQUEMENT avec la description reformulée, rien d'autre.`
-        : `Tu es un assistant IA pour un cabinet médical d'ophtalmologie.
-
-CONSIGNE STRICTE: Reformule ce point d'ordre du jour en français professionnel.
-
-Demande originale: "${userRequest}"
-
-Instructions:
-- Reformule en un point d'agenda clair pour une réunion médicale
-- Utilise un format simple et professionnel
-- Sois concis mais complet (1-2 phrases maximum)
-- N'ajoute AUCUN préambule, commentaire ou explication
-
-IMPORTANT: Réponds UNIQUEMENT avec le point reformulé, rien d'autre.`;
-
-      console.log('[ASSISTANT] 📝 Prompt spécialisé envoyé pour reformulation');
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer sk-proj-VfYLvzXZ2tLMepO5OpMSjSPRGWvVo7nMWTR7vGrwxPXF-RYqg6tqcw3LZYHfqkdKW2rKaWlJGzT3BlbkFJwY_8bNGYaQnLN9RhH9iIqtyaJOUO_rlIjFGhWGVlKeFacrOYOUvJoF-JR7mFOpZVGa0EA`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 200,
-        }),
-      });
+      // Utiliser l'agent principal comme pour les autres requêtes
+      const response = await fetch(
+        "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+          },
+          body: JSON.stringify({
+            message: prompt,
+            context: {
+              userId: user?.id,
+              databaseSearch: false,
+              documentSearch: false,
+              internetSearch: false,
+              todoManagement: false,
+              meetingPoints: false,
+              reformulationMode: true // Mode spécial pour reformulation
+            },
+            conversationHistory: []
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        let reformulatedContent = data.choices[0]?.message?.content || userRequest;
+        let reformulatedContent = data.response || userRequest;
         
-        console.log('[ASSISTANT] 📨 Réponse OpenAI brute reçue:', reformulatedContent);
+        console.log('[ASSISTANT] 📨 Réponse agent principal reçue:', reformulatedContent);
         
-        // Nettoyage plus agressif pour s'assurer qu'on n'a que le contenu reformulé
+        // Nettoyage pour s'assurer qu'on n'a que le contenu reformulé
         reformulatedContent = reformulatedContent.replace(/^(voici|voilà|description|tâche|point|agenda|reformulé|reformulée)[\s:.-]+/i, '');
-        reformulatedContent = reformulatedContent.replace(/^["'`]+|["'`]+$/g, ''); // Supprimer les guillemets en début/fin
+        reformulatedContent = reformulatedContent.replace(/^["'`]+|["'`]+$/g, '');
         reformulatedContent = reformulatedContent.trim();
         
         console.log('[ASSISTANT] ✅ Contenu reformulé final:', reformulatedContent);
         
-        // S'assurer qu'on retourne quelque chose de meaningful
-        const finalContent = reformulatedContent || userRequest;
-        console.log('[ASSISTANT] 🎯 Contenu final retourné:', finalContent);
-        
-        return finalContent;
+        return reformulatedContent || userRequest;
       } else {
         const errorText = await response.text();
-        console.error('[ASSISTANT] ❌ Erreur OpenAI:', errorText);
+        console.error('[ASSISTANT] ❌ Erreur agent principal:', errorText);
         return userRequest;
       }
     } catch (error) {
