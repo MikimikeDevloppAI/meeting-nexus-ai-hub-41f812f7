@@ -42,12 +42,56 @@ export const DocumentSearchAssistant = () => {
     getFormattedHistory 
   } = useUnifiedChatHistory({
     storageKey: 'document-search-assistant-history',
-    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire. Je peux uniquement vous aider à trouver des informations dans vos documents du cabinet. Je ne peux pas donner de conseils médicaux généraux.",
+    initialMessage: "Bonjour ! Je suis l'assistant de recherche documentaire amélioré. Je peux maintenant faire des liens contextuels intelligents et trouver des informations connexes dans vos documents (ex: yeux/paupières, chirurgie/laser). Posez-moi vos questions !",
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
 
-  // Fonction pour filtrer les sources par documents explicitement utilisés par l'IA
+  // NOUVELLE FONCTION: Afficher TOUS les documents pertinents trouvés
+  const transformAllSources = (sources: RawSource[]): TransformedSource[] => {
+    if (!sources || sources.length === 0) {
+      console.log('[DOCUMENT_SEARCH] ⚠️ Aucune source à transformer');
+      return [];
+    }
+
+    console.log('[DOCUMENT_SEARCH] 📄 Transformation de TOUTES les sources:', sources.length);
+
+    // Grouper les chunks par document
+    const groupedByDocument = sources.reduce((acc: Record<string, TransformedSource>, source: RawSource) => {
+      const docId = source.document_id;
+      if (!acc[docId]) {
+        acc[docId] = {
+          documentId: docId,
+          documentName: source.document_name || 'Document inconnu',
+          maxSimilarity: source.similarity || 0,
+          chunksCount: 0,
+          documentType: source.document_type || 'document',
+          relevantChunks: []
+        };
+      }
+      
+      // Prendre la similarité maximale pour ce document
+      if (source.similarity && source.similarity > acc[docId].maxSimilarity) {
+        acc[docId].maxSimilarity = source.similarity;
+      }
+      
+      acc[docId].chunksCount += 1;
+      if (source.chunk_text) {
+        acc[docId].relevantChunks.push(source.chunk_text);
+      }
+      
+      return acc;
+    }, {});
+
+    // Convertir en tableau et trier par similarité
+    const allSources = Object.values(groupedByDocument)
+      .sort((a, b) => b.maxSimilarity - a.maxSimilarity);
+
+    console.log('[DOCUMENT_SEARCH] ✅ Sources transformées:', allSources.length, 'documents');
+    return allSources;
+  };
+
+  // Fonction pour filtrer les sources par documents explicitement utilisés par l'IA (CONSERVÉE pour comparaison)
   const filterByActuallyUsedDocuments = (sources: RawSource[], actuallyUsedDocuments: string[]): TransformedSource[] => {
     if (!sources || sources.length === 0 || !actuallyUsedDocuments || actuallyUsedDocuments.length === 0) {
       console.log('[DOCUMENT_SEARCH] ⚠️ Filtrage impossible:', {
@@ -143,14 +187,21 @@ export const DocumentSearchAssistant = () => {
         .replace(/DOCS_USED:.*?END_DOCS/gs, '')
         .trim();
 
-      // Utiliser la nouvelle logique basée sur les documents explicitement utilisés
+      // NOUVELLE APPROCHE: Afficher TOUS les documents trouvés
       const actuallyUsedDocuments = data.actuallyUsedDocuments || [];
-      const transformedSources = filterByActuallyUsedDocuments(data.sources || [], actuallyUsedDocuments);
+      const allTransformedSources = transformAllSources(data.sources || []);
+      const explicitlyUsedSources = filterByActuallyUsedDocuments(data.sources || [], actuallyUsedDocuments);
 
-      console.log('[DOCUMENT_SEARCH] 📊 RÉSUMÉ DE L\'ANALYSE:');
+      // Décider quelles sources afficher : si l'IA a utilisé des documents spécifiques, les montrer,
+      // sinon montrer tous les documents trouvés pour plus de transparence
+      const sourcesToDisplay = explicitlyUsedSources.length > 0 ? explicitlyUsedSources : allTransformedSources;
+
+      console.log('[DOCUMENT_SEARCH] 📊 RÉSUMÉ DE L\'ANALYSE AMÉLIORÉE:');
       console.log('- Sources originales:', data.sources?.length || 0);
       console.log('- Documents explicitement utilisés:', actuallyUsedDocuments.length);
-      console.log('- Sources finales affichées:', transformedSources.length);
+      console.log('- Tous les documents trouvés:', allTransformedSources.length);
+      console.log('- Sources finales affichées:', sourcesToDisplay.length);
+      console.log('- Affichage:', explicitlyUsedSources.length > 0 ? 'EXPLICITEMENT_UTILISÉS' : 'TOUS_TROUVÉS');
       console.log('- Debug info:', data.debugInfo);
 
       const aiMessage = {
@@ -158,24 +209,28 @@ export const DocumentSearchAssistant = () => {
         content: cleanContent,
         isUser: false,
         timestamp: new Date(),
-        sources: transformedSources,
+        sources: sourcesToDisplay,
         debugInfo: debugMode ? data.debugInfo : undefined
       };
 
       addMessage(aiMessage);
 
-      // Toast informatif pour données utilisées
-      if (transformedSources.length > 0) {
+      // Toast informatif pour données utilisées avec plus de détails
+      if (sourcesToDisplay.length > 0) {
+        const toastMessage = explicitlyUsedSources.length > 0 
+          ? `L'IA a utilisé ${explicitlyUsedSources.length} document(s) spécifique(s) pour sa réponse`
+          : `${allTransformedSources.length} document(s) pertinent(s) trouvé(s) dans le cabinet`;
+          
         toast({
-          title: "Documents utilisés",
-          description: `L'IA a consulté ${transformedSources.length} document(s) du cabinet pour sa réponse`,
+          title: "Documents trouvés",
+          description: toastMessage,
           variant: "default",
         });
       } else if (actuallyUsedDocuments.length === 0) {
         toast({
-          title: "Réponse basée sur les documents uniquement",
-          description: data.debugInfo?.restrictionMode === 'STRICT_DOCUMENTS_ONLY' ? 
-            "L'IA n'a pas trouvé d'informations dans les documents du cabinet" :
+          title: "Recherche améliorée activée",
+          description: data.debugInfo?.restrictionMode === 'FLEXIBLE_CONTEXTUAL' ? 
+            "L'assistant utilise maintenant une recherche contextuelle plus flexible" :
             "L'IA se limite aux informations des documents disponibles",
           variant: "default",
         });
@@ -191,7 +246,7 @@ export const DocumentSearchAssistant = () => {
 
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: "Désolé, je rencontre un problème technique temporaire. L'assistant de recherche documentaire reste disponible pour consulter vos documents.",
+        content: "Désolé, je rencontre un problème technique temporaire. L'assistant de recherche documentaire amélioré reste disponible pour consulter vos documents avec plus de flexibilité.",
         isUser: false,
         timestamp: new Date(),
       };
@@ -216,7 +271,7 @@ export const DocumentSearchAssistant = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-primary" />
-              <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
+              <CardTitle className="text-lg">Assistant Recherche Documentaire ⚡ Amélioré</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -229,6 +284,9 @@ export const DocumentSearchAssistant = () => {
               </Button>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            🔄 Recherche contextuelle améliorée • Synonymes médicaux automatiques • Seuils assouplis
+          </p>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -260,7 +318,7 @@ export const DocumentSearchAssistant = () => {
                       />
                       {message.sources && message.sources.length > 0 && (
                         <div className="text-xs opacity-70 mt-2">
-                          📄 {message.sources.length} document(s) du cabinet utilisé(s)
+                          📄 {message.sources.length} document(s) pertinent(s) trouvé(s)
                         </div>
                       )}
                       {debugMode && message.debugInfo && (
@@ -275,12 +333,12 @@ export const DocumentSearchAssistant = () => {
                   </div>
                 </div>
                 
-                {/* Affichage des documents sources pour les réponses de l'IA avec le même visuel que Documents et Meetings */}
+                {/* Affichage des documents sources pour les réponses de l'IA avec titre amélioré */}
                 {!message.isUser && message.sources && message.sources.length > 0 && (
                   <div className="ml-11">
                     <SmartDocumentSources 
                       sources={message.sources} 
-                      title="Documents du cabinet utilisés par l'IA"
+                      title="Documents pertinents trouvés dans le cabinet"
                     />
                   </div>
                 )}
@@ -294,7 +352,7 @@ export const DocumentSearchAssistant = () => {
                 </div>
                 <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Recherche dans vos documents du cabinet...</span>
+                  <span className="text-sm">Recherche contextuelle améliorée en cours...</span>
                 </div>
               </div>
             )}
@@ -305,7 +363,7 @@ export const DocumentSearchAssistant = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Recherchez dans vos documents du cabinet..."
+              placeholder="Recherchez avec plus de flexibilité (ex: yeux, chirurgie, laser)..."
               disabled={isLoading}
               className="flex-1"
             />
@@ -320,6 +378,10 @@ export const DocumentSearchAssistant = () => {
                 <Send className="h-4 w-4" />
               )}
             </Button>
+          </div>
+          
+          <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 p-2 rounded">
+            💡 <strong>Améliorations :</strong> Recherche plus flexible avec synonymes médicaux automatiques (yeux/paupières, chirurgie/laser), seuils assouplis, et interprétation contextuelle intelligente.
           </div>
         </CardContent>
       </Card>

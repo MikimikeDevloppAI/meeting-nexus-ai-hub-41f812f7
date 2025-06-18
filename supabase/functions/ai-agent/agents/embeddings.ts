@@ -8,7 +8,7 @@ export class EmbeddingsAgent {
   }
 
   async searchEmbeddings(message: string, analysis: any, relevantIds: any, conversationHistory: any[] = []): Promise<any> {
-    console.log('[EMBEDDINGS] 🔍 RECHERCHE VECTORIELLE OPTIMISÉE pour:', message.substring(0, 100));
+    console.log('[EMBEDDINGS] 🔍 RECHERCHE VECTORIELLE AMÉLIORÉE pour:', message.substring(0, 100));
     
     // Construire le contexte enrichi avec l'historique et termes spécialisés
     let enrichedQuery = this.buildEnrichedQuery(message, conversationHistory);
@@ -17,51 +17,51 @@ export class EmbeddingsAgent {
     let searchIterations = 0;
     const maxIterations = 4;
 
-    // 🎯 Phase 1: Recherche principale avec query enrichie
-    console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale enrichie');
+    // 🎯 Phase 1: Recherche principale avec query enrichie - SEUIL RÉDUIT
+    console.log('[EMBEDDINGS] 🎯 Phase 1: Recherche principale enrichie (seuil 0.4)');
     const embedding = await this.getEmbedding(enrichedQuery);
-    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.05); // Seuil réduit pour document search
+    const phase1Results = await this.performSearch(enrichedQuery, embedding, 0.4); // SEUIL RÉDUIT de 0.05 à 0.4
     allChunks = phase1Results;
     searchIterations++;
     console.log(`[EMBEDDINGS] ✅ Phase 1: ${phase1Results.length} chunks trouvés`);
 
-    // 🔄 Phase 2: Recherche avec termes individuels et synonymes
-    if (allChunks.length < 5) {
-      console.log('[EMBEDDINGS] 🔄 Phase 2: Recherche avec termes étendus');
-      const expandedTerms = this.extractExpandedSearchTerms(message);
+    // 🔄 Phase 2: Recherche avec termes individuels et synonymes médicaux
+    if (allChunks.length < 8) { // Augmenté de 5 à 8
+      console.log('[EMBEDDINGS] 🔄 Phase 2: Recherche avec synonymes médicaux');
+      const expandedTerms = this.extractMedicalSynonyms(message);
       
       for (const term of expandedTerms) {
         const termEmbedding = await this.getEmbedding(term);
-        const termResults = await this.performSearch(term, termEmbedding, 0.03); // Seuil encore plus bas
+        const termResults = await this.performSearch(term, termEmbedding, 0.3); // Seuil réduit de 0.03 à 0.3
         allChunks = this.mergeUniqueChunks(allChunks, termResults);
         searchIterations++;
         console.log(`[EMBEDDINGS] ✅ Phase 2: ${termResults.length} chunks pour "${term}"`);
         
-        if (allChunks.length >= 10) break;
+        if (allChunks.length >= 15) break; // Augmenté de 10 à 15
       }
     }
 
-    // 🔄 Phase 3: Recherche contextuelle large
-    if (allChunks.length < 3) {
-      console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche contextuelle large');
-      const contextualQueries = this.generateContextualQueries(message);
+    // 🔄 Phase 3: Recherche contextuelle large avec termes médicaux
+    if (allChunks.length < 5) { // Augmenté de 3 à 5
+      console.log('[EMBEDDINGS] 🔄 Phase 3: Recherche contextuelle médicale');
+      const contextualQueries = this.generateMedicalContextualQueries(message);
       
       for (const contextQuery of contextualQueries) {
         const contextEmbedding = await this.getEmbedding(contextQuery);
-        const contextResults = await this.performSearch(contextQuery, contextEmbedding, 0.01); // Seuil très bas
+        const contextResults = await this.performSearch(contextQuery, contextEmbedding, 0.25); // Seuil réduit de 0.01 à 0.25
         allChunks = this.mergeUniqueChunks(allChunks, contextResults);
         searchIterations++;
-        console.log(`[EMBEDDINGS] ✅ Phase 3: ${contextResults.length} chunks pour contexte`);
+        console.log(`[EMBEDDINGS] ✅ Phase 3: ${contextResults.length} chunks pour contexte médical`);
         
-        if (allChunks.length >= 8) break;
+        if (allChunks.length >= 12) break; // Augmenté de 8 à 12
       }
     }
 
-    // 🔄 Phase 4: Recherche de fallback ultime
-    if (allChunks.length < 2) {
-      console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fallback ultime');
+    // 🔄 Phase 4: Recherche de fallback avec seuil très permissif
+    if (allChunks.length < 3) {
+      console.log('[EMBEDDINGS] 🔄 Phase 4: Recherche fallback permissive');
       const simpleEmbedding = await this.getEmbedding(message);
-      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.005); // Seuil minimal
+      const fallbackResults = await this.performSearch(message, simpleEmbedding, 0.2); // Seuil réduit de 0.005 à 0.2
       allChunks = this.mergeUniqueChunks(allChunks, fallbackResults);
       searchIterations++;
       console.log(`[EMBEDDINGS] ✅ Phase 4: ${fallbackResults.length} chunks en fallback`);
@@ -166,6 +166,19 @@ export class EmbeddingsAgent {
   private addMedicalContext(message: string): string | null {
     const lowerMessage = message.toLowerCase();
     
+    // Ajout de contexte médical pour différents domaines
+    if (lowerMessage.includes('yeux') || lowerMessage.includes('œil') || lowerMessage.includes('oeil') || lowerMessage.includes('paupière') || lowerMessage.includes('lavage')) {
+      return 'ophtalmologie paupières yeux œil hygiène lavage nettoyage soins oculaires vision';
+    }
+    
+    if (lowerMessage.includes('chirurgie') || lowerMessage.includes('laser') || lowerMessage.includes('opération') || lowerMessage.includes('intervention')) {
+      return 'chirurgie laser opération intervention LASIK réfractive cataracte implant';
+    }
+    
+    if (lowerMessage.includes('lentille') || lowerMessage.includes('contact')) {
+      return 'lentilles contact hygiène entretien port utilisation';
+    }
+    
     if (lowerMessage.includes('emilie') || lowerMessage.includes('tâche') || lowerMessage.includes('jeudi')) {
       return 'ophtalmologie cabinet médical planning tâches Emilie Dr Tabibian Genève consultation patient';
     }
@@ -177,11 +190,77 @@ export class EmbeddingsAgent {
     return null;
   }
 
-  private generateContextualQueries(message: string): string[] {
-    const queries = [];
+  // NOUVELLE FONCTION: Extraction de synonymes médicaux automatiques
+  private extractMedicalSynonyms(message: string): string[] {
     const lowerMessage = message.toLowerCase();
+    const synonyms = new Set<string>();
     
-    // Générer des requêtes contextuelles basées sur le message
+    // Dictionnaire de synonymes médicaux ophtalmologiques
+    const medicalSynonyms = {
+      'yeux': ['œil', 'oeil', 'oculaire', 'vision', 'paupières', 'globe oculaire'],
+      'œil': ['yeux', 'œil', 'oculaire', 'vision', 'paupières', 'globe oculaire'],
+      'oeil': ['yeux', 'œil', 'oculaire', 'vision', 'paupières', 'globe oculaire'],
+      'paupières': ['yeux', 'œil', 'oeil', 'paupière', 'hygiène oculaire'],
+      'lavage': ['nettoyage', 'hygiène', 'soins', 'entretien', 'toilette'],
+      'chirurgie': ['opération', 'intervention', 'acte chirurgical', 'procédure'],
+      'laser': ['LASIK', 'réfractive', 'correction', 'chirurgie au laser'],
+      'lentilles': ['lentille', 'contact', 'contactologie', 'port de lentilles'],
+      'cataracte': ['cristallin', 'opacification', 'chirurgie du cristallin'],
+      'glaucome': ['pression oculaire', 'tension oculaire', 'nerf optique'],
+      'vision': ['vue', 'acuité visuelle', 'correction visuelle'],
+      'correction': ['réfractive', 'défaut visuel', 'myopie', 'presbytie', 'astigmatisme']
+    };
+    
+    // Ajouter le message original
+    synonyms.add(message);
+    
+    // Chercher des correspondances et ajouter les synonymes
+    for (const [terme, syns] of Object.entries(medicalSynonyms)) {
+      if (lowerMessage.includes(terme)) {
+        syns.forEach(syn => synonyms.add(syn));
+        synonyms.add(terme);
+      }
+    }
+    
+    // Extraire les mots significatifs du message original
+    const words = lowerMessage
+      .split(/\s+/)
+      .filter(word => 
+        word.length > 2 && 
+        !['dans', 'avec', 'pour', 'sans', 'vers', 'chez', 'sous', 'sur', 'par', 'très', 'bien', 'tout', 'cette', 'peut', 'faire', 'que', 'est', 'elle', 'doit'].includes(word)
+      );
+    
+    words.forEach(word => synonyms.add(word));
+    
+    console.log('[EMBEDDINGS] 🔤 Synonymes médicaux générés:', Array.from(synonyms));
+    
+    return Array.from(synonyms).slice(0, 8); // Limiter à 8 termes max
+  }
+
+  // NOUVELLE FONCTION: Génération de requêtes contextuelles médicales
+  private generateMedicalContextualQueries(message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+    const queries = [];
+    
+    // Requêtes contextuelles spécialisées en ophtalmologie
+    if (lowerMessage.includes('yeux') || lowerMessage.includes('œil') || lowerMessage.includes('oeil') || lowerMessage.includes('lavage')) {
+      queries.push('hygiène paupières nettoyage yeux');
+      queries.push('soins oculaires lavage paupières');
+      queries.push('entretien hygiène des yeux');
+    }
+    
+    if (lowerMessage.includes('chirurgie') || lowerMessage.includes('laser')) {
+      queries.push('chirurgie réfractive laser LASIK');
+      queries.push('intervention ophtalmologique laser');
+      queries.push('correction visuelle chirurgie');
+    }
+    
+    if (lowerMessage.includes('lentille') || lowerMessage.includes('contact')) {
+      queries.push('lentilles contact hygiène utilisation');
+      queries.push('entretien lentilles contactologie');
+      queries.push('port lentilles soins');
+    }
+    
     if (lowerMessage.includes('emilie')) {
       queries.push('Emilie tâches planning');
       queries.push('responsabilités Emilie cabinet');
@@ -194,45 +273,16 @@ export class EmbeddingsAgent {
       queries.push('organisation jeudi consultation');
     }
     
-    if (lowerMessage.includes('tous les')) {
-      queries.push('tâches récurrentes planning');
-      queries.push('organisation hebdomadaire cabinet');
-    }
-    
     // Ajouter des requêtes générales si pas de contexte spécifique
     if (queries.length === 0) {
-      queries.push('planning cabinet ophtalmologie');
-      queries.push('organisation tâches équipe');
+      queries.push('ophtalmologie cabinet soins');
+      queries.push('consultation traitement vision');
+      queries.push('procédures médicales yeux');
     }
     
-    return queries.slice(0, 3); // Limiter à 3 requêtes max
-  }
-
-  private extractExpandedSearchTerms(message: string): string[] {
-    const words = message.toLowerCase()
-      .split(/\s+/)
-      .filter(word => 
-        word.length > 2 && 
-        !['dans', 'avec', 'pour', 'sans', 'vers', 'chez', 'sous', 'sur', 'par', 'très', 'bien', 'tout', 'cette', 'peut', 'faire', 'que', 'est', 'elle', 'doit'].includes(word)
-      );
+    console.log('[EMBEDDINGS] 🎯 Requêtes contextuelles médicales:', queries);
     
-    // Ajouter des synonymes et termes liés
-    const expandedTerms = [...words];
-    
-    if (words.includes('emilie')) {
-      expandedTerms.push('émilie', 'assistante', 'secrétaire', 'équipe');
-    }
-    
-    if (words.includes('jeudi')) {
-      expandedTerms.push('thursday', 'planning', 'hebdomadaire');
-    }
-    
-    if (words.includes('tâches') || words.includes('faire')) {
-      expandedTerms.push('responsabilités', 'travail', 'activités', 'mission');
-    }
-    
-    // Retourner les termes les plus significatifs
-    return [...new Set(expandedTerms)].slice(0, 5);
+    return queries.slice(0, 4); // Limiter à 4 requêtes max
   }
 
   private async getEmbedding(text: string): Promise<number[]> {

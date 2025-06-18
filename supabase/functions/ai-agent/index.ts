@@ -52,9 +52,9 @@ serve(async (req) => {
     });
     console.log('[AI-AGENT-CABINET-MEDICAL] 📜 Historique conversation:', conversationHistory.length, 'messages');
 
-    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents UNIQUEMENT vectorielle (conservé pour compatibilité)
+    // 🎯 DÉTECTION SPÉCIALE : Mode recherche de documents AMÉLIORÉ (moins restrictif)
     if (context.documentSearchMode && !context.databaseSearch && !context.internetSearch && !context.todoManagement && !context.meetingPoints) {
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS VECTORIELLE UNIQUEMENT - Restrictions STRICTES activées');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 MODE RECHERCHE DOCUMENTS AMÉLIORÉ - Plus flexible et contextuel');
       
       const embeddingsResult = await embeddings.searchEmbeddings(message, {
         priority: 'embeddings',
@@ -63,7 +63,7 @@ serve(async (req) => {
         tasks: false,
         internet: false,
         queryType: 'document',
-        confidence: 0.9
+        confidence: 0.7 // Réduit de 0.9 à 0.7
       }, [], conversationHistory);
 
       console.log('[AI-AGENT-CABINET-MEDICAL] 📊 Résultats embeddings:', embeddingsResult.chunks?.length || 0, 'chunks trouvés');
@@ -71,10 +71,10 @@ serve(async (req) => {
       let response = '';
       let actuallyUsedDocuments: string[] = [];
       
-      // VÉRIFICATION STRICTE : Si pas de chunks pertinents, réponse standard
+      // VÉRIFICATION ASSOUPLIE : Accepter même des résultats avec score modéré
       if (!embeddingsResult.hasRelevantContext || embeddingsResult.chunks.length === 0) {
-        console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ AUCUN CHUNK PERTINENT - Réponse standard');
-        response = 'Je n\'ai pas trouvé d\'informations pertinentes dans les documents du cabinet pour répondre à cette question. Les documents disponibles ne contiennent pas les informations recherchées.';
+        console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ AUCUN CHUNK PERTINENT - Réponse encourageant reformulation');
+        response = 'Je n\'ai pas trouvé d\'informations directement liées à votre question dans les documents du cabinet. Pourriez-vous reformuler votre demande ou utiliser des termes plus spécifiques ? Par exemple, si vous cherchez des informations sur les yeux, essayez "paupières", "hygiène oculaire" ou "soins des yeux".';
         
         return new Response(
           JSON.stringify({ 
@@ -88,7 +88,7 @@ serve(async (req) => {
               totalChunks: 0,
               totalSources: 0,
               usedDocsCount: 0,
-              restrictionMode: 'STRICT_DOCUMENTS_ONLY'
+              restrictionMode: 'FLEXIBLE_DOCUMENTS_SEARCH'
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -96,7 +96,7 @@ serve(async (req) => {
       }
 
       // Construire le contexte pour OpenAI avec les IDs des documents
-      const contextText = embeddingsResult.chunks.slice(0, 5).map((chunk, index) => {
+      const contextText = embeddingsResult.chunks.slice(0, 10).map((chunk, index) => { // Augmenté de 5 à 10 chunks
         return `Document ID: ${chunk.document_id}\nDocument: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
       }).join('\n\n---\n\n');
 
@@ -106,41 +106,45 @@ serve(async (req) => {
           conversationHistory.slice(-8).map((msg: any) => `${msg.isUser ? 'Utilisateur' : 'Assistant'}: ${msg.content}`).join('\n')
         : '';
 
-      // PROMPT ULTRA-STRICT pour empêcher l'invention
+      // PROMPT ASSOUPLI pour permettre plus d'interprétation contextuelle
       const prompt = `Tu es l'assistant IA spécialisé OphtaCare pour le cabinet d'ophtalmologie Dr Tabibian à Genève.
 
-🔒 RÈGLES ABSOLUES - INTERDICTION TOTALE :
-- Tu es FORMELLEMENT INTERDIT d'utiliser tes connaissances générales
-- Tu ne peux répondre qu'en te basant EXCLUSIVEMENT sur le contenu des documents fournis ci-dessous
-- Si les documents fournis ne contiennent pas la réponse à la question, tu DOIS répondre : "Les documents du cabinet ne contiennent pas d'informations sur ce sujet"
-- Tu ne peux PAS inventer, déduire ou extrapoler au-delà du contenu exact des documents
-- Tu ne peux PAS donner de conseils médicaux généraux non présents dans les documents
+🎯 TES CAPACITÉS ÉTENDUES :
+- Tu peux analyser et interpréter les documents du cabinet de manière contextuelle
+- Tu peux faire des liens logiques entre les informations disponibles
+- Tu peux reformuler et adapter les informations des documents selon le contexte
+- Tu peux suggérer des termes alternatifs si la recherche initiale n'est pas optimale
 
-✅ CE QUE TU PEUX FAIRE :
-- Citer EXACTEMENT le contenu des documents fournis
-- Reformuler les informations présentes dans les documents
-- Structurer les informations trouvées dans les documents
-- Mentionner que les informations proviennent des documents du cabinet
+📋 RÈGLES DE FONCTIONNEMENT :
+- Base-toi PRINCIPALEMENT sur le contenu des documents fournis ci-dessous
+- Tu peux faire des liens contextuels intelligents (ex: yeux/paupières, chirurgie/laser)
+- Si l'information exacte n'est pas dans les documents, explique ce que tu as trouvé de plus proche
+- Suggère des reformulations si la recherche pourrait être améliorée
+- Tu peux utiliser tes connaissances pour clarifier les termes médicaux des documents
+
+✅ APPROCHE RECOMMANDÉE :
+- Analyse d'abord les documents disponibles pour trouver des informations pertinentes
+- Fais des liens contextuels intelligents (hygiène des yeux = hygiène paupières)
+- Explique clairement ce que tu as trouvé et comment c'est lié à la question
+- Propose des suggestions pour affiner la recherche si nécessaire
 
 IMPORTANT POUR LES SOURCES - FORMAT OBLIGATOIRE :
-À la fin de ta réponse, tu DOIS ajouter une section qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format EXACT :
+À la fin de ta réponse, tu DOIS ajouter une section qui liste les Document IDs que tu as utilisés pour formuler ta réponse. Utilise ce format EXACT :
 
 DOCS_USED:
 id1,id2,id3
 END_DOCS
 
-⚠️ ATTENTION : Si tu n'as PAS utilisé de documents spécifiques pour ta réponse (ce qui ne devrait JAMAIS arriver car tu ne peux répondre que basé sur les documents), écris DOCS_USED:none END_DOCS
-
 Question de l'utilisateur: "${message}"
 
 CONTEXTE CONVERSATIONNEL:${conversationContext}
 
-CONTEXTE DES DOCUMENTS DU CABINET (SEULE SOURCE AUTORISÉE):
+CONTEXTE DES DOCUMENTS DU CABINET :
 ${contextText}
 
-Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-dessus. Si ces documents ne contiennent pas l'information demandée, dis-le clairement.`;
+Réponds en te basant sur les documents fournis, en faisant des liens contextuels intelligents et en expliquant clairement ce que tu as trouvé.`;
 
-        console.log('[AI-AGENT-CABINET-MEDICAL] 🔒 Envoi à OpenAI avec prompt ULTRA-STRICT');
+        console.log('[AI-AGENT-CABINET-MEDICAL] 🔒 Envoi à OpenAI avec prompt ASSOUPLI ET CONTEXTUEL');
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -151,7 +155,7 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1, // Température très basse pour éviter l'invention
+            temperature: 0.3, // Température modérée pour permettre l'interprétation
             max_tokens: 16384,
           }),
         });
@@ -171,11 +175,11 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
             const docsSection = docsUsedMatch[1].trim();
             console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Section docs extraite:', docsSection);
             
-            // VÉRIFICATION STRICTE : Si l'IA dit "none", on force une réponse standard
             if (docsSection === 'none' || docsSection === '') {
-              console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ IA A RÉPONDU "none" - FORÇAGE RÉPONSE STANDARD');
-              response = 'Les documents du cabinet ne contiennent pas d\'informations spécifiques sur ce sujet. Pouvez-vous reformuler votre question ou demander des informations présentes dans nos documents ?';
-              actuallyUsedDocuments = [];
+              console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ IA A RÉPONDU "none" - Utilisation des documents trouvés');
+              // Au lieu de forcer une réponse standard, utiliser les documents trouvés
+              actuallyUsedDocuments = [...new Set(embeddingsResult.chunks.slice(0, 5).map(chunk => chunk.document_id))];
+              response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
             } else {
               // Séparer les IDs par virgule et nettoyer
               actuallyUsedDocuments = docsSection
@@ -187,9 +191,10 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
               response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
             }
           } else {
-            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match DOCS_USED trouvé - FORÇAGE RÉPONSE STANDARD');
-            response = 'Les documents du cabinet ne contiennent pas d\'informations spécifiques sur ce sujet. Pouvez-vous reformuler votre question ?';
-            actuallyUsedDocuments = [];
+            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match DOCS_USED trouvé - Utilisation documents trouvés');
+            // Utiliser automatiquement les documents trouvés
+            actuallyUsedDocuments = [...new Set(embeddingsResult.chunks.slice(0, 5).map(chunk => chunk.document_id))];
+            response = fullResponse;
           }
           
           console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés extraits:', actuallyUsedDocuments);
@@ -200,11 +205,11 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
           actuallyUsedDocuments = [];
         }
 
-      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 RÉSULTAT FINAL STRICT:');
+      console.log('[AI-AGENT-CABINET-MEDICAL] 🎯 RÉSULTAT FINAL ASSOUPLI:');
       console.log('- Documents utilisés:', actuallyUsedDocuments.length);
       console.log('- Sources disponibles:', embeddingsResult.sources?.length || 0);
       console.log('- Chunks trouvés:', embeddingsResult.chunks?.length || 0);
-      console.log('- Mode restriction:', 'DOCUMENTS_ONLY');
+      console.log('- Mode restriction:', 'FLEXIBLE_CONTEXTUAL');
 
       return new Response(
         JSON.stringify({ 
@@ -218,8 +223,8 @@ Réponds UNIQUEMENT en te basant sur le contenu exact des documents fournis ci-d
             totalChunks: embeddingsResult.chunks?.length || 0,
             totalSources: embeddingsResult.sources?.length || 0,
             usedDocsCount: actuallyUsedDocuments.length,
-            restrictionMode: 'STRICT_DOCUMENTS_ONLY',
-            promptUsed: 'ULTRA_STRICT'
+            restrictionMode: 'FLEXIBLE_CONTEXTUAL',
+            promptUsed: 'CONTEXTUAL_INTERPRETATION'
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
