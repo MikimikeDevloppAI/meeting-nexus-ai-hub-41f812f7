@@ -62,30 +62,20 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         )}
       </Card>
 
-      {/* Tasks Section - Using MeetingTodos component for exact same functionality as Todos page */}
-      <Card className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          {tasks ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-          ) : (
+      {/* Tasks Section - Full functionality like Todos page */}
+      {meetingId ? (
+        <MeetingTodos meetingId={meetingId} />
+      ) : (
+        <Card className="p-6">
+          <div className="flex items-center gap-2 mb-4">
             <Clock className="h-5 w-5 text-gray-400" />
-          )}
-          <h3 className="text-lg font-semibold">Tâches extraites</h3>
-          {tasks && (
-            <Badge variant="outline" className="text-green-700">
-              Prêt
-            </Badge>
-          )}
-        </div>
-        
-        {meetingId ? (
-          <MeetingTodos meetingId={meetingId} />
-        ) : (
+            <h3 className="text-lg font-semibold">Tâches extraites</h3>
+          </div>
           <div className="text-gray-500 italic">
             En attente de l'extraction des tâches...
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 };
