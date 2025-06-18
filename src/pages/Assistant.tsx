@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,6 +59,50 @@ const Assistant = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Fonction pour générer du contenu enrichi pour les actions
+  const generateEnrichedContent = async (userRequest: string, actionType: 'task' | 'meeting_point') => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const prompt = actionType === 'task' 
+        ? `Génère une description détaillée de tâche basée sur cette demande: "${userRequest}". 
+           Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
+           Format: Description claire et actionnable avec étapes concrètes si nécessaire.`
+        : `Génère un point d'ordre du jour détaillé basé sur cette demande: "${userRequest}".
+           Contexte: Cabinet d'ophtalmologie Dr Tabibian à Genève avec équipe (Leïla, Émilie, Parmis).
+           Format: Titre clair + description structurée avec objectifs et points à discuter.`;
+
+      const response = await fetch(
+        "https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/ai-agent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+          },
+          body: JSON.stringify({
+            message: prompt,
+            context: { 
+              userId: user?.id,
+              contentGeneration: true,
+              actionType: actionType
+            },
+            conversationHistory: []
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.response || userRequest;
+      }
+    } catch (error) {
+      console.error('Erreur génération contenu:', error);
+    }
+    
+    return userRequest; // Fallback
+  };
 
   // Fonction pour détecter si l'utilisateur demande explicitement une action
   const isExplicitActionRequest = (userMessage: string): boolean => {
@@ -174,14 +217,15 @@ const Assistant = () => {
           meetingResult: data.meetingPreparationResult
         });
         
-        // 3. Gérer les actions détectées
+        // 3. Gérer les actions détectées avec génération de contenu enrichi
         if (taskMatch || hasTaskAction) {
-          const description = taskMatch ? taskMatch[1].trim() : 'Tâche créée par l\'assistant';
-          console.log('[ASSISTANT] Action tâche détectée:', description);
+          console.log('[ASSISTANT] Action tâche détectée, génération de contenu...');
+          
+          const enrichedDescription = await generateEnrichedContent(userMessage, 'task');
           
           setPendingAction({
             type: 'create_task',
-            description: description,
+            description: enrichedDescription,
             details: data.taskContext
           });
           setIsValidationDialogOpen(true);
@@ -190,15 +234,13 @@ const Assistant = () => {
         }
         
         if (meetingMatch || hasMeetingAction) {
-          const description = meetingMatch ? 
-            meetingMatch[1].trim() : 
-            (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
+          console.log('[ASSISTANT] Action réunion détectée, génération de contenu...');
           
-          console.log('[ASSISTANT] Action réunion détectée:', description);
+          const enrichedDescription = await generateEnrichedContent(userMessage, 'meeting_point');
           
           setPendingAction({
             type: 'add_meeting_point',
-            description: description
+            description: enrichedDescription
           });
           setIsValidationDialogOpen(true);
           setIsLoading(false);
@@ -222,7 +264,6 @@ const Assistant = () => {
         content: cleanedResponse,
         isUser: false,
         timestamp: new Date(),
-        sources: data.sources || [],
         taskContext: data.taskContext,
         databaseContext: data.databaseContext,
         hasRelevantContext: data.hasRelevantContext,
@@ -263,7 +304,7 @@ const Assistant = () => {
 
         toast({
           title: "Tâche créée",
-          description: `La tâche "${pendingAction.description}" a été créée avec succès`,
+          description: "La tâche a été créée avec succès",
         });
       } else if (pendingAction.type === 'add_meeting_point') {
         // Ajouter le point à la préparation de réunion
@@ -278,14 +319,14 @@ const Assistant = () => {
 
         toast({
           title: "Point ajouté",
-          description: `Le point "${pendingAction.description}" a été ajouté à l'ordre du jour`,
+          description: "Le point a été ajouté à l'ordre du jour",
         });
       }
 
       // Ajouter un message de succès au chat
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
-        content: `✅ Action confirmée : ${pendingAction.description}`,
+        content: `✅ Action confirmée : ${pendingAction.type === 'create_task' ? 'Tâche créée' : 'Point ajouté à l\'ordre du jour'}`,
         isUser: false,
         timestamp: new Date(),
       };
@@ -307,7 +348,7 @@ const Assistant = () => {
 
     const rejectMessage: ChatMessage = {
       id: Date.now().toString(),
-      content: `❌ Action rejetée : ${pendingAction.description}`,
+      content: `❌ Action rejetée : ${pendingAction.type === 'create_task' ? 'Création de tâche annulée' : 'Ajout de point annulé'}`,
       isUser: false,
       timestamp: new Date(),
     };
