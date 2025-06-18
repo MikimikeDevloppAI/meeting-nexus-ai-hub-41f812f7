@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,36 @@ const Assistant = () => {
     }
   }, [messages]);
 
+  // Fonction pour détecter si l'utilisateur demande explicitement une action
+  const isExplicitActionRequest = (userMessage: string): boolean => {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // Mots-clés très explicites pour création de tâche
+    const taskKeywords = [
+      'créé une tâche',
+      'créer une tâche',
+      'nouvelle tâche',
+      'ajouter une tâche',
+      'faire une tâche',
+      'crée une tâche'
+    ];
+    
+    // Mots-clés très explicites pour ajout de point à la réunion
+    const meetingKeywords = [
+      'ajouter un point',
+      'ajoute un point',
+      'point à la réunion',
+      'point à l\'ordre du jour',
+      'ordre du jour',
+      'prochaine réunion'
+    ];
+    
+    const hasTaskKeyword = taskKeywords.some(keyword => lowerMessage.includes(keyword));
+    const hasMeetingKeyword = meetingKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    return hasTaskKeyword || hasMeetingKeyword;
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -118,60 +149,77 @@ const Assistant = () => {
       
       console.log('[ASSISTANT] Réponse complète de l\'agent:', data);
       
-      // Vérifier si une action doit être interceptée AVANT d'ajouter le message
-      const responseText = data.response || '';
+      // NOUVELLE LOGIQUE : Vérifier uniquement si l'utilisateur a fait une demande explicite
+      const isExplicitRequest = isExplicitActionRequest(userMessage);
       
-      // 1. Vérifier les patterns d'action dans la réponse
-      const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
-      const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
-      
-      // 2. Vérifier aussi les résultats des agents
-      const hasTaskAction = data.taskContext?.taskCreated;
-      const hasMeetingAction = data.meetingPreparationResult?.actionPerformed || data.meetingPreparationResult?.action === 'add';
-      
-      console.log('[ASSISTANT] Détection d\'actions:', {
-        taskMatch: !!taskMatch,
-        meetingMatch: !!meetingMatch,
-        hasTaskAction,
-        hasMeetingAction,
-        meetingResult: data.meetingPreparationResult
-      });
-      
-      // 3. Gérer les actions détectées
-      if (taskMatch || hasTaskAction) {
-        const description = taskMatch ? taskMatch[1].trim() : 'Tâche créée par l\'assistant';
-        console.log('[ASSISTANT] Action tâche détectée:', description);
+      if (isExplicitRequest) {
+        console.log('[ASSISTANT] Demande explicite détectée, vérification des actions...');
         
-        setPendingAction({
-          type: 'create_task',
-          description: description,
-          details: data.taskContext
+        // Vérifier si une action doit être interceptée AVANT d'ajouter le message
+        const responseText = data.response || '';
+        
+        // 1. Vérifier les patterns d'action dans la réponse
+        const taskMatch = responseText.match(/\[ACTION_TACHE:([^\]]+)\]/);
+        const meetingMatch = responseText.match(/\[ACTION_REUNION:([^\]]+)\]/);
+        
+        // 2. Vérifier aussi les résultats des agents
+        const hasTaskAction = data.taskContext?.taskCreated;
+        const hasMeetingAction = data.meetingPreparationResult?.actionPerformed || data.meetingPreparationResult?.action === 'add';
+        
+        console.log('[ASSISTANT] Détection d\'actions:', {
+          taskMatch: !!taskMatch,
+          meetingMatch: !!meetingMatch,
+          hasTaskAction,
+          hasMeetingAction,
+          meetingResult: data.meetingPreparationResult
         });
-        setIsValidationDialogOpen(true);
-        setIsLoading(false);
-        return; // Arrêter ici, ne pas ajouter le message
-      }
-      
-      if (meetingMatch || hasMeetingAction) {
-        const description = meetingMatch ? 
-          meetingMatch[1].trim() : 
-          (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
         
-        console.log('[ASSISTANT] Action réunion détectée:', description);
+        // 3. Gérer les actions détectées
+        if (taskMatch || hasTaskAction) {
+          const description = taskMatch ? taskMatch[1].trim() : 'Tâche créée par l\'assistant';
+          console.log('[ASSISTANT] Action tâche détectée:', description);
+          
+          setPendingAction({
+            type: 'create_task',
+            description: description,
+            details: data.taskContext
+          });
+          setIsValidationDialogOpen(true);
+          setIsLoading(false);
+          return; // Arrêter ici, ne pas ajouter le message
+        }
         
-        setPendingAction({
-          type: 'add_meeting_point',
-          description: description
-        });
-        setIsValidationDialogOpen(true);
-        setIsLoading(false);
-        return; // Arrêter ici, ne pas ajouter le message
+        if (meetingMatch || hasMeetingAction) {
+          const description = meetingMatch ? 
+            meetingMatch[1].trim() : 
+            (data.meetingPreparationResult?.message || 'Point ajouté à l\'ordre du jour');
+          
+          console.log('[ASSISTANT] Action réunion détectée:', description);
+          
+          setPendingAction({
+            type: 'add_meeting_point',
+            description: description
+          });
+          setIsValidationDialogOpen(true);
+          setIsLoading(false);
+          return; // Arrêter ici, ne pas ajouter le message
+        }
+      } else {
+        console.log('[ASSISTANT] Pas de demande explicite, traitement normal...');
       }
 
-      // 4. Si aucune action détectée, ajouter le message normalement
+      // 4. Si aucune action détectée ou pas de demande explicite, ajouter le message normalement
+      // Nettoyer la réponse des patterns d'action avant affichage
+      let cleanedResponse = data.response;
+      if (cleanedResponse) {
+        cleanedResponse = cleanedResponse.replace(/\[ACTION_TACHE:[^\]]+\]/g, '');
+        cleanedResponse = cleanedResponse.replace(/\[ACTION_REUNION:[^\]]+\]/g, '');
+        cleanedResponse = cleanedResponse.trim();
+      }
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: cleanedResponse,
         isUser: false,
         timestamp: new Date(),
         sources: data.sources || [],
