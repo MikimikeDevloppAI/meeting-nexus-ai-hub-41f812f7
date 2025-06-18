@@ -1,36 +1,19 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, File, Paperclip, CheckCircle, AlertCircle, Plus, Calendar } from "lucide-react";
+import { Send, File, Paperclip, CheckCircle, AlertCircle, Plus, Calendar, Bot, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
 import { AIActionValidationDialog } from "@/components/AIActionValidationDialog";
 
 interface ChatMessage {
@@ -101,7 +84,7 @@ const Assistant = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${supabase.supabaseKey}`,
+            Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemxsamBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMzOTU0OTcsImV4cCI6MjA0ODk3MTQ5N30.Vh4XAp1X6eJlEtqNNzYIoIuTPEweat14VgWCF5vUNAI'}`,
           },
           body: JSON.stringify({
             message: userMessage,
@@ -257,150 +240,226 @@ const Assistant = () => {
     });
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-md p-4">
-        <div className="container mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Assistant IA - Cabinet Médical</h1>
-          <div className="flex items-center space-x-4">
-            <Label htmlFor="document-search-mode" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Mode recherche documents
-            </Label>
-            <Switch id="document-search-mode" checked={documentSearchMode} onCheckedChange={(checked) => setDocumentSearchMode(checked)} />
-            {user ? (
-              <Avatar>
-                <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} />
-                <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            ) : (
-              <p>Non connecté</p>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 p-4 container mx-auto overflow-hidden">
-        <ScrollArea className="h-full rounded-md border p-4" ref={chatContainerRef}>
-          <div className="flex flex-col space-y-4">
-            {chatHistory.map((message) => (
-              <div key={message.id} className={`flex flex-col ${message.isUser ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-3/4 rounded-lg p-3 ${message.isUser ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                  <p className="text-sm whitespace-pre-line">{message.content}</p>
-                  <div className="text-xs text-gray-500 mt-2">
-                    {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
-                  </div>
-                </div>
-
-                {/* Sources d'information */}
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold">Sources :</p>
-                    <ul className="list-disc pl-4">
-                      {message.sources.map((source, index) => (
-                        <li key={index} className="text-xs">
-                          <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                            {source.title || source.url}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Documents utilisés */}
-                {message.actuallyUsedDocuments && message.actuallyUsedDocuments.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold">Documents utilisés :</p>
-                    <ul className="list-disc pl-4">
-                      {message.actuallyUsedDocuments.map((docId, index) => (
-                        <li key={index} className="text-xs">
-                          Document ID: {docId}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Contexte des tâches */}
-                {message.taskContext && message.taskContext.currentTasks && message.taskContext.currentTasks.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold">Tâches associées :</p>
-                    <ul className="list-disc pl-4">
-                      {message.taskContext.currentTasks.map((task: Task) => (
-                        <li key={task.id} className="text-xs">
-                          {task.description} (Status: {task.status}, Assigné à: {task.assigned_to})
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Contexte de la base de données */}
-                {message.databaseContext && (
-                  <div className="mt-2">
-                    {message.databaseContext.meetings && message.databaseContext.meetings.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold">Réunions associées :</p>
-                        <ul className="list-disc pl-4">
-                          {message.databaseContext.meetings.map((meeting: any) => (
-                            <li key={meeting.id} className="text-xs">
-                              {meeting.title} (Créée le: {format(new Date(meeting.created_at), "d MMM yyyy", { locale: fr })})
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {message.databaseContext.documents && message.databaseContext.documents.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold">Documents associés :</p>
-                        <ul className="list-disc pl-4">
-                          {message.databaseContext.documents.map((document: any) => (
-                            <li key={document.id} className="text-xs">
-                              {document.ai_generated_name || document.original_name}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
+    <div className="animate-fade-in">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Assistant IA - Cabinet Médical</h1>
+        <p className="text-muted-foreground">
+          Votre assistant intelligent pour la gestion de votre cabinet médical.
+        </p>
       </div>
 
-      <footer className="bg-white border-t p-4">
-        <div className="container mx-auto flex items-center">
-          <Input
-            type="text"
-            placeholder="Envoyer un message..."
-            className="flex-1 rounded-l-md"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSendMessage();
-              }
-            }}
-          />
-          <Button
-            onClick={handleSendMessage}
-            className="rounded-r-md"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <Send className="h-4 w-4 mr-2" />
+      {/* Settings Card */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Paramètres de l'assistant</CardTitle>
+          <CardDescription>
+            Configurez les options de recherche et d'analyse de l'assistant IA.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="document-search-mode" 
+                checked={documentSearchMode} 
+                onCheckedChange={setDocumentSearchMode} 
+              />
+              <Label htmlFor="document-search-mode" className="text-sm font-medium">
+                Mode recherche documents
+              </Label>
+            </div>
+            {user && (
+              <div className="flex items-center space-x-2 ml-auto">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} />
+                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">{user?.email}</span>
+              </div>
             )}
-            Envoyer
-          </Button>
-        </div>
-      </footer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Chat Card */}
+      <Card className="h-[600px] flex flex-col">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Conversation avec l'assistant</CardTitle>
+          </div>
+          <CardDescription>
+            Posez vos questions et gérez vos tâches avec l'assistant IA.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex-1 flex flex-col p-4">
+          <ScrollArea className="flex-1 pr-4 mb-4" ref={chatContainerRef}>
+            <div className="space-y-4">
+              {chatHistory.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Bonjour ! Comment puis-je vous aider ?</p>
+                  <p className="text-sm">
+                    Je peux vous aider avec la gestion de vos tâches, documents, réunions et bien plus encore.
+                  </p>
+                </div>
+              )}
+              
+              {chatHistory.map((message) => (
+                <div key={message.id} className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-3 max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      message.isUser ? 'bg-primary' : 'bg-secondary'
+                    }`}>
+                      {message.isUser ? (
+                        <User className="h-4 w-4 text-primary-foreground" />
+                      ) : (
+                        <Bot className="h-4 w-4" />
+                      )}
+                    </div>
+                    
+                    <div className={`rounded-lg p-3 ${
+                      message.isUser 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted'
+                    }`}>
+                      <div className="text-sm whitespace-pre-wrap">
+                        {message.content}
+                      </div>
+                      <div className="text-xs opacity-70 mt-2">
+                        {format(message.timestamp, "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                      </div>
+
+                      {/* Sources d'information */}
+                      {message.sources && message.sources.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-opacity-20">
+                          <p className="text-xs font-semibold mb-1">Sources :</p>
+                          <ul className="list-disc pl-4 text-xs space-y-1">
+                            {message.sources.map((source, index) => (
+                              <li key={index}>
+                                <a href={source.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  {source.title || source.url}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Documents utilisés */}
+                      {message.actuallyUsedDocuments && message.actuallyUsedDocuments.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-opacity-20">
+                          <p className="text-xs font-semibold mb-1">Documents utilisés :</p>
+                          <div className="flex flex-wrap gap-1">
+                            {message.actuallyUsedDocuments.map((docId, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                Doc {docId}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contexte des tâches */}
+                      {message.taskContext && message.taskContext.currentTasks && message.taskContext.currentTasks.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-opacity-20">
+                          <p className="text-xs font-semibold mb-1">Tâches associées :</p>
+                          <ul className="list-disc pl-4 text-xs space-y-1">
+                            {message.taskContext.currentTasks.map((task: Task) => (
+                              <li key={task.id}>
+                                {task.description} <Badge variant="secondary" className="text-xs ml-1">{task.status}</Badge>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Contexte de la base de données */}
+                      {message.databaseContext && (
+                        <div className="mt-2 pt-2 border-t border-opacity-20">
+                          {message.databaseContext.meetings && message.databaseContext.meetings.length > 0 && (
+                            <div className="mb-2">
+                              <p className="text-xs font-semibold mb-1">Réunions associées :</p>
+                              <ul className="list-disc pl-4 text-xs space-y-1">
+                                {message.databaseContext.meetings.map((meeting: any) => (
+                                  <li key={meeting.id}>
+                                    {meeting.title} <Badge variant="outline" className="text-xs ml-1">
+                                      {format(new Date(meeting.created_at), "d MMM", { locale: fr })}
+                                    </Badge>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {message.databaseContext.documents && message.databaseContext.documents.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold mb-1">Documents associés :</p>
+                              <ul className="list-disc pl-4 text-xs space-y-1">
+                                {message.databaseContext.documents.map((document: any) => (
+                                  <li key={document.id}>
+                                    {document.ai_generated_name || document.original_name}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">L'assistant réfléchit...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="flex gap-2 pt-4 border-t">
+            <Input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Tapez votre message ici..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button 
+              onClick={handleSendMessage} 
+              disabled={isLoading || !inputMessage.trim()}
+              size="icon"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          <div className="mt-2 text-xs text-muted-foreground">
+            💡 L'assistant peut créer des tâches, ajouter des points à l'ordre du jour, rechercher dans vos documents et bien plus encore.
+          </div>
+        </CardContent>
+      </Card>
       
       <AIActionValidationDialog
         isOpen={isValidationDialogOpen}
