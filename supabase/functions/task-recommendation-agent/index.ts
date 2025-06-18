@@ -52,7 +52,7 @@ serve(async (req) => {
 
     const prompt = requestBody.batchPrompt;
     const temperature = 0.7; // Déterministe pour le batch
-    const maxTokens = 42288;
+    const maxTokens = 15000; // Réduit de 42288 à 15000 pour respecter la limite de gpt-4o
     
     console.log(`[TASK-AGENT] 📏 Prompt length: ${prompt.length} characters`);
     console.log(`[TASK-AGENT] 📄 Prompt preview:`, prompt.substring(0, 500) + (prompt.length > 500 ? '...' : ''));
