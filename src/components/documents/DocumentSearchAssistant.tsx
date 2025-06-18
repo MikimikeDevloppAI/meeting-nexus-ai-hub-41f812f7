@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -271,7 +270,7 @@ export const DocumentSearchAssistant = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-primary" />
-              <CardTitle className="text-lg">Assistant Recherche Documentaire ⚡ Amélioré</CardTitle>
+              <CardTitle className="text-lg">Assistant Recherche Documentaire</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Button
