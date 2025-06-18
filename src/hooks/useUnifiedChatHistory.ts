@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 
 export interface ChatMessage {
@@ -113,8 +114,7 @@ export const useUnifiedChatHistory = ({
         isUser: msg.isUser,
         content: msg.content,
         timestamp: msg.timestamp.toISOString(),
-        sources: msg.sources,
-        taskAction: msg.taskAction
+        sources: msg.sources
       }));
   };
 
