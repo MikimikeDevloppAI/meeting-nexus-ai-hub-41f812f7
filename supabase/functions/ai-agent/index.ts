@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { DatabaseAgent } from './agents/database.ts';
 import { EmbeddingsAgent } from './agents/embeddings.ts';
@@ -61,11 +60,12 @@ serve(async (req) => {
 
       // Générer une réponse directe en utilisant OpenAI avec historique
       let response = '';
+      let actuallyUsedDocuments: string[] = [];
       
       if (embeddingsResult.hasRelevantContext && embeddingsResult.chunks.length > 0) {
-        // Construire le contexte pour OpenAI
+        // Construire le contexte pour OpenAI avec les IDs des documents
         const contextText = embeddingsResult.chunks.slice(0, 5).map((chunk, index) => {
-          return `Document: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
+          return `Document ID: ${chunk.document_id}\nDocument: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
         }).join('\n\n---\n\n');
 
         // Construire l'historique de conversation
@@ -84,6 +84,17 @@ INSTRUCTIONS IMPORTANTES :
 - Structure tes réponses avec des sections claires
 - N'hésite pas à donner des informations contextuelles supplémentaires
 - Sois précis et professionnel tout en étant exhaustif
+
+IMPORTANT POUR LES SOURCES :
+À la fin de ta réponse, tu DOIS ajouter une section spéciale qui liste UNIQUEMENT les Document IDs que tu as RÉELLEMENT utilisés pour formuler ta réponse. Utilise ce format exact :
+
+[DOCUMENTS_UTILISÉS]
+- ID_DU_DOCUMENT_1
+- ID_DU_DOCUMENT_2
+(etc.)
+[/DOCUMENTS_UTILISÉS]
+
+Ne liste que les documents dont tu as vraiment lu et utilisé le contenu pour ta réponse. Si tu n'as utilisé aucun document spécifique, écris [DOCUMENTS_UTILISÉS]Aucun[/DOCUMENTS_UTILISÉS]
 
 Question de l'utilisateur: "${message}"
 
@@ -110,7 +121,26 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
 
         if (openaiResponse.ok) {
           const data = await openaiResponse.json();
-          response = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
+          const fullResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.';
+          
+          // Extraire la liste des documents utilisés
+          const usedDocsMatch = fullResponse.match(/\[DOCUMENTS_UTILISÉS\](.*?)\[\/DOCUMENTS_UTILISÉS\]/s);
+          if (usedDocsMatch) {
+            const usedDocsSection = usedDocsMatch[1].trim();
+            if (usedDocsSection !== 'Aucun') {
+              // Extraire les IDs des documents
+              actuallyUsedDocuments = usedDocsSection
+                .split('\n')
+                .map(line => line.replace(/^- /, '').trim())
+                .filter(id => id && id !== '');
+            }
+            // Nettoyer la réponse en supprimant la section des documents utilisés
+            response = fullResponse.replace(/\[DOCUMENTS_UTILISÉS\].*?\[\/DOCUMENTS_UTILISÉS\]/s, '').trim();
+          } else {
+            response = fullResponse;
+          }
+          
+          console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés:', actuallyUsedDocuments);
         } else {
           response = `J'ai trouvé ${embeddingsResult.chunks.length} élément(s) pertinent(s) dans vos documents, mais je n'ai pas pu générer une réponse détaillée.`;
         }
@@ -122,6 +152,7 @@ Réponds de manière TRÈS DÉTAILLÉE et COMPLÈTE en utilisant les information
         JSON.stringify({ 
           response,
           sources: embeddingsResult.sources || [],
+          actuallyUsedDocuments,
           hasRelevantContext: embeddingsResult.hasRelevantContext,
           searchIterations: embeddingsResult.searchIterations || 0,
           conversationLength: conversationHistory.length

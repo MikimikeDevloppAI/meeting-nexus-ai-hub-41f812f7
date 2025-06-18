@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,12 +46,24 @@ export const DocumentSearchAssistant = () => {
     maxSentHistory: 20
   });
 
-  // Fonction pour transformer les sources de l'Edge Function au format attendu par SmartDocumentSources
-  const transformSourcesForDisplay = (sources: RawSource[]): TransformedSource[] => {
-    if (!sources || sources.length === 0) return [];
+  // Fonction pour filtrer les sources par documents explicitement utilisés par l'IA
+  const filterByActuallyUsedDocuments = (sources: RawSource[], actuallyUsedDocuments: string[]): TransformedSource[] => {
+    if (!sources || sources.length === 0 || !actuallyUsedDocuments || actuallyUsedDocuments.length === 0) {
+      return [];
+    }
+
+    console.log('[DOCUMENT_SEARCH] 🎯 Documents explicitement utilisés par l\'IA:', actuallyUsedDocuments);
+    console.log('[DOCUMENT_SEARCH] 📄 Sources disponibles:', sources.length);
+
+    // Filtrer les sources pour ne garder que celles explicitement utilisées
+    const filteredSources = sources.filter(source => 
+      actuallyUsedDocuments.includes(source.document_id)
+    );
+
+    console.log('[DOCUMENT_SEARCH] ✅ Sources filtrées par utilisation réelle:', filteredSources.length);
 
     // Grouper les chunks par document
-    const groupedByDocument = sources.reduce((acc: Record<string, TransformedSource>, source: RawSource) => {
+    const groupedByDocument = filteredSources.reduce((acc: Record<string, TransformedSource>, source: RawSource) => {
       const docId = source.document_id;
       if (!acc[docId]) {
         acc[docId] = {
@@ -76,10 +89,8 @@ export const DocumentSearchAssistant = () => {
       return acc;
     }, {});
 
-    // Convertir en tableau et filtrer par similarité > 35%
-    return Object.values(groupedByDocument).filter((doc: TransformedSource) => 
-      doc.maxSimilarity > 0.35
-    );
+    // Convertir en tableau - plus de filtre par similarité, on fait confiance à l'IA
+    return Object.values(groupedByDocument);
   };
 
   const sendMessage = async () => {
@@ -124,11 +135,13 @@ export const DocumentSearchAssistant = () => {
         .replace(/\s*CONTEXTE.*?:/gi, '')
         .trim();
 
-      // Transformer les sources au format attendu par SmartDocumentSources
-      const transformedSources = transformSourcesForDisplay(data.sources || []);
+      // Utiliser la nouvelle logique basée sur les documents explicitement utilisés
+      const actuallyUsedDocuments = data.actuallyUsedDocuments || [];
+      const transformedSources = filterByActuallyUsedDocuments(data.sources || [], actuallyUsedDocuments);
 
       console.log('[DOCUMENT_SEARCH] 📊 Sources originales:', data.sources?.length || 0);
-      console.log('[DOCUMENT_SEARCH] 📋 Sources transformées:', transformedSources.length);
+      console.log('[DOCUMENT_SEARCH] 🎯 Documents explicitement utilisés:', actuallyUsedDocuments.length);
+      console.log('[DOCUMENT_SEARCH] 📋 Sources finales affichées:', transformedSources.length);
 
       const aiMessage = {
         id: (Date.now() + 1).toString(),
@@ -141,16 +154,16 @@ export const DocumentSearchAssistant = () => {
       addMessage(aiMessage);
 
       // Toast informatif pour données utilisées
-      if (data.searchMetrics?.totalDataPoints > 0) {
+      if (transformedSources.length > 0) {
         toast({
-          title: "Recherche effectuée",
-          description: `${data.searchMetrics.totalDataPoints} sources trouvées dans vos documents`,
+          title: "Documents utilisés",
+          description: `L'IA a consulté ${transformedSources.length} document(s) pour sa réponse`,
           variant: "default",
         });
-      } else if (transformedSources.length > 0) {
+      } else if (actuallyUsedDocuments.length === 0) {
         toast({
-          title: "Documents trouvés",
-          description: `${transformedSources.length} document(s) pertinent(s)`,
+          title: "Aucun document utilisé",
+          description: "L'IA n'a pas eu besoin de consulter de documents spécifiques",
           variant: "default",
         });
       }
@@ -236,7 +249,7 @@ export const DocumentSearchAssistant = () => {
                     />
                     {message.sources && message.sources.length > 0 && (
                       <div className="text-xs opacity-70 mt-2">
-                        📄 {message.sources.length} source(s) utilisée(s)
+                        📄 {message.sources.length} document(s) réellement utilisé(s)
                       </div>
                     )}
                     <div className="text-xs opacity-70 mt-2">
@@ -251,7 +264,7 @@ export const DocumentSearchAssistant = () => {
                 <div className="ml-11">
                   <SmartDocumentSources 
                     sources={message.sources} 
-                    title="Documents utilisés"
+                    title="Documents réellement utilisés par l'IA"
                   />
                 </div>
               )}
