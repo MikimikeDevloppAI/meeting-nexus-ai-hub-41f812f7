@@ -1,41 +1,79 @@
 
-export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o') {
+export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o', maxRetries: number = 3) {
   console.log('🔄 Making OpenAI API call...')
   console.log('🤖 Using model:', model)
   console.log('📏 Prompt length:', prompt.length, 'characters')
+  console.log('🔁 Max retries:', maxRetries)
   
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: 16384,
-      }),
-    });
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📡 Attempt ${attempt}/${maxRetries} - Making request to OpenAI...`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+          max_tokens: 16384,
+        }),
+      });
 
-    console.log('📡 OpenAI response status:', response.status);
+      console.log(`📡 OpenAI response status (attempt ${attempt}):`, response.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ OpenAI API error response (attempt ${attempt}):`, errorText);
+        
+        // Si c'est une erreur 4xx (client error), ne pas retry
+        if (response.status >= 400 && response.status < 500) {
+          throw new Error(`OpenAI API client error: ${response.status} - ${errorText}`);
+        }
+        
+        // Pour les erreurs 5xx (server error), continuer à retry
+        throw new Error(`OpenAI API server error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const result = data.choices[0]?.message?.content;
+      
+      if (!result) {
+        throw new Error('OpenAI API returned empty response');
+      }
+      
+      console.log('✅ OpenAI API call successful');
+      console.log('📏 Response length:', result.length, 'characters');
+      
+      return result;
+      
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`❌ OpenAI API call failed (attempt ${attempt}/${maxRetries}):`, error);
+      
+      // Si c'est une erreur client (4xx), ne pas retry
+      if (error.message.includes('client error')) {
+        throw error;
+      }
+      
+      // Si c'est le dernier essai, throw l'erreur
+      if (attempt === maxRetries) {
+        console.error(`❌ All ${maxRetries} attempts failed. Final error:`, error);
+        throw error;
+      }
+      
+      // Attendre avant le prochain essai (backoff exponentiel)
+      const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s...
+      console.log(`⏳ Waiting ${waitTime}ms before retry ${attempt + 1}...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
-
-    const data = await response.json();
-    const result = data.choices[0]?.message?.content;
-    
-    console.log('✅ OpenAI API call successful');
-    console.log('📏 Response length:', result?.length || 0, 'characters');
-    
-    return result;
-  } catch (error) {
-    console.error('❌ OpenAI API call failed:', error);
-    throw error;
   }
+  
+  // Ne devrait jamais arriver, mais au cas où
+  throw lastError || new Error('Unknown error during OpenAI API calls');
 }

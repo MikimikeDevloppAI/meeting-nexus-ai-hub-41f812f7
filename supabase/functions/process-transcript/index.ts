@@ -79,11 +79,11 @@ serve(async (req) => {
 
     const participantNames = allParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript - UTILISER GPT-4O-MINI
+    // 1. Nettoyer le transcript - UTILISER GPT-4O avec retry
     const cleaningStartTime = Date.now();
-    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4o-mini...');
+    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4o and retry mechanism...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
-    const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4o-mini');
+    const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4o', 3);
     await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
     console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
     console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
@@ -105,20 +105,20 @@ serve(async (req) => {
 
     // Lancer les 3 opérations en parallèle
     const [tasksResult, summaryResult, embeddingsResult] = await Promise.allSettled([
-      // Extraction des tâches
+      // Extraction des tâches avec retry
       (async () => {
-        console.log('📋 [PARALLEL] Extracting tasks with gpt-4o-mini...');
+        console.log('📋 [PARALLEL] Extracting tasks with gpt-4o-mini and retry...');
         const startTime = Date.now();
-        const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o-mini');
+        const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o-mini', 3);
         console.log(`✅ [PARALLEL] Tasks extraction completed (${Date.now() - startTime}ms)`);
         return tasksResponse;
       })(),
       
-      // Génération du résumé
+      // Génération du résumé avec retry
       (async () => {
-        console.log('📝 [PARALLEL] Generating summary with gpt-4o...');
+        console.log('📝 [PARALLEL] Generating summary with gpt-4o and retry...');
         const startTime = Date.now();
-        const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o');
+        const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o', 3);
         await saveSummary(supabaseClient, meetingId, summary);
         console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
         return summary;
