@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 
 export interface ChatMessage {
@@ -11,6 +12,10 @@ export interface ChatMessage {
   contextFound?: boolean;
   taskAction?: any;
   debugInfo?: any;
+  taskContext?: any;
+  databaseContext?: any;
+  hasRelevantContext?: boolean;
+  actuallyUsedDocuments?: string[];
 }
 
 interface UseUnifiedChatHistoryProps {
