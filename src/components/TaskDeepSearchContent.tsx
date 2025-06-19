@@ -1,15 +1,15 @@
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Search, Loader2, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DeepSearchContent } from "@/utils/deepSearchRenderer";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Search, Loader2, Copy, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { DeepSearchContent } from "@/utils/deepSearchRenderer";
 
 interface TaskDeepSearchContentProps {
   todoId: string;
@@ -21,7 +21,6 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
   const [searchResult, setSearchResult] = useState("");
   const [sources, setSources] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeTab, setActiveTab] = useState("search");
   const [hasExistingResults, setHasExistingResults] = useState(false);
   const { toast } = useToast();
 
@@ -140,16 +139,25 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
 
   return (
     <Card className="border-dashed">
-      <CardContent className="p-3">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-          <TabsList className="grid w-full grid-cols-2 h-7">
-            <TabsTrigger value="search" className="text-xs">Nouvelle Recherche</TabsTrigger>
-            <TabsTrigger value="result" className="text-xs">Résultat</TabsTrigger>
-          </TabsList>
+      <CardContent className="p-4">
+        <div className="space-y-4">
+          {/* Header with status indicator */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-purple-600" />
+              <span className="font-medium text-sm">Recherche approfondie</span>
+            </div>
+            {hasExistingResults && (
+              <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                Résultats disponibles
+              </Badge>
+            )}
+          </div>
 
-          <TabsContent value="search" className="space-y-3 mt-3">
+          {/* Search input */}
+          <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium mb-1 block">
+              <label className="text-xs font-medium mb-2 block text-muted-foreground">
                 Contexte additionnel pour la recherche :
               </label>
               <Textarea
@@ -157,74 +165,68 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 value={userContext}
                 onChange={(e) => setUserContext(e.target.value)}
                 rows={3}
-                className="resize-none text-xs"
+                className="resize-none text-sm"
               />
             </div>
             
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleDeepSearch} 
-                disabled={isSearching || !userContext.trim()}
-                size="sm"
-                className="h-7 text-xs"
-              >
-                {isSearching ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    Recherche...
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-3 w-3 mr-1" />
-                    Lancer
-                  </>
-                )}
-              </Button>
-            </div>
-          </TabsContent>
+            <Button 
+              onClick={handleDeepSearch} 
+              disabled={isSearching || !userContext.trim()}
+              size="sm"
+              className="w-full"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Recherche en cours...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Lancer la recherche
+                </>
+              )}
+            </Button>
+          </div>
 
-          <TabsContent value="result" className="space-y-3 mt-3">
-            {searchResult && searchResult.trim() ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                    Recherche terminée
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(searchResult)}
-                    className="h-6 text-xs"
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copier
-                  </Button>
-                </div>
-                <div className="border rounded-md overflow-hidden">
-                  <ScrollArea className="h-[300px] w-full">
-                    <div className="p-3">
-                      <DeepSearchContent text={searchResult} sources={sources} />
-                    </div>
-                  </ScrollArea>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                {isSearching ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-xs">Recherche en cours...</span>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-xs mb-1">Aucun résultat à afficher</p>
-                    <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
-                  </div>
-                )}
+          {/* Results */}
+          {searchResult && searchResult.trim() ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  Recherche terminée
+                </Badge>
+                <Button
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => copyToClipboard(searchResult)}
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copier
+                </Button>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+              <div className="border rounded-md overflow-hidden">
+                <ScrollArea className="h-[300px] w-full">
+                  <div className="p-3">
+                    <DeepSearchContent text={searchResult} sources={sources} />
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          ) : isSearching ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Recherche en cours...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              <p className="text-sm">Aucun résultat à afficher</p>
+              <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

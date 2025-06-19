@@ -428,17 +428,17 @@ export default function Todos() {
                       </div>
                     </div>
 
-                    {/* AI Tools - Three buttons in a row with pastel colors */}
+                    {/* AI Tools - Three buttons in a row with pastel colors as base */}
                     <div className="space-y-3">
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 ${
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-yellow-100 border border-yellow-200 ${
                             activeTool === 'recommendation' 
-                              ? 'bg-yellow-100 border border-yellow-200' 
-                              : 'hover:bg-yellow-50 border border-transparent'
+                              ? 'ring-2 ring-yellow-300' 
+                              : 'hover:bg-yellow-200'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -456,10 +456,10 @@ export default function Todos() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'assistant')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 ${
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
                             activeTool === 'assistant' 
-                              ? 'bg-blue-100 border border-blue-200' 
-                              : 'hover:bg-blue-50 border border-transparent'
+                              ? 'ring-2 ring-blue-300' 
+                              : 'hover:bg-blue-200'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -477,10 +477,10 @@ export default function Todos() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'search')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 ${
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-purple-100 border border-purple-200 ${
                             activeTool === 'search' 
-                              ? 'bg-purple-100 border border-purple-200' 
-                              : 'hover:bg-purple-50 border border-transparent'
+                              ? 'ring-2 ring-purple-300' 
+                              : 'hover:bg-purple-200'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
