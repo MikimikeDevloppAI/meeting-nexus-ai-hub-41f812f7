@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Search, Loader2, Copy, Send, HelpCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Loader2, Copy, Maximize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DeepSearchContent } from "@/utils/deepSearchRenderer";
 
@@ -20,9 +21,9 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
   const [userContext, setUserContext] = useState("");
   const [searchResult, setSearchResult] = useState("");
   const [sources, setSources] = useState<string[]>([]);
-  const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasExistingResults, setHasExistingResults] = useState(false);
+  const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const { toast } = useToast();
 
   // Charger les résultats existants quand le composant se monte
@@ -55,14 +56,12 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         setHasExistingResults(false);
         setSearchResult("");
         setSources([]);
-        setRelatedQuestions([]);
       }
     } catch (error) {
       console.error('Error loading existing results:', error);
       setHasExistingResults(false);
       setSearchResult("");
       setSources([]);
-      setRelatedQuestions([]);
     }
   };
 
@@ -79,7 +78,6 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     setIsSearching(true);
     setSearchResult("");
     setSources([]);
-    setRelatedQuestions([]);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -105,15 +103,12 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       if (response.data?.success) {
         const result = response.data.result;
         const sourcesData = response.data.sources || [];
-        const relatedQuestionsData = response.data.relatedQuestions || [];
         
         console.log('✅ Search result received:', result.substring(0, 200) + '...');
         console.log('📚 Sources received:', sourcesData.length, 'sources');
-        console.log('🤔 Related questions received:', relatedQuestionsData.length, 'questions');
         
         setSearchResult(result);
         setSources(sourcesData);
-        setRelatedQuestions(relatedQuestionsData);
         setHasExistingResults(true);
 
         toast({
@@ -142,10 +137,6 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       title: "Copié",
       description: "Le contenu a été copié dans le presse-papiers",
     });
-  };
-
-  const handleRelatedQuestionClick = (question: string) => {
-    setUserContext(question);
   };
 
   return (
@@ -200,29 +191,6 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
             </Button>
           </div>
 
-          {/* Related Questions */}
-          {relatedQuestions.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Questions connexes :</span>
-              </div>
-              <div className="grid gap-2">
-                {relatedQuestions.slice(0, 4).map((question, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleRelatedQuestionClick(question)}
-                    className="text-left h-auto py-2 px-3 text-xs text-wrap justify-start hover:bg-blue-50"
-                  >
-                    {question}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Results */}
           {searchResult && searchResult.trim() ? (
             <div className="space-y-3">
@@ -230,14 +198,42 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
                   Recherche terminée
                 </Badge>
-                <Button
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => copyToClipboard(searchResult)}
-                >
-                  <Copy className="h-4 w-4 mr-1" />
-                  Copier
-                </Button>
+                <div className="flex gap-2">
+                  <Dialog open={isFullScreenOpen} onOpenChange={setIsFullScreenOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Maximize2 className="h-4 w-4 mr-1" />
+                        Plein écran
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw]">
+                      <DialogHeader>
+                        <DialogTitle>Résultat de la recherche approfondie</DialogTitle>
+                      </DialogHeader>
+                      <div className="flex justify-end mb-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(searchResult)}
+                        >
+                          <Copy className="h-4 w-4 mr-1" />
+                          Copier
+                        </Button>
+                      </div>
+                      <ScrollArea className="h-[70vh] w-full pr-4">
+                        <DeepSearchContent text={searchResult} sources={sources} />
+                      </ScrollArea>
+                    </DialogContent>
+                  </Dialog>
+                  <Button
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => copyToClipboard(searchResult)}
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copier
+                  </Button>
+                </div>
               </div>
               <div className="border rounded-md overflow-hidden">
                 <ScrollArea className="h-[300px] w-full">
