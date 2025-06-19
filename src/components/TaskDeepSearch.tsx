@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -145,119 +146,121 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   };
 
   return (
-    <div className={`${isOpen ? 'col-span-full' : ''}`}>
+    <>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full h-20 flex flex-col items-center justify-center gap-2 text-foreground hover:text-foreground hover:bg-purple-100/50"
+            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-purple-100/50 px-2"
           >
-            <Zap className="h-5 w-5 text-purple-500" />
-            <span className="text-sm font-medium text-black">Deep Search</span>
+            <Zap className="h-4 w-4 text-purple-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-black text-center leading-tight">Deep Search</span>
             <div className="flex items-center gap-1">
-              <Search className="h-3 w-3" />
+              <Search className="h-2 w-2" />
               {hasExistingResults && (
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs h-4">
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs h-3 px-1">
                   Résultats
                 </Badge>
               )}
-              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {isOpen ? <ChevronUp className="h-2 w-2" /> : <ChevronDown className="h-2 w-2" />}
             </div>
           </Button>
         </CollapsibleTrigger>
         
-        <CollapsibleContent className="mt-2">
-          <Card className="border-dashed">
-            <CardContent className="p-3">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-                <TabsList className="grid w-full grid-cols-2 h-7">
-                  <TabsTrigger value="search" className="text-xs">Nouvelle Recherche</TabsTrigger>
-                  <TabsTrigger value="result" className="text-xs">Résultat</TabsTrigger>
-                </TabsList>
+        {isOpen && (
+          <CollapsibleContent className="col-span-full">
+            <Card className="mt-2 border-dashed">
+              <CardContent className="p-3">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+                  <TabsList className="grid w-full grid-cols-2 h-7">
+                    <TabsTrigger value="search" className="text-xs">Nouvelle Recherche</TabsTrigger>
+                    <TabsTrigger value="result" className="text-xs">Résultat</TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="search" className="space-y-3 mt-3">
-                  <div>
-                    <label className="text-xs font-medium mb-1 block">
-                      Contexte additionnel pour la recherche :
-                    </label>
-                    <Textarea
-                      placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
-                      value={userContext}
-                      onChange={(e) => setUserContext(e.target.value)}
-                      rows={3}
-                      className="resize-none text-xs"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={handleDeepSearch} 
-                      disabled={isSearching || !userContext.trim()}
-                      size="sm"
-                      className="h-7 text-xs"
-                    >
-                      {isSearching ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          Recherche...
-                        </>
-                      ) : (
-                        <>
-                          <Search className="h-3 w-3 mr-1" />
-                          Lancer
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="result" className="space-y-3 mt-3">
-                  {searchResult && searchResult.trim() ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                          Recherche terminée
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(searchResult)}
-                          className="h-6 text-xs"
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copier
-                        </Button>
-                      </div>
-                      <div className="border rounded-md overflow-hidden">
-                        <ScrollArea className="h-[300px] w-full">
-                          <div className="p-3">
-                            <DeepSearchContent text={searchResult} sources={sources} />
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-4 text-muted-foreground">
-                      {isSearching ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-xs">Recherche en cours...</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-xs mb-1">Aucun résultat à afficher</p>
-                          <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
-                        </div>
-                      )}
+                  <TabsContent value="search" className="space-y-3 mt-3">
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">
+                        Contexte additionnel pour la recherche :
+                      </label>
+                      <Textarea
+                        placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
+                        value={userContext}
+                        onChange={(e) => setUserContext(e.target.value)}
+                        rows={3}
+                        className="resize-none text-xs"
+                      />
                     </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleDeepSearch} 
+                        disabled={isSearching || !userContext.trim()}
+                        size="sm"
+                        className="h-7 text-xs"
+                      >
+                        {isSearching ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Recherche...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-3 w-3 mr-1" />
+                            Lancer
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="result" className="space-y-3 mt-3">
+                    {searchResult && searchResult.trim() ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                            Recherche terminée
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(searchResult)}
+                            className="h-6 text-xs"
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copier
+                          </Button>
+                        </div>
+                        <div className="border rounded-md overflow-hidden">
+                          <ScrollArea className="h-[300px] w-full">
+                            <div className="p-3">
+                              <DeepSearchContent text={searchResult} sources={sources} />
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        {isSearching ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Recherche en cours...</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-xs mb-1">Aucun résultat à afficher</p>
+                            <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        )}
       </Collapsible>
-    </div>
+    </>
   );
 };

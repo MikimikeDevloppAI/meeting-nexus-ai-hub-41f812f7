@@ -415,25 +415,27 @@ export default function Todos() {
                     </div>
                   </div>
 
-                  {/* AI Components - Now displayed horizontally */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-gray-100 rounded-lg">
-                      <TodoAIRecommendation todoId={todo.id} />
-                    </div>
-                    
-                    <div className="bg-blue-50 rounded-lg">
-                      <TodoAssistant 
-                        todoId={todo.id} 
-                        todoDescription={todo.description}
-                        onUpdate={fetchTodos}
-                      />
-                    </div>
+                  {/* AI Components - Now displayed horizontally with better spacing */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-gray-100 rounded-lg">
+                        <TodoAIRecommendation todoId={todo.id} />
+                      </div>
+                      
+                      <div className="bg-blue-50 rounded-lg">
+                        <TodoAssistant 
+                          todoId={todo.id} 
+                          todoDescription={todo.description}
+                          onUpdate={fetchTodos}
+                        />
+                      </div>
 
-                    <div className="bg-purple-50 rounded-lg">
-                      <TaskDeepSearch 
-                        todoId={todo.id} 
-                        todoDescription={todo.description}
-                      />
+                      <div className="bg-purple-50 rounded-lg">
+                        <TaskDeepSearch 
+                          todoId={todo.id} 
+                          todoDescription={todo.description}
+                        />
+                      </div>
                     </div>
                   </div>
 

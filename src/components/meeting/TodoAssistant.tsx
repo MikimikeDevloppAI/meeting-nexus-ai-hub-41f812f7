@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,120 +131,122 @@ export const TodoAssistant = ({ todoId, todoDescription, onUpdate }: TodoAssista
   };
 
   return (
-    <div className={`${isOpen ? 'col-span-full' : ''}`}>
+    <>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full h-20 flex flex-col items-center justify-center gap-2 text-foreground hover:text-foreground hover:bg-blue-100/50"
+            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-blue-100/50 px-2"
           >
-            <Bot className="h-5 w-5 text-blue-500" />
-            <span className="text-sm font-medium text-black">Assistant IA</span>
+            <Bot className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-black text-center leading-tight">Assistant IA</span>
             <div className="flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" />
-              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              <MessageSquare className="h-2 w-2" />
+              {isOpen ? <ChevronUp className="h-2 w-2" /> : <ChevronDown className="h-2 w-2" />}
             </div>
           </Button>
         </CollapsibleTrigger>
         
-        <CollapsibleContent className="mt-2">
-          <Card className="border-dashed">
-            <CardContent className="p-3">
-              <div className="space-y-3">
-                {/* Action selector */}
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(actionLabels).map(([action, label]) => (
-                    <Badge
-                      key={action}
-                      variant={activeAction === action ? "default" : "outline"}
-                      className="cursor-pointer text-xs h-5"
-                      onClick={() => setActiveAction(action as any)}
-                    >
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-                
-                {/* Messages */}
-                <ScrollArea className="h-[200px] pr-2">
-                  <div className="space-y-2">
-                    {messages.length === 0 && (
-                      <div className="text-center py-2 text-muted-foreground">
-                        <p className="text-xs">
-                          Modifiez cette tâche avec l'IA
-                        </p>
-                      </div>
-                    )}
-                    
-                    {messages.map((message, index) => (
-                      <div
-                        key={index}
-                        className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+        {isOpen && (
+          <CollapsibleContent className="col-span-full">
+            <Card className="mt-2 border-dashed">
+              <CardContent className="p-3">
+                <div className="space-y-3">
+                  {/* Action selector */}
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(actionLabels).map(([action, label]) => (
+                      <Badge
+                        key={action}
+                        variant={activeAction === action ? "default" : "outline"}
+                        className="cursor-pointer text-xs h-5"
+                        onClick={() => setActiveAction(action as any)}
                       >
-                        <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            message.role === 'user' ? 'bg-primary' : 'bg-secondary'
-                          }`}>
-                            {message.role === 'user' ? (
-                              <User className="h-3 w-3 text-primary-foreground" />
-                            ) : (
-                              <Bot className="h-3 w-3" />
-                            )}
-                          </div>
-                          
-                          <div className={`rounded-lg p-2 text-xs ${
-                            message.role === 'user' 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-muted'
-                          }`}>
-                            {message.action && (
-                              <div className="text-xs opacity-70 mb-1">
-                                {actionLabels[message.action as keyof typeof actionLabels]}
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  {/* Messages */}
+                  <ScrollArea className="h-[200px] pr-2">
+                    <div className="space-y-2">
+                      {messages.length === 0 && (
+                        <div className="text-center py-2 text-muted-foreground">
+                          <p className="text-xs">
+                            Modifiez cette tâche avec l'IA
+                          </p>
+                        </div>
+                      )}
+                      
+                      {messages.map((message, index) => (
+                        <div
+                          key={index}
+                          className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              message.role === 'user' ? 'bg-primary' : 'bg-secondary'
+                            }`}>
+                              {message.role === 'user' ? (
+                                <User className="h-3 w-3 text-primary-foreground" />
+                              ) : (
+                                <Bot className="h-3 w-3" />
+                              )}
+                            </div>
+                            
+                            <div className={`rounded-lg p-2 text-xs ${
+                              message.role === 'user' 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'bg-muted'
+                            }`}>
+                              {message.action && (
+                                <div className="text-xs opacity-70 mb-1">
+                                  {actionLabels[message.action as keyof typeof actionLabels]}
+                                </div>
+                              )}
+                              <p className="whitespace-pre-wrap">{message.content}</p>
+                              <div className="text-xs opacity-70 mt-1">
+                                {message.timestamp.toLocaleTimeString('fr-FR', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
                               </div>
-                            )}
-                            <p className="whitespace-pre-wrap">{message.content}</p>
-                            <div className="text-xs opacity-70 mt-1">
-                              {message.timestamp.toLocaleTimeString('fr-FR', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      ))}
+                    </div>
+                  </ScrollArea>
 
-                {/* Input */}
-                <div className="flex gap-2">
-                  <Input
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={`Modifier ${actionLabels[activeAction].toLowerCase()}...`}
-                    disabled={isLoading}
-                    className="flex-1 text-xs h-7"
-                  />
-                  <Button 
-                    onClick={sendMessage} 
-                    disabled={isLoading || !inputValue.trim()}
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Send className="h-3 w-3" />
-                    )}
-                  </Button>
+                  {/* Input */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={`Modifier ${actionLabels[activeAction].toLowerCase()}...`}
+                      disabled={isLoading}
+                      className="flex-1 text-xs h-7"
+                    />
+                    <Button 
+                      onClick={sendMessage} 
+                      disabled={isLoading || !inputValue.trim()}
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Send className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        )}
       </Collapsible>
-    </div>
+    </>
   );
 };

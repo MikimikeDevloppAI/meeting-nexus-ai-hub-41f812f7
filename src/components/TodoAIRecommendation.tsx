@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,195 +138,197 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
-    <div className={`${isOpen ? 'col-span-full' : ''}`}>
+    <>
       <Collapsible open={isOpen} onOpenChange={handleRecommendationToggle}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full h-20 flex flex-col items-center justify-center gap-2 text-foreground hover:text-foreground hover:bg-gray-200/50"
+            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-gray-200/50 px-2"
           >
-            <Lightbulb className="h-5 w-5 text-yellow-500" />
-            <span className="text-sm font-medium text-black">Recommandation IA</span>
+            <Lightbulb className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-black text-center leading-tight">Recommandation IA</span>
             <div className="flex items-center gap-1">
-              {recommendation.email_draft && <Mail className="h-3 w-3" />}
-              {hasContactInfo && <Phone className="h-3 w-3" />}
-              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {recommendation.email_draft && <Mail className="h-2 w-2" />}
+              {hasContactInfo && <Phone className="h-2 w-2" />}
+              {isOpen ? <ChevronUp className="h-2 w-2" /> : <ChevronDown className="h-2 w-2" />}
             </div>
           </Button>
         </CollapsibleTrigger>
 
-        <CollapsibleContent>
-          <Card className="mt-2 border-muted/50">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                {hasRecommendation && (
-                  <div className="text-sm text-muted-foreground">
-                    {recommendation.recommendation_text.split('\n').map((line, index) => {
-                      if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                        return (
-                          <div key={index} className="font-medium text-foreground mt-2 mb-1">
-                            {line.replace(/\*\*/g, '')}
-                          </div>
-                        );
-                      }
-                      if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-                        return (
-                          <div key={index} className="ml-3 mb-1">
-                            {line.trim().substring(2)}
-                          </div>
-                        );
-                      }
-                      return line.trim() ? (
-                        <div key={index} className="mb-1">{line}</div>
-                      ) : (
-                        <div key={index} className="h-1" />
-                      );
-                    })}
-                    
-                    {recommendation.estimated_cost && (
-                      <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
-                        <strong>Coût estimé :</strong> {recommendation.estimated_cost}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Section contacts */}
-                {hasContactInfo && (
-                  <div className={hasRecommendation ? "border-t pt-3" : ""}>
-                    <Collapsible open={showContacts} onOpenChange={setShowContacts}>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-between text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
-                            <span>Contacts ({recommendation.contacts.length})</span>
-                          </div>
-                          {showContacts ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <div className="mt-2 space-y-2">
-                          {recommendation.contacts.map((contact, index) => (
-                            <div key={index} className="bg-muted/50 rounded p-2">
-                              <div className="font-medium text-sm">{contact.name}</div>
-                              <div className="text-xs text-muted-foreground space-y-1 mt-1">
-                                {contact.phone && (
-                                  <div className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3" />
-                                    <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
-                                      {contact.phone}
-                                    </a>
-                                  </div>
-                                )}
-                                {contact.email && (
-                                  <div className="flex items-center gap-1">
-                                    <Mail className="h-3 w-3" />
-                                    <a href={`mailto:${contact.email}`} className="hover:underline break-all">
-                                      {contact.email}
-                                    </a>
-                                  </div>
-                                )}
-                                {contact.website && (
-                                  <div className="flex items-center gap-1">
-                                    <Globe className="h-3 w-3" />
-                                    <a 
-                                      href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="hover:underline break-all"
-                                    >
-                                      {contact.website.replace(/^https?:\/\//i, '')}
-                                    </a>
-                                  </div>
-                                )}
-                                {contact.address && (
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <a 
-                                      href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
-                                      target="_blank" 
-                                      rel="noopener noreferrer" 
-                                      className="hover:underline"
-                                    >
-                                      {contact.address}
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
+        {isOpen && (
+          <CollapsibleContent className="col-span-full">
+            <Card className="mt-2 border-muted/50">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  {hasRecommendation && (
+                    <div className="text-sm text-muted-foreground">
+                      {recommendation.recommendation_text.split('\n').map((line, index) => {
+                        if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                          return (
+                            <div key={index} className="font-medium text-foreground mt-2 mb-1">
+                              {line.replace(/\*\*/g, '')}
                             </div>
-                          ))}
+                          );
+                        }
+                        if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+                          return (
+                            <div key={index} className="ml-3 mb-1">
+                              {line.trim().substring(2)}
+                            </div>
+                          );
+                        }
+                        return line.trim() ? (
+                          <div key={index} className="mb-1">{line}</div>
+                        ) : (
+                          <div key={index} className="h-1" />
+                        );
+                      })}
+                      
+                      {recommendation.estimated_cost && (
+                        <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                          <strong>Coût estimé :</strong> {recommendation.estimated_cost}
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
 
-                {/* Section email */}
-                {recommendation.email_draft && (
-                  <div className={(hasRecommendation || hasContactInfo) ? "border-t pt-3" : ""}>
-                    <Collapsible open={showEmailDraft} onOpenChange={setShowEmailDraft}>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-between text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-3 w-3" />
-                            <span>Email pré-rédigé</span>
-                          </div>
-                          {showEmailDraft ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <div className="mt-2 bg-muted/50 rounded p-3">
-                          <pre className="text-xs whitespace-pre-wrap font-sans">
-                            {recommendation.email_draft}
-                          </pre>
+                  {/* Section contacts */}
+                  {hasContactInfo && (
+                    <div className={hasRecommendation ? "border-t pt-3" : ""}>
+                      <Collapsible open={showContacts} onOpenChange={setShowContacts}>
+                        <CollapsibleTrigger asChild>
                           <Button
+                            variant="ghost"
                             size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              navigator.clipboard.writeText(recommendation.email_draft || '');
-                            }}
-                            className="w-full mt-3"
+                            className="w-full justify-between text-sm"
                           >
-                            Copier l'email
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-3 w-3" />
+                              <span>Contacts ({recommendation.contacts.length})</span>
+                            </div>
+                            {showContacts ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
                           </Button>
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
-                )}
+                        </CollapsibleTrigger>
 
-                <div className="text-xs text-muted-foreground text-right">
-                  {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                        <CollapsibleContent>
+                          <div className="mt-2 space-y-2">
+                            {recommendation.contacts.map((contact, index) => (
+                              <div key={index} className="bg-muted/50 rounded p-2">
+                                <div className="font-medium text-sm">{contact.name}</div>
+                                <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                                  {contact.phone && (
+                                    <div className="flex items-center gap-1">
+                                      <Phone className="h-3 w-3" />
+                                      <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
+                                        {contact.phone}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {contact.email && (
+                                    <div className="flex items-center gap-1">
+                                      <Mail className="h-3 w-3" />
+                                      <a href={`mailto:${contact.email}`} className="hover:underline break-all">
+                                        {contact.email}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {contact.website && (
+                                    <div className="flex items-center gap-1">
+                                      <Globe className="h-3 w-3" />
+                                      <a 
+                                        href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="hover:underline break-all"
+                                      >
+                                        {contact.website.replace(/^https?:\/\//i, '')}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {contact.address && (
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <a 
+                                        href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="hover:underline"
+                                      >
+                                        {contact.address}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  )}
+
+                  {/* Section email */}
+                  {recommendation.email_draft && (
+                    <div className={(hasRecommendation || hasContactInfo) ? "border-t pt-3" : ""}>
+                      <Collapsible open={showEmailDraft} onOpenChange={setShowEmailDraft}>
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-between text-sm"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-3 w-3" />
+                              <span>Email pré-rédigé</span>
+                            </div>
+                            {showEmailDraft ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
+
+                        <CollapsibleContent>
+                          <div className="mt-2 bg-muted/50 rounded p-3">
+                            <pre className="text-xs whitespace-pre-wrap font-sans">
+                              {recommendation.email_draft}
+                            </pre>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(recommendation.email_draft || '');
+                              }}
+                              className="w-full mt-3"
+                            >
+                              Copier l'email
+                            </Button>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-muted-foreground text-right">
+                    {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        )}
       </Collapsible>
-    </div>
+    </>
   );
 };
