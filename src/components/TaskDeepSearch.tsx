@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Loader2, History, Copy } from "lucide-react";
+import { Search, Loader2, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -15,44 +15,13 @@ interface TaskDeepSearchProps {
   todoDescription: string;
 }
 
-interface DeepSearchResult {
-  id: string;
-  user_context: string;
-  search_result: string;
-  created_at: string;
-  created_by: string;
-}
-
 export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [userContext, setUserContext] = useState("");
   const [searchResult, setSearchResult] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<DeepSearchResult[]>([]);
   const [activeTab, setActiveTab] = useState("search");
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchSearchHistory();
-    }
-  }, [isOpen, todoId]);
-
-  const fetchSearchHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('task_deep_searches')
-        .select('*')
-        .eq('todo_id', todoId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setSearchHistory(data || []);
-    } catch (error: any) {
-      console.error('Error fetching search history:', error);
-    }
-  };
 
   const handleDeepSearch = async () => {
     if (!userContext.trim()) {
@@ -88,9 +57,6 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       if (response.data?.success) {
         setSearchResult(response.data.result);
         setActiveTab("result");
-        
-        // Rafraîchir l'historique
-        await fetchSearchHistory();
 
         toast({
           title: "Recherche terminée",
@@ -120,16 +86,6 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
     });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   return (
     <>
       <Button
@@ -143,7 +99,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[80vh]">
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
@@ -154,17 +110,13 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
             </p>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="search">Nouvelle Recherche</TabsTrigger>
               <TabsTrigger value="result">Résultat</TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center gap-1">
-                <History className="h-4 w-4" />
-                Historique ({searchHistory.length})
-              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="search" className="space-y-4">
+            <TabsContent value="search" className="space-y-4 flex-1">
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Contexte additionnel pour la recherche :
@@ -201,9 +153,9 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
               </DialogFooter>
             </TabsContent>
 
-            <TabsContent value="result" className="space-y-4">
+            <TabsContent value="result" className="space-y-3 flex-1 flex flex-col">
               {searchResult ? (
-                <div className="space-y-3">
+                <>
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
                       Recherche terminée
@@ -217,61 +169,15 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       Copier
                     </Button>
                   </div>
-                  <ScrollArea className="h-96 w-full border rounded-md p-4">
+                  <ScrollArea className="flex-1 w-full border rounded-md p-4 max-h-[50vh]">
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {searchResult}
                     </div>
                   </ScrollArea>
-                </div>
+                </>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
                   Aucun résultat à afficher. Effectuez d'abord une recherche.
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="history" className="space-y-4">
-              {searchHistory.length > 0 ? (
-                <ScrollArea className="h-96 w-full">
-                  <div className="space-y-4">
-                    {searchHistory.map((search) => (
-                      <div key={search.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline">
-                            {formatDate(search.created_at)}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(search.search_result)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">
-                            Contexte:
-                          </p>
-                          <p className="text-sm bg-gray-50 p-2 rounded">
-                            {search.user_context}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">
-                            Résultat:
-                          </p>
-                          <div className="text-sm bg-blue-50 p-3 rounded max-h-32 overflow-y-auto">
-                            {search.search_result.substring(0, 300)}
-                            {search.search_result.length > 300 && '...'}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Aucune recherche précédente trouvée pour cette tâche.
                 </div>
               )}
             </TabsContent>
