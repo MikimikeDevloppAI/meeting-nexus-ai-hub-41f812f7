@@ -217,7 +217,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                     </Button>
                   </div>
                   <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                    <ScrollArea className="h-full w-full">
+                    <ScrollArea className="h-[400px] w-full">
                       <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap break-words hyphens-auto" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         {searchResult}
                       </div>
