@@ -1,16 +1,17 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Pen, Users, Plus } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Pen, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
-import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
-import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { EditableContent } from "@/components/EditableContent";
-import { TaskDeepSearch } from "@/components/TaskDeepSearch";
+import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationContent";
+import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
+import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
 import { Todo } from "@/types/meeting";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,8 @@ interface Participant {
   email: string;
 }
 
+type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
+
 export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +52,8 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
+  const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   
   const form = useForm<NewTodoForm>({
@@ -108,6 +113,9 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
 
       console.log("Fetched meeting todos:", updatedTodos);
       setTodos(updatedTodos as Todo[]);
+      
+      // Check for existing deep search results
+      checkDeepSearchResults(updatedTodos.map(todo => todo.id));
     } catch (error: any) {
       console.error("Error:", error);
       toast({
@@ -117,6 +125,29 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkDeepSearchResults = async (todoIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('task_deep_searches')
+        .select('todo_id')
+        .in('todo_id', todoIds);
+
+      if (error) {
+        console.error('Error checking deep search results:', error);
+        return;
+      }
+
+      const resultsMap: Record<string, boolean> = {};
+      todoIds.forEach(id => {
+        resultsMap[id] = data?.some(result => result.todo_id === id) || false;
+      });
+      
+      setDeepSearchResults(resultsMap);
+    } catch (error) {
+      console.error('Error checking deep search results:', error);
     }
   };
 
@@ -259,6 +290,13 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
     );
   };
 
+  const handleAIToolToggle = (todoId: string, tool: ActiveAITool) => {
+    setActiveAITools(prev => ({
+      ...prev,
+      [todoId]: prev[todoId] === tool ? 'none' : tool
+    }));
+  };
+
   const filteredTodos = todos.filter(todo => {
     const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
     const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
@@ -318,104 +356,186 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {filteredTodos.map((todo) => (
-            <Card key={todo.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {/* Task header with edit, complete and delete buttons */}
-                  <div className="flex justify-between items-start">
-                    <div className="text-lg flex-grow mr-2">
-                      <EditableContent
-                        content={todo.description}
-                        onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                        type="todo"
-                        id={todo.id}
-                        isEditing={editingTodoId === todo.id}
-                        onStartEdit={() => setEditingTodoId(todo.id)}
-                        onStopEdit={() => setEditingTodoId(null)}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <TaskDeepSearch 
-                        todoId={todo.id} 
-                        todoDescription={todo.description}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => startEditingTodo(todo.id)}
-                        className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
-                      >
-                        <Pen className="h-4 w-4" />
-                      </Button>
-                      {todo.status !== 'completed' && (
+          {filteredTodos.map((todo) => {
+            const activeTool = activeAITools[todo.id] || 'none';
+            const hasDeepSearchResults = deepSearchResults[todo.id] || false;
+            
+            return (
+              <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {/* Task header with edit, complete and delete buttons */}
+                    <div className="flex justify-between items-start">
+                      <div className="text-lg flex-grow mr-2">
+                        <EditableContent
+                          content={todo.description}
+                          onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                          type="todo"
+                          id={todo.id}
+                          isEditing={editingTodoId === todo.id}
+                          onStartEdit={() => setEditingTodoId(todo.id)}
+                          onStopEdit={() => setEditingTodoId(null)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => completeTodo(todo.id)}
-                          className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => startEditingTodo(todo.id)}
+                          className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
                         >
-                          <CheckCircle className="h-4 w-4" />
+                          <Pen className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteTodo(todo.id)}
-                        className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Status, meeting and participants */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {getStatusBadge(todo.status)}
-                      {todo.meetings?.[0] && (
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {todo.meetings[0].title}
-                        </Badge>
-                      )}
-                      <div className="text-xs text-gray-600 flex items-center gap-2">
-                        <TodoParticipantManager
-                          todoId={todo.id}
-                          currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                          onParticipantsUpdate={fetchTodos}
-                          compact={true}
-                        />
-                        <Button 
-                          onClick={() => openParticipantManager(todo.id)}
-                          variant="ghost"
+                        {todo.status !== 'completed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => completeTodo(todo.id)}
+                            className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
                           size="sm"
-                          className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                          onClick={() => deleteTodo(todo.id)}
+                          className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          <Plus className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
+                    
+                    {/* Status, meeting and participants */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getStatusBadge(todo.status)}
+                        {todo.meetings?.[0] && (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {todo.meetings[0].title}
+                          </Badge>
+                        )}
+                        <div className="text-xs text-gray-600 flex items-center gap-2">
+                          <TodoParticipantManager
+                            todoId={todo.id}
+                            currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
+                            onParticipantsUpdate={fetchTodos}
+                            compact={true}
+                          />
+                          <Button 
+                            onClick={() => openParticipantManager(todo.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Tools - Three buttons in a row with pastel colors as base */}
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-yellow-100 border border-yellow-200 ${
+                            activeTool === 'recommendation' 
+                              ? 'ring-2 ring-yellow-300' 
+                              : 'hover:bg-yellow-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Lightbulb className="h-4 w-4 text-yellow-600" />
+                            <span className="text-sm font-medium text-black">Recommandation IA</span>
+                          </div>
+                          {activeTool === 'recommendation' ? (
+                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          )}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAIToolToggle(todo.id, 'assistant')}
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
+                            activeTool === 'assistant' 
+                              ? 'ring-2 ring-blue-300' 
+                              : 'hover:bg-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Bot className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-black">Assistant IA</span>
+                          </div>
+                          {activeTool === 'assistant' ? (
+                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          )}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAIToolToggle(todo.id, 'search')}
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-purple-100 border border-purple-200 ${
+                            activeTool === 'search' 
+                              ? 'ring-2 ring-purple-300' 
+                              : 'hover:bg-purple-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Zap className="h-4 w-4 text-purple-600" />
+                            <span className="text-sm font-medium text-black">Deep Search</span>
+                            {hasDeepSearchResults && (
+                              <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
+                            )}
+                          </div>
+                          {activeTool === 'search' ? (
+                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* AI Tool Content - Full width below buttons */}
+                      {activeTool !== 'none' && (
+                        <div className="w-full">
+                          {activeTool === 'recommendation' && (
+                            <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
+                          )}
+                          {activeTool === 'assistant' && (
+                            <TodoAssistantContent 
+                              todoId={todo.id} 
+                              todoDescription={todo.description}
+                              onUpdate={fetchTodos}
+                            />
+                          )}
+                          {activeTool === 'search' && (
+                            <TaskDeepSearchContent 
+                              todoId={todo.id} 
+                              todoDescription={todo.description}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline Comments section */}
+                    <TodoComments todoId={todo.id} />
                   </div>
-
-                  {/* AI Recommendation - moved before AI Assistant */}
-                  <TodoAIRecommendation todoId={todo.id} />
-
-                  {/* AI Assistant integrated inside the todo card */}
-                  <div className="pl-0.5">
-                    <TodoAssistant 
-                      todoId={todo.id} 
-                      todoDescription={todo.description}
-                      onUpdate={fetchTodos}
-                    />
-                  </div>
-
-                  {/* Inline Comments section */}
-                  <TodoComments todoId={todo.id} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
