@@ -70,10 +70,10 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
           }
         ],
         temperature: 0.2,
-        max_tokens: 4000,
+        max_tokens: 8000, // Augmenté pour sonar-deep-research
         top_p: 0.9,
         return_images: false,
-        return_related_questions: false,
+        return_related_questions: true, // Activé pour plus de contexte
         search_recency_filter: 'month'
       })
     })
