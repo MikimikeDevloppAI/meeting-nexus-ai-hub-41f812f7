@@ -146,7 +146,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
@@ -157,7 +157,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
             </p>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="search">Nouvelle Recherche</TabsTrigger>
               <TabsTrigger value="result">Résultat</TabsTrigger>
@@ -200,7 +200,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
               </DialogFooter>
             </TabsContent>
 
-            <TabsContent value="result" className="space-y-3 flex-1 flex flex-col">
+            <TabsContent value="result" className="space-y-3 flex-1 min-h-0 flex flex-col">
               {searchResult && searchResult.trim() ? (
                 <>
                   <div className="flex items-center justify-between">
@@ -216,9 +216,9 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       Copier
                     </Button>
                   </div>
-                  <div className="flex-1 w-full border rounded-md overflow-hidden">
-                    <ScrollArea className="h-full w-full p-4" style={{ height: '60vh', maxHeight: '60vh' }}>
-                      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed pr-4 overflow-wrap-break-word word-break-break-word">
+                  <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                    <ScrollArea className="h-full w-full">
+                      <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap break-words hyphens-auto" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         {searchResult}
                       </div>
                     </ScrollArea>
