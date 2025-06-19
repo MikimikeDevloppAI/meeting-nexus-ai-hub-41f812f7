@@ -22,38 +22,39 @@ export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sou
 
   return (
     <div className="space-y-4">
-      <ReactMarkdown
-        className="prose prose-sm max-w-none"
-        components={{
-          table: ({ children }) => (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                {children}
-              </Table>
-            </div>
-          ),
-          thead: ({ children }) => <TableHeader>{children}</TableHeader>,
-          tbody: ({ children }) => <TableBody>{children}</TableBody>,
-          tr: ({ children }) => <TableRow>{children}</TableRow>,
-          th: ({ children }) => <TableHead className="font-medium">{children}</TableHead>,
-          td: ({ children }) => <TableCell>{children}</TableCell>,
-          p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
-          h1: ({ children }) => <h1 className="text-xl font-bold mb-4">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-lg font-semibold mb-3">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-md font-medium mb-2">{children}</h3>,
-          ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>,
-          li: ({ children }) => <li className="mb-1">{children}</li>,
-          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-          em: ({ children }) => <em className="italic">{children}</em>,
-          code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm">{children}</code>,
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-gray-300 pl-4 italic my-4">{children}</blockquote>
-          ),
-        }}
-      >
-        {renderedText}
-      </ReactMarkdown>
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown
+          components={{
+            table: ({ children }) => (
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  {children}
+                </Table>
+              </div>
+            ),
+            thead: ({ children }) => <TableHeader>{children}</TableHeader>,
+            tbody: ({ children }) => <TableBody>{children}</TableBody>,
+            tr: ({ children }) => <TableRow>{children}</TableRow>,
+            th: ({ children }) => <TableHead className="font-medium">{children}</TableHead>,
+            td: ({ children }) => <TableCell>{children}</TableCell>,
+            p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
+            h1: ({ children }) => <h1 className="text-xl font-bold mb-4">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-lg font-semibold mb-3">{children}</h2>,
+            h3: ({ children }) => <h3 className="text-md font-medium mb-2">{children}</h3>,
+            ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>,
+            li: ({ children }) => <li className="mb-1">{children}</li>,
+            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+            em: ({ children }) => <em className="italic">{children}</em>,
+            code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm">{children}</code>,
+            blockquote: ({ children }) => (
+              <blockquote className="border-l-4 border-gray-300 pl-4 italic my-4">{children}</blockquote>
+            ),
+          }}
+        >
+          {renderedText}
+        </ReactMarkdown>
+      </div>
       
       {sources && sources.length > 0 && (
         <div className="border-t pt-4 mt-4">
