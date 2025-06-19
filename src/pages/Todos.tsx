@@ -415,21 +415,21 @@ export default function Todos() {
                     </div>
                   </div>
 
-                  {/* AI Recommendation - moved before AI Assistant */}
-                  <TodoAIRecommendation todoId={todo.id} />
+                  {/* AI Components - Now displayed horizontally */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-gray-100 rounded-lg">
+                      <TodoAIRecommendation todoId={todo.id} />
+                    </div>
+                    
+                    <div className="bg-blue-50 rounded-lg">
+                      <TodoAssistant 
+                        todoId={todo.id} 
+                        todoDescription={todo.description}
+                        onUpdate={fetchTodos}
+                      />
+                    </div>
 
-                  {/* AI Assistant integrated inside the todo card */}
-                  <div className="pl-0.5">
-                    <TodoAssistant 
-                      todoId={todo.id} 
-                      todoDescription={todo.description}
-                      onUpdate={fetchTodos}
-                    />
-                  </div>
-
-                  {/* Deep Search - placed right after AI Assistant with same format */}
-                  <div className="pl-0.5">
-                    <div className="mt-3 bg-purple-50 rounded-lg">
+                    <div className="bg-purple-50 rounded-lg">
                       <TaskDeepSearch 
                         todoId={todo.id} 
                         todoDescription={todo.description}
