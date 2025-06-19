@@ -10,6 +10,7 @@ import { TodoParticipantManager } from "@/components/TodoParticipantManager";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
 import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { EditableContent } from "@/components/EditableContent";
+import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 import { Todo } from "@/types/meeting";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -335,6 +336,10 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                       />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <TaskDeepSearch 
+                        todoId={todo.id} 
+                        todoDescription={todo.description}
+                      />
                       <Button
                         variant="outline"
                         size="sm"

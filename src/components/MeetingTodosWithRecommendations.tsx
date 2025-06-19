@@ -10,6 +10,7 @@ import { TodoParticipantManager } from "@/components/TodoParticipantManager";
 import { TodoAssistant } from "@/components/meeting/TodoAssistant";
 import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
 import { EditableContent } from "@/components/EditableContent";
+import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 import { Todo } from "@/types/meeting";
 
 interface MeetingTodosWithRecommendationsProps {
@@ -253,6 +254,10 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                   />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <TaskDeepSearch 
+                    todoId={todo.id} 
+                    todoDescription={todo.description}
+                  />
                   <Button
                     variant="outline"
                     size="sm"

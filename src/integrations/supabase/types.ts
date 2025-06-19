@@ -295,6 +295,44 @@ export type Database = {
           },
         ]
       }
+      task_deep_searches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          search_query: string
+          search_result: string
+          todo_id: string
+          user_context: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          search_query: string
+          search_result: string
+          todo_id: string
+          user_context: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          search_query?: string
+          search_result?: string
+          todo_id?: string
+          user_context?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_deep_searches_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todo_ai_recommendations: {
         Row: {
           created_at: string | null
