@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -123,7 +122,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-foreground p-2 bg-gray-100 rounded">
+      <div className="flex items-center justify-center gap-2 text-sm text-foreground p-4 bg-gray-100 rounded min-h-[80px]">
         <Lightbulb className="h-4 w-4 animate-pulse text-yellow-500" />
         <span>Analyse IA...</span>
       </div>
@@ -138,29 +137,21 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
-    <div className="mt-3 bg-gray-100 rounded-lg">
+    <div className={`${isOpen ? 'col-span-full' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={handleRecommendationToggle}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-foreground hover:text-foreground p-2 pl-1"
+            className="w-full h-20 flex flex-col items-center justify-center gap-2 text-foreground hover:text-foreground hover:bg-gray-200/50"
           >
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm text-black">Recommandation IA</span>
-              {recommendation.email_draft && (
-                <Mail className="h-3 w-3" />
-              )}
-              {hasContactInfo && (
-                <Phone className="h-3 w-3" />
-              )}
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            <span className="text-sm font-medium text-black">Recommandation IA</span>
+            <div className="flex items-center gap-1">
+              {recommendation.email_draft && <Mail className="h-3 w-3" />}
+              {hasContactInfo && <Phone className="h-3 w-3" />}
+              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </div>
-            {isOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
           </Button>
         </CollapsibleTrigger>
 

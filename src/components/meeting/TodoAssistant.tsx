@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,24 +130,20 @@ export const TodoAssistant = ({ todoId, todoDescription, onUpdate }: TodoAssista
   };
 
   return (
-    <div className="mt-3 bg-blue-50 rounded-lg">
+    <div className={`${isOpen ? 'col-span-full' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between text-foreground hover:text-foreground p-2 pl-1"
+            className="w-full h-20 flex flex-col items-center justify-center gap-2 text-foreground hover:text-foreground hover:bg-blue-100/50"
           >
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-blue-500" />
-              <span className="text-sm text-black">Assistant IA</span>
+            <Bot className="h-5 w-5 text-blue-500" />
+            <span className="text-sm font-medium text-black">Assistant IA</span>
+            <div className="flex items-center gap-1">
               <MessageSquare className="h-3 w-3" />
+              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </div>
-            {isOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
           </Button>
         </CollapsibleTrigger>
         
