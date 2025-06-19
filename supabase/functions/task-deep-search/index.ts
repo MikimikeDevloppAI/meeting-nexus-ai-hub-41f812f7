@@ -22,15 +22,29 @@ serve(async (req) => {
       )
     }
 
-    // Construire le prompt spécialisé
-    const searchQuery = `Tu es un assistant spécialisé dans le deep search pour le cabinet ophtalmologique du Dr Tabibian à Genève. Tu as été utilisé pour aider l'utilisateur à remplir cette tâche: ${todoDescription}. L'utilisateur a ajouté ces points dans la recherche: ${userContext}. 
+    // Nouveau prompt amélioré et structuré
+    const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
-Effectue une recherche approfondie et fournis des informations pratiques, des ressources et des conseils spécifiques pour accomplir cette tâche dans le contexte d'un cabinet d'ophtalmologie à Genève.`
+Tu aides principalement le personnel administratif à accomplir des tâches non médicales. Une nouvelle tâche a été générée suite à une réunion :
+Tâche : ${todoDescription}
+Contexte précisé par l'utilisateur : ${userContext}
+
+Effectue une recherche approfondie, orientée vers l'action, et fournis :
+
+des informations pratiques, fiables et directement exploitables ;
+
+une comparaison claire (avantages/inconvénients, prix, délais) si plusieurs options existent (ex. : fournisseurs) ;
+
+un plan d'action structuré si la tâche l'exige (ex. : organisation d'un événement, amélioration de processus) ;
+
+des recommandations adaptées au fonctionnement d'un cabinet médical à Genève (réglementation locale, prestataires locaux, spécificités suisses).
+
+Ne propose que des éléments utiles et concrets pour aider l'équipe à exécuter efficacement cette tâche.`
 
     console.log('🔍 Launching deep search for task:', todoId)
     console.log('📝 Search query:', searchQuery)
 
-    // Appel à l'API Perplexity (Sonar Pro)
+    // Appel à l'API Perplexity avec le modèle le plus puissant (Sonar Huge)
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -38,7 +52,7 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-large-128k-online',
+        model: 'llama-3.1-sonar-huge-128k-online', // Modèle le plus puissant (405B paramètres)
         messages: [
           {
             role: 'user',
@@ -47,7 +61,7 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
         ],
         stream: false,
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 10000, // Augmenté à 10 000 tokens
         return_images: false,
         return_related_questions: false,
         search_recency_filter: 'month',
