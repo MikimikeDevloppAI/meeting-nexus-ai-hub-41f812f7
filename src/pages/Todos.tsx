@@ -48,6 +48,7 @@ export default function Todos() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
+  const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   
   const form = useForm<NewTodoForm>({
@@ -106,6 +107,9 @@ export default function Todos() {
 
       console.log("Fetched todos:", updatedTodos);
       setTodos(updatedTodos as Todo[]);
+      
+      // Check for existing deep search results
+      checkDeepSearchResults(updatedTodos.map(todo => todo.id));
     } catch (error: any) {
       console.error("Error:", error);
       toast({
@@ -115,6 +119,29 @@ export default function Todos() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkDeepSearchResults = async (todoIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('task_deep_searches')
+        .select('todo_id')
+        .in('todo_id', todoIds);
+
+      if (error) {
+        console.error('Error checking deep search results:', error);
+        return;
+      }
+
+      const resultsMap: Record<string, boolean> = {};
+      todoIds.forEach(id => {
+        resultsMap[id] = data?.some(result => result.todo_id === id) || false;
+      });
+      
+      setDeepSearchResults(resultsMap);
+    } catch (error) {
+      console.error('Error checking deep search results:', error);
     }
   };
 
@@ -351,6 +378,7 @@ export default function Todos() {
         <div className="space-y-6">
           {filteredTodos.map((todo) => {
             const activeTool = activeAITools[todo.id] || 'none';
+            const hasDeepSearchResults = deepSearchResults[todo.id] || false;
             
             return (
               <Card key={todo.id} className="hover:shadow-sm transition-shadow">
@@ -486,6 +514,9 @@ export default function Todos() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <Zap className="h-4 w-4 text-purple-600" />
                             <span className="text-sm font-medium text-black">Deep Search</span>
+                            {hasDeepSearchResults && (
+                              <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
+                            )}
                           </div>
                           {activeTool === 'search' ? (
                             <ChevronUp className="h-4 w-4 flex-shrink-0" />
