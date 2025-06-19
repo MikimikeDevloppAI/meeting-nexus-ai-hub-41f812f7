@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -55,7 +54,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
       )
     }
 
-    // Appel à l'API Perplexity avec le modèle sonar-pro
+    // Appel à l'API Perplexity avec le modèle sonar-deep-research
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -63,7 +62,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar-deep-research',
         messages: [
           {
             role: 'user',
@@ -165,4 +164,3 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     )
   }
 })
-
