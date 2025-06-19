@@ -52,7 +52,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-huge-128k-online', // Modèle le plus puissant (405B paramètres)
+        model: 'sonar-pro', // Modèle le plus puissant (405B paramètres)
         messages: [
           {
             role: 'user',
