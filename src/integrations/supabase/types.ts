@@ -302,6 +302,7 @@ export type Database = {
           id: string
           search_query: string
           search_result: string
+          sources: Json | null
           todo_id: string
           user_context: string
         }
@@ -311,6 +312,7 @@ export type Database = {
           id?: string
           search_query: string
           search_result: string
+          sources?: Json | null
           todo_id: string
           user_context: string
         }
@@ -320,6 +322,7 @@ export type Database = {
           id?: string
           search_query?: string
           search_result?: string
+          sources?: Json | null
           todo_id?: string
           user_context?: string
         }

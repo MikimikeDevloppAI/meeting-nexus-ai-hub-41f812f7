@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeepSearchContent } from "@/utils/deepSearchRenderer";
 
 interface TaskDeepSearchProps {
   todoId: string;
@@ -18,6 +20,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   const [isOpen, setIsOpen] = useState(false);
   const [userContext, setUserContext] = useState("");
   const [searchResult, setSearchResult] = useState("");
+  const [sources, setSources] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("search");
   const [hasExistingResults, setHasExistingResults] = useState(false);
@@ -34,7 +37,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
     try {
       const { data, error } = await supabase
         .from('task_deep_searches')
-        .select('search_result')
+        .select('search_result, sources')
         .eq('todo_id', todoId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -47,18 +50,22 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
 
       if (data?.search_result) {
         setSearchResult(data.search_result);
+        setSources(data.sources || []);
         setHasExistingResults(true);
         setActiveTab("result");
         console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
+        console.log('Loaded sources:', data.sources?.length || 0, 'sources');
       } else {
         setHasExistingResults(false);
         setSearchResult("");
+        setSources([]);
         setActiveTab("search");
       }
     } catch (error) {
       console.error('Error loading existing results:', error);
       setHasExistingResults(false);
       setSearchResult("");
+      setSources([]);
       setActiveTab("search");
     }
   };
@@ -75,6 +82,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
 
     setIsSearching(true);
     setSearchResult("");
+    setSources([]);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -99,9 +107,13 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
 
       if (response.data?.success) {
         const result = response.data.result;
+        const sourcesData = response.data.sources || [];
+        
         console.log('✅ Search result received:', result.substring(0, 200) + '...');
+        console.log('📚 Sources received:', sourcesData.length, 'sources');
         
         setSearchResult(result);
+        setSources(sourcesData);
         setHasExistingResults(true);
         setActiveTab("result");
 
@@ -218,8 +230,8 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                   </div>
                   <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                     <ScrollArea className="h-[400px] w-full">
-                      <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap break-words hyphens-auto" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                        {searchResult}
+                      <div className="p-4">
+                        <DeepSearchContent text={searchResult} sources={sources} />
                       </div>
                     </ScrollArea>
                   </div>

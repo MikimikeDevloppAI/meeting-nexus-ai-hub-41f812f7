@@ -47,7 +47,12 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
         ],
         stream: false,
         temperature: 0.2,
-        max_tokens: 2000
+        max_tokens: 2000,
+        return_images: false,
+        return_related_questions: false,
+        search_recency_filter: 'month',
+        frequency_penalty: 1,
+        presence_penalty: 0
       })
     })
 
@@ -58,8 +63,12 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
 
     const perplexityData = await perplexityResponse.json()
     const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
-
+    
+    // Extraire les sources/citations de la réponse Perplexity
+    const sources = perplexityData.citations || []
+    
     console.log('✅ Deep search completed successfully')
+    console.log('📚 Sources found:', sources.length)
 
     // Sauvegarder dans Supabase
     const supabaseClient = createClient(
@@ -80,6 +89,7 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
             user_context: userContext,
             search_query: searchQuery,
             search_result: searchResult,
+            sources: sources,
             created_by: user.id
           })
 
@@ -95,6 +105,7 @@ Effectue une recherche approfondie et fournis des informations pratiques, des re
       JSON.stringify({ 
         success: true, 
         result: searchResult,
+        sources: sources,
         query: searchQuery
       }),
       { 
