@@ -99,11 +99,15 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     
     const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
     
-    // Extraire les sources/citations de la réponse Perplexity - utiliser le bon champ
+    // Extraire les sources/citations de la réponse Perplexity
     const sources = perplexityData.citations || perplexityData.sources || []
+    
+    // Extraire les questions connexes
+    const relatedQuestions = perplexityData.related_questions || []
     
     console.log('✅ Deep search completed successfully')
     console.log('📚 Sources found:', sources.length)
+    console.log('🤔 Related questions found:', relatedQuestions.length)
     console.log('📝 Result length:', searchResult.length, 'characters');
 
     // Sauvegarder dans Supabase
@@ -142,6 +146,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
         success: true, 
         result: searchResult,
         sources: sources,
+        relatedQuestions: relatedQuestions,
         query: searchQuery
       }),
       { 
