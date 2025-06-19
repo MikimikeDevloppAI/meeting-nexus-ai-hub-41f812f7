@@ -21,7 +21,45 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   const [searchResult, setSearchResult] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("search");
+  const [hasExistingResults, setHasExistingResults] = useState(false);
   const { toast } = useToast();
+
+  // Charger les résultats existants quand le dialog s'ouvre
+  useEffect(() => {
+    if (isOpen) {
+      loadExistingResults();
+    }
+  }, [isOpen, todoId]);
+
+  const loadExistingResults = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('task_deep_searches')
+        .select('search_result')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading existing results:', error);
+        return;
+      }
+
+      if (data?.search_result) {
+        setSearchResult(data.search_result);
+        setHasExistingResults(true);
+        console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
+      } else {
+        setHasExistingResults(false);
+        setSearchResult("");
+      }
+    } catch (error) {
+      console.error('Error loading existing results:', error);
+      setHasExistingResults(false);
+      setSearchResult("");
+    }
+  };
 
   const handleDeepSearch = async () => {
     if (!userContext.trim()) {
@@ -42,6 +80,9 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         throw new Error('Not authenticated');
       }
 
+      console.log('🔍 Starting deep search for todo:', todoId);
+      console.log('📝 User context:', userContext);
+
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
           todoId,
@@ -55,7 +96,11 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       }
 
       if (response.data?.success) {
-        setSearchResult(response.data.result);
+        const result = response.data.result;
+        console.log('✅ Search result received:', result.substring(0, 200) + '...');
+        
+        setSearchResult(result);
+        setHasExistingResults(true);
         setActiveTab("result");
 
         toast({
@@ -67,7 +112,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       }
 
     } catch (error: any) {
-      console.error('Deep search error:', error);
+      console.error('❌ Deep search error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible d'effectuer la recherche",
@@ -154,7 +199,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
             </TabsContent>
 
             <TabsContent value="result" className="space-y-3 flex-1 flex flex-col">
-              {searchResult ? (
+              {searchResult && searchResult.trim() ? (
                 <>
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
@@ -169,7 +214,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       Copier
                     </Button>
                   </div>
-                  <ScrollArea className="flex-1 w-full border rounded-md p-4 max-h-[50vh]">
+                  <ScrollArea className="flex-1 w-full border rounded-md p-4" style={{ maxHeight: '50vh' }}>
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {searchResult}
                     </div>
@@ -177,7 +222,17 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                 </>
               ) : (
                 <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
-                  Aucun résultat à afficher. Effectuez d'abord une recherche.
+                  {isSearching ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Recherche en cours...
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="mb-2">Aucun résultat à afficher</p>
+                      <p className="text-xs">Effectuez d'abord une recherche dans l'onglet "Nouvelle Recherche"</p>
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
