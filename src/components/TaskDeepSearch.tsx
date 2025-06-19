@@ -214,11 +214,13 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       Copier
                     </Button>
                   </div>
-                  <ScrollArea className="flex-1 w-full border rounded-md p-4" style={{ maxHeight: '50vh' }}>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {searchResult}
-                    </div>
-                  </ScrollArea>
+                  <div className="flex-1 w-full border rounded-md overflow-hidden">
+                    <ScrollArea className="h-full w-full p-4" style={{ height: '60vh', maxHeight: '60vh' }}>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed pr-4">
+                        {searchResult}
+                      </div>
+                    </ScrollArea>
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
