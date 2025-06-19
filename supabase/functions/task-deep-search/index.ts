@@ -60,8 +60,8 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
           }
         ],
         stream: false,
-        temperature: 0.2,
-        max_tokens: 10000, // Augmenté à 10 000 tokens
+        temperature: 0.4,
+        max_tokens: 8000, // Augmenté à 10 000 tokens
         return_images: false,
         return_related_questions: false,
         search_recency_filter: 'month',
