@@ -428,7 +428,7 @@ export default function Todos() {
                       </div>
                     </div>
 
-                    {/* AI Tools - Three buttons in a row */}
+                    {/* AI Tools - Three buttons in a row with pastel colors */}
                     <div className="space-y-3">
                       <div className="flex gap-2">
                         <Button
@@ -436,11 +436,13 @@ export default function Todos() {
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
                           className={`flex-1 h-12 flex items-center justify-between px-3 ${
-                            activeTool === 'recommendation' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                            activeTool === 'recommendation' 
+                              ? 'bg-yellow-100 border border-yellow-200' 
+                              : 'hover:bg-yellow-50 border border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Lightbulb className="h-4 w-4 text-yellow-500" />
+                            <Lightbulb className="h-4 w-4 text-yellow-600" />
                             <span className="text-sm font-medium text-black">Recommandation IA</span>
                           </div>
                           {activeTool === 'recommendation' ? (
@@ -455,11 +457,13 @@ export default function Todos() {
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'assistant')}
                           className={`flex-1 h-12 flex items-center justify-between px-3 ${
-                            activeTool === 'assistant' ? 'bg-blue-50' : 'hover:bg-blue-50'
+                            activeTool === 'assistant' 
+                              ? 'bg-blue-100 border border-blue-200' 
+                              : 'hover:bg-blue-50 border border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Bot className="h-4 w-4 text-blue-500" />
+                            <Bot className="h-4 w-4 text-blue-600" />
                             <span className="text-sm font-medium text-black">Assistant IA</span>
                           </div>
                           {activeTool === 'assistant' ? (
@@ -474,11 +478,13 @@ export default function Todos() {
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'search')}
                           className={`flex-1 h-12 flex items-center justify-between px-3 ${
-                            activeTool === 'search' ? 'bg-purple-50' : 'hover:bg-purple-50'
+                            activeTool === 'search' 
+                              ? 'bg-purple-100 border border-purple-200' 
+                              : 'hover:bg-purple-50 border border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Zap className="h-4 w-4 text-purple-500" />
+                            <Zap className="h-4 w-4 text-purple-600" />
                             <span className="text-sm font-medium text-black">Deep Search</span>
                           </div>
                           {activeTool === 'search' ? (
@@ -493,7 +499,7 @@ export default function Todos() {
                       {activeTool !== 'none' && (
                         <div className="w-full">
                           {activeTool === 'recommendation' && (
-                            <TodoAIRecommendationContent todoId={todo.id} />
+                            <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
                           )}
                           {activeTool === 'assistant' && (
                             <TodoAssistantContent 

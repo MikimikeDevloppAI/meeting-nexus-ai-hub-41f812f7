@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 interface TodoAIRecommendationContentProps {
   todoId: string;
+  autoOpenEmail?: boolean;
 }
 
 interface ContactInfo {
@@ -29,7 +29,7 @@ interface AIRecommendation {
   estimated_cost?: string;
 }
 
-export const TodoAIRecommendationContent = ({ todoId }: TodoAIRecommendationContentProps) => {
+export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: TodoAIRecommendationContentProps) => {
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [showEmailDraft, setShowEmailDraft] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
@@ -111,6 +111,13 @@ export const TodoAIRecommendationContent = ({ todoId }: TodoAIRecommendationCont
 
     fetchRecommendation();
   }, [todoId]);
+
+  // Auto-open email when component mounts and autoOpenEmail is true
+  useEffect(() => {
+    if (autoOpenEmail && recommendation?.email_draft) {
+      setShowEmailDraft(true);
+    }
+  }, [autoOpenEmail, recommendation]);
 
   if (loading) {
     return (
