@@ -22,7 +22,7 @@ serve(async (req) => {
       )
     }
 
-    // Nouveau prompt amélioré et structuré
+    // Prompt amélioré et structuré pour le cabinet d'ophtalmologie
     const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 Tu aides principalement le personnel administratif à accomplir des tâches non médicales. Une nouvelle tâche a été générée suite à une réunion :
@@ -44,15 +44,25 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     console.log('🔍 Launching deep search for task:', todoId)
     console.log('📝 Search query:', searchQuery)
 
-    // Appel à l'API Perplexity avec le modèle le plus puissant (Sonar Huge)
+    // Vérifier que la clé API Perplexity est disponible
+    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    if (!perplexityApiKey) {
+      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
+      return new Response(
+        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Appel à l'API Perplexity avec le modèle le plus puissant (corrigé)
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('PERPLEXITY_API_KEY')}`,
+        'Authorization': `Bearer ${perplexityApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro', // Modèle le plus puissant (405B paramètres)
+        model: 'llama-3.1-sonar-huge-128k-online', // Modèle le plus puissant corrigé
         messages: [
           {
             role: 'user',
@@ -61,7 +71,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
         ],
         stream: false,
         temperature: 0.4,
-        max_tokens: 8000, // Augmenté à 10 000 tokens
+        max_tokens: 4000, // Réduit pour éviter les limites
         return_images: false,
         return_related_questions: false,
         search_recency_filter: 'month',
@@ -70,12 +80,25 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
       })
     })
 
+    console.log('📡 Perplexity API response status:', perplexityResponse.status);
+
     if (!perplexityResponse.ok) {
-      console.error('❌ Perplexity API error:', perplexityResponse.statusText)
-      throw new Error(`Perplexity API error: ${perplexityResponse.statusText}`)
+      const errorText = await perplexityResponse.text();
+      console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
+      console.error('❌ Error details:', errorText);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
+          details: errorText
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const perplexityData = await perplexityResponse.json()
+    console.log('📊 Perplexity response structure:', Object.keys(perplexityData));
+    
     const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
     
     // Extraire les sources/citations de la réponse Perplexity
@@ -83,6 +106,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     
     console.log('✅ Deep search completed successfully')
     console.log('📚 Sources found:', sources.length)
+    console.log('📝 Result length:', searchResult.length, 'characters');
 
     // Sauvegarder dans Supabase
     const supabaseClient = createClient(
