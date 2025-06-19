@@ -1,7 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 export interface User {
@@ -24,51 +23,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [retryCount, setRetryCount] = useState(0);
-  const navigate = useNavigate();
+  const [sessionChecked, setSessionChecked] = useState(false);
   const { toast } = useToast();
 
-  // Separate function to fetch user profile with retry logic
-  const fetchUserProfile = async (userId: string, maxRetries = 2): Promise<User | null> => {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`Fetching user profile for ${userId}, attempt ${attempt + 1}`);
-        const { data: userProfile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
+  // Fonction pour récupérer le profil utilisateur
+  const fetchUserProfile = async (userId: string): Promise<User | null> => {
+    try {
+      console.log(`Fetching user profile for ${userId}`);
+      const { data: userProfile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-        if (error) {
-          console.error(`Error fetching user profile (attempt ${attempt + 1}):`, error);
-          if (attempt === maxRetries) {
-            return null;
-          }
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-          continue;
-        }
-
-        if (!userProfile) {
-          console.log('No user profile found');
-          return null;
-        }
-
-        return userProfile as User;
-      } catch (error) {
-        console.error(`Exception fetching user profile (attempt ${attempt + 1}):`, error);
-        if (attempt === maxRetries) {
-          return null;
-        }
+      if (error || !userProfile) {
+        console.error('Error fetching user profile:', error);
+        return null;
       }
+
+      return userProfile as User;
+    } catch (error) {
+      console.error('Exception fetching user profile:', error);
+      return null;
     }
-    return null;
   };
 
   useEffect(() => {
     let mounted = true;
 
-    const checkUser = async () => {
+    const initializeAuth = async () => {
+      if (sessionChecked) return; // Éviter les re-vérifications
+
       try {
         console.log("Checking initial auth session...");
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -78,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             setUser(null);
             setIsLoading(false);
+            setSessionChecked(true);
           }
           return;
         }
@@ -85,21 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user && mounted) {
           console.log("Found existing session for user:", session.user.id);
           
-          // Defer profile fetching to avoid blocking
-          setTimeout(async () => {
-            if (!mounted) return;
-            
-            const userProfile = await fetchUserProfile(session.user.id);
-            
-            if (!mounted) return;
-            
-            if (!userProfile) {
-              console.log("Could not fetch user profile, but keeping session");
-              // Don't sign out immediately, just set loading to false
-              setIsLoading(false);
-              return;
-            }
-
+          const userProfile = await fetchUserProfile(session.user.id);
+          
+          if (!mounted) return;
+          
+          if (userProfile) {
             if (!userProfile.approved) {
               console.log("User not approved");
               toast({
@@ -107,43 +83,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 description: "Votre compte attend l'approbation de l'administrateur.",
                 variant: "destructive",
               });
-              // Don't navigate immediately, let user see the message
-              setTimeout(() => {
-                navigate("/login");
-              }, 2000);
+              setUser(null);
             } else {
               console.log("User approved, setting user state:", userProfile);
               setUser(userProfile);
             }
-            setIsLoading(false);
-          }, 100);
+          }
         } else {
           console.log("No existing session found");
-          if (mounted) {
-            setUser(null);
-            setIsLoading(false);
-          }
+          if (mounted) setUser(null);
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        if (mounted) setUser(null);
+      } finally {
         if (mounted) {
-          setUser(null);
           setIsLoading(false);
+          setSessionChecked(true);
         }
       }
     };
 
-    checkUser();
+    // Vérifier la session une seule fois au démarrage
+    if (!sessionChecked) {
+      initializeAuth();
+    }
 
-    // Setup auth state change listener
+    // Écouter les changements d'état d'auth seulement pour les événements importants
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.id);
+        console.log("Auth state changed:", event);
         
         if (!mounted) return;
         
-        if (event === "SIGNED_IN" && session) {
-          // Only update state synchronously, defer API calls
+        if (event === "SIGNED_IN" && session?.user) {
+          // Ne pas naviguer automatiquement, juste mettre à jour l'état
           setTimeout(async () => {
             if (!mounted) return;
             
@@ -151,45 +125,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             if (!mounted) return;
             
-            if (!userProfile) {
-              console.error("Could not fetch user profile after sign in");
-              return;
-            }
-            
-            if (!userProfile.approved) {
+            if (userProfile?.approved) {
+              setUser(userProfile);
+            } else {
+              setUser(null);
               toast({
                 title: "Compte en attente",
                 description: "Votre compte attend l'approbation de l'administrateur.",
                 variant: "destructive",
               });
-              setTimeout(() => {
-                navigate("/login");
-              }, 2000);
-            } else {
-              console.log("Setting authenticated user:", userProfile);
-              setUser(userProfile);
-              navigate("/assistant");
             }
           }, 100);
         } else if (event === "SIGNED_OUT") {
           console.log("User signed out");
           setUser(null);
-          navigate("/login");
-        } else if (event === "TOKEN_REFRESHED") {
-          console.log("Token refreshed successfully");
-          // Don't do anything special, just log
         }
+        // Ignorer TOKEN_REFRESHED pour éviter les rechargements
       }
     );
 
-    // Clean up subscription and mounted flag
     return () => {
       mounted = false;
-      if (subscription && typeof subscription.unsubscribe === 'function') {
-        subscription.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
-  }, [navigate, toast]);
+  }, [sessionChecked, toast]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -201,7 +160,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Let the auth state change handler deal with the rest
       toast({
         title: "Connexion réussie !",
         description: "Vous êtes maintenant connecté.",
@@ -228,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Create user profile with approved=false
+      // Créer le profil utilisateur
       const { error: profileError } = await supabase
         .from('users')
         .insert([
@@ -246,7 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Compte créé",
         description: "Votre compte attend l'approbation de l'administrateur.",
       });
-      navigate("/login");
     } catch (error: any) {
       console.error("Sign up error:", error);
       toast({
@@ -269,7 +226,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Déconnexion",
         description: "Vous avez été déconnecté avec succès.",
       });
-      navigate("/login");
     } catch (error: any) {
       console.error("Sign out error:", error);
       toast({
