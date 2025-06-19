@@ -357,10 +357,6 @@ export default function Todos() {
                       />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <TaskDeepSearch 
-                        todoId={todo.id} 
-                        todoDescription={todo.description}
-                      />
                       <Button
                         variant="outline"
                         size="sm"
@@ -429,6 +425,16 @@ export default function Todos() {
                       todoDescription={todo.description}
                       onUpdate={fetchTodos}
                     />
+                  </div>
+
+                  {/* Deep Search - placed right after AI Assistant with same format */}
+                  <div className="pl-0.5">
+                    <div className="mt-3 bg-purple-50 rounded-lg">
+                      <TaskDeepSearch 
+                        todoId={todo.id} 
+                        todoDescription={todo.description}
+                      />
+                    </div>
                   </div>
 
                   {/* Inline Comments section */}

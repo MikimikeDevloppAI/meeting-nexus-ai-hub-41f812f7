@@ -3,13 +3,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Loader2, Copy } from "lucide-react";
+import { Search, Loader2, Copy, Bot, ChevronUp, ChevronDown, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeepSearchContent } from "@/utils/deepSearchRenderer";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface TaskDeepSearchProps {
   todoId: string;
@@ -26,12 +32,10 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   const [hasExistingResults, setHasExistingResults] = useState(false);
   const { toast } = useToast();
 
-  // Charger les résultats existants quand le dialog s'ouvre
+  // Charger les résultats existants quand le composant se monte
   useEffect(() => {
-    if (isOpen) {
-      loadExistingResults();
-    }
-  }, [isOpen, todoId]);
+    loadExistingResults();
+  }, [todoId]);
 
   const loadExistingResults = async () => {
     try {
@@ -52,21 +56,18 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         setSearchResult(data.search_result);
         setSources(data.sources || []);
         setHasExistingResults(true);
-        setActiveTab("result");
         console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
         console.log('Loaded sources:', data.sources?.length || 0, 'sources');
       } else {
         setHasExistingResults(false);
         setSearchResult("");
         setSources([]);
-        setActiveTab("search");
       }
     } catch (error) {
       console.error('Error loading existing results:', error);
       setHasExistingResults(false);
       setSearchResult("");
       setSources([]);
-      setActiveTab("search");
     }
   };
 
@@ -115,7 +116,6 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         setSearchResult(result);
         setSources(sourcesData);
         setHasExistingResults(true);
-        setActiveTab("result");
 
         toast({
           title: "Recherche terminée",
@@ -146,115 +146,121 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   };
 
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(true)}
-        className="h-8 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-      >
-        <Search className="h-4 w-4 mr-1" />
-        Deep Search
-      </Button>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-between text-foreground hover:text-foreground p-2 pl-1"
+        >
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-purple-500" />
+            <span className="text-sm text-black">Deep Search</span>
+            <Search className="h-3 w-3" />
+            {hasExistingResults && (
+              <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs h-4">
+                Résultats disponibles
+              </Badge>
+            )}
+          </div>
+          {isOpen ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </Button>
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent className="mt-2">
+        <Card className="border-dashed">
+          <CardContent className="p-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+              <TabsList className="grid w-full grid-cols-2 h-7">
+                <TabsTrigger value="search" className="text-xs">Nouvelle Recherche</TabsTrigger>
+                <TabsTrigger value="result" className="text-xs">Résultat</TabsTrigger>
+              </TabsList>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Deep Search - Recherche Spécialisée
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Tâche: <span className="font-medium">{todoDescription}</span>
-            </p>
-          </DialogHeader>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="search">Nouvelle Recherche</TabsTrigger>
-              <TabsTrigger value="result">Résultat</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="search" className="space-y-4 flex-1">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Contexte additionnel pour la recherche :
-                </label>
-                <Textarea
-                  placeholder="Décrivez les points spécifiques que vous souhaitez approfondir, les contraintes particulières, ou tout contexte qui pourrait aider à obtenir des résultats plus précis..."
-                  value={userContext}
-                  onChange={(e) => setUserContext(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsOpen(false)}>
-                  Annuler
-                </Button>
-                <Button 
-                  onClick={handleDeepSearch} 
-                  disabled={isSearching || !userContext.trim()}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Recherche en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Lancer la recherche
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </TabsContent>
-
-            <TabsContent value="result" className="space-y-3 flex-1 min-h-0 flex flex-col">
-              {searchResult && searchResult.trim() ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
-                      Recherche terminée
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(searchResult)}
-                    >
-                      <Copy className="h-4 w-4 mr-1" />
-                      Copier
-                    </Button>
-                  </div>
-                  <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                    <ScrollArea className="h-[400px] w-full">
-                      <div className="p-4">
-                        <DeepSearchContent text={searchResult} sources={sources} />
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
-                  {isSearching ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Recherche en cours...
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="mb-2">Aucun résultat à afficher</p>
-                      <p className="text-xs">Effectuez d'abord une recherche dans l'onglet "Nouvelle Recherche"</p>
-                    </div>
-                  )}
+              <TabsContent value="search" className="space-y-3 mt-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">
+                    Contexte additionnel pour la recherche :
+                  </label>
+                  <Textarea
+                    placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
+                    value={userContext}
+                    onChange={(e) => setUserContext(e.target.value)}
+                    rows={3}
+                    className="resize-none text-xs"
+                  />
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
-    </>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleDeepSearch} 
+                    disabled={isSearching || !userContext.trim()}
+                    size="sm"
+                    className="h-7 text-xs"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Recherche...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-3 w-3 mr-1" />
+                        Lancer
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="result" className="space-y-3 mt-3">
+                {searchResult && searchResult.trim() ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                        Recherche terminée
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(searchResult)}
+                        className="h-6 text-xs"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copier
+                      </Button>
+                    </div>
+                    <div className="border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[300px] w-full">
+                        <div className="p-3">
+                          <DeepSearchContent text={searchResult} sources={sources} />
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    {isSearching ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-xs">Recherche en cours...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs mb-1">Aucun résultat à afficher</p>
+                        <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
