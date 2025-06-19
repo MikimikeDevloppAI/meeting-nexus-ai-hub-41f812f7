@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,15 +48,18 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       if (data?.search_result) {
         setSearchResult(data.search_result);
         setHasExistingResults(true);
+        setActiveTab("result");
         console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
       } else {
         setHasExistingResults(false);
         setSearchResult("");
+        setActiveTab("search");
       }
     } catch (error) {
       console.error('Error loading existing results:', error);
       setHasExistingResults(false);
       setSearchResult("");
+      setActiveTab("search");
     }
   };
 
@@ -216,7 +218,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                   </div>
                   <div className="flex-1 w-full border rounded-md overflow-hidden">
                     <ScrollArea className="h-full w-full p-4" style={{ height: '60vh', maxHeight: '60vh' }}>
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed pr-4">
+                      <div className="whitespace-pre-wrap break-words text-sm leading-relaxed pr-4 overflow-wrap-break-word word-break-break-word">
                         {searchResult}
                       </div>
                     </ScrollArea>
