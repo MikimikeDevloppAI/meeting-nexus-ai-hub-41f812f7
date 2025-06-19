@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -54,7 +55,7 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
       )
     }
 
-    // Appel à l'API Perplexity avec le modèle le plus puissant (corrigé)
+    // Appel à l'API Perplexity avec le modèle sonar-pro
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -62,21 +63,19 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-huge-128k-online', // Modèle le plus puissant corrigé
+        model: 'sonar-pro',
         messages: [
           {
             role: 'user',
             content: searchQuery
           }
         ],
-        stream: false,
-        temperature: 0.4,
-        max_tokens: 4000, // Réduit pour éviter les limites
+        temperature: 0.2,
+        max_tokens: 4000,
+        top_p: 0.9,
         return_images: false,
         return_related_questions: false,
-        search_recency_filter: 'month',
-        frequency_penalty: 1,
-        presence_penalty: 0
+        search_recency_filter: 'month'
       })
     })
 
@@ -101,8 +100,8 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     
     const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
     
-    // Extraire les sources/citations de la réponse Perplexity
-    const sources = perplexityData.citations || []
+    // Extraire les sources/citations de la réponse Perplexity - utiliser le bon champ
+    const sources = perplexityData.citations || perplexityData.sources || []
     
     console.log('✅ Deep search completed successfully')
     console.log('📚 Sources found:', sources.length)
@@ -166,3 +165,4 @@ Ne propose que des éléments utiles et concrets pour aider l'équipe à exécut
     )
   }
 })
+
