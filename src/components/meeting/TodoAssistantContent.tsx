@@ -1,13 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, Loader2, User, Lightbulb } from "lucide-react";
+import { Bot, Send, Loader2, User, Lightbulb, Maximize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
+import { TodoAssistantFullscreen } from "./TodoAssistantFullscreen";
 
 interface TodoAssistantContentProps {
   todoId: string;
@@ -27,6 +27,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const { toast } = useToast();
 
   // Utiliser le hook unifié pour l'historique avec une clé unique pour cette tâche
@@ -202,121 +203,142 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
   };
 
   return (
-    <Card className="border-dashed">
-      <CardContent className="p-3">
-        <div className="space-y-3">
-          {/* Recommandations IA en premier */}
-          {loadingRecommendation ? (
-            <div className="flex items-center justify-center gap-2 text-sm text-foreground p-4 bg-blue-50 rounded">
-              <Lightbulb className="h-4 w-4 animate-pulse text-blue-500" />
-              <span>Chargement des recommandations...</span>
-            </div>
-          ) : recommendation ? (
-            <div className="bg-blue-50/50 rounded p-3 border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-4 w-4 text-blue-500" />
-                <span className="font-medium text-sm text-blue-800">Recommandations IA</span>
+    <>
+      <Card className="border-dashed">
+        <CardContent className="p-3">
+          <div className="space-y-3">
+            {/* Recommandations IA en premier */}
+            {loadingRecommendation ? (
+              <div className="flex items-center justify-center gap-2 text-sm text-foreground p-4 bg-blue-50 rounded">
+                <Lightbulb className="h-4 w-4 animate-pulse text-blue-500" />
+                <span>Chargement des recommandations...</span>
               </div>
-              <div className="text-xs text-blue-700 whitespace-pre-wrap">
-                {recommendation.recommendation_text}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-2 text-muted-foreground">
-              <p className="text-xs">Aucune recommandation disponible</p>
-            </div>
-          )}
-          
-          {/* Chat IA dédié */}
-          <div className="border-t pt-3">
-            <div className="flex items-center gap-2 mb-3">
-              <Bot className="h-4 w-4 text-green-600" />
-              <span className="font-medium text-sm">Assistant IA</span>
-              {isTyping && (
-                <div className="flex items-center gap-1 ml-2">
-                  <Bot className="h-3 w-3 text-green-500 animate-pulse" />
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
+            ) : recommendation ? (
+              <div className="bg-blue-50/50 rounded p-3 border border-blue-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium text-sm text-blue-800">Recommandations IA</span>
                 </div>
-              )}
-              <Button
-                onClick={clearHistory}
-                variant="ghost"
-                size="sm"
-                className="ml-auto h-6 px-2 text-xs"
-              >
-                Effacer
-              </Button>
-            </div>
+                <div className="text-xs text-blue-700 whitespace-pre-wrap">
+                  {recommendation.recommendation_text}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-2 text-muted-foreground">
+                <p className="text-xs">Aucune recommandation disponible</p>
+              </div>
+            )}
             
-            <ScrollArea className="h-[200px] pr-2">
-              <div className="space-y-2">
-                {messages.map((message, index) => (
-                  <div
-                    key={message.id || index}
-                    className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+            {/* Chat IA dédié */}
+            <div className="border-t pt-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Bot className="h-4 w-4 text-green-600" />
+                <span className="font-medium text-sm">Assistant IA</span>
+                {isTyping && (
+                  <div className="flex items-center gap-1 ml-2">
+                    <Bot className="h-3 w-3 text-green-500 animate-pulse" />
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                )}
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    onClick={() => setShowFullscreen(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-green-100"
+                    title="Ouvrir en plein écran"
                   >
-                    <div className={`flex gap-3 max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        message.isUser ? 'bg-primary' : 'bg-secondary'
-                      }`}>
-                        {message.isUser ? (
-                          <User className="h-3 w-3 text-primary-foreground" />
-                        ) : (
-                          <Bot className="h-3 w-3" />
-                        )}
-                      </div>
-                      
-                      <div className={`rounded-lg p-2 text-xs ${
-                        message.isUser 
-                          ? 'bg-primary text-primary-foreground' 
-                          : message.content.includes('réfléchit')
-                            ? 'bg-yellow-100 text-yellow-800 animate-pulse'
-                            : 'bg-muted'
-                      }`}>
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <div className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString('fr-FR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                    <Maximize2 className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    onClick={clearHistory}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                  >
+                    Effacer
+                  </Button>
+                </div>
+              </div>
+              
+              <ScrollArea className="h-[200px] pr-2">
+                <div className="space-y-2">
+                  {messages.map((message, index) => (
+                    <div
+                      key={message.id || index}
+                      className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`flex gap-3 max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          message.isUser ? 'bg-primary' : 'bg-secondary'
+                        }`}>
+                          {message.isUser ? (
+                            <User className="h-3 w-3 text-primary-foreground" />
+                          ) : (
+                            <Bot className="h-3 w-3" />
+                          )}
+                        </div>
+                        
+                        <div className={`rounded-lg p-2 text-xs ${
+                          message.isUser 
+                            ? 'bg-primary text-primary-foreground' 
+                            : message.content.includes('réfléchit')
+                              ? 'bg-yellow-100 text-yellow-800 animate-pulse'
+                              : 'bg-muted'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <div className="text-xs opacity-70 mt-1">
+                            {message.timestamp.toLocaleTimeString('fr-FR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  ))}
+                </div>
+              </ScrollArea>
 
-            {/* Input du chat */}
-            <div className="flex gap-2 mt-3">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={isLoading ? "Traitement en cours..." : "Posez votre question à l'assistant IA..."}
-                disabled={isLoading}
-                className="flex-1 text-xs h-7"
-              />
-              <Button 
-                onClick={sendMessage} 
-                disabled={isLoading || !inputValue.trim()}
-                size="sm"
-                className={`h-7 w-7 p-0 ${isLoading ? 'animate-pulse' : ''}`}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Send className="h-3 w-3" />
-                )}
-              </Button>
+              {/* Input du chat */}
+              <div className="flex gap-2 mt-3">
+                <Input
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={isLoading ? "Traitement en cours..." : "Posez votre question à l'assistant IA..."}
+                  disabled={isLoading}
+                  className="flex-1 text-xs h-7"
+                />
+                <Button 
+                  onClick={sendMessage} 
+                  disabled={isLoading || !inputValue.trim()}
+                  size="sm"
+                  className={`h-7 w-7 p-0 ${isLoading ? 'animate-pulse' : ''}`}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <TodoAssistantFullscreen
+        isOpen={showFullscreen}
+        onClose={() => setShowFullscreen(false)}
+        todoId={todoId}
+        todoDescription={todoDescription}
+        onUpdate={onUpdate}
+      />
+    </>
   );
 };
