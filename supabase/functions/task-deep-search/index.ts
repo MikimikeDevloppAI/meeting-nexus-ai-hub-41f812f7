@@ -100,9 +100,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
 - Utilise des recherches web récentes pour compléter tes réponses
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec Perplexity Sonar Large');
+        console.log('🚀 Envoi de la question de suivi avec Perplexity Sonar Reasoning Pro');
 
-        // Appel à l'API Perplexity avec llama-3.1-sonar-large-128k-online
+        // Appel à l'API Perplexity avec sonar-reasoning-pro
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
@@ -110,7 +110,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'llama-3.1-sonar-large-128k-online',
+            model: 'sonar-reasoning-pro',
             messages: [
               {
                 role: 'user',
@@ -126,7 +126,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
           })
         });
 
-        console.log('📡 Statut réponse Perplexity Sonar Large:', perplexityResponse.status);
+        console.log('📡 Statut réponse Perplexity Sonar Reasoning Pro:', perplexityResponse.status);
 
         if (!perplexityResponse.ok) {
           const errorText = await perplexityResponse.text();
@@ -240,7 +240,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity Sonar Large
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity Sonar Reasoning Pro
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
     try {
@@ -252,9 +252,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Perplexity Sonar Large');
+      console.log('🔍 Phase 3: Recherche finale avec Perplexity Sonar Reasoning Pro');
       
-      // Prompt optimisé pour Perplexity avec Sonar Large
+      // Prompt optimisé pour Perplexity avec Sonar Reasoning Pro
       const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
@@ -294,9 +294,9 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-      console.log('🚀 Envoi de la recherche finale avec Perplexity Sonar Large');
+      console.log('🚀 Envoi de la recherche finale avec Perplexity Sonar Reasoning Pro');
 
-      // Appel à l'API Perplexity avec llama-3.1-sonar-large-128k-online
+      // Appel à l'API Perplexity avec sonar-reasoning-pro
       const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -304,7 +304,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-large-128k-online',
+          model: 'sonar-reasoning-pro',
           messages: [
             {
               role: 'user',
