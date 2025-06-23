@@ -53,10 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         console.log("Vérification de la session d'authentification...");
-        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error("Erreur de session:", error);
+        // Vérifier la session actuelle
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Erreur de session:", sessionError);
           if (mounted) {
             setUser(null);
             setIsLoading(false);
@@ -71,21 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (!mounted) return;
           
-          if (userProfile) {
-            if (!userProfile.approved) {
-              console.log("Utilisateur non approuvé");
-              setUser(null);
-            } else {
-              console.log("Utilisateur approuvé, mise à jour de l'état:", userProfile);
-              setUser(userProfile);
-            }
+          if (userProfile && userProfile.approved) {
+            console.log("Utilisateur approuvé, mise à jour de l'état:", userProfile);
+            setUser(userProfile);
+          } else {
+            console.log("Utilisateur non approuvé ou profil inexistant");
+            setUser(null);
           }
         } else {
           console.log("Aucune session existante trouvée");
           if (mounted) setUser(null);
         }
       } catch (error) {
-        console.error("Erreur lors de la vérification d'authentification:", error);
+        console.error("Erreur lors de l'initialisation d'authentification:", error);
         if (mounted) setUser(null);
       } finally {
         if (mounted) {
@@ -105,28 +105,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (event === "SIGNED_IN" && session?.user) {
           console.log("Utilisateur connecté, mise à jour du profil");
-          const userProfile = await fetchUserProfile(session.user.id);
           
-          if (!mounted) return;
-          
-          if (userProfile?.approved) {
-            setUser(userProfile);
-          } else {
-            setUser(null);
-            if (userProfile && !userProfile.approved) {
-              toast({
-                title: "Compte en attente",
-                description: "Votre compte attend l'approbation de l'administrateur.",
-                variant: "destructive",
-              });
+          // Utiliser setTimeout pour éviter les conflits
+          setTimeout(async () => {
+            if (!mounted) return;
+            
+            try {
+              const userProfile = await fetchUserProfile(session.user.id);
+              
+              if (!mounted) return;
+              
+              if (userProfile?.approved) {
+                setUser(userProfile);
+              } else {
+                setUser(null);
+                if (userProfile && !userProfile.approved) {
+                  toast({
+                    title: "Compte en attente",
+                    description: "Votre compte attend l'approbation de l'administrateur.",
+                    variant: "destructive",
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Erreur lors de la récupération du profil:", error);
+              if (mounted) setUser(null);
             }
-          }
+            
+            if (mounted) setIsLoading(false);
+          }, 100);
+          
         } else if (event === "SIGNED_OUT") {
           console.log("Utilisateur déconnecté");
           setUser(null);
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 
@@ -139,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -206,8 +221,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       console.log("Déconnexion de l'utilisateur...");
-      await supabase.auth.signOut();
+      
+      // Nettoyer l'état local d'abord
       setUser(null);
+      
+      // Puis déconnecter de Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Erreur de déconnexion:", error);
+      }
+      
       toast({
         title: "Déconnexion",
         description: "Vous avez été déconnecté avec succès.",

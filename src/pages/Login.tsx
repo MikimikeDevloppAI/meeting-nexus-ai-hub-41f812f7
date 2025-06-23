@@ -32,12 +32,13 @@ const Login = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Afficher un loader pendant la vérification d'authentification
+  // Afficher un loader pendant la vérification d'authentification initiale
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-accent p-4">
         <div className="w-full max-w-md text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Vérification de l'authentification...</p>
         </div>
       </div>
     );

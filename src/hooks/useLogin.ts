@@ -42,10 +42,8 @@ export const useLogin = () => {
           description: "Redirection vers l'assistant...",
         });
         
-        // Attendre un peu pour que l'état d'authentification se mette à jour
-        setTimeout(() => {
-          navigate("/assistant", { replace: true });
-        }, 100);
+        // Redirection immédiate sans délai
+        navigate("/assistant", { replace: true });
       }
     } catch (error: any) {
       console.error("Erreur de connexion:", error);
