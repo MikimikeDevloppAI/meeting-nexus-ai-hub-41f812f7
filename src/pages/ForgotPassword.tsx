@@ -32,8 +32,12 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
+      // Utiliser l'URL actuelle du site au lieu de localhost
+      const redirectUrl = window.location.origin + "/reset-password";
+      console.log("URL de redirection utilisée:", redirectUrl);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;

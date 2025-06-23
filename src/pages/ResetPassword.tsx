@@ -24,63 +24,66 @@ const ResetPassword = () => {
 
   // Vérifier la session de récupération
   useEffect(() => {
-    const checkSession = async () => {
+    const handleAuthSession = async () => {
       try {
-        // Récupérer la session actuelle
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("URL actuelle:", window.location.href);
+        console.log("Paramètres URL:", Object.fromEntries(searchParams.entries()));
+
+        // Vérifier d'abord s'il y a une session active
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        console.log("Session actuelle:", session);
-        
-        if (error) {
-          console.error("Erreur de session:", error);
-          throw error;
+        if (sessionError) {
+          console.error("Erreur de session:", sessionError);
+          throw sessionError;
         }
 
+        console.log("Session trouvée:", session);
+
         if (session?.user) {
-          console.log("Session valide trouvée pour la réinitialisation");
+          console.log("Session de récupération valide");
           setIsValidSession(true);
         } else {
-          // Si pas de session, vérifier si on a des paramètres de récupération
-          const token = searchParams.get('token');
+          // Si pas de session, mais qu'on a les paramètres d'authentification dans l'URL
+          const accessToken = searchParams.get('access_token');
+          const refreshToken = searchParams.get('refresh_token');
           const type = searchParams.get('type');
-          
-          if (token && type === 'recovery') {
-            console.log("Token de récupération détecté, attente de la session...");
-            // Attendre un peu que Supabase traite le token
-            setTimeout(async () => {
-              const { data: { session: newSession } } = await supabase.auth.getSession();
-              if (newSession?.user) {
-                setIsValidSession(true);
-              } else {
-                toast({
-                  title: "Lien invalide",
-                  description: "Ce lien de réinitialisation est invalide ou a expiré",
-                  variant: "destructive",
-                });
-                navigate("/forgot-password");
-              }
-            }, 1000);
-          } else {
-            toast({
-              title: "Lien invalide",
-              description: "Ce lien de réinitialisation est invalide ou a expiré",
-              variant: "destructive",
+
+          if (accessToken && refreshToken && type === 'recovery') {
+            console.log("Paramètres d'authentification trouvés, établissement de la session...");
+            
+            // Établir la session avec les tokens fournis
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
             });
-            navigate("/forgot-password");
+
+            if (error) {
+              console.error("Erreur lors de l'établissement de la session:", error);
+              throw error;
+            }
+
+            if (data.session) {
+              console.log("Session établie avec succès");
+              setIsValidSession(true);
+            } else {
+              throw new Error("Impossible d'établir la session");
+            }
+          } else {
+            throw new Error("Lien de réinitialisation invalide ou expiré");
           }
         }
       } catch (error) {
         console.error("Erreur lors de la vérification de la session:", error);
         toast({
-          title: "Erreur",
-          description: "Une erreur est survenue lors du traitement du lien",
+          title: "Lien invalide",
+          description: "Ce lien de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien.",
           variant: "destructive",
         });
         navigate("/forgot-password");
       }
     };
 
-    checkSession();
+    handleAuthSession();
   }, [searchParams, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
