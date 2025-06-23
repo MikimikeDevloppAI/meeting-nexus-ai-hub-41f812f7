@@ -47,6 +47,8 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
 
   const loadExistingResults = async () => {
     try {
+      console.log('🔍 Chargement des résultats existants pour todo:', todoId);
+      
       const { data, error } = await supabase
         .from('task_deep_searches')
         .select('id, search_result, sources')
@@ -61,6 +63,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       }
 
       if (data?.search_result) {
+        console.log('✅ Résultats existants trouvés, ID:', data.id);
         setSearchResult(data.search_result);
         setSources(data.sources || []);
         setCurrentDeepSearchId(data.id);
@@ -69,6 +72,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
         console.log('Loaded sources:', data.sources?.length || 0, 'sources');
       } else {
+        console.log('❌ Aucun résultat existant trouvé');
         setHasExistingResults(false);
         setSearchResult("");
         setSources([]);
@@ -389,11 +393,12 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                                   <DeepSearchContent text={searchResult} sources={sources} />
                                 </div>
                                 
-                                {currentDeepSearchId && (
+                                {/* Toujours afficher les questions de suivi si on a des résultats */}
+                                {(currentDeepSearchId || hasExistingResults) && (
                                   <div>
                                     <Separator className="my-6" />
                                     <TaskDeepSearchFollowups 
-                                      deepSearchId={currentDeepSearchId}
+                                      deepSearchId={currentDeepSearchId || 'temp'}
                                       todoId={todoId}
                                       todoDescription={todoDescription}
                                       isFullScreen={true}

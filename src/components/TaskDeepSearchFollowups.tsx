@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -38,11 +39,22 @@ export const TaskDeepSearchFollowups = ({
 
   // Charger l'historique des questions de suivi
   useEffect(() => {
-    loadFollowups();
+    if (deepSearchId && deepSearchId !== 'temp') {
+      loadFollowups();
+    } else {
+      setIsLoading(false);
+    }
   }, [deepSearchId]);
 
   const loadFollowups = async () => {
+    if (!deepSearchId || deepSearchId === 'temp') {
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      console.log('🔄 Chargement des questions de suivi pour:', deepSearchId);
+      
       const { data, error } = await supabase
         .from('task_deep_search_followups')
         .select('*')
@@ -54,6 +66,7 @@ export const TaskDeepSearchFollowups = ({
         return;
       }
 
+      console.log('✅ Questions de suivi chargées:', data?.length || 0);
       setFollowups(data || []);
     } catch (error) {
       console.error('Error loading followups:', error);
@@ -72,6 +85,15 @@ export const TaskDeepSearchFollowups = ({
       return;
     }
 
+    if (!deepSearchId || deepSearchId === 'temp') {
+      toast({
+        title: "Erreur",
+        description: "Impossible de poser une question sans recherche valide",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -80,7 +102,7 @@ export const TaskDeepSearchFollowups = ({
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Envoi question de suivi');
+      console.log('🔍 Envoi question de suivi pour recherche:', deepSearchId);
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -213,40 +235,42 @@ export const TaskDeepSearchFollowups = ({
         </div>
       )}
 
-      {/* Champ de nouvelle question */}
-      <div className="space-y-2">
-        <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
-          <p className="text-xs text-blue-800 mb-1 font-medium">
-            💬 Posez une question de suivi
-          </p>
-          <p className="text-xs text-blue-700">
-            Votre question sera traitée avec tout le contexte de la recherche précédente
-          </p>
+      {/* Champ de nouvelle question - seulement si on a un deepSearchId valide */}
+      {deepSearchId && deepSearchId !== 'temp' && (
+        <div className="space-y-2">
+          <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
+            <p className="text-xs text-blue-800 mb-1 font-medium">
+              💬 Posez une question de suivi
+            </p>
+            <p className="text-xs text-blue-700">
+              Votre question sera traitée avec tout le contexte de la recherche précédente
+            </p>
+          </div>
+          
+          <div className="flex gap-2">
+            <Input
+              placeholder="Posez votre question de suivi..."
+              value={newQuestion}
+              onChange={(e) => setNewQuestion(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isSubmitting}
+              className="text-sm"
+            />
+            <Button 
+              onClick={handleSubmitQuestion}
+              disabled={isSubmitting || !newQuestion.trim()}
+              size="sm"
+              className="shrink-0"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Send className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
         </div>
-        
-        <div className="flex gap-2">
-          <Input
-            placeholder="Posez votre question de suivi..."
-            value={newQuestion}
-            onChange={(e) => setNewQuestion(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isSubmitting}
-            className="text-sm"
-          />
-          <Button 
-            onClick={handleSubmitQuestion}
-            disabled={isSubmitting || !newQuestion.trim()}
-            size="sm"
-            className="shrink-0"
-          >
-            {isSubmitting ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Send className="h-3 w-3" />
-            )}
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
