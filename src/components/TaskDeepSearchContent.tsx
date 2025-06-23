@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,13 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Loader2, Copy, Maximize2 } from "lucide-react";
+import { Search, Loader2, Copy, Maximize2, HelpCircle, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DeepSearchContent } from "@/utils/deepSearchRenderer";
 
 interface TaskDeepSearchContentProps {
   todoId: string;
   todoDescription: string;
+}
+
+interface EnrichmentQuestion {
+  question: string;
+  answer: string;
 }
 
 export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearchContentProps) => {
@@ -24,6 +28,13 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
   const [isSearching, setIsSearching] = useState(false);
   const [hasExistingResults, setHasExistingResults] = useState(false);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+  
+  // Nouveaux états pour les questions d'enrichissement
+  const [searchPhase, setSearchPhase] = useState<'input' | 'questions' | 'result'>('input');
+  const [enrichmentQuestions, setEnrichmentQuestions] = useState<string[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<EnrichmentQuestion[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  
   const { toast } = useToast();
 
   // Charger les résultats existants quand le composant se monte
@@ -65,7 +76,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     }
   };
 
-  const handleDeepSearch = async () => {
+  const handleInitialSearch = async () => {
     if (!userContext.trim()) {
       toast({
         title: "Contexte requis",
@@ -75,9 +86,8 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       return;
     }
 
-    setIsSearching(true);
-    setSearchResult("");
-    setSources([]);
+    setIsLoadingQuestions(true);
+    setEnrichmentQuestions([]);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -85,8 +95,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Starting deep search for todo:', todoId);
-      console.log('📝 User context:', userContext);
+      console.log('🔍 Génération des questions d\'enrichissement');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -97,19 +106,75 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       });
 
       if (response.error) {
+        throw new Error(response.error.message || 'Erreur lors de la génération des questions');
+      }
+
+      if (response.data?.success && response.data?.phase === 'questions') {
+        const questions = response.data.questions || [];
+        console.log('✅ Questions reçues:', questions.length);
+        
+        setEnrichmentQuestions(questions);
+        setQuestionAnswers(questions.map(q => ({ question: q, answer: '' })));
+        setSearchPhase('questions');
+
+        toast({
+          title: "Questions générées",
+          description: `${questions.length} questions d'enrichissement ont été générées`,
+        });
+      } else {
+        throw new Error(response.data?.error || 'Erreur lors de la génération des questions');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Erreur génération questions:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de générer les questions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const handleFinalSearch = async (skipQuestions = false) => {
+    setIsSearching(true);
+    setSearchResult("");
+    setSources([]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      console.log('🔍 Lancement de la recherche finale');
+
+      const response = await supabase.functions.invoke('task-deep-search', {
+        body: {
+          todoId,
+          userContext: userContext.trim(),
+          todoDescription,
+          enrichmentAnswers: skipQuestions ? null : questionAnswers.filter(qa => qa.answer.trim()),
+          skipQuestions: skipQuestions
+        }
+      });
+
+      if (response.error) {
         throw new Error(response.error.message || 'Erreur lors de la recherche');
       }
 
-      if (response.data?.success) {
+      if (response.data?.success && response.data?.phase === 'result') {
         const result = response.data.result;
         const sourcesData = response.data.sources || [];
         
-        console.log('✅ Search result received:', result.substring(0, 200) + '...');
-        console.log('📚 Sources received:', sourcesData.length, 'sources');
+        console.log('✅ Résultat de recherche reçu:', result.substring(0, 200) + '...');
+        console.log('📚 Sources reçues:', sourcesData.length, 'sources');
         
         setSearchResult(result);
         setSources(sourcesData);
         setHasExistingResults(true);
+        setSearchPhase('result');
 
         toast({
           title: "Recherche terminée",
@@ -120,7 +185,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       }
 
     } catch (error: any) {
-      console.error('❌ Deep search error:', error);
+      console.error('❌ Erreur recherche finale:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible d'effectuer la recherche",
@@ -129,6 +194,20 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleAnswerChange = (index: number, answer: string) => {
+    setQuestionAnswers(prev => 
+      prev.map((qa, i) => i === index ? { ...qa, answer } : qa)
+    );
+  };
+
+  const resetSearch = () => {
+    setSearchPhase('input');
+    setEnrichmentQuestions([]);
+    setQuestionAnswers([]);
+    setSearchResult("");
+    setSources([]);
   };
 
   const copyToClipboard = (text: string) => {
@@ -147,58 +226,147 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-purple-600" />
-              <span className="font-medium text-sm">Recherche approfondie</span>
+              <span className="font-medium text-sm">Recherche approfondie (Sonar Pro)</span>
             </div>
-            {hasExistingResults && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                Résultats disponibles
-              </Badge>
-            )}
-          </div>
-
-          {/* Search input */}
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium mb-2 block text-muted-foreground">
-                Contexte additionnel pour la recherche :
-              </label>
-              <Textarea
-                placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
-                value={userContext}
-                onChange={(e) => setUserContext(e.target.value)}
-                rows={3}
-                className="resize-none text-sm"
-              />
-            </div>
-            
-            <Button 
-              onClick={handleDeepSearch} 
-              disabled={isSearching || !userContext.trim()}
-              size="sm"
-              className="w-full"
-            >
-              {isSearching ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Recherche en cours...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Lancer la recherche
-                </>
+            <div className="flex items-center gap-2">
+              {hasExistingResults && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                  Résultats disponibles
+                </Badge>
               )}
-            </Button>
+              {searchPhase === 'questions' && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                  Questions d'enrichissement
+                </Badge>
+              )}
+            </div>
           </div>
 
-          {/* Results */}
-          {searchResult && searchResult.trim() ? (
+          {/* Phase 1: Initial context input */}
+          {searchPhase === 'input' && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-2 block text-muted-foreground">
+                  Contexte additionnel pour la recherche :
+                </label>
+                <Textarea
+                  placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
+                  value={userContext}
+                  onChange={(e) => setUserContext(e.target.value)}
+                  rows={3}
+                  className="resize-none text-sm"
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleInitialSearch} 
+                  disabled={isLoadingQuestions || !userContext.trim()}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {isLoadingQuestions ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Génération des questions...
+                    </>
+                  ) : (
+                    <>
+                      <HelpCircle className="h-4 w-4 mr-2" />
+                      Générer des questions d'enrichissement
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => handleFinalSearch(true)} 
+                  disabled={isSearching || !userContext.trim()}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Recherche...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Recherche directe
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 2: Enrichment questions */}
+          {searchPhase === 'questions' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">Questions d'enrichissement</h4>
+                <Button variant="ghost" size="sm" onClick={resetSearch}>
+                  Recommencer
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {enrichmentQuestions.map((question, index) => (
+                  <div key={index} className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {index + 1}. {question}
+                    </label>
+                    <Input
+                      placeholder="Votre réponse (optionnelle)..."
+                      value={questionAnswers[index]?.answer || ''}
+                      onChange={(e) => handleAnswerChange(index, e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => handleFinalSearch(false)} 
+                  disabled={isSearching}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Recherche en cours...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Lancer la recherche finale
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => handleFinalSearch(true)} 
+                  disabled={isSearching}
+                  variant="outline"
+                  size="sm"
+                >
+                  Ignorer les questions
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 3: Results */}
+          {searchPhase === 'result' && searchResult && searchResult.trim() ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Recherche terminée
+                  Recherche terminée avec Sonar Pro
                 </Badge>
                 <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={resetSearch}>
+                    Nouvelle recherche
+                  </Button>
                   <Dialog open={isFullScreenOpen} onOpenChange={setIsFullScreenOpen}>
                     <DialogTrigger asChild>
                       <Button variant="ghost" size="sm">
@@ -208,7 +376,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw]">
                       <DialogHeader>
-                        <DialogTitle>Résultat de la recherche approfondie</DialogTitle>
+                        <DialogTitle>Résultat de la recherche approfondie (Sonar Pro)</DialogTitle>
                       </DialogHeader>
                       <div className="flex justify-end mb-4">
                         <Button
@@ -243,19 +411,22 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 </ScrollArea>
               </div>
             </div>
-          ) : isSearching ? (
+          ) : searchPhase === 'result' && isSearching ? (
             <div className="text-center py-6 text-muted-foreground">
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Recherche en cours...</span>
+                <span className="text-sm">Recherche en cours avec Sonar Pro...</span>
               </div>
             </div>
-          ) : (
+          ) : searchPhase === 'result' ? (
             <div className="text-center py-4 text-muted-foreground">
               <p className="text-sm">Aucun résultat à afficher</p>
-              <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
+              <p className="text-xs opacity-70">La recherche n'a pas retourné de résultats</p>
+              <Button variant="ghost" size="sm" onClick={resetSearch} className="mt-2">
+                Recommencer
+              </Button>
             </div>
-          )}
+          ) : null}
         </div>
       </CardContent>
     </Card>

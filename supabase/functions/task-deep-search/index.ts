@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { todoId, userContext, todoDescription } = await req.json()
+    const { todoId, userContext, todoDescription, enrichmentAnswers, skipQuestions } = await req.json()
     
     if (!todoId || !userContext || !todoDescription) {
       return new Response(
@@ -22,13 +22,103 @@ serve(async (req) => {
       )
     }
 
-    // Prompt amélioré et structuré pour le cabinet d'ophtalmologie
+    // Vérifier que la clé API Perplexity est disponible
+    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    if (!perplexityApiKey) {
+      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
+      return new Response(
+        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Phase 1: Générer des questions d'enrichissement (sauf si skipQuestions est true)
+    if (!skipQuestions && !enrichmentAnswers) {
+      console.log('🔍 Phase 1: Génération des questions d\'enrichissement');
+      
+      const questionsPrompt = `Tu es un assistant spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian à Genève.
+
+Une tâche a été créée suite à une réunion : "${todoDescription}"
+L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
+
+Génère 3-5 questions pertinentes qui permettront d'affiner la recherche et d'obtenir des informations plus précises et utiles pour cette tâche administrative/médicale.
+
+Les questions doivent être :
+- Spécifiques au contexte du cabinet d'ophtalmologie
+- Orientées vers l'action concrète
+- Adaptées au contexte genevois/suisse si pertinent
+- Focalisées sur les aspects pratiques et opérationnels
+
+Format ta réponse UNIQUEMENT avec les questions, une par ligne, sans numérotation ni formatage spécial.`;
+
+      const questionsResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${perplexityApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-large-128k-online',
+          messages: [
+            {
+              role: 'user',
+              content: questionsPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 800,
+          top_p: 0.9,
+          return_images: false,
+          return_related_questions: false,
+          search_recency_filter: 'month'
+        })
+      });
+
+      if (!questionsResponse.ok) {
+        console.error('❌ Erreur génération questions:', questionsResponse.status);
+        return new Response(
+          JSON.stringify({ error: 'Erreur lors de la génération des questions' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const questionsData = await questionsResponse.json();
+      const questionsText = questionsData.choices?.[0]?.message?.content || '';
+      const questions = questionsText.split('\n').filter(q => q.trim().length > 0);
+
+      console.log('✅ Questions générées:', questions.length);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          phase: 'questions',
+          questions: questions
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    // Phase 2: Recherche finale avec contexte enrichi
+    console.log('🔍 Phase 2: Recherche finale avec Sonar Pro');
+    
+    let enrichedContext = userContext;
+    if (enrichmentAnswers && enrichmentAnswers.length > 0) {
+      enrichedContext += '\n\nRÉPONSES AUX QUESTIONS D\'ENRICHISSEMENT:\n';
+      enrichedContext += enrichmentAnswers.map((answer: any, index: number) => 
+        `${index + 1}. ${answer.question}\nRéponse: ${answer.answer}`
+      ).join('\n\n');
+    }
+
+    // Prompt optimisé pour Sonar Pro
     const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 Tu aides principalement le personnel administratif à accomplir des tâches non médicales. Une nouvelle tâche a été générée suite à une réunion :
 
 **Tâche :** ${todoDescription}
-**Contexte précisé par l'utilisateur :** ${userContext}
+**Contexte détaillé :** ${enrichedContext}
 
 INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
 - Structure ta réponse de manière très claire avec des titres, sous-titres et bullet points
@@ -60,22 +150,11 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 • Prise en compte de la réglementation locale
 • Suggestions de prestataires locaux fiables
 
-Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`
+Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-    console.log('🔍 Launching deep search for task:', todoId)
-    console.log('📝 Search query:', searchQuery)
+    console.log('🚀 Envoi de la recherche finale avec Sonar Pro');
 
-    // Vérifier que la clé API Perplexity est disponible
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
-    if (!perplexityApiKey) {
-      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
-      return new Response(
-        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Appel à l'API Perplexity avec le modèle sonar-deep-research
+    // Appel à l'API Perplexity avec le modèle sonar-pro
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -83,7 +162,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-deep-research',
+        model: 'llama-3.1-sonar-large-128k-online',
         messages: [
           {
             role: 'user',
@@ -91,19 +170,19 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           }
         ],
         temperature: 0.2,
-        max_tokens: 8000, // Augmenté pour sonar-deep-research
+        max_tokens: 4000,
         top_p: 0.9,
         return_images: false,
-        return_related_questions: false, // Désactivé comme demandé
+        return_related_questions: false,
         search_recency_filter: 'month'
       })
-    })
+    });
 
-    console.log('📡 Perplexity API response status:', perplexityResponse.status);
+    console.log('📡 Sonar Pro API response status:', perplexityResponse.status);
 
     if (!perplexityResponse.ok) {
       const errorText = await perplexityResponse.text();
-      console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
+      console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
       console.error('❌ Error details:', errorText);
       
       return new Response(
@@ -116,16 +195,16 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
     }
 
     const perplexityData = await perplexityResponse.json()
-    console.log('📊 Perplexity response structure:', Object.keys(perplexityData));
+    console.log('📊 Sonar Pro response structure:', Object.keys(perplexityData));
     
     const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
     
     // Extraire les sources/citations de la réponse Perplexity
     const sources = perplexityData.citations || perplexityData.sources || []
     
-    console.log('✅ Deep search completed successfully')
-    console.log('📚 Sources found:', sources.length)
-    console.log('📝 Result length:', searchResult.length, 'characters');
+    console.log('✅ Recherche Sonar Pro terminée avec succès')
+    console.log('📚 Sources trouvées:', sources.length)
+    console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
     // Sauvegarder dans Supabase
     const supabaseClient = createClient(
@@ -143,7 +222,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           .from('task_deep_searches')
           .insert({
             todo_id: todoId,
-            user_context: userContext,
+            user_context: enrichedContext,
             search_query: searchQuery,
             search_result: searchResult,
             sources: sources,
@@ -161,6 +240,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
     return new Response(
       JSON.stringify({ 
         success: true, 
+        phase: 'result',
         result: searchResult,
         sources: sources,
         query: searchQuery

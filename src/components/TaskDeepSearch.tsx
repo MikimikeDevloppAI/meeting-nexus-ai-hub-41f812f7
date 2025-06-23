@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Loader2, Copy, Bot, ChevronUp, ChevronDown, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Search, Loader2, Copy, ChevronUp, ChevronDown, Zap, HelpCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +21,11 @@ interface TaskDeepSearchProps {
   todoDescription: string;
 }
 
+interface EnrichmentQuestion {
+  question: string;
+  answer: string;
+}
+
 export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [userContext, setUserContext] = useState("");
@@ -30,6 +34,13 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("search");
   const [hasExistingResults, setHasExistingResults] = useState(false);
+  
+  // Nouveaux états pour les questions d'enrichissement
+  const [searchPhase, setSearchPhase] = useState<'input' | 'questions' | 'result'>('input');
+  const [enrichmentQuestions, setEnrichmentQuestions] = useState<string[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<EnrichmentQuestion[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  
   const { toast } = useToast();
 
   // Charger les résultats existants quand le composant se monte
@@ -71,7 +82,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
     }
   };
 
-  const handleDeepSearch = async () => {
+  const handleInitialSearch = async () => {
     if (!userContext.trim()) {
       toast({
         title: "Contexte requis",
@@ -81,9 +92,8 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       return;
     }
 
-    setIsSearching(true);
-    setSearchResult("");
-    setSources([]);
+    setIsLoadingQuestions(true);
+    setEnrichmentQuestions([]);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -91,8 +101,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Starting deep search for todo:', todoId);
-      console.log('📝 User context:', userContext);
+      console.log('🔍 Génération des questions d\'enrichissement');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -103,19 +112,76 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       });
 
       if (response.error) {
+        throw new Error(response.error.message || 'Erreur lors de la génération des questions');
+      }
+
+      if (response.data?.success && response.data?.phase === 'questions') {
+        const questions = response.data.questions || [];
+        console.log('✅ Questions reçues:', questions.length);
+        
+        setEnrichmentQuestions(questions);
+        setQuestionAnswers(questions.map(q => ({ question: q, answer: '' })));
+        setSearchPhase('questions');
+
+        toast({
+          title: "Questions générées",
+          description: `${questions.length} questions d'enrichissement ont été générées`,
+        });
+      } else {
+        throw new Error(response.data?.error || 'Erreur lors de la génération des questions');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Erreur génération questions:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de générer les questions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const handleFinalSearch = async (skipQuestions = false) => {
+    setIsSearching(true);
+    setSearchResult("");
+    setSources([]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      console.log('🔍 Lancement de la recherche finale');
+
+      const response = await supabase.functions.invoke('task-deep-search', {
+        body: {
+          todoId,
+          userContext: userContext.trim(),
+          todoDescription,
+          enrichmentAnswers: skipQuestions ? null : questionAnswers.filter(qa => qa.answer.trim()),
+          skipQuestions: skipQuestions
+        }
+      });
+
+      if (response.error) {
         throw new Error(response.error.message || 'Erreur lors de la recherche');
       }
 
-      if (response.data?.success) {
+      if (response.data?.success && response.data?.phase === 'result') {
         const result = response.data.result;
         const sourcesData = response.data.sources || [];
         
-        console.log('✅ Search result received:', result.substring(0, 200) + '...');
-        console.log('📚 Sources received:', sourcesData.length, 'sources');
+        console.log('✅ Résultat de recherche reçu:', result.substring(0, 200) + '...');
+        console.log('📚 Sources reçues:', sourcesData.length, 'sources');
         
         setSearchResult(result);
         setSources(sourcesData);
         setHasExistingResults(true);
+        setSearchPhase('result');
+        setActiveTab('result');
 
         toast({
           title: "Recherche terminée",
@@ -126,7 +192,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
       }
 
     } catch (error: any) {
-      console.error('❌ Deep search error:', error);
+      console.error('❌ Erreur recherche finale:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible d'effectuer la recherche",
@@ -135,6 +201,19 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleAnswerChange = (index: number, answer: string) => {
+    setQuestionAnswers(prev => 
+      prev.map((qa, i) => i === index ? { ...qa, answer } : qa)
+    );
+  };
+
+  const resetSearch = () => {
+    setSearchPhase('input');
+    setEnrichmentQuestions([]);
+    setQuestionAnswers([]);
+    setActiveTab('search');
   };
 
   const copyToClipboard = (text: string) => {
@@ -155,7 +234,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
             className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-purple-100/50 px-2"
           >
             <Zap className="h-4 w-4 text-purple-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-black text-center leading-tight">Deep Search</span>
+            <span className="text-xs font-medium text-black text-center leading-tight">Sonar Pro</span>
             <div className="flex items-center gap-1">
               <Search className="h-2 w-2" />
               {hasExistingResults && (
@@ -174,44 +253,126 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
               <CardContent className="p-3">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
                   <TabsList className="grid w-full grid-cols-2 h-7">
-                    <TabsTrigger value="search" className="text-xs">Nouvelle Recherche</TabsTrigger>
+                    <TabsTrigger value="search" className="text-xs">Recherche</TabsTrigger>
                     <TabsTrigger value="result" className="text-xs">Résultat</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="search" className="space-y-3 mt-3">
-                    <div>
-                      <label className="text-xs font-medium mb-1 block">
-                        Contexte additionnel pour la recherche :
-                      </label>
-                      <Textarea
-                        placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
-                        value={userContext}
-                        onChange={(e) => setUserContext(e.target.value)}
-                        rows={3}
-                        className="resize-none text-xs"
-                      />
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={handleDeepSearch} 
-                        disabled={isSearching || !userContext.trim()}
-                        size="sm"
-                        className="h-7 text-xs"
-                      >
-                        {isSearching ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Recherche...
-                          </>
-                        ) : (
-                          <>
-                            <Search className="h-3 w-3 mr-1" />
-                            Lancer
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    {/* Phase 1: Initial context input */}
+                    {searchPhase === 'input' && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs font-medium mb-1 block">
+                            Contexte additionnel pour la recherche :
+                          </label>
+                          <Textarea
+                            placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
+                            value={userContext}
+                            onChange={(e) => setUserContext(e.target.value)}
+                            rows={3}
+                            className="resize-none text-xs"
+                          />
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={handleInitialSearch} 
+                            disabled={isLoadingQuestions || !userContext.trim()}
+                            size="sm"
+                            className="h-7 text-xs flex-1"
+                          >
+                            {isLoadingQuestions ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Questions...
+                              </>
+                            ) : (
+                              <>
+                                <HelpCircle className="h-3 w-3 mr-1" />
+                                Questions
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            onClick={() => handleFinalSearch(true)} 
+                            disabled={isSearching || !userContext.trim()}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                          >
+                            {isSearching ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Direct
+                              </>
+                            ) : (
+                              <>
+                                <Search className="h-3 w-3 mr-1" />
+                                Direct
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Phase 2: Enrichment questions */}
+                    {searchPhase === 'questions' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">Questions d'enrichissement</span>
+                          <Button variant="ghost" size="sm" onClick={resetSearch} className="h-6 text-xs">
+                            Reset
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {enrichmentQuestions.slice(0, 3).map((question, index) => (
+                            <div key={index} className="space-y-1">
+                              <label className="text-xs text-muted-foreground">
+                                {index + 1}. {question}
+                              </label>
+                              <Input
+                                placeholder="Réponse optionnelle..."
+                                value={questionAnswers[index]?.answer || ''}
+                                onChange={(e) => handleAnswerChange(index, e.target.value)}
+                                className="h-6 text-xs"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => handleFinalSearch(false)} 
+                            disabled={isSearching}
+                            size="sm"
+                            className="h-7 text-xs flex-1"
+                          >
+                            {isSearching ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Recherche...
+                              </>
+                            ) : (
+                              <>
+                                <ArrowRight className="h-3 w-3 mr-1" />
+                                Recherche finale
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            onClick={() => handleFinalSearch(true)} 
+                            disabled={isSearching}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                          >
+                            Ignorer
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="result" className="space-y-3 mt-3">
@@ -219,17 +380,22 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       <>
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                            Recherche terminée
+                            Sonar Pro terminé
                           </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(searchResult)}
-                            className="h-6 text-xs"
-                          >
-                            <Copy className="h-3 w-3 mr-1" />
-                            Copier
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={resetSearch} className="h-6 text-xs">
+                              Nouveau
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(searchResult)}
+                              className="h-6 text-xs"
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copier
+                            </Button>
+                          </div>
                         </div>
                         <div className="border rounded-md overflow-hidden">
                           <ScrollArea className="h-[300px] w-full">
@@ -244,7 +410,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                         {isSearching ? (
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-xs">Recherche en cours...</span>
+                            <span className="text-xs">Recherche Sonar Pro en cours...</span>
                           </div>
                         ) : (
                           <div>
