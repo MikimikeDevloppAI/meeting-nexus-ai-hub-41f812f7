@@ -97,6 +97,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
 - Si nécessaire, complète avec de nouvelles informations actualisées grâce à tes capacités de recherche
 - Structure ta réponse de manière claire avec des titres et bullet points
 - Reste cohérent avec les informations déjà fournies dans la recherche originale
+- ne retourne que la réponse finale sans mentionner toutes les etapes intermediaire
 - Utilise des recherches web récentes pour compléter tes réponses
 `;
 
