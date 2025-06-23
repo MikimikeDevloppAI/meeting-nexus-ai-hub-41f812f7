@@ -191,50 +191,48 @@ export const TaskDeepSearchFollowups = ({
         )}
       </div>
 
-      {/* Historique des questions/réponses avec scroll fixe */}
+      {/* Historique des questions/réponses */}
       {followups.length > 0 && (
         <div className="space-y-4">
-          <ScrollArea className={`w-full ${isFullScreen ? 'h-[60vh]' : 'h-[400px]'} border rounded-md`}>
-            <div className="space-y-4 p-4">
-              {followups.map((followup, index) => (
-                <div key={followup.id} className="space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-xs mt-1 shrink-0">
-                      Q{index + 1}
-                    </Badge>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-800 bg-blue-50 p-3 rounded-md border border-blue-200">
-                        {followup.question}
-                      </p>
-                    </div>
+          <div className="space-y-4">
+            {followups.map((followup, index) => (
+              <div key={followup.id} className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <Badge variant="outline" className="text-xs mt-1 shrink-0">
+                    Q{index + 1}
+                  </Badge>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-800 bg-blue-50 p-3 rounded-md border border-blue-200">
+                      {followup.question}
+                    </p>
                   </div>
-                  
-                  <div className="ml-8 relative">
-                    <div className="bg-gray-50 rounded-md border border-gray-200">
-                      <div className="flex justify-end p-2 border-b border-gray-200">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(followup.answer)}
-                          className="h-6 text-xs"
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copier
-                        </Button>
-                      </div>
-                      <div className="p-3">
-                        <ScrollArea className="max-h-[300px]">
-                          <DeepSearchContent text={followup.answer} sources={[]} />
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {index < followups.length - 1 && <Separator className="my-4" />}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
+                
+                <div className="ml-8 relative">
+                  <div className="bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex justify-end p-2 border-b border-gray-200">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(followup.answer)}
+                        className="h-6 text-xs"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copier
+                      </Button>
+                    </div>
+                    <div className="p-3">
+                      <div className="max-h-[300px] overflow-y-auto">
+                        <DeepSearchContent text={followup.answer} sources={[]} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {index < followups.length - 1 && <Separator className="my-4" />}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
