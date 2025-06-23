@@ -9,11 +9,13 @@ interface DeepSearchRendererProps {
 export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sources }) => {
   // Fonction pour convertir les tableaux Markdown en HTML
   const convertMarkdownTables = (text: string) => {
-    // Regex pour détecter les tableaux Markdown
-    const tableRegex = /(\|[^\n]+\|\n\|[\s\-:]+\|\n(?:\|[^\n]+\|\n?)+)/g;
+    // Regex améliorée pour détecter les tableaux Markdown
+    const tableRegex = /(\|.+\|\n\|[\s\-:|\s]+\|\n(?:\|.+\|\n?)*)/g;
     
     return text.replace(tableRegex, (match) => {
-      const lines = match.trim().split('\n');
+      console.log('Tableau détecté:', match);
+      const lines = match.trim().split('\n').filter(line => line.trim());
+      
       if (lines.length < 3) return match;
       
       // Première ligne = headers
@@ -22,17 +24,25 @@ export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sou
       // Lignes suivantes = données
       const dataLines = lines.slice(2);
       
-      // Parser les headers
+      // Parser les headers - amélioration pour gérer les espaces
       const headers = headerLine.split('|')
         .map(h => h.trim())
         .filter(h => h.length > 0);
       
-      // Parser les données
-      const rows = dataLines.map(line => 
-        line.split('|')
+      console.log('Headers détectés:', headers);
+      
+      // Parser les données - amélioration pour gérer les cellules vides
+      const rows = dataLines.map(line => {
+        const cells = line.split('|')
           .map(cell => cell.trim())
-          .filter(cell => cell.length > 0)
-      ).filter(row => row.length > 0);
+          .filter((cell, index, array) => {
+            // Garder les cellules vides au milieu, supprimer seulement celles au début/fin
+            return index !== 0 && index !== array.length - 1;
+          });
+        return cells;
+      }).filter(row => row.length > 0);
+      
+      console.log('Données détectées:', rows);
       
       // Construire le HTML du tableau
       let tableHTML = '<table class="markdown-table">';
@@ -41,7 +51,9 @@ export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sou
       if (headers.length > 0) {
         tableHTML += '<thead><tr>';
         headers.forEach(header => {
-          tableHTML += `<th>${header}</th>`;
+          // Convertir le markdown en gras dans les headers aussi
+          const processedHeader = header.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          tableHTML += `<th>${processedHeader}</th>`;
         });
         tableHTML += '</tr></thead>';
       }
@@ -51,17 +63,21 @@ export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sou
         tableHTML += '<tbody>';
         rows.forEach(row => {
           tableHTML += '<tr>';
-          row.forEach(cell => {
+          // S'assurer que chaque ligne a le même nombre de colonnes que les headers
+          const maxCols = Math.max(headers.length, row.length);
+          for (let i = 0; i < maxCols; i++) {
+            const cell = row[i] || ''; // Cellule vide si pas de données
             // Convertir le markdown en gras dans les cellules
             const processedCell = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             tableHTML += `<td>${processedCell}</td>`;
-          });
+          }
           tableHTML += '</tr>';
         });
         tableHTML += '</tbody>';
       }
       
       tableHTML += '</table>';
+      console.log('HTML généré:', tableHTML);
       return tableHTML;
     });
   };
