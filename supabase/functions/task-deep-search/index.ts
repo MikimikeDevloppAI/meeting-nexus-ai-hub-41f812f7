@@ -41,7 +41,7 @@ serve(async (req) => {
 Une tâche a été créée suite à une réunion : "${todoDescription}"
 L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
 
-Génère exactement 4 questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE qui permettront d'affiner la recherche. Ces questions doivent être :
+Génère des questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE si nécessaire qui permettront d'affiner la recherche.Maximum 5 questions. Ces questions doivent être :
 
 1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
 2. **PRATIQUES** - Focalisées sur les aspects opérationnels (budget, délai, priorité, contraintes)
@@ -66,7 +66,7 @@ Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérot
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-large-128k-online',
+          model: 'sonar-pro',
           messages: [
             {
               role: 'user',
@@ -170,7 +170,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-large-128k-online',
+        model: 'sonar-pro',
         messages: [
           {
             role: 'user',
