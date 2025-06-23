@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -192,27 +191,27 @@ export const TaskDeepSearchFollowups = ({
         )}
       </div>
 
-      {/* Historique des questions/réponses */}
+      {/* Historique des questions/réponses avec scroll fixe */}
       {followups.length > 0 && (
         <div className="space-y-4">
-          <ScrollArea className={`w-full ${isFullScreen ? 'max-h-[50vh]' : 'max-h-[400px]'}`}>
-            <div className="space-y-4 pr-4">
+          <ScrollArea className={`w-full ${isFullScreen ? 'h-[60vh]' : 'h-[400px]'} border rounded-md`}>
+            <div className="space-y-4 p-4">
               {followups.map((followup, index) => (
-                <div key={followup.id} className="space-y-2">
+                <div key={followup.id} className="space-y-3">
                   <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-xs mt-1">
+                    <Badge variant="outline" className="text-xs mt-1 shrink-0">
                       Q{index + 1}
                     </Badge>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-800 bg-blue-50 p-2 rounded-md">
+                      <p className="text-sm font-medium text-blue-800 bg-blue-50 p-3 rounded-md border border-blue-200">
                         {followup.question}
                       </p>
                     </div>
                   </div>
                   
                   <div className="ml-8 relative">
-                    <div className="bg-gray-50 rounded-md p-3 border-l-2 border-gray-300">
-                      <div className="flex justify-end mb-2">
+                    <div className="bg-gray-50 rounded-md border border-gray-200">
+                      <div className="flex justify-end p-2 border-b border-gray-200">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -223,7 +222,11 @@ export const TaskDeepSearchFollowups = ({
                           Copier
                         </Button>
                       </div>
-                      <DeepSearchContent text={followup.answer} sources={[]} />
+                      <div className="p-3">
+                        <ScrollArea className="max-h-[300px]">
+                          <DeepSearchContent text={followup.answer} sources={[]} />
+                        </ScrollArea>
+                      </div>
                     </div>
                   </div>
                   
@@ -235,9 +238,9 @@ export const TaskDeepSearchFollowups = ({
         </div>
       )}
 
-      {/* Champ de nouvelle question - seulement si on a un deepSearchId valide */}
+      {/* Champ de nouvelle question */}
       {deepSearchId && deepSearchId !== 'temp' && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
             <p className="text-xs text-blue-800 mb-1 font-medium">
               💬 Posez une question de suivi
