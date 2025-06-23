@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface Followup {
   id: string;
   question: string;
   answer: string;
+  sources?: string[];
   created_at: string;
 }
 
@@ -66,7 +68,14 @@ export const TaskDeepSearchFollowups = ({
       }
 
       console.log('✅ Questions de suivi chargées:', data?.length || 0);
-      setFollowups(data || []);
+      
+      // Transformer les données pour inclure les sources
+      const transformedFollowups = data?.map(followup => ({
+        ...followup,
+        sources: followup.sources || []
+      })) || [];
+      
+      setFollowups(transformedFollowups);
     } catch (error) {
       console.error('Error loading followups:', error);
     } finally {
@@ -124,6 +133,7 @@ export const TaskDeepSearchFollowups = ({
           id: `temp-${Date.now()}`,
           question: response.data.question,
           answer: response.data.answer,
+          sources: response.data.sources || [],
           created_at: new Date().toISOString()
         };
         
@@ -223,7 +233,10 @@ export const TaskDeepSearchFollowups = ({
                     </div>
                     <div className="p-3">
                       <div className="max-h-[300px] overflow-y-auto">
-                        <DeepSearchContent text={followup.answer} sources={[]} />
+                        <DeepSearchContent 
+                          text={followup.answer} 
+                          sources={followup.sources || []} 
+                        />
                       </div>
                     </div>
                   </div>

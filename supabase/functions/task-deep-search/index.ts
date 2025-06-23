@@ -143,30 +143,33 @@ INSTRUCTIONS POUR LA RÉPONSE :
 
         const perplexityData = await perplexityResponse.json()
         const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
+        const followupSources = perplexityData.citations || []
         
         console.log('✅ Réponse de suivi Sonar Pro reçue:', followupAnswer.length, 'caractères');
+        console.log('📚 Sources de suivi trouvées:', followupSources.length);
 
-        // Sauvegarder la question/réponse de suivi
+        // Sauvegarder la question/réponse de suivi avec les sources
         const authHeader = req.headers.get('Authorization')
         if (authHeader) {
           const token = authHeader.replace('Bearer ', '')
           const { data: { user } } = await supabaseClient.auth.getUser(token)
           
           if (user) {
-            console.log('💾 Sauvegarde de la question de suivi...');
+            console.log('💾 Sauvegarde de la question de suivi avec sources...');
             const { error: insertError } = await supabaseClient
               .from('task_deep_search_followups')
               .insert({
                 deep_search_id: deepSearchId,
                 question: followupQuestion,
                 answer: followupAnswer,
+                sources: followupSources,
                 created_by: user.id
               })
 
             if (insertError) {
               console.error('❌ Error saving followup:', insertError)
             } else {
-              console.log('✅ Followup saved successfully')
+              console.log('✅ Followup saved successfully with sources')
             }
           }
         }
@@ -177,7 +180,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             phase: 'followup',
             question: followupQuestion,
             answer: followupAnswer,
-            sources: perplexityData.citations || []
+            sources: followupSources
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
