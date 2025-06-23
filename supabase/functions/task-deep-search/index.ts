@@ -16,9 +16,18 @@ serve(async (req) => {
   try {
     const { todoId, userContext, todoDescription, enrichmentAnswers, followupQuestion, deepSearchId } = await req.json()
     
-    // Vérifier que la clé API OpenAI est disponible
+    // Vérifier que la clé API Perplexity est disponible
+    const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
     
+    if (!perplexityKey) {
+      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
+      return new Response(
+        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (!openAIKey) {
       console.error('❌ Missing OPENAI_API_KEY environment variable');
       return new Response(
@@ -86,23 +95,23 @@ ${index + 1}. Question : ${fh.question}
 INSTRUCTIONS POUR LA RÉPONSE :
 - Tu as accès à tout le contexte de la recherche précédente
 - Réponds spécifiquement à la nouvelle question en t'appuyant sur ce contexte
-- Si nécessaire, complète avec de nouvelles informations actualisées grâce à pro-search
+- Si nécessaire, complète avec de nouvelles informations actualisées grâce à tes capacités de recherche
 - Structure ta réponse de manière claire avec des titres et bullet points
 - Reste cohérent avec les informations déjà fournies dans la recherche originale
 - Utilise des recherches web récentes pour compléter tes réponses
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec GPT-4.1 Pro-Search');
+        console.log('🚀 Envoi de la question de suivi avec Perplexity GPT-4.1');
 
-        // Appel à l'API OpenAI avec GPT-4.1 et pro-search activé
-        const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Appel à l'API Perplexity avec GPT-4.1
+        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${openAIKey}`,
+            'Authorization': `Bearer ${perplexityKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4.1-2025-04-14',
+            model: 'gpt-4.1',
             messages: [
               {
                 role: 'user',
@@ -112,31 +121,33 @@ INSTRUCTIONS POUR LA RÉPONSE :
             temperature: 0.2,
             max_tokens: 4000,
             top_p: 0.9,
-            pro_search: true
+            return_images: false,
+            return_related_questions: false,
+            search_recency_filter: 'month'
           })
         });
 
-        console.log('📡 Statut réponse GPT-4.1:', openAIResponse.status);
+        console.log('📡 Statut réponse Perplexity GPT-4.1:', perplexityResponse.status);
 
-        if (!openAIResponse.ok) {
-          const errorText = await openAIResponse.text();
-          console.error('❌ GPT-4.1 API error:', openAIResponse.status, openAIResponse.statusText);
+        if (!perplexityResponse.ok) {
+          const errorText = await perplexityResponse.text();
+          console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
             JSON.stringify({ 
-              error: `Erreur API OpenAI: ${openAIResponse.status}`,
+              error: `Erreur API Perplexity: ${perplexityResponse.status}`,
               details: errorText
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const openAIData = await openAIResponse.json()
-        const followupAnswer = openAIData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
-        const followupSources = openAIData.sources || []
+        const perplexityData = await perplexityResponse.json()
+        const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
+        const followupSources = perplexityData.citations || []
         
-        console.log('✅ Réponse de suivi GPT-4.1 reçue:', followupAnswer.length, 'caractères');
+        console.log('✅ Réponse de suivi Perplexity reçue:', followupAnswer.length, 'caractères');
         console.log('📚 Sources de suivi trouvées:', followupSources.length);
 
         // Sauvegarder la question/réponse de suivi avec les sources
@@ -230,7 +241,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec GPT-4.1 Pro-Search
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity GPT-4.1
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
     try {
@@ -242,9 +253,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec GPT-4.1 Pro-Search');
+      console.log('🔍 Phase 3: Recherche finale avec Perplexity GPT-4.1');
       
-      // Prompt optimisé pour GPT-4.1 avec pro-search activé
+      // Prompt optimisé pour Perplexity avec GPT-4.1
       const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
@@ -284,17 +295,17 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-      console.log('🚀 Envoi de la recherche finale avec GPT-4.1 Pro-Search');
+      console.log('🚀 Envoi de la recherche finale avec Perplexity GPT-4.1');
 
-      // Appel à l'API OpenAI avec GPT-4.1 et pro-search activé
-      const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Appel à l'API Perplexity avec GPT-4.1
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIKey}`,
+          'Authorization': `Bearer ${perplexityKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
+          model: 'gpt-4.1',
           messages: [
             {
               role: 'user',
@@ -304,35 +315,37 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           temperature: 0.2,
           max_tokens: 8000,
           top_p: 0.9,
-          pro_search: true
+          return_images: false,
+          return_related_questions: false,
+          search_recency_filter: 'month'
         })
       });
 
-      console.log('📡 GPT-4.1 API response status:', openAIResponse.status);
+      console.log('📡 Perplexity API response status:', perplexityResponse.status);
 
-      if (!openAIResponse.ok) {
-        const errorText = await openAIResponse.text();
-        console.error('❌ GPT-4.1 API error:', openAIResponse.status, openAIResponse.statusText);
+      if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
         console.error('❌ Error details:', errorText);
         
         return new Response(
           JSON.stringify({ 
-            error: `Erreur API OpenAI: ${openAIResponse.status} ${openAIResponse.statusText}`,
+            error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
             details: errorText
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const openAIData = await openAIResponse.json()
-      console.log('📊 GPT-4.1 response structure:', Object.keys(openAIData));
+      const perplexityData = await perplexityResponse.json()
+      console.log('📊 Perplexity response structure:', Object.keys(perplexityData));
       
-      const searchResult = openAIData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
+      const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
       
-      // Extraire les sources de la réponse OpenAI
-      const sources = openAIData.sources || []
+      // Extraire les sources de la réponse Perplexity
+      const sources = perplexityData.citations || []
       
-      console.log('✅ Recherche GPT-4.1 terminée avec succès')
+      console.log('✅ Recherche Perplexity terminée avec succès')
       console.log('📚 Sources trouvées:', sources.length)
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
