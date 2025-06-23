@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, FileText } from "lucide-react";
-import { MeetingTodos } from "@/components/MeetingTodos";
+import { MeetingTodosWithRecommendations } from "@/components/MeetingTodosWithRecommendations";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { useState } from "react";
@@ -169,7 +169,7 @@ export default function MeetingDetail() {
         </Card>
       )}
 
-      {/* Todos without Chat - Using MeetingTodos component */}
+      {/* Todos with exact same rendering as /todos page */}
       <Card data-updated>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -178,8 +178,8 @@ export default function MeetingDetail() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Liste des Todos avec toutes les fonctionnalités identiques à la page Todos */}
-          <MeetingTodos meetingId={meeting.id} />
+          {/* Using MeetingTodosWithRecommendations for identical styling to /todos */}
+          <MeetingTodosWithRecommendations meetingId={meeting.id} />
         </CardContent>
       </Card>
 
