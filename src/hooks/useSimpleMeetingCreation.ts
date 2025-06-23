@@ -21,7 +21,7 @@ export const useSimpleMeetingCreation = () => {
   // Use the new auto-redirect hook
   const { cleanup: cleanupAutoRedirect } = useAutoRedirectOnRecommendations(
     currentMeetingId,
-    isSubmitting && !!currentMeetingId
+    !!currentMeetingId && isSubmitting
   );
 
   console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
@@ -125,15 +125,15 @@ export const useSimpleMeetingCreation = () => {
             description: "Votre réunion est créée. L'analyse IA est en cours, vous serez redirigé automatiquement.",
           });
 
-          // Set up safety timeout (10 minutes) in case auto-redirect fails
+          // Set up safety timeout (5 minutes) in case auto-redirect fails
           redirectTimeoutRef.current = setTimeout(() => {
-            console.log('[SAFETY] ⏰ 10-minute timeout reached, forcing redirection');
+            console.log('[SAFETY] ⏰ 5-minute timeout reached, forcing redirection');
             toast({
               title: "Réunion créée",
               description: "Le traitement continue en arrière-plan. Vous pouvez consulter votre réunion.",
             });
             navigate(`/meetings/${meetingId}`);
-          }, 10 * 60 * 1000);
+          }, 5 * 60 * 1000);
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
@@ -207,8 +207,8 @@ export const useSimpleMeetingCreation = () => {
 
   return {
     isSubmitting,
-    isComplete: false, // Simplified - no longer needed
-    meetingStatus: { isComplete: false }, // Simplified - no longer needed
+    isComplete: false,
+    meetingStatus: { isComplete: false },
     createMeeting,
     resetMeetingCreation,
     cleanupOnUnmount
