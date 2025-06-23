@@ -89,9 +89,10 @@ export const useMeetingStatus = (meetingId: string | null) => {
       const tasksCreated = taskCount || 0;
       const recommendationsCreated = recommendationCount;
 
-      // Calculate progress
+      // Calculate progress and determine completion
       let progressPercentage = 0;
       let currentStep = "Initialisation...";
+      let isComplete = false;
 
       if (hasSummary && hasCleanedTranscript) {
         progressPercentage = 25;
@@ -105,17 +106,17 @@ export const useMeetingStatus = (meetingId: string | null) => {
             progressPercentage = 75 + (recommendationsCreated / tasksCreated) * 25;
             currentStep = `Génération des recommandations (${recommendationsCreated}/${tasksCreated})...`;
             
+            // Complete when ALL tasks have recommendations
             if (recommendationsCreated >= tasksCreated) {
               progressPercentage = 100;
               currentStep = "Traitement terminé !";
+              isComplete = true;
             }
           }
         }
       } else {
         currentStep = "Transcription et analyse en cours...";
       }
-
-      const isComplete = hasSummary && hasCleanedTranscript && tasksCreated > 0 && recommendationsCreated >= tasksCreated;
 
       const newStatus: MeetingStatus = {
         hasSummary,
@@ -127,9 +128,12 @@ export const useMeetingStatus = (meetingId: string | null) => {
         currentStep,
       };
 
-      console.log('[MeetingStatus] Status calculated:', newStatus);
+      console.log('[MeetingStatus] Status calculated:', {
+        ...newStatus,
+        completionCheck: `${recommendationsCreated} >= ${tasksCreated} = ${isComplete}`
+      });
+      
       setStatus(newStatus);
-
       return newStatus;
     } catch (error) {
       console.error('[MeetingStatus] Error checking status:', error);
@@ -150,17 +154,18 @@ export const useMeetingStatus = (meetingId: string | null) => {
     intervalRef.current = setInterval(async () => {
       const currentStatus = await checkMeetingStatus();
       
-      // Stop polling if complete
+      // Continue polling until complete (don't stop early)
       if (currentStatus?.isComplete) {
-        stopPolling();
+        console.log('[MeetingStatus] ✅ Processing fully complete, will stop polling after next check');
+        // Don't stop immediately, let the useEffect in the creation hook handle the redirection
       }
     }, 3000);
 
-    // Set up timeout after 5 minutes
+    // Set up timeout after 15 minutes (increased from 5)
     timeoutRef.current = setTimeout(() => {
-      console.log('[MeetingStatus] Polling timeout reached');
+      console.log('[MeetingStatus] ⏰ Polling timeout reached (15 minutes)');
       stopPolling();
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
   };
 
   const stopPolling = () => {

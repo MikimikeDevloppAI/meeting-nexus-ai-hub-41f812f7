@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,9 @@ export const useSimpleMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+  const [hasRedirected, setHasRedirected] = useState(false);
   const isMountedRef = useRef(true);
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -20,6 +22,71 @@ export const useSimpleMeetingCreation = () => {
   const { status: meetingStatus, startPolling, stopPolling, checkStatus } = useMeetingStatus(currentMeetingId);
 
   console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
+
+  // Effect to handle automatic redirection when processing is complete
+  useEffect(() => {
+    console.log('[REDIRECTION] Status check:', {
+      isComplete: meetingStatus.isComplete,
+      hasRedirected,
+      currentMeetingId,
+      progressPercentage: meetingStatus.progressPercentage,
+      taskCount: meetingStatus.taskCount,
+      recommendationCount: meetingStatus.recommendationCount
+    });
+
+    if (meetingStatus.isComplete && currentMeetingId && !hasRedirected && isMountedRef.current) {
+      console.log('[REDIRECTION] 🎯 All conditions met for redirection!');
+      console.log('[REDIRECTION] Final status:', {
+        hasSummary: meetingStatus.hasSummary,
+        hasCleanedTranscript: meetingStatus.hasCleanedTranscript,
+        taskCount: meetingStatus.taskCount,
+        recommendationCount: meetingStatus.recommendationCount,
+        isComplete: meetingStatus.isComplete
+      });
+
+      setHasRedirected(true);
+      setIsComplete(true);
+      stopPolling();
+      
+      toast({
+        title: "Réunion traitée avec succès",
+        description: `Toutes les tâches (${meetingStatus.taskCount}) ont été analysées et les recommandations ont été générées.`,
+      });
+
+      console.log('[REDIRECTION] ✅ Redirecting to meeting:', currentMeetingId);
+      navigate(`/meetings/${currentMeetingId}`);
+    }
+  }, [meetingStatus.isComplete, currentMeetingId, hasRedirected, navigate, toast, stopPolling, meetingStatus]);
+
+  // Safety timeout to prevent infinite waiting
+  useEffect(() => {
+    if (isSubmitting && currentMeetingId && !hasRedirected) {
+      console.log('[SAFETY] Setting up 10-minute safety timeout');
+      
+      redirectTimeoutRef.current = setTimeout(() => {
+        if (!hasRedirected && isMountedRef.current) {
+          console.log('[SAFETY] ⏰ 10-minute timeout reached, forcing redirection');
+          setHasRedirected(true);
+          setIsComplete(true);
+          stopPolling();
+          
+          toast({
+            title: "Réunion créée",
+            description: "Le traitement continue en arrière-plan. Vous pouvez consulter votre réunion.",
+          });
+          
+          navigate(`/meetings/${currentMeetingId}`);
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+    }
+
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    };
+  }, [isSubmitting, currentMeetingId, hasRedirected, navigate, toast, stopPolling]);
 
   const createMeeting = async (
     title: string,
@@ -49,13 +116,9 @@ export const useSimpleMeetingCreation = () => {
     }
 
     console.log('[useSimpleMeetingCreation] Setting isSubmitting to true');
-    if (!isMountedRef.current) {
-      console.log('[useSimpleMeetingCreation] Component unmounted, aborting');
-      return;
-    }
-    
     setIsSubmitting(true);
     setIsComplete(false);
+    setHasRedirected(false);
 
     const hasAudio = !!(audioBlob || audioFile);
     let meetingId: string | null = null;
@@ -79,7 +142,7 @@ export const useSimpleMeetingCreation = () => {
         console.log('[CREATE] ✅ Participants added');
       }
 
-      // Step 2: Process audio if provided and WAIT for complete processing
+      // Step 2: Process audio if provided
       if (hasAudio) {
         console.log('[AUDIO] Processing audio...');
         
@@ -87,11 +150,6 @@ export const useSimpleMeetingCreation = () => {
           // Upload audio
           const audioFileUrl = await AudioProcessingService.uploadAudio(audioBlob, audioFile);
           console.log('[UPLOAD] ✅ Audio uploaded');
-          
-          if (!isMountedRef.current) {
-            console.log('[UPLOAD] Component unmounted during upload');
-            return;
-          }
           
           // Save audio URL
           await AudioProcessingService.saveAudioUrl(meetingId, audioFileUrl);
@@ -107,16 +165,11 @@ export const useSimpleMeetingCreation = () => {
           
           console.log('[TRANSCRIBE] ✅ Transcription completed');
           
-          if (!isMountedRef.current) {
-            console.log('[TRANSCRIBE] Component unmounted during transcription');
-            return;
-          }
-          
           // Start monitoring the processing status
           console.log('[MONITOR] 🔄 Starting status monitoring...');
           startPolling();
 
-          // Start AI processing (don't await - runs in background)
+          // Start AI processing (runs in background)
           const selectedParticipants = participants.filter(p => 
             selectedParticipantIds.includes(p.id)
           );
@@ -133,129 +186,56 @@ export const useSimpleMeetingCreation = () => {
             console.error('[PROCESS] ❌ AI processing error:', error);
           });
 
-          // Wait for processing to complete using direct status checks
-          console.log('[MONITOR] 🔄 Waiting for processing completion with direct status checks...');
-          
-          const waitForCompletion = new Promise<boolean>((resolve) => {
-            let pollCount = 0;
-            const maxPolls = 100; // 5 minutes at 3-second intervals
-            
-            const checkCompletion = async () => {
-              if (!isMountedRef.current) {
-                console.log('[MONITOR] Component unmounted during polling');
-                resolve(false);
-                return;
-              }
-
-              pollCount++;
-              console.log(`[MONITOR] 🔍 Checking completion status (poll ${pollCount}/${maxPolls})...`);
-              
-              try {
-                // Use direct status check instead of React state
-                const currentStatus = await checkStatus();
-                
-                if (currentStatus) {
-                  console.log(`[MONITOR] 📊 Current status:`, {
-                    hasSummary: currentStatus.hasSummary,
-                    hasCleanedTranscript: currentStatus.hasCleanedTranscript,
-                    taskCount: currentStatus.taskCount,
-                    recommendationCount: currentStatus.recommendationCount,
-                    isComplete: currentStatus.isComplete,
-                    progressPercentage: currentStatus.progressPercentage
-                  });
-
-                  if (currentStatus.isComplete) {
-                    console.log('[MONITOR] ✅ Processing FULLY completed! All tasks have recommendations.');
-                    resolve(true);
-                    return;
-                  }
-                }
-                
-                if (pollCount >= maxPolls) {
-                  console.log('[MONITOR] ⏰ Max polling attempts reached');
-                  resolve(false);
-                  return;
-                }
-
-                // Continue polling
-                setTimeout(checkCompletion, 3000);
-                
-              } catch (error) {
-                console.error('[MONITOR] ❌ Error checking status:', error);
-                setTimeout(checkCompletion, 3000);
-              }
-            };
-
-            // Start the polling
-            checkCompletion();
-          });
-
-          const processingCompleted = await waitForCompletion;
-          
-          if (!isMountedRef.current) {
-            console.log('[MONITOR] Component unmounted during wait');
-            return;
-          }
-
-          if (processingCompleted) {
-            console.log('[SUCCESS] ✅ All processing completed - ready for redirection');
-          } else {
-            console.log('[WARNING] ⚠️ Processing timeout - redirecting anyway');
-          }
+          console.log('[MONITOR] 🔄 Waiting for complete processing...');
+          console.log('[MONITOR] Note: Redirection will happen automatically when all steps are complete');
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
-          toast({
-            title: "Réunion créée",
-            description: "La réunion a été créée mais le traitement audio a échoué",
-          });
-        }
-      }
-
-      console.log('[SUCCESS] ========== MEETING CREATION COMPLETED ==========');
-
-      // Final redirection after everything is complete
-      if (isMountedRef.current) {
-        console.log('[SUCCESS] All processing finished - setting completion state and redirecting');
-        setIsComplete(true);
-        stopPolling();
-        
-        let description = "Votre réunion a été créée avec succès";
-        if (hasAudio) {
-          description = "Votre réunion a été créée et toutes les tâches ont été traitées";
-        }
-        
-        toast({
-          title: "Réunion créée",
-          description,
-        });
-
-        console.log('[SUCCESS] Redirection vers la réunion:', meetingId);
-        
-        // Small delay to ensure the UI shows completion
-        setTimeout(() => {
-          if (isMountedRef.current) {
+          // For audio processing errors, still redirect to show the meeting
+          if (!hasRedirected && isMountedRef.current) {
+            setHasRedirected(true);
+            setIsComplete(true);
+            stopPolling();
+            
+            toast({
+              title: "Réunion créée",
+              description: "La réunion a été créée mais le traitement audio a échoué",
+            });
+            
             navigate(`/meetings/${meetingId}`);
           }
-        }, 1000);
+        }
+      } else {
+        // No audio to process, redirect immediately
+        console.log('[NO_AUDIO] No audio to process, redirecting immediately');
+        if (!hasRedirected && isMountedRef.current) {
+          setHasRedirected(true);
+          setIsComplete(true);
+          
+          toast({
+            title: "Réunion créée",
+            description: "Votre réunion a été créée avec succès",
+          });
+          
+          navigate(`/meetings/${meetingId}`);
+        }
       }
 
     } catch (error: any) {
       console.error("[ERROR] Meeting creation error:", error);
       stopPolling();
       
-      if (meetingId) {
+      if (meetingId && !hasRedirected) {
         // Meeting was created, still redirect
         console.log('[ERROR] Meeting created, navigating despite errors');
-        if (isMountedRef.current) {
-          setIsComplete(true);
-          toast({
-            title: "Réunion créée",
-            description: "La réunion a été créée avec succès",
-          });
-          navigate(`/meetings/${meetingId}`);
-        }
-      } else {
+        setHasRedirected(true);
+        setIsComplete(true);
+        toast({
+          title: "Réunion créée",
+          description: "La réunion a été créée avec succès",
+        });
+        navigate(`/meetings/${meetingId}`);
+      } else if (!hasRedirected) {
         // Complete failure
         console.error('[ERROR] Complete failure - meeting not created');
         toast({
@@ -264,21 +244,25 @@ export const useSimpleMeetingCreation = () => {
           variant: "destructive",
         });
         
-        if (isMountedRef.current) {
-          setIsSubmitting(false);
-          setIsComplete(false);
-        }
+        setIsSubmitting(false);
+        setIsComplete(false);
       }
     }
   };
 
   const resetMeetingCreation = () => {
     console.log('[useSimpleMeetingCreation] resetMeetingCreation called, isSubmitting:', isSubmitting);
-    if (!isSubmitting && isMountedRef.current) {
+    if (!isSubmitting) {
       setIsSubmitting(false);
       setIsComplete(false);
       setCurrentMeetingId(null);
+      setHasRedirected(false);
       stopPolling();
+      
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
     }
   };
 
@@ -286,6 +270,11 @@ export const useSimpleMeetingCreation = () => {
     console.log('[useSimpleMeetingCreation] cleanupOnUnmount called');
     isMountedRef.current = false;
     stopPolling();
+    
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = null;
+    }
   };
 
   return {
