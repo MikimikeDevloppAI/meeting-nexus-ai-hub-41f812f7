@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,9 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Search, Loader2, Copy, Maximize2, HelpCircle, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DeepSearchContent } from "@/utils/deepSearchRenderer";
+import { TaskDeepSearchFollowups } from "./TaskDeepSearchFollowups";
 
 interface TaskDeepSearchContentProps {
   todoId: string;
@@ -29,6 +30,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
   const [isSearching, setIsSearching] = useState(false);
   const [hasExistingResults, setHasExistingResults] = useState(false);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+  const [currentDeepSearchId, setCurrentDeepSearchId] = useState<string | null>(null);
   
   // États pour les questions d'enrichissement
   const [searchPhase, setSearchPhase] = useState<'input' | 'questions' | 'result'>('input');
@@ -47,7 +49,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     try {
       const { data, error } = await supabase
         .from('task_deep_searches')
-        .select('search_result, sources')
+        .select('id, search_result, sources')
         .eq('todo_id', todoId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -61,6 +63,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       if (data?.search_result) {
         setSearchResult(data.search_result);
         setSources(data.sources || []);
+        setCurrentDeepSearchId(data.id);
         setHasExistingResults(true);
         setSearchPhase('result');
         console.log('Loaded existing result:', data.search_result.substring(0, 100) + '...');
@@ -69,6 +72,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         setHasExistingResults(false);
         setSearchResult("");
         setSources([]);
+        setCurrentDeepSearchId(null);
         setSearchPhase('input');
       }
     } catch (error) {
@@ -76,6 +80,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
       setHasExistingResults(false);
       setSearchResult("");
       setSources([]);
+      setCurrentDeepSearchId(null);
       setSearchPhase('input');
     }
   };
@@ -179,6 +184,9 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         setHasExistingResults(true);
         setSearchPhase('result');
 
+        // Recharger pour obtenir l'ID de la nouvelle recherche
+        setTimeout(() => loadExistingResults(), 1000);
+
         toast({
           title: "Recherche terminée",
           description: "Les résultats ont été sauvegardés avec Sonar Pro",
@@ -211,6 +219,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     setQuestionAnswers([]);
     setSearchResult("");
     setSources([]);
+    setCurrentDeepSearchId(null);
   };
 
   const copyToClipboard = (text: string) => {
@@ -391,13 +400,27 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
               </div>
               
               {searchResult && searchResult.trim() ? (
-                <div className="border rounded-md overflow-hidden">
-                  <ScrollArea className="h-[300px] w-full">
-                    <div className="p-3">
-                      <DeepSearchContent text={searchResult} sources={sources} />
-                    </div>
-                  </ScrollArea>
-                </div>
+                <>
+                  <div className="border rounded-md overflow-hidden">
+                    <ScrollArea className="h-[300px] w-full">
+                      <div className="p-3">
+                        <DeepSearchContent text={searchResult} sources={sources} />
+                      </div>
+                    </ScrollArea>
+                  </div>
+                  
+                  {/* Questions de suivi - seulement si on a un ID de recherche */}
+                  {currentDeepSearchId && (
+                    <>
+                      <Separator />
+                      <TaskDeepSearchFollowups 
+                        deepSearchId={currentDeepSearchId}
+                        todoId={todoId}
+                        todoDescription={todoDescription}
+                      />
+                    </>
+                  )}
+                </>
               ) : isSearching ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">

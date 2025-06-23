@@ -295,6 +295,41 @@ export type Database = {
           },
         ]
       }
+      task_deep_search_followups: {
+        Row: {
+          answer: string
+          created_at: string
+          created_by: string | null
+          deep_search_id: string
+          id: string
+          question: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          created_by?: string | null
+          deep_search_id: string
+          id?: string
+          question: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          created_by?: string | null
+          deep_search_id?: string
+          id?: string
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_deep_search_followups_deep_search_id_fkey"
+            columns: ["deep_search_id"]
+            isOneToOne: false
+            referencedRelation: "task_deep_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_deep_searches: {
         Row: {
           created_at: string

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -14,15 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { todoId, userContext, todoDescription, enrichmentAnswers } = await req.json()
+    const { todoId, userContext, todoDescription, enrichmentAnswers, followupQuestion, deepSearchId } = await req.json()
     
-    if (!todoId || !userContext || !todoDescription) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Vérifier que les clés API sont disponibles
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
@@ -40,6 +32,162 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Configuration manquante: clé API OpenAI non trouvée' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Phase nouvelle : Question de suivi
+    if (followupQuestion && deepSearchId) {
+      console.log('🔍 Phase Follow-up: Question de suivi avec contexte complet');
+      
+      try {
+        // Récupérer le contexte complet de la deep search originale
+        const { data: originalSearch, error: searchError } = await supabaseClient
+          .from('task_deep_searches')
+          .select('*')
+          .eq('id', deepSearchId)
+          .single();
+
+        if (searchError || !originalSearch) {
+          throw new Error('Impossible de récupérer la recherche originale');
+        }
+
+        // Récupérer l'historique des questions de suivi
+        const { data: followupHistory, error: followupError } = await supabaseClient
+          .from('task_deep_search_followups')
+          .select('question, answer, created_at')
+          .eq('deep_search_id', deepSearchId)
+          .order('created_at', { ascending: true });
+
+        if (followupError) {
+          console.error('Erreur récupération historique suivi:', followupError);
+        }
+
+        // Construire le contexte enrichi pour la question de suivi
+        const enrichedContext = `
+CONTEXTE COMPLET DE LA RECHERCHE ORIGINALE :
+
+**Tâche :** ${todoDescription}
+**Contexte utilisateur initial :** ${originalSearch.user_context}
+**Résultat de la recherche approfondie précédente :**
+${originalSearch.search_result}
+
+${followupHistory && followupHistory.length > 0 ? `
+**Historique des questions de suivi précédentes :**
+${followupHistory.map((fh, index) => `
+${index + 1}. Question : ${fh.question}
+   Réponse : ${fh.answer}
+`).join('\n')}
+` : ''}
+
+**NOUVELLE QUESTION DE SUIVI :** ${followupQuestion}
+
+INSTRUCTIONS POUR LA RÉPONSE :
+- Tu as accès à tout le contexte de la recherche précédente
+- Réponds spécifiquement à la nouvelle question en t'appuyant sur ce contexte
+- Si nécessaire, complète avec de nouvelles informations actualisées
+- Structure ta réponse de manière claire avec des titres et bullet points
+- Reste cohérent avec les informations déjà fournies dans la recherche originale
+`;
+
+        console.log('🚀 Envoi de la question de suivi avec Sonar Pro');
+
+        // Appel à l'API Perplexity avec le modèle sonar-pro pour la question de suivi
+        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${perplexityApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'sonar-pro',
+            messages: [
+              {
+                role: 'user',
+                content: enrichedContext
+              }
+            ],
+            temperature: 0.2,
+            max_tokens: 4000,
+            top_p: 0.9,
+            return_images: false,
+            return_related_questions: false,
+            search_recency_filter: 'month'
+          })
+        });
+
+        if (!perplexityResponse.ok) {
+          const errorText = await perplexityResponse.text();
+          console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
+          throw new Error(`Erreur API Perplexity: ${perplexityResponse.status}`);
+        }
+
+        const perplexityData = await perplexityResponse.json()
+        const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
+        
+        console.log('✅ Réponse de suivi Sonar Pro reçue:', followupAnswer.length, 'caractères');
+
+        // Sauvegarder la question/réponse de suivi
+        const authHeader = req.headers.get('Authorization')
+        if (authHeader) {
+          const token = authHeader.replace('Bearer ', '')
+          const { data: { user } } = await supabaseClient.auth.getUser(token)
+          
+          if (user) {
+            const { error: insertError } = await supabaseClient
+              .from('task_deep_search_followups')
+              .insert({
+                deep_search_id: deepSearchId,
+                question: followupQuestion,
+                answer: followupAnswer,
+                created_by: user.id
+              })
+
+            if (insertError) {
+              console.error('❌ Error saving followup:', insertError)
+            } else {
+              console.log('💾 Followup saved successfully')
+            }
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            phase: 'followup',
+            question: followupQuestion,
+            answer: followupAnswer,
+            sources: perplexityData.citations || []
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        )
+
+      } catch (error) {
+        console.error('❌ Erreur question de suivi:', error);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Erreur lors du traitement de la question de suivi',
+            details: error.message 
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+    }
+
+    if (!todoId || !userContext || !todoDescription) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -179,18 +327,13 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
       // Sauvegarder dans Supabase
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      )
-
       const authHeader = req.headers.get('Authorization')
       if (authHeader) {
         const token = authHeader.replace('Bearer ', '')
         const { data: { user } } = await supabaseClient.auth.getUser(token)
         
         if (user) {
-          const { error: insertError } = await supabaseClient
+          const { data: insertedSearch, error: insertError } = await supabaseClient
             .from('task_deep_searches')
             .insert({
               todo_id: todoId,
@@ -200,6 +343,8 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
               sources: sources,
               created_by: user.id
             })
+            .select()
+            .single()
 
           if (insertError) {
             console.error('❌ Error saving search result:', insertError)
