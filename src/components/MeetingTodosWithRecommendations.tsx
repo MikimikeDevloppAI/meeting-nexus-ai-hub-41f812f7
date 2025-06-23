@@ -1,26 +1,31 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Users, Play } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Users, Play, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
-import { TodoAssistant } from "@/components/meeting/TodoAssistant";
-import { TodoAIRecommendation } from "@/components/TodoAIRecommendation";
+import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationContent";
+import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
+import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
 import { EditableContent } from "@/components/EditableContent";
-import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 import { Todo } from "@/types/meeting";
 
 interface MeetingTodosWithRecommendationsProps {
   meetingId: string;
 }
 
+type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
+
 export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithRecommendationsProps) => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
+  const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -81,6 +86,9 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       })));
       
       setTodos(allTodos as Todo[]);
+      
+      // Check for existing deep search results
+      checkDeepSearchResults(allTodos.map(todo => todo.id));
     } catch (error: any) {
       console.error("❌ Error fetching todos:", error);
       toast({
@@ -90,6 +98,29 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkDeepSearchResults = async (todoIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('task_deep_searches')
+        .select('todo_id')
+        .in('todo_id', todoIds);
+
+      if (error) {
+        console.error('Error checking deep search results:', error);
+        return;
+      }
+
+      const resultsMap: Record<string, boolean> = {};
+      todoIds.forEach(id => {
+        resultsMap[id] = data?.some(result => result.todo_id === id) || false;
+      });
+      
+      setDeepSearchResults(resultsMap);
+    } catch (error) {
+      console.error('Error checking deep search results:', error);
     }
   };
 
@@ -122,26 +153,34 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
   const completeTodo = async (todoId: string) => {
     try {
+      const currentTodo = todos.find(todo => todo.id === todoId);
+      if (!currentTodo) return;
+
+      // Toggle between completed and confirmed
+      const newStatus = currentTodo.status === 'completed' ? 'confirmed' : 'completed';
+      
       const { error } = await supabase
         .from("todos")
-        .update({ status: 'completed' })
+        .update({ status: newStatus })
         .eq("id", todoId);
 
       if (error) throw error;
 
       setTodos(todos.map(todo => 
-        todo.id === todoId ? { ...todo, status: 'completed' } : todo
+        todo.id === todoId ? { ...todo, status: newStatus } : todo
       ));
 
       toast({
-        title: "Tâche terminée",
-        description: "La tâche a été marquée comme terminée",
+        title: newStatus === 'completed' ? "Tâche terminée" : "Tâche remise en cours",
+        description: newStatus === 'completed' 
+          ? "La tâche a été marquée comme terminée" 
+          : "La tâche a été remise en cours",
       });
     } catch (error: any) {
-      console.error("Error completing todo:", error);
+      console.error("Error updating todo:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de terminer la tâche",
+        description: "Impossible de modifier le statut de la tâche",
         variant: "destructive",
       });
     }
@@ -180,22 +219,27 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
-      'pending': 'À démarrer',
+      'pending': 'En cours',
       'confirmed': 'En cours',
       'completed': 'Terminée'
     };
 
     const className = status === 'completed' 
       ? 'bg-green-100 text-green-800 border-green-200' 
-      : status === 'pending'
-      ? 'bg-orange-100 text-orange-800 border-orange-200'
       : 'bg-blue-100 text-blue-800 border-blue-200';
 
     return (
       <Badge variant="outline" className={className}>
-        {labels[status]}
+        {labels[status] || 'En cours'}
       </Badge>
     );
+  };
+
+  const handleAIToolToggle = (todoId: string, tool: ActiveAITool) => {
+    setActiveAITools(prev => ({
+      ...prev,
+      [todoId]: prev[todoId] === tool ? 'none' : tool
+    }));
   };
 
   if (loading) {
@@ -224,7 +268,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
         <span>{todos.length} tâche(s) trouvée(s) pour cette réunion</span>
         <Button 
@@ -236,95 +280,166 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         </Button>
       </div>
       
-      {todos.map((todo) => (
-        <Card key={todo.id} className="hover:shadow-sm transition-shadow">
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Task header */}
-              <div className="flex justify-between items-start">
-                <div className="text-sm flex-grow mr-2">
-                  <EditableContent
-                    content={todo.description}
-                    onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                    type="todo"
-                    id={todo.id}
-                    isEditing={editingTodoId === todo.id}
-                    onStartEdit={() => setEditingTodoId(todo.id)}
-                    onStopEdit={() => setEditingTodoId(null)}
-                  />
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <TaskDeepSearch 
-                    todoId={todo.id} 
-                    todoDescription={todo.description}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteTodo(todo.id)}
-                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Status and participants */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(todo.status)}
-                  <div className="text-xs text-gray-600 flex items-center gap-2">
-                    <TodoParticipantManager
-                      todoId={todo.id}
-                      currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                      onParticipantsUpdate={fetchTodos}
-                      compact={true}
+      {todos.map((todo) => {
+        const activeTool = activeAITools[todo.id] || 'none';
+        const hasDeepSearchResults = deepSearchResults[todo.id] || false;
+        
+        return (
+          <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {/* Task header with edit, complete and delete buttons */}
+                <div className="flex justify-between items-start">
+                  <div className="text-lg flex-grow mr-2">
+                    <EditableContent
+                      content={todo.description}
+                      onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                      type="todo"
+                      id={todo.id}
+                      isEditing={editingTodoId === todo.id}
+                      onStartEdit={() => setEditingTodoId(todo.id)}
+                      onStopEdit={() => setEditingTodoId(null)}
                     />
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => completeTodo(todo.id)}
+                      className={`h-8 px-3 ${
+                        todo.status === 'completed'
+                          ? 'bg-green-500 text-white hover:bg-green-600 border-green-500'
+                          : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                      }`}
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteTodo(todo.id)}
+                      className="h-8 px-3 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  {todo.status === 'pending' && (
+                {/* Status and participants */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(todo.status)}
+                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                      <TodoParticipantManager
+                        todoId={todo.id}
+                        currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
+                        onParticipantsUpdate={fetchTodos}
+                        compact={true}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Tools - Three buttons in a row with exact same colors as /todos page */}
+                <div className="space-y-3">
+                  <div className="flex gap-2">
                     <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => startTodo(todo.id)}
-                      className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-xs"
+                      onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
+                      className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
+                        activeTool === 'recommendation' 
+                          ? 'ring-2 ring-blue-300' 
+                          : 'hover:bg-blue-200'
+                      }`}
                     >
-                      <Play className="h-3 w-3 mr-1" />
-                      Démarrer
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Mail className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-black">Communication</span>
+                      </div>
+                      {activeTool === 'recommendation' ? (
+                        <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      )}
                     </Button>
-                  )}
-                  {todo.status === 'confirmed' && (
+
                     <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => completeTodo(todo.id)}
-                      className="h-7 px-3 bg-green-600 hover:bg-green-700 text-xs"
+                      onClick={() => handleAIToolToggle(todo.id, 'assistant')}
+                      className={`flex-1 h-12 flex items-center justify-between px-3 bg-green-100 border border-green-200 ${
+                        activeTool === 'assistant' 
+                          ? 'ring-2 ring-green-300' 
+                          : 'hover:bg-green-200'
+                      }`}
                     >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Terminer
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Bot className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-black">Assistant IA</span>
+                      </div>
+                      {activeTool === 'assistant' ? (
+                        <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      )}
                     </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAIToolToggle(todo.id, 'search')}
+                      className={`flex-1 h-12 flex items-center justify-between px-3 bg-purple-100 border border-purple-200 ${
+                        activeTool === 'search' 
+                          ? 'ring-2 ring-purple-300' 
+                          : 'hover:bg-purple-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Zap className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-medium text-black">Deep Search</span>
+                        {hasDeepSearchResults && (
+                          <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
+                        )}
+                      </div>
+                      {activeTool === 'search' ? (
+                        <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* AI Tool Content - Full width below buttons */}
+                  {activeTool !== 'none' && (
+                    <div className="w-full">
+                      {activeTool === 'recommendation' && (
+                        <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
+                      )}
+                      {activeTool === 'assistant' && (
+                        <TodoAssistantContent 
+                          todoId={todo.id} 
+                          todoDescription={todo.description}
+                          onUpdate={fetchTodos}
+                        />
+                      )}
+                      {activeTool === 'search' && (
+                        <TaskDeepSearchContent 
+                          todoId={todo.id} 
+                          todoDescription={todo.description}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
+
+                {/* Inline Comments section */}
+                <TodoComments todoId={todo.id} />
               </div>
-
-              {/* AI Recommendation - placed before AI Assistant */}
-              <TodoAIRecommendation todoId={todo.id} />
-
-              {/* AI Assistant */}
-              <div className="pl-0.5">
-                <TodoAssistant 
-                  todoId={todo.id} 
-                  todoDescription={todo.description}
-                  onUpdate={fetchTodos}
-                />
-              </div>
-
-              {/* Comments */}
-              <TodoComments todoId={todo.id} />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
