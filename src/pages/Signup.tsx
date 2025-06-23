@@ -1,13 +1,15 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";  // Import from integrated Supabase client
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { validatePassword } from "@/utils/passwordValidation";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -19,6 +21,18 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Mot de passe trop faible",
+        description: passwordValidation.errors.join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -41,21 +55,21 @@ const Signup = () => {
               name,
               approved: false,
             },
-          ] as any); // Using type assertion to bypass type checking
+          ] as any);
 
         if (profileError) throw profileError;
 
         toast({
-          title: "Account created",
-          description: "Your account is pending admin approval.",
+          title: "Compte créé",
+          description: "Votre compte attend l'approbation de l'administrateur.",
         });
         navigate("/login");
       }
     } catch (error: any) {
-      console.error("Sign up error:", error);
+      console.error("Erreur d'inscription:", error);
       toast({
-        title: "Error signing up",
-        description: error.message || "Please try again",
+        title: "Erreur d'inscription",
+        description: error.message || "Veuillez réessayer",
         variant: "destructive",
       });
     } finally {
@@ -68,23 +82,23 @@ const Signup = () => {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-muted-foreground">Internal Management System</p>
+          <p className="text-muted-foreground">Système de gestion interne</p>
         </div>
         <Card className="animate-scale-in">
           <CardHeader>
-            <CardTitle>Create an Account</CardTitle>
+            <CardTitle>Créer un compte</CardTitle>
             <CardDescription>
-              Enter your information to create a new account
+              Entrez vos informations pour créer un nouveau compte
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">Nom complet</Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Jean Dupont"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -95,14 +109,14 @@ const Signup = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@company.com"
+                  placeholder="nom@entreprise.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Mot de passe</Label>
                 <Input
                   id="password"
                   type="password"
@@ -111,19 +125,21 @@ const Signup = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Password must be at least 6 characters long
-                </p>
+                <PasswordStrength password={password} />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create Account"}
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || !validatePassword(password).isValid}
+              >
+                {isLoading ? "Création du compte..." : "Créer le compte"}
               </Button>
               <div className="text-center text-sm">
-                Already have an account?{" "}
+                Vous avez déjà un compte ?{" "}
                 <Link to="/login" className="text-primary hover:underline">
-                  Sign in
+                  Se connecter
                 </Link>
               </div>
             </CardFooter>

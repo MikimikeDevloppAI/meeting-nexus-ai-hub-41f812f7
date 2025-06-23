@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { validatePassword } from "@/utils/passwordValidation";
+import { PasswordStrength } from "@/components/ui/password-strength";
 
 const Profile = () => {
   const { user, isLoading } = useAuth();
@@ -32,14 +34,14 @@ const Profile = () => {
       if (error) throw error;
 
       toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated",
+        title: "Profil mis à jour",
+        description: "Votre profil a été mis à jour avec succès",
       });
     } catch (error: any) {
-      console.error("Error updating profile:", error);
+      console.error("Erreur de mise à jour du profil:", error);
       toast({
-        title: "Error updating profile",
-        description: error.message || "Please try again later",
+        title: "Erreur de mise à jour du profil",
+        description: error.message || "Veuillez réessayer plus tard",
         variant: "destructive",
       });
     } finally {
@@ -48,6 +50,17 @@ const Profile = () => {
   };
 
   const changePassword = async () => {
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Mot de passe trop faible",
+        description: passwordValidation.errors.join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsChangingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({
@@ -60,14 +73,14 @@ const Profile = () => {
       setNewPassword("");
       
       toast({
-        title: "Password changed",
-        description: "Your password has been successfully updated",
+        title: "Mot de passe modifié",
+        description: "Votre mot de passe a été mis à jour avec succès",
       });
     } catch (error: any) {
-      console.error("Error changing password:", error);
+      console.error("Erreur de changement de mot de passe:", error);
       toast({
-        title: "Error changing password",
-        description: error.message || "Please try again later",
+        title: "Erreur de changement de mot de passe",
+        description: error.message || "Veuillez réessayer plus tard",
         variant: "destructive",
       });
     } finally {
@@ -79,8 +92,8 @@ const Profile = () => {
     return (
       <div className="animate-fade-in">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">User Profile</h1>
-          <p className="text-muted-foreground">Loading your profile information...</p>
+          <h1 className="text-2xl font-bold">Profil utilisateur</h1>
+          <p className="text-muted-foreground">Chargement de vos informations de profil...</p>
         </div>
       </div>
     );
@@ -89,15 +102,15 @@ const Profile = () => {
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">User Profile</h1>
-        <p className="text-muted-foreground">View and edit your account information</p>
+        <h1 className="text-2xl font-bold">Profil utilisateur</h1>
+        <p className="text-muted-foreground">Visualisez et modifiez les informations de votre compte</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Profile Information</CardTitle>
-            <CardDescription>Update your personal details</CardDescription>
+            <CardTitle>Informations du profil</CardTitle>
+            <CardDescription>Mettez à jour vos informations personnelles</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
@@ -113,7 +126,7 @@ const Profile = () => {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Nom complet</Label>
               <Input
                 id="name"
                 value={name}
@@ -122,7 +135,7 @@ const Profile = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Adresse e-mail</Label>
               <Input
                 id="email"
                 value={user.email}
@@ -130,7 +143,7 @@ const Profile = () => {
                 className="bg-muted"
               />
               <p className="text-xs text-muted-foreground">
-                Email address cannot be changed
+                L'adresse e-mail ne peut pas être modifiée
               </p>
             </div>
           </CardContent>
@@ -139,19 +152,19 @@ const Profile = () => {
               onClick={updateProfile} 
               disabled={isUpdating || name === user.name}
             >
-              {isUpdating ? "Updating..." : "Update Profile"}
+              {isUpdating ? "Mise à jour..." : "Mettre à jour le profil"}
             </Button>
           </CardFooter>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Security</CardTitle>
-            <CardDescription>Manage your account security</CardDescription>
+            <CardTitle>Sécurité</CardTitle>
+            <CardDescription>Gérez la sécurité de votre compte</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
+              <Label htmlFor="current-password">Mot de passe actuel</Label>
               <Input
                 id="current-password"
                 type="password"
@@ -160,16 +173,14 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password">Nouveau mot de passe</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 6 characters long
-              </p>
+              <PasswordStrength password={newPassword} />
             </div>
           </CardContent>
           <CardFooter>
@@ -179,10 +190,10 @@ const Profile = () => {
                 isChangingPassword || 
                 !currentPassword || 
                 !newPassword || 
-                newPassword.length < 6
+                !validatePassword(newPassword).isValid
               }
             >
-              {isChangingPassword ? "Changing Password..." : "Change Password"}
+              {isChangingPassword ? "Changement du mot de passe..." : "Changer le mot de passe"}
             </Button>
           </CardFooter>
         </Card>
