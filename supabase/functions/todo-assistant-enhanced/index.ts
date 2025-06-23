@@ -23,10 +23,6 @@ serve(async (req) => {
       throw new Error('Clé API OpenAI manquante');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
-
     // Préparer le contexte pour l'IA
     let contextPrompt = `Tu es un assistant IA spécialisé dans l'aide aux tâches. Tu as accès aux informations suivantes :
 
@@ -69,15 +65,23 @@ INSTRUCTIONS:
 
 Réponds de manière naturelle et utile à la question de l'utilisateur.`;
 
-    // Préparer l'historique de conversation
+    // Préparer l'historique de conversation à partir du cache local
     const messages = [
-      { role: 'system', content: contextPrompt },
-      ...conversationHistory.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content
-      })),
-      { role: 'user', content: userMessage }
+      { role: 'system', content: contextPrompt }
     ];
+
+    // Ajouter l'historique de conversation du cache local
+    if (conversationHistory && conversationHistory.length > 0) {
+      conversationHistory.forEach((msg: any) => {
+        messages.push({
+          role: msg.isUser ? 'user' : 'assistant',
+          content: msg.content
+        });
+      });
+    }
+
+    // Ajouter le message actuel
+    messages.push({ role: 'user', content: userMessage });
 
     console.log('🔍 Envoi requête à OpenAI...');
     

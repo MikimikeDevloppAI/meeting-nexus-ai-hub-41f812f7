@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, Send, Loader2, User, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
 
 interface TodoAssistantContentProps {
   todoId: string;
@@ -27,16 +22,27 @@ interface AIRecommendation {
 }
 
 export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: TodoAssistantContentProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const { toast } = useToast();
 
+  // Utiliser le hook unifié pour l'historique avec une clé unique pour cette tâche
+  const {
+    messages,
+    addMessage,
+    clearHistory,
+    getFormattedHistory
+  } = useUnifiedChatHistory({
+    storageKey: `todo-assistant-${todoId}`,
+    initialMessage: "Bonjour ! Je suis l'assistant IA pour cette tâche. Je peux vous aider avec des conseils, des suggestions ou répondre à vos questions en utilisant le contexte de la tâche et de la réunion associée.",
+    maxHistoryLength: 50,
+    maxSentHistory: 20
+  });
+
   useEffect(() => {
     fetchRecommendation();
-    loadConversationHistory();
   }, [todoId]);
 
   const fetchRecommendation = async () => {
@@ -60,59 +66,19 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     }
   };
 
-  const loadConversationHistory = async () => {
-    try {
-      const { data: chatHistory, error } = await supabase
-        .from('todo_chat_history')
-        .select('*')
-        .eq('todo_id', todoId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Erreur chargement historique:', error);
-        return;
-      }
-
-      if (chatHistory) {
-        const loadedMessages = chatHistory.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-          timestamp: new Date(msg.created_at)
-        }));
-        setMessages(loadedMessages);
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
-  const saveMessageToHistory = async (message: Message) => {
-    try {
-      await supabase
-        .from('todo_chat_history')
-        .insert({
-          todo_id: todoId,
-          role: message.role,
-          content: message.content
-        });
-    } catch (error) {
-      console.error('Erreur sauvegarde message:', error);
-    }
-  };
-
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      role: 'user',
+    const userMessage = {
+      id: Date.now().toString(),
       content: inputValue,
+      isUser: true,
       timestamp: new Date()
     };
 
     setInputValue("");
     setIsLoading(true);
-    setMessages(prev => [...prev, userMessage]);
-    await saveMessageToHistory(userMessage);
+    addMessage(userMessage);
 
     try {
       console.log('📤 Envoi demande assistant IA:', inputValue);
@@ -136,7 +102,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
           todoId,
           todoDescription,
           userMessage: inputValue,
-          conversationHistory: messages,
+          conversationHistory: getFormattedHistory(),
           todoData: todoData || null,
           recommendation: recommendation?.recommendation_text || null
         }
@@ -152,14 +118,14 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         throw new Error(data?.error || 'Erreur inconnue');
       }
 
-      const assistantMessage: Message = {
-        role: 'assistant',
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
         content: data.response || "Réponse reçue",
+        isUser: false,
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
-      await saveMessageToHistory(assistantMessage);
+      addMessage(assistantMessage);
 
       if (data.updated && onUpdate) {
         console.log('🔄 Mise à jour tâche');
@@ -174,13 +140,14 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     } catch (error: any) {
       console.error('❌ Erreur:', error);
       
-      const errorMessage: Message = {
-        role: 'assistant',
+      const errorMessage = {
+        id: (Date.now() + 2).toString(),
         content: `❌ ${error.message}`,
+        isUser: false,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
       
       toast({
         title: "⚠️ Erreur",
@@ -231,28 +198,28 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
             <div className="flex items-center gap-2 mb-3">
               <Bot className="h-4 w-4 text-green-600" />
               <span className="font-medium text-sm">Assistant IA</span>
+              <Button
+                onClick={clearHistory}
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-6 px-2 text-xs"
+              >
+                Effacer
+              </Button>
             </div>
             
             <ScrollArea className="h-[200px] pr-2">
               <div className="space-y-2">
-                {messages.length === 0 && (
-                  <div className="text-center py-2 text-muted-foreground">
-                    <p className="text-xs">
-                      Posez vos questions sur cette tâche à l'assistant IA
-                    </p>
-                  </div>
-                )}
-                
                 {messages.map((message, index) => (
                   <div
-                    key={index}
-                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    key={message.id || index}
+                    className={`flex gap-3 ${message.isUser ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`flex gap-3 max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        message.role === 'user' ? 'bg-primary' : 'bg-secondary'
+                        message.isUser ? 'bg-primary' : 'bg-secondary'
                       }`}>
-                        {message.role === 'user' ? (
+                        {message.isUser ? (
                           <User className="h-3 w-3 text-primary-foreground" />
                         ) : (
                           <Bot className="h-3 w-3" />
@@ -260,7 +227,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
                       </div>
                       
                       <div className={`rounded-lg p-2 text-xs ${
-                        message.role === 'user' 
+                        message.isUser 
                           ? 'bg-primary text-primary-foreground' 
                           : 'bg-muted'
                       }`}>
