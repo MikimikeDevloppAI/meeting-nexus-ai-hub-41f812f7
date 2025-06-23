@@ -4,31 +4,31 @@ export async function generateEnrichmentQuestions(
   userContext: string,
   openAIKey: string
 ): Promise<string[]> {
-  console.log('🤖 Génération des questions avec ChatGPT 4.1');
+  console.log('🤖 Génération des questions avec ChatGPT optimisé');
   
-  const prompt = `Tu es un assistant spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian à Genève.
+  const prompt = `Tu es un assistant spécialisé pour un cabinet d'ophtalmologie à Genève.
 
-Une tâche a été créée : "${todoDescription}"
-L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
+TÂCHE : "${todoDescription}"
+CONTEXTE : "${userContext}"
 
-Génère exactement 5 questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE qui permettront d'affiner la recherche. Ces questions doivent être :
+Génère exactement 5 questions d'enrichissement SPÉCIFIQUES ET PRATIQUES pour optimiser une recherche commerciale.
 
-1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
-2. **PRATIQUES** - Focalisées sur les aspects opérationnels et budgétaires
-3. **SPÉCIFIQUES au contexte médical/administratif** d'un cabinet d'ophtalmologie à Genève
-4. **ORIENTÉES ACTION** - Pour aider à prendre des décisions concrètes
+Ces questions doivent être :
 
-Exemples de questions pertinentes :
-- Quel est le budget approximatif disponible pour cette tâche ?
-- Dans quel délai cette tâche doit-elle être réalisée ?
-- Quelle est la priorité de cette tâche (urgente, importante, normale) ?
-- Combien de temps pouvez-vous y consacrer par semaine ?
-- Avez-vous des contraintes particulières à respecter ?
-- Quel niveau de complexité acceptez-vous (simple, intermédiaire, avancé) ?
+1. **COMMERCIALES** - Focus sur fournisseurs, prix, conditions de vente
+2. **GÉOGRAPHIQUES** - Préférence locale (Genève) vs internationale
+3. **BUDGÉTAIRES** - Contraintes financières et options de paiement
+4. **TECHNIQUES** - Spécifications requises pour un cabinet médical
+5. **TEMPORELLES** - Urgence, délais, planning
 
-Adapte ces exemples au contexte spécifique de la tâche demandée.
+EXEMPLES DE BONNES QUESTIONS :
+- Quel est votre budget maximum pour cette acquisition ?
+- Préférez-vous un fournisseur local genevois ou acceptez-vous l'international ?
+- Avez-vous des contraintes d'installation ou d'espace spécifiques ?
+- Dans quel délai cette solution doit-elle être opérationnelle ?
+- Souhaitez-vous inclure la maintenance ou la gérer séparément ?
 
-Format ta réponse UNIQUEMENT avec les 5 questions, une par ligne, sans numérotation ni formatage spécial.`;
+RÉPONSE : Uniquement les 5 questions, une par ligne, sans numérotation.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -37,7 +37,7 @@ Format ta réponse UNIQUEMENT avec les 5 questions, une par ligne, sans numérot
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4.1-2025-04-14',
+      model: 'gpt-4o',
       messages: [
         { role: 'user', content: prompt }
       ],
@@ -66,36 +66,44 @@ export async function rewriteUserContext(
   enrichmentAnswers: any[],
   openAIKey: string
 ): Promise<string> {
-  console.log('🤖 Réécriture du contexte avec ChatGPT 4.1');
+  console.log('🤖 Réécriture du contexte avec ChatGPT optimisé');
   
   const enrichmentText = enrichmentAnswers.length > 0 
-    ? '\n\nRÉPONSES AUX QUESTIONS D\'ENRICHISSEMENT:\n' + 
+    ? '\n\nINFORMATIONS COMPLÉMENTAIRES:\n' + 
       enrichmentAnswers.map((answer: any, index: number) => 
-        `${index + 1}. ${answer.question}\nRéponse: ${answer.answer}`
+        `• ${answer.question}\n  → ${answer.answer}`
       ).join('\n\n')
     : '';
 
-  const prompt = `Tu es un assistant spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian à Genève.
+  const prompt = `Tu optimises des contextes pour des recherches commerciales B2B.
 
-Une tâche a été créée : "${todoDescription}"
-Contexte utilisateur original : "${userContext}"${enrichmentText}
+TÂCHE ORIGINALE : "${todoDescription}"
+CONTEXTE INITIAL : "${userContext}"${enrichmentText}
 
-Ton rôle est de réécrire et structurer ce contexte pour optimiser la recherche qui va suivre avec Perplexity Sonar Pro.
+**MISSION :** Réécrire ce contexte pour maximiser l'efficacité d'une recherche Perplexity ciblée sur :
 
-Réécris le contexte en :
-1. **CLARIFIANT** les objectifs et enjeux de la tâche
-2. **STRUCTURANT** l'information de manière logique
-3. **AJOUTANT** le contexte spécifique du cabinet d'ophtalmologie genevois
-4. **PRÉCISANT** les contraintes et attentes
-5. **ORIENTANT** vers une recherche actionnable
+🎯 **FOURNISSEURS & DISTRIBUTEURS**
+🎯 **INFORMATIONS COMMERCIALES** (prix, conditions, délais)
+🎯 **SOLUTIONS LOCALES** (Genève/Suisse prioritaire)
+🎯 **SPÉCIFICATIONS TECHNIQUES**
 
-Le contexte réécrit doit permettre à Sonar Pro de comprendre parfaitement :
-- Quel est le problème à résoudre
-- Dans quel contexte (cabinet médical, Genève, Suisse)
-- Quelles sont les contraintes pratiques
-- Quel type de réponse est attendu
+**STRUCTURE OPTIMISÉE :**
 
-Écris un contexte enrichi et structuré en français, adapté pour une recherche efficace.`;
+**CONTEXTE :** Cabinet d'ophtalmologie Dr Tabibian, Genève, Suisse
+
+**BESOIN SPÉCIFIQUE :** [Reformuler clairement la demande]
+
+**CRITÈRES DE RECHERCHE :**
+- Fournisseurs prioritaires : Genève → Suisse → Europe
+- Budget : [indiquer si mentionné, sinon "à définir"]
+- Délais : [indiquer si mentionné, sinon "flexible"]
+- Contraintes techniques : [spécifier pour usage médical]
+
+**MOTS-CLÉS COMMERCIAUX :** [Ajouter synonymes et termes techniques]
+
+**RÉSULTATS ATTENDUS :** Coordonnées fournisseurs, tarifs, conditions, alternatives
+
+Écris un contexte enrichi et structuré en français, optimisé pour une recherche commerciale efficace.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -104,7 +112,7 @@ Le contexte réécrit doit permettre à Sonar Pro de comprendre parfaitement :
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4.1-2025-04-14',
+      model: 'gpt-4o',
       messages: [
         { role: 'user', content: prompt }
       ],

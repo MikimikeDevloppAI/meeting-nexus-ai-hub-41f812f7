@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -90,24 +91,19 @@ ${index + 1}. Question : ${fh.question}
 ` : ''}
 
 **NOUVELLE QUESTION DE SUIVI :** ${followupQuestion}
-INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
-imperatif:repond en francais et 
-Rules:
-1. Provide only the final answer. It is important that you do not include any explanation on the steps below.
-2. Do not show the intermediate steps information.retourne uniquement le resultat final sans toutes les etapes intermediaires
 
-- Tu as accès à tout le contexte de la recherche précédente
-- Réponds spécifiquement à la nouvelle question en t'appuyant sur ce contexte
-- Si nécessaire, complète avec de nouvelles informations actualisées grâce à tes capacités de recherche
-- Structure ta réponse de manière claire avec des titres et bullet points
-- Reste cohérent avec les informations déjà fournies dans la recherche originale
-- ne retourne que la réponse finale sans mentionner toutes les etapes intermediaire
-- Utilise des recherches web récentes pour compléter tes réponses
+INSTRUCTIONS POUR LA RÉPONSE :
+- Réponds en français
+- Sois spécifique et actionnable
+- Utilise tes capacités de recherche web récentes
+- Structure ta réponse clairement avec des titres et bullet points
+- Focus sur les informations pratiques et commerciales
+- Inclue des contacts, prix, délais si disponibles
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec Perplexity Sonar Reasoning Pro');
+        console.log('🚀 Envoi de la question de suivi avec Perplexity');
 
-        // Appel à l'API Perplexity avec sonar-reasoning-pro
+        // Appel à l'API Perplexity avec le modèle optimisé
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
@@ -115,22 +111,24 @@ Rules:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-pro',
+            model: 'llama-3.1-sonar-large-128k-online',
             messages: [
               {
                 role: 'user',
                 content: enrichedContext
               }
             ],
-            temperature: 0.2,
-            max_tokens:4000,
-            top_p: 1,
+            temperature: 0.1,
+            max_tokens: 4000,
+            top_p: 0.9,
+            search_domain_filter: ['*.ch', '*.com', '*.fr', '*.be'],
+            search_recency_filter: 'month',
             return_images: false,
             return_related_questions: false
           })
         });
 
-        console.log('📡 Statut réponse Perplexity Sonar Reasoning Pro:', perplexityResponse.status);
+        console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
 
         if (!perplexityResponse.ok) {
           const errorText = await perplexityResponse.text();
@@ -215,9 +213,9 @@ Rules:
       )
     }
 
-    // Phase 1: Génération des questions d'enrichissement avec ChatGPT 4.1
+    // Phase 1: Génération des questions d'enrichissement avec ChatGPT
     if (!enrichmentAnswers) {
-      console.log('🔍 Phase 1: Génération des questions avec ChatGPT 4.1');
+      console.log('🔍 Phase 1: Génération des questions avec ChatGPT');
       
       try {
         const questions = await generateEnrichmentQuestions(todoDescription, userContext, openAIKey);
@@ -244,11 +242,11 @@ Rules:
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity Sonar Reasoning Pro
-    console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
+    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Perplexity
+    console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT');
     
     try {
-      // Réécrire le contexte avec ChatGPT 4.1
+      // Réécrire le contexte avec ChatGPT
       const rewrittenContext = await rewriteUserContext(
         todoDescription, 
         userContext, 
@@ -256,53 +254,56 @@ Rules:
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Perplexity Sonar Reasoning Pro');
+      console.log('🔍 Phase 3: Recherche finale avec Perplexity optimisé');
       
-      // Prompt optimisé pour Perplexity avec Sonar Reasoning Pro
-      const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
+      // Prompt optimisé pour Perplexity avec recherche commerciale ciblée
+      const searchQuery = `RECHERCHE COMMERCIALE SPÉCIALISÉE - Cabinet d'ophtalmologie Genève
 
-**Tâche :** ${todoDescription}
-**Contexte enrichi :** ${rewrittenContext}
+**TÂCHE À RÉSOUDRE :** ${todoDescription}
 
-INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
-imperatif:repond en francais et 
-Rules:
-1. Provide only the final answer. It is important that you do not include any explanation on the steps below.
-2. Do not show the intermediate steps information.retourne uniquement le resultat final sans toutes les etapes intermediaires
+**CONTEXTE DÉTAILLÉ :** ${rewrittenContext}
 
+**INSTRUCTIONS DE RECHERCHE :**
+Tu es un assistant commercial spécialisé dans la recherche de fournisseurs et solutions B2B pour un cabinet médical à Genève, Suisse.
 
-- Structure ta réponse de manière très claire avec des titres, sous-titres et bullet points
-- Évite absolument les répétitions d'informations
-- Organise le contenu en sections logiques avec des paragraphes distincts
-- Utilise des listes à puces pour les éléments multiples (avantages, inconvénients, étapes, etc.)
-- Présente les comparaisons sous forme de tableaux quand c'est approprié
-- Sépare visuellement les différentes sections de ta réponse
-- Utilise des recherches web récentes et actualisées pour fournir les informations les plus pertinentes
-- ne retourne que le résultat final sans parler des etapes intermediaire
+**OBJECTIF :** Trouver des informations commerciales CONCRÈTES et ACTIONNABLES :
 
-Effectue une recherche approfondie, orientée vers l'action, et fournis :
+🎯 **PRIORITÉ 1 - FOURNISSEURS LOCAUX (Genève/Suisse) :**
+- Entreprises, distributeurs, fournisseurs spécialisés
+- Coordonnées complètes (téléphone, email, adresse)
+- Services proposés et conditions commerciales
 
-## 1. INFORMATIONS PRATIQUES
-• Des informations fiables et directement exploitables
-• Des détails spécifiques au contexte genevois/suisse si pertinent
-• Des données récentes et actualisées
+🎯 **PRIORITÉ 2 - INFORMATIONS COMMERCIALES :**
+- Tarifs, prix, coûts estimés
+- Conditions de vente (avec/sans abonnement, maintenance)
+- Délais de livraison et installation
 
-## 2. ANALYSE COMPARATIVE (si applicable)
-• Tableau comparatif des options disponibles
-• Avantages et inconvénients clairement listés
-• Informations sur les prix, délais, qualité actualisées
+🎯 **PRIORITÉ 3 - ASPECTS PRATIQUES :**
+- Spécifications techniques adaptées au contexte médical
+- Alternatives et options disponibles
+- Contraintes réglementaires ou sanitaires
 
-## 3. PLAN D'ACTION STRUCTURÉ (si applicable)
-• Étapes numérotées et chronologiques
-• Responsabilités et échéances suggérées
-• Points de contrôle et validations nécessaires
+**FORMAT DE RÉPONSE STRUCTURÉ :**
 
+## 🔍 FOURNISSEURS IDENTIFIÉS
+[Liste des entreprises avec coordonnées complètes]
 
-Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
+## 💰 INFORMATIONS TARIFAIRES
+[Prix, coûts, options de financement]
 
-      console.log('🚀 Envoi de la recherche finale avec Perplexity Sonar Reasoning Pro');
+## 📋 SOLUTIONS RECOMMANDÉES
+[Comparaison des meilleures options avec avantages/inconvénients]
 
-      // Appel à l'API Perplexity avec sonar-reasoning-pro
+## 📞 ACTIONS CONCRÈTES
+[Étapes à suivre, contacts à prendre, questions à poser]
+
+**ZONES GÉOGRAPHIQUES :** Priorité Genève > Suisse > France/Europe
+**SECTEUR :** Matériel médical/bureau, équipements professionnels
+**LANGUE :** Réponse complète en français`;
+
+      console.log('🚀 Envoi de la recherche finale avec Perplexity optimisé');
+
+      // Appel à l'API Perplexity avec modèle et paramètres optimisés
       const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -310,16 +311,18 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro',
+          model: 'llama-3.1-sonar-large-128k-online',
           messages: [
             {
               role: 'user',
               content: searchQuery
             }
           ],
-          temperature: 0.2,
+          temperature: 0.1,
           max_tokens: 8000,
-          top_p: 1,
+          top_p: 0.9,
+          search_domain_filter: ['*.ch', '*.com', '*.fr', '*.be', '*.de'],
+          search_recency_filter: 'month',
           return_images: false,
           return_related_questions: false
         })
