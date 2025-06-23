@@ -31,13 +31,13 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
   const [showFullscreen, setShowFullscreen] = useState(false);
   const { toast } = useToast();
 
-  // Utiliser le hook unifié pour l'historique avec une clé unique pour cette tâche
   const {
     messages,
     addMessage,
     clearHistory,
     getFormattedHistory,
-    isInitialized
+    isInitialized,
+    setMessages
   } = useUnifiedChatHistory({
     storageKey: `todo-assistant-${todoId}`,
     initialMessage: "Bonjour ! Je suis l'assistant IA pour cette tâche. Je peux vous aider avec des conseils, des suggestions ou répondre à vos questions en utilisant le contexte de la tâche et de la réunion associée.",
@@ -86,7 +86,6 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     setIsTyping(true);
     addMessage(userMessage);
 
-    // Ajouter un message de typing temporaire
     const typingMessage = {
       id: `typing-${Date.now()}`,
       content: "L'assistant réfléchit...",
@@ -98,7 +97,6 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     try {
       console.log('📤 Envoi demande assistant IA:', currentInput);
       
-      // Récupérer les informations de la tâche et de la réunion
       const { data: todoData, error: todoError } = await supabase
         .from("todos")
         .select(`
@@ -112,7 +110,6 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         console.error('Erreur récupération tâche:', todoError);
       }
 
-      // Obtenir l'historique formaté (déjà filtré par le hook)
       const history = getFormattedHistory();
 
       const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
@@ -144,12 +141,10 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       };
 
       // Remplacer le message de typing par la vraie réponse
-      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
-      // Reconstruire l'historique proprement
-      clearHistory();
-      updatedMessages.forEach(msg => addMessage(msg));
-      addMessage(userMessage);
-      addMessage(assistantMessage);
+      setMessages(prev => [
+        ...prev.filter(msg => !msg.content.includes("réfléchit")),
+        assistantMessage
+      ]);
 
       if (data.updated && onUpdate) {
         console.log('🔄 Mise à jour tâche');
@@ -179,11 +174,10 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       };
       
       // Remplacer le message de typing par l'erreur
-      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
-      clearHistory();
-      updatedMessages.forEach(msg => addMessage(msg));
-      addMessage(userMessage);
-      addMessage(errorMessage);
+      setMessages(prev => [
+        ...prev.filter(msg => !msg.content.includes("réfléchit")),
+        errorMessage
+      ]);
       
       toast({
         title: "⚠️ Erreur",
@@ -346,6 +340,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         todoId={todoId}
         todoDescription={todoDescription}
         onUpdate={onUpdate}
+        currentMessages={messages} // Passer les messages actuels
       />
     </>
   );

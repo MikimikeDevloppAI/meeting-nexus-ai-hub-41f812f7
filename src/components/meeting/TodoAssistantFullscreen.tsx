@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, Send, Loader2, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useUnifiedChatHistory } from "@/hooks/useUnifiedChatHistory";
+import { useUnifiedChatHistory, ChatMessage } from "@/hooks/useUnifiedChatHistory";
 
 interface TodoAssistantFullscreenProps {
   isOpen: boolean;
@@ -15,6 +15,7 @@ interface TodoAssistantFullscreenProps {
   todoId: string;
   todoDescription: string;
   onUpdate?: () => void;
+  currentMessages?: ChatMessage[]; // Ajout des messages actuels
 }
 
 export const TodoAssistantFullscreen = ({ 
@@ -22,7 +23,8 @@ export const TodoAssistantFullscreen = ({
   onClose, 
   todoId, 
   todoDescription, 
-  onUpdate 
+  onUpdate,
+  currentMessages = [] // Messages passés depuis le composant parent
 }: TodoAssistantFullscreenProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,14 +36,22 @@ export const TodoAssistantFullscreen = ({
     addMessage,
     clearHistory,
     getFormattedHistory,
-    isInitialized
+    isInitialized,
+    setMessages
   } = useUnifiedChatHistory({
-    // Utiliser le même storageKey que le composant normal pour partager l'historique
     storageKey: `todo-assistant-${todoId}`,
     initialMessage: "Bonjour ! Je suis l'assistant IA pour cette tâche. Je peux vous aider avec des conseils, des suggestions ou répondre à vos questions en utilisant le contexte de la tâche et de la réunion associée.",
     maxHistoryLength: 100,
     maxSentHistory: 50
   });
+
+  // Synchroniser avec les messages actuels quand le dialog s'ouvre
+  useEffect(() => {
+    if (isOpen && currentMessages.length > 0 && isInitialized) {
+      console.log('🔄 Synchronisation historique plein écran:', currentMessages.length, 'messages');
+      setMessages(currentMessages);
+    }
+  }, [isOpen, currentMessages, isInitialized, setMessages]);
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading || !isInitialized) return;
@@ -81,7 +91,6 @@ export const TodoAssistantFullscreen = ({
         console.error('Erreur récupération tâche:', todoError);
       }
 
-      // Obtenir l'historique formaté (déjà filtré par le hook)
       const history = getFormattedHistory();
 
       const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
@@ -110,11 +119,10 @@ export const TodoAssistantFullscreen = ({
       };
 
       // Remplacer le message de typing par la vraie réponse
-      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
-      clearHistory();
-      updatedMessages.forEach(msg => addMessage(msg));
-      addMessage(userMessage);
-      addMessage(assistantMessage);
+      setMessages(prev => [
+        ...prev.filter(msg => !msg.content.includes("réfléchit")),
+        assistantMessage
+      ]);
 
       if (data.updated && onUpdate) {
         onUpdate();
@@ -142,11 +150,10 @@ export const TodoAssistantFullscreen = ({
       };
       
       // Remplacer le message de typing par l'erreur
-      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
-      clearHistory();
-      updatedMessages.forEach(msg => addMessage(msg));
-      addMessage(userMessage);
-      addMessage(errorMessage);
+      setMessages(prev => [
+        ...prev.filter(msg => !msg.content.includes("réfléchit")),
+        errorMessage
+      ]);
       
       toast({
         title: "⚠️ Erreur",
