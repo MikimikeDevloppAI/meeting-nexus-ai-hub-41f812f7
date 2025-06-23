@@ -115,7 +115,7 @@ Rules:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'ssonar-pro-search',
+            model: 'sonar-pro',
             messages: [
               {
                 role: 'user',
@@ -123,9 +123,8 @@ Rules:
               }
             ],
             temperature: 0.2,
-            max_tokens:8000,
-            top_p: 0.9,
-            search: 'deep',
+            max_tokens:4000,
+            top_p: 1,
             return_images: false,
             return_related_questions: false
           })
@@ -293,15 +292,11 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 • Avantages et inconvénients clairement listés
 • Informations sur les prix, délais, qualité actualisées
 
-## 3. PLAN D'ACTION STRUCTURÉ
+## 3. PLAN D'ACTION STRUCTURÉ (si applicable)
 • Étapes numérotées et chronologiques
 • Responsabilités et échéances suggérées
 • Points de contrôle et validations nécessaires
 
-## 4. RECOMMANDATIONS SPÉCIFIQUES
-• Adaptées au fonctionnement d'un cabinet médical à Genève
-• Prise en compte de la réglementation locale actuelle
-• Suggestions de prestataires locaux fiables si nécessaire
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
@@ -315,7 +310,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro-search',
+          model: 'sonar-pro',
           messages: [
             {
               role: 'user',
@@ -324,8 +319,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           ],
           temperature: 0.2,
           max_tokens: 8000,
-          top_p: 0.9,
-          search: 'deep',
+          top_p: 1,
           return_images: false,
           return_related_questions: false
         })
