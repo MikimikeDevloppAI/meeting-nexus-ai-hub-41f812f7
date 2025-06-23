@@ -139,7 +139,13 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       // Remplacer le message de typing par la vraie réponse
       clearHistory();
       const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
-      filteredHistory.forEach(msg => addMessage(msg));
+      filteredHistory.forEach(msg => addMessage({
+        id: msg.id || Date.now().toString(),
+        content: msg.content,
+        isUser: msg.isUser,
+        timestamp: new Date(msg.timestamp),
+        sources: msg.sources
+      }));
       addMessage(userMessage);
       addMessage(assistantMessage);
 
@@ -166,7 +172,13 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       // Supprimer le message de typing et ajouter l'erreur
       clearHistory();
       const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
-      filteredHistory.forEach(msg => addMessage(msg));
+      filteredHistory.forEach(msg => addMessage({
+        id: msg.id || Date.now().toString(),
+        content: msg.content,
+        isUser: msg.isUser,
+        timestamp: new Date(msg.timestamp),
+        sources: msg.sources
+      }));
       addMessage(userMessage);
       addMessage(errorMessage);
       
