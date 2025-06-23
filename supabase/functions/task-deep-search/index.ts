@@ -115,7 +115,7 @@ Rules:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-pro',
+            model: 'ssonar-pro-search',
             messages: [
               {
                 role: 'user',
@@ -315,7 +315,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro',
+          model: 'sonar-pro-search',
           messages: [
             {
               role: 'user',
