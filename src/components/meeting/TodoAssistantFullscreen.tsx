@@ -166,7 +166,10 @@ export const TodoAssistantFullscreen = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent 
+        className="max-w-[95vw] max-h-[95vh] w-full h-full flex flex-col p-0" 
+        hideCloseButton={true}
+      >
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
