@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -100,9 +99,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
 - Reste cohérent avec les informations déjà fournies dans la recherche originale
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec Sonar Deep Research');
+        console.log('🚀 Envoi de la question de suivi avec Sonar Pro');
 
-        // Appel à l'API Perplexity avec le modèle sonar-deep-research pour la question de suivi
+        // Appel à l'API Perplexity avec le modèle sonar-pro pour la question de suivi
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
@@ -110,7 +109,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-deep-research',
+            model: 'sonar-pro',
             messages: [
               {
                 role: 'user',
@@ -130,7 +129,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
 
         if (!perplexityResponse.ok) {
           const errorText = await perplexityResponse.text();
-          console.error('❌ Sonar Deep Research API error:', perplexityResponse.status, perplexityResponse.statusText);
+          console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
@@ -145,7 +144,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
         const perplexityData = await perplexityResponse.json()
         const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
         
-        console.log('✅ Réponse de suivi Sonar Deep Research reçue:', followupAnswer.length, 'caractères');
+        console.log('✅ Réponse de suivi Sonar Pro reçue:', followupAnswer.length, 'caractères');
 
         // Sauvegarder la question/réponse de suivi
         const authHeader = req.headers.get('Authorization')
@@ -237,7 +236,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Sonar Deep Research
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Sonar Pro
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
     try {
@@ -249,9 +248,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Sonar Deep Research');
+      console.log('🔍 Phase 3: Recherche finale avec Sonar Pro');
       
-      // Prompt optimisé pour Sonar Deep Research avec le contexte réécrit
+      // Prompt optimisé pour Sonar Pro avec le contexte réécrit
       const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
@@ -289,9 +288,9 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-      console.log('🚀 Envoi de la recherche finale avec Sonar Deep Research');
+      console.log('🚀 Envoi de la recherche finale avec Sonar Pro');
 
-      // Appel à l'API Perplexity avec le modèle sonar-deep-research
+      // Appel à l'API Perplexity avec le modèle sonar-pro
       const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -299,7 +298,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-deep-research',
+          model: 'sonar-pro',
           messages: [
             {
               role: 'user',
@@ -315,11 +314,11 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
         })
       });
 
-      console.log('📡 Sonar Deep Research API response status:', perplexityResponse.status);
+      console.log('📡 Sonar Pro API response status:', perplexityResponse.status);
 
       if (!perplexityResponse.ok) {
         const errorText = await perplexityResponse.text();
-        console.error('❌ Sonar Deep Research API error:', perplexityResponse.status, perplexityResponse.statusText);
+        console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
         console.error('❌ Error details:', errorText);
         
         return new Response(
@@ -332,14 +331,14 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
       }
 
       const perplexityData = await perplexityResponse.json()
-      console.log('📊 Sonar Deep Research response structure:', Object.keys(perplexityData));
+      console.log('📊 Sonar Pro response structure:', Object.keys(perplexityData));
       
       const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
       
       // Extraire les sources/citations de la réponse Perplexity
       const sources = perplexityData.citations || perplexityData.sources || []
       
-      console.log('✅ Recherche Sonar Deep Research terminée avec succès')
+      console.log('✅ Recherche Sonar Pro terminée avec succès')
       console.log('📚 Sources trouvées:', sources.length)
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
