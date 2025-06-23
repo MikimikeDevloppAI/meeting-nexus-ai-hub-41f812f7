@@ -110,7 +110,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-reasoning-pro',
+            model: 'sonar-deep-research',
             messages: [
               {
                 role: 'user',
@@ -304,7 +304,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-reasoning-pro',
+          model: 'sonar-deep-research',
           messages: [
             {
               role: 'user',
