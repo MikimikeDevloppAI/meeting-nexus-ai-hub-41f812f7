@@ -23,7 +23,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [sessionChecked, setSessionChecked] = useState(false);
   const { toast } = useToast();
 
   // Fonction pour récupérer le profil utilisateur
@@ -52,8 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initializeAuth = async () => {
-      if (sessionChecked) return;
-
       try {
         console.log("Vérification de la session d'authentification...");
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -63,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             setUser(null);
             setIsLoading(false);
-            setSessionChecked(true);
           }
           return;
         }
@@ -78,11 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userProfile) {
             if (!userProfile.approved) {
               console.log("Utilisateur non approuvé");
-              toast({
-                title: "Compte en attente",
-                description: "Votre compte attend l'approbation de l'administrateur.",
-                variant: "destructive",
-              });
               setUser(null);
             } else {
               console.log("Utilisateur approuvé, mise à jour de l'état:", userProfile);
@@ -99,53 +90,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         if (mounted) {
           setIsLoading(false);
-          setSessionChecked(true);
         }
       }
     };
 
-    if (!sessionChecked) {
-      initializeAuth();
-    }
+    initializeAuth();
 
-    // Écouter les changements d'état d'authentification avec filtrage des événements
+    // Écouter les changements d'état d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log("Changement d'état d'authentification:", event);
         
         if (!mounted) return;
         
-        // Ignorer TOUS les événements automatiques pour éviter les redirections
-        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
-          console.log(`Événement ${event} ignoré pour éviter les redirections automatiques`);
-          return;
-        }
-        
-        // Ne traiter que les événements de connexion/déconnexion explicites
         if (event === "SIGNED_IN" && session?.user) {
-          console.log("Utilisateur connecté explicitement, mise à jour du profil");
-          setTimeout(async () => {
-            if (!mounted) return;
-            
-            const userProfile = await fetchUserProfile(session.user.id);
-            
-            if (!mounted) return;
-            
-            if (userProfile?.approved) {
-              setUser(userProfile);
-            } else {
-              setUser(null);
+          console.log("Utilisateur connecté, mise à jour du profil");
+          const userProfile = await fetchUserProfile(session.user.id);
+          
+          if (!mounted) return;
+          
+          if (userProfile?.approved) {
+            setUser(userProfile);
+          } else {
+            setUser(null);
+            if (userProfile && !userProfile.approved) {
               toast({
                 title: "Compte en attente",
                 description: "Votre compte attend l'approbation de l'administrateur.",
                 variant: "destructive",
               });
             }
-          }, 100);
+          }
         } else if (event === "SIGNED_OUT") {
-          console.log("Utilisateur déconnecté explicitement");
+          console.log("Utilisateur déconnecté");
           setUser(null);
         }
+        
+        setIsLoading(false);
       }
     );
 
@@ -153,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [sessionChecked, toast]);
+  }, [toast]);
 
   const signIn = async (email: string, password: string) => {
     try {

@@ -1,23 +1,17 @@
 
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { LoginHeader } from "@/components/auth/LoginHeader";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { EmailConfirmationAlert } from "@/components/auth/EmailConfirmationAlert";
 import { useLogin } from "@/hooks/useLogin";
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 
 const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [initialCheckDone, setInitialCheckDone] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
   
-  // Supprimer la vérification automatique de session qui causait des redirections
-  useEffect(() => {
-    setInitialCheckDone(true);
-  }, []);
-
   const {
     email,
     setEmail,
@@ -30,8 +24,16 @@ const Login = () => {
     handleResendConfirmationEmail,
   } = useLogin();
 
-  // Ne pas afficher la page tant que la vérification initiale n'est pas terminée
-  if (!initialCheckDone) {
+  // Rediriger si l'utilisateur est déjà connecté
+  useEffect(() => {
+    if (user && !authLoading) {
+      console.log("Utilisateur déjà connecté, redirection vers /assistant");
+      navigate("/assistant", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
+
+  // Afficher un loader pendant la vérification d'authentification
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-accent p-4">
         <div className="w-full max-w-md text-center">
@@ -39,6 +41,11 @@ const Login = () => {
         </div>
       </div>
     );
+  }
+
+  // Ne pas afficher la page si l'utilisateur est connecté
+  if (user) {
+    return null;
   }
 
   return (
