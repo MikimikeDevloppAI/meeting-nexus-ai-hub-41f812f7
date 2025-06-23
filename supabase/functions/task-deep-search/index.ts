@@ -110,7 +110,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-deep-research',
+            model: 'Sonar-Reasoning-Pro',
             messages: [
               {
                 role: 'user',
@@ -269,6 +269,7 @@ INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
 - Numérote les étapes d'action de manière claire
 - Sépare visuellement les différentes sections de ta réponse
 - Utilise des recherches web récentes et actualisées pour fournir les informations les plus pertinentes
+- ne retourne que le résultat final sans parler des etapes intermediaire
 
 Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
@@ -304,7 +305,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-deep-research',
+          model: 'onar-Reasoning-Pro',
           messages: [
             {
               role: 'user',
