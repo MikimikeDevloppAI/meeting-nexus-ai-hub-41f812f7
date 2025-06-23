@@ -1,9 +1,13 @@
 
-export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o', maxRetries: number = 3) {
+export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o', maxRetries: number = 3, maxTokens?: number) {
   console.log('🔄 Making OpenAI API call...')
   console.log('🤖 Using model:', model)
   console.log('📏 Prompt length:', prompt.length, 'characters')
   console.log('🔁 Max retries:', maxRetries)
+  
+  // Définir max_tokens selon le modèle si non spécifié
+  const defaultMaxTokens = maxTokens || (model.includes('gpt-4.1') ? 16384 : 4096);
+  console.log('🎯 Max tokens:', defaultMaxTokens)
   
   let lastError: Error | null = null;
   
@@ -21,7 +25,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature,
-          max_tokens: 4096,
+          max_tokens: defaultMaxTokens,
         }),
       });
 

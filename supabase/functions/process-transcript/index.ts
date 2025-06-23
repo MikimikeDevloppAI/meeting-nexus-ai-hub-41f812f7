@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createSupabaseClient, saveRawTranscript, saveTranscript, saveSummary, saveTask, getMeetingData } from './services/database-service.ts';
@@ -79,13 +78,13 @@ serve(async (req) => {
 
     const participantNames = allParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry
+    // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry et 16384 tokens
     const cleaningStartTime = Date.now();
     console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4.1-2025-04-14 and retry mechanism...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
     
     try {
-      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4.1-2025-04-14', 3);
+      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4.1-2025-04-14', 3, 16384);
       await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
       console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
       console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
@@ -107,20 +106,20 @@ serve(async (req) => {
 
       // Lancer les 3 opérations en parallèle
       const [tasksResult, summaryResult, embeddingsResult] = await Promise.allSettled([
-        // Extraction des tâches avec retry et gpt-4o
+        // Extraction des tâches avec retry et gpt-4o avec 4096 tokens
         (async () => {
           console.log('📋 [PARALLEL] Extracting tasks with gpt-4o and retry...');
           const startTime = Date.now();
-          const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o', 3);
+          const tasksResponse = await callOpenAI(tasksPrompt, openaiApiKey, 0.3, 'gpt-4o', 3, 4096);
           console.log(`✅ [PARALLEL] Tasks extraction completed (${Date.now() - startTime}ms)`);
           return tasksResponse;
         })(),
         
-        // Génération du résumé avec retry et gpt-4o
+        // Génération du résumé avec retry et gpt-4o avec 4096 tokens
         (async () => {
           console.log('📝 [PARALLEL] Generating summary with gpt-4o and retry...');
           const startTime = Date.now();
-          const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o', 3);
+          const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o', 3, 4096);
           await saveSummary(supabaseClient, meetingId, summary);
           console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
           return summary;
