@@ -35,7 +35,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
   const [activeTab, setActiveTab] = useState("search");
   const [hasExistingResults, setHasExistingResults] = useState(false);
   
-  // Nouveaux états pour les questions d'enrichissement
+  // États pour les questions d'enrichissement
   const [searchPhase, setSearchPhase] = useState<'input' | 'questions' | 'result'>('input');
   const [enrichmentQuestions, setEnrichmentQuestions] = useState<string[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<EnrichmentQuestion[]>([]);
@@ -101,7 +101,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Génération des questions d\'enrichissement');
+      console.log('🔍 Génération des questions d\'enrichissement (obligatoire)');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -143,7 +143,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
     }
   };
 
-  const handleFinalSearch = async (skipQuestions = false) => {
+  const handleFinalSearch = async () => {
     setIsSearching(true);
     setSearchResult("");
     setSources([]);
@@ -161,8 +161,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
           todoId,
           userContext: userContext.trim(),
           todoDescription,
-          enrichmentAnswers: skipQuestions ? null : questionAnswers.filter(qa => qa.answer.trim()),
-          skipQuestions: skipQuestions
+          enrichmentAnswers: questionAnswers.filter(qa => qa.answer.trim())
         }
       });
 
@@ -274,45 +273,24 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                           />
                         </div>
                         
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={handleInitialSearch} 
-                            disabled={isLoadingQuestions || !userContext.trim()}
-                            size="sm"
-                            className="h-7 text-xs flex-1"
-                          >
-                            {isLoadingQuestions ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Questions...
-                              </>
-                            ) : (
-                              <>
-                                <HelpCircle className="h-3 w-3 mr-1" />
-                                Questions
-                              </>
-                            )}
-                          </Button>
-                          <Button 
-                            onClick={() => handleFinalSearch(true)} 
-                            disabled={isSearching || !userContext.trim()}
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                          >
-                            {isSearching ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Direct
-                              </>
-                            ) : (
-                              <>
-                                <Search className="h-3 w-3 mr-1" />
-                                Direct
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                        <Button 
+                          onClick={handleInitialSearch} 
+                          disabled={isLoadingQuestions || !userContext.trim()}
+                          size="sm"
+                          className="h-7 text-xs w-full"
+                        >
+                          {isLoadingQuestions ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Questions...
+                            </>
+                          ) : (
+                            <>
+                              <HelpCircle className="h-3 w-3 mr-1" />
+                              Commencer la recherche
+                            </>
+                          )}
+                        </Button>
                       </div>
                     )}
 
@@ -326,8 +304,14 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                           </Button>
                         </div>
                         
+                        <div className="bg-blue-50 p-2 rounded-md border-l-2 border-blue-400">
+                          <p className="text-xs text-blue-700">
+                            💡 Répondez aux questions pertinentes pour affiner votre recherche
+                          </p>
+                        </div>
+                        
                         <div className="space-y-2">
-                          {enrichmentQuestions.slice(0, 3).map((question, index) => (
+                          {enrichmentQuestions.map((question, index) => (
                             <div key={index} className="space-y-1">
                               <label className="text-xs text-muted-foreground">
                                 {index + 1}. {question}
@@ -342,35 +326,24 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                           ))}
                         </div>
                         
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => handleFinalSearch(false)} 
-                            disabled={isSearching}
-                            size="sm"
-                            className="h-7 text-xs flex-1"
-                          >
-                            {isSearching ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Recherche...
-                              </>
-                            ) : (
-                              <>
-                                <ArrowRight className="h-3 w-3 mr-1" />
-                                Recherche finale
-                              </>
-                            )}
-                          </Button>
-                          <Button 
-                            onClick={() => handleFinalSearch(true)} 
-                            disabled={isSearching}
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                          >
-                            Ignorer
-                          </Button>
-                        </div>
+                        <Button 
+                          onClick={handleFinalSearch} 
+                          disabled={isSearching}
+                          size="sm"
+                          className="h-7 text-xs w-full"
+                        >
+                          {isSearching ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Recherche...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowRight className="h-3 w-3 mr-1" />
+                              Recherche finale
+                            </>
+                          )}
+                        </Button>
                       </div>
                     )}
                   </TabsContent>

@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { todoId, userContext, todoDescription, enrichmentAnswers, skipQuestions } = await req.json()
+    const { todoId, userContext, todoDescription, enrichmentAnswers } = await req.json()
     
     if (!todoId || !userContext || !todoDescription) {
       return new Response(
@@ -32,24 +32,32 @@ serve(async (req) => {
       )
     }
 
-    // Phase 1: Générer des questions d'enrichissement (sauf si skipQuestions est true)
-    if (!skipQuestions && !enrichmentAnswers) {
-      console.log('🔍 Phase 1: Génération des questions d\'enrichissement');
+    // Phase 1: Générer des questions d'enrichissement (obligatoire maintenant)
+    if (!enrichmentAnswers) {
+      console.log('🔍 Phase 1: Génération des questions d\'enrichissement (obligatoire)');
       
       const questionsPrompt = `Tu es un assistant spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian à Genève.
 
 Une tâche a été créée suite à une réunion : "${todoDescription}"
 L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
 
-Génère 3-5 questions pertinentes qui permettront d'affiner la recherche et d'obtenir des informations plus précises et utiles pour cette tâche administrative/médicale.
+Génère exactement 4 questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE qui permettront d'affiner la recherche. Ces questions doivent être :
 
-Les questions doivent être :
-- Spécifiques au contexte du cabinet d'ophtalmologie
-- Orientées vers l'action concrète
-- Adaptées au contexte genevois/suisse si pertinent
-- Focalisées sur les aspects pratiques et opérationnels
+1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
+2. **PRATIQUES** - Focalisées sur les aspects opérationnels (budget, délai, priorité, contraintes)
+3. **SPÉCIFIQUES au contexte médical/administratif** d'un cabinet d'ophtalmologie à Genève
+4. **ORIENTÉES ACTION** - Pour aider à prendre des décisions concrètes
 
-Format ta réponse UNIQUEMENT avec les questions, une par ligne, sans numérotation ni formatage spécial.`;
+Exemples de bonnes questions :
+- Quel est le budget approximatif disponible pour cette action ?
+- Dans quel délai cette tâche doit-elle être réalisée ?
+- Y a-t-il des contraintes particulières à respecter (réglementaires, logistiques, etc.) ?
+- Quelle est la priorité de cette tâche par rapport aux autres projets du cabinet ?
+- Qui sera responsable de la mise en œuvre de cette solution ?
+
+Adapte ces exemples au contexte spécifique de la tâche demandée.
+
+Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérotation ni formatage spécial.`;
 
       const questionsResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -65,8 +73,8 @@ Format ta réponse UNIQUEMENT avec les questions, une par ligne, sans numérotat
               content: questionsPrompt
             }
           ],
-          temperature: 0.3,
-          max_tokens: 800,
+          temperature: 0.2,
+          max_tokens: 600,
           top_p: 0.9,
           return_images: false,
           return_related_questions: false,
@@ -84,7 +92,7 @@ Format ta réponse UNIQUEMENT avec les questions, une par ligne, sans numérotat
 
       const questionsData = await questionsResponse.json();
       const questionsText = questionsData.choices?.[0]?.message?.content || '';
-      const questions = questionsText.split('\n').filter(q => q.trim().length > 0);
+      const questions = questionsText.split('\n').filter(q => q.trim().length > 0).slice(0, 4);
 
       console.log('✅ Questions générées:', questions.length);
       

@@ -29,7 +29,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
   const [hasExistingResults, setHasExistingResults] = useState(false);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   
-  // Nouveaux états pour les questions d'enrichissement
+  // États pour les questions d'enrichissement
   const [searchPhase, setSearchPhase] = useState<'input' | 'questions' | 'result'>('input');
   const [enrichmentQuestions, setEnrichmentQuestions] = useState<string[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<EnrichmentQuestion[]>([]);
@@ -95,7 +95,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Génération des questions d\'enrichissement');
+      console.log('🔍 Génération des questions d\'enrichissement (obligatoire)');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -118,8 +118,8 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         setSearchPhase('questions');
 
         toast({
-          title: "Questions générées",
-          description: `${questions.length} questions d'enrichissement ont été générées`,
+          title: "Questions d'enrichissement",
+          description: `${questions.length} questions ont été générées pour affiner votre recherche`,
         });
       } else {
         throw new Error(response.data?.error || 'Erreur lors de la génération des questions');
@@ -137,7 +137,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
     }
   };
 
-  const handleFinalSearch = async (skipQuestions = false) => {
+  const handleFinalSearch = async () => {
     setIsSearching(true);
     setSearchResult("");
     setSources([]);
@@ -148,15 +148,14 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Lancement de la recherche finale');
+      console.log('🔍 Lancement de la recherche finale avec Sonar Pro');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
           todoId,
           userContext: userContext.trim(),
           todoDescription,
-          enrichmentAnswers: skipQuestions ? null : questionAnswers.filter(qa => qa.answer.trim()),
-          skipQuestions: skipQuestions
+          enrichmentAnswers: questionAnswers.filter(qa => qa.answer.trim())
         }
       });
 
@@ -178,7 +177,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
 
         toast({
           title: "Recherche terminée",
-          description: "Les résultats ont été sauvegardés",
+          description: "Les résultats ont été sauvegardés avec Sonar Pro",
         });
       } else {
         throw new Error(response.data?.error || 'Erreur inconnue');
@@ -258,44 +257,24 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 />
               </div>
               
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleInitialSearch} 
-                  disabled={isLoadingQuestions || !userContext.trim()}
-                  size="sm"
-                  className="flex-1"
-                >
-                  {isLoadingQuestions ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Génération des questions...
-                    </>
-                  ) : (
-                    <>
-                      <HelpCircle className="h-4 w-4 mr-2" />
-                      Générer des questions d'enrichissement
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={() => handleFinalSearch(true)} 
-                  disabled={isSearching || !userContext.trim()}
-                  variant="outline"
-                  size="sm"
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Recherche...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Recherche directe
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button 
+                onClick={handleInitialSearch} 
+                disabled={isLoadingQuestions || !userContext.trim()}
+                size="sm"
+                className="w-full"
+              >
+                {isLoadingQuestions ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Génération des questions d'enrichissement...
+                  </>
+                ) : (
+                  <>
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Commencer la recherche approfondie
+                  </>
+                )}
+              </Button>
             </div>
           )}
 
@@ -307,6 +286,15 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 <Button variant="ghost" size="sm" onClick={resetSearch}>
                   Recommencer
                 </Button>
+              </div>
+              
+              <div className="bg-blue-50 p-3 rounded-md border-l-4 border-blue-400">
+                <p className="text-xs text-blue-800 mb-2 font-medium">
+                  💡 Ces questions nous aident à mieux comprendre vos besoins
+                </p>
+                <p className="text-xs text-blue-700">
+                  Répondez aux questions qui vous semblent pertinentes. Vous pouvez laisser certaines vides si elles ne s'appliquent pas à votre situation.
+                </p>
               </div>
               
               <div className="space-y-3">
@@ -325,34 +313,24 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 ))}
               </div>
               
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => handleFinalSearch(false)} 
-                  disabled={isSearching}
-                  size="sm"
-                  className="flex-1"
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Recherche en cours...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight className="h-4 w-4 mr-2" />
-                      Lancer la recherche finale
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={() => handleFinalSearch(true)} 
-                  disabled={isSearching}
-                  variant="outline"
-                  size="sm"
-                >
-                  Ignorer les questions
-                </Button>
-              </div>
+              <Button 
+                onClick={handleFinalSearch} 
+                disabled={isSearching}
+                size="sm"
+                className="w-full"
+              >
+                {isSearching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Recherche en cours avec Sonar Pro...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Lancer la recherche finale
+                  </>
+                )}
+              </Button>
             </div>
           )}
 
