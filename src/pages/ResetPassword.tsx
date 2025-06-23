@@ -21,19 +21,51 @@ const ResetPassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Vérifier la présence des paramètres de réinitialisation
+  // Vérifier et traiter les paramètres de réinitialisation
   useEffect(() => {
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    
-    if (!accessToken || !refreshToken) {
-      toast({
-        title: "Lien invalide",
-        description: "Ce lien de réinitialisation est invalide ou a expiré",
-        variant: "destructive",
-      });
-      navigate("/forgot-password");
-    }
+    const handleAuthCallback = async () => {
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
+      const type = searchParams.get('type');
+      
+      if (accessToken && refreshToken && type === 'recovery') {
+        try {
+          // Établir la session avec les tokens de l'URL
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          
+          if (error) {
+            console.error('Erreur lors de l\'établissement de la session:', error);
+            toast({
+              title: "Lien invalide",
+              description: "Ce lien de réinitialisation est invalide ou a expiré",
+              variant: "destructive",
+            });
+            navigate("/forgot-password");
+          }
+        } catch (error) {
+          console.error('Erreur lors du traitement du lien:', error);
+          toast({
+            title: "Erreur",
+            description: "Une erreur est survenue lors du traitement du lien",
+            variant: "destructive",
+          });
+          navigate("/forgot-password");
+        }
+      } else if (!accessToken && !refreshToken) {
+        // Si aucun paramètre n'est présent, rediriger vers forgot-password
+        toast({
+          title: "Lien invalide",
+          description: "Ce lien de réinitialisation est invalide ou a expiré",
+          variant: "destructive",
+        });
+        navigate("/forgot-password");
+      }
+    };
+
+    handleAuthCallback();
   }, [searchParams, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
