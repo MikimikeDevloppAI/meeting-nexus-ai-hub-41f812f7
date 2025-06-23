@@ -35,7 +35,8 @@ export const TodoAssistantFullscreen = ({
     clearHistory,
     getFormattedHistory
   } = useUnifiedChatHistory({
-    storageKey: `todo-assistant-fullscreen-${todoId}`,
+    // Utiliser le même storageKey que le composant normal pour partager l'historique
+    storageKey: `todo-assistant-${todoId}`,
     initialMessage: "Bonjour ! Je suis l'assistant IA pour cette tâche. Je peux vous aider avec des conseils, des suggestions ou répondre à vos questions en utilisant le contexte de la tâche et de la réunion associée.",
     maxHistoryLength: 100,
     maxSentHistory: 50
