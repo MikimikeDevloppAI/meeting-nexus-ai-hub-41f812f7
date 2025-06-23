@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
-import Index from "./pages/Index";
 import NewMeeting from "./pages/NewMeeting";
 import MeetingDetail from "./pages/MeetingDetail";
 import Meetings from "./pages/Meetings";
@@ -37,13 +36,13 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/not-approved" element={<NotApproved />} />
             <Route path="/" element={<AppLayout />}>
-              <Route index element={<Index />} />
+              <Route index element={<Assistant />} />
+              <Route path="assistant" element={<Assistant />} />
               <Route path="new-meeting" element={<NewMeeting />} />
               <Route path="meetings/new" element={<NewMeeting />} />
               <Route path="meetings" element={<Meetings />} />
               <Route path="meetings/:id" element={<MeetingDetail />} />
               <Route path="todos" element={<Todos />} />
-              <Route path="assistant" element={<Assistant />} />
               <Route path="documents" element={<Documents />} />
               <Route path="invoices" element={<Invoices />} />
               <Route path="users" element={<UserManagement />} />
