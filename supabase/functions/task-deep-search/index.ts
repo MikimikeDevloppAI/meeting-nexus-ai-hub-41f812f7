@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -101,9 +100,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
 - Utilise des recherches web récentes pour compléter tes réponses
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec Perplexity GPT-4.1');
+        console.log('🚀 Envoi de la question de suivi avec Perplexity Sonar Large');
 
-        // Appel à l'API Perplexity avec GPT-4.1
+        // Appel à l'API Perplexity avec llama-3.1-sonar-large-128k-online
         const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
@@ -111,7 +110,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4.1',
+            model: 'llama-3.1-sonar-large-128k-online',
             messages: [
               {
                 role: 'user',
@@ -127,7 +126,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
           })
         });
 
-        console.log('📡 Statut réponse Perplexity GPT-4.1:', perplexityResponse.status);
+        console.log('📡 Statut réponse Perplexity Sonar Large:', perplexityResponse.status);
 
         if (!perplexityResponse.ok) {
           const errorText = await perplexityResponse.text();
@@ -241,7 +240,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity GPT-4.1
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Perplexity Sonar Large
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
     try {
@@ -253,9 +252,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Perplexity GPT-4.1');
+      console.log('🔍 Phase 3: Recherche finale avec Perplexity Sonar Large');
       
-      // Prompt optimisé pour Perplexity avec GPT-4.1
+      // Prompt optimisé pour Perplexity avec Sonar Large
       const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
@@ -295,9 +294,9 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-      console.log('🚀 Envoi de la recherche finale avec Perplexity GPT-4.1');
+      console.log('🚀 Envoi de la recherche finale avec Perplexity Sonar Large');
 
-      // Appel à l'API Perplexity avec GPT-4.1
+      // Appel à l'API Perplexity avec llama-3.1-sonar-large-128k-online
       const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -305,7 +304,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4.1',
+          model: 'llama-3.1-sonar-large-128k-online',
           messages: [
             {
               role: 'user',
