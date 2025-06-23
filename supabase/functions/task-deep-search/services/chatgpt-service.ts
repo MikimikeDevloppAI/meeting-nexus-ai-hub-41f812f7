@@ -11,7 +11,7 @@ export async function generateEnrichmentQuestions(
 Une tâche a été créée : "${todoDescription}"
 L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
 
-Génère exactement 4 questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE qui permettront d'affiner la recherche. Ces questions doivent être :
+Génère exactement 5 questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE qui permettront d'affiner la recherche. Ces questions doivent être :
 
 1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
 2. **PRATIQUES** - Focalisées sur les aspects opérationnels et budgétaires
@@ -28,7 +28,7 @@ Exemples de questions pertinentes :
 
 Adapte ces exemples au contexte spécifique de la tâche demandée.
 
-Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérotation ni formatage spécial.`;
+Format ta réponse UNIQUEMENT avec les 5 questions, une par ligne, sans numérotation ni formatage spécial.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -54,7 +54,7 @@ Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérot
 
   const data = await response.json();
   const questionsText = data.choices?.[0]?.message?.content || '';
-  const questions = questionsText.split('\n').filter(q => q.trim().length > 0).slice(0, 4);
+  const questions = questionsText.split('\n').filter(q => q.trim().length > 0).slice(0, 5);
 
   console.log('✅ Questions générées par ChatGPT:', questions.length);
   return questions;
