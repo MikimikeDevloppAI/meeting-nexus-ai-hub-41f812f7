@@ -61,11 +61,11 @@ const ForgotPassword = () => {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-accent p-4">
+      <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-            <p className="text-muted-foreground">Internal Management System</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
           </div>
           
           <Card className="animate-scale-in">
@@ -73,14 +73,14 @@ const ForgotPassword = () => {
               <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <Mail className="w-6 h-6 text-green-600" />
               </div>
-              <CardTitle>Email envoyé</CardTitle>
-              <CardDescription>
-                Nous avons envoyé un lien de réinitialisation à {email}
+              <CardTitle className="text-xl sm:text-2xl">Email envoyé</CardTitle>
+              <CardDescription className="text-sm break-words">
+                Nous avons envoyé un lien de réinitialisation à <span className="font-medium">{email}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
-                <AlertDescription>
+                <AlertDescription className="text-sm">
                   Vérifiez votre boîte de réception et suivez le lien pour réinitialiser votre mot de passe.
                   Si vous ne voyez pas l'email, vérifiez vos spams.
                 </AlertDescription>
@@ -111,24 +111,24 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-accent p-4">
+    <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-muted-foreground">Internal Management System</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
         </div>
         
         <Card className="animate-scale-in">
-          <CardHeader>
-            <CardTitle>Mot de passe oublié</CardTitle>
-            <CardDescription>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl sm:text-2xl">Mot de passe oublié</CardTitle>
+            <CardDescription className="text-sm">
               Entrez votre adresse email pour recevoir un lien de réinitialisation
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Adresse email</Label>
+                <Label htmlFor="email" className="text-sm">Adresse email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -137,6 +137,7 @@ const ForgotPassword = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                   required
+                  className="w-full"
                 />
               </div>
               

@@ -131,7 +131,6 @@ const ResetPassword = () => {
         description: "Votre mot de passe a été réinitialisé avec succès",
       });
 
-      // Rediriger vers la page de connexion
       navigate("/login");
     } catch (error: any) {
       console.error("Erreur lors de la réinitialisation:", error);
@@ -148,11 +147,11 @@ const ResetPassword = () => {
   // Afficher un loader pendant la vérification de la session
   if (!isValidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-accent p-4">
+      <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-            <p className="text-muted-foreground">Internal Management System</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
           </div>
           
           <Card className="animate-scale-in">
@@ -160,7 +159,7 @@ const ResetPassword = () => {
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-              <p className="text-center text-muted-foreground mt-4">
+              <p className="text-center text-muted-foreground mt-4 text-sm">
                 Vérification du lien de réinitialisation...
               </p>
             </CardContent>
@@ -171,24 +170,24 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-accent p-4">
+    <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-muted-foreground">Internal Management System</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
         </div>
         
         <Card className="animate-scale-in">
-          <CardHeader>
-            <CardTitle>Nouveau mot de passe</CardTitle>
-            <CardDescription>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl sm:text-2xl">Nouveau mot de passe</CardTitle>
+            <CardDescription className="text-sm">
               Choisissez un nouveau mot de passe sécurisé
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">Nouveau mot de passe</Label>
+                <Label htmlFor="password" className="text-sm">Nouveau mot de passe</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -197,6 +196,7 @@ const ResetPassword = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                     required
+                    className="pr-10"
                   />
                   <Button
                     type="button"
@@ -216,7 +216,7 @@ const ResetPassword = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                <Label htmlFor="confirmPassword" className="text-sm">Confirmer le mot de passe</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
@@ -225,6 +225,7 @@ const ResetPassword = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={isLoading}
                     required
+                    className="pr-10"
                   />
                   <Button
                     type="button"

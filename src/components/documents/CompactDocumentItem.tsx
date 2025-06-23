@@ -1,4 +1,3 @@
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
@@ -50,21 +49,23 @@ export const CompactDocumentItem = ({
   return (
     <>
       <div 
-        className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+        className="border rounded-lg p-3 lg:p-4 hover:bg-gray-50 cursor-pointer transition-colors"
         onClick={() => setShowDetails(true)}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               {isMeeting ? (
-                <Mic className="h-4 w-4 text-blue-600" />
+                <Mic className="h-4 w-4 text-blue-600 flex-shrink-0" />
               ) : (
-                <FileText className="h-4 w-4 text-gray-600" />
+                <FileText className="h-4 w-4 text-gray-600 flex-shrink-0" />
               )}
-              <h3 className="font-medium text-sm">
+              <h3 className="font-medium text-sm truncate flex-1 min-w-0">
                 {document.ai_generated_name || document.original_name}
               </h3>
-              
+            </div>
+
+            <div className="flex flex-wrap gap-1 mb-2">
               {isMeeting ? (
                 <Badge variant="default" className="bg-blue-500 text-xs">
                   <Mic className="h-3 w-3 mr-1" />
@@ -106,22 +107,26 @@ export const CompactDocumentItem = ({
               </div>
             )}
             
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 lg:gap-4 text-xs text-muted-foreground flex-wrap">
               {isMeeting ? (
                 <>
-                  <span>Meeting</span>
+                  <span className="flex-shrink-0">Meeting</span>
                   {document.participants && (
-                    <span>{document.participants.map(p => p.name).join(', ')}</span>
+                    <span className="truncate">
+                      {document.participants.map(p => p.name).join(', ')}
+                    </span>
                   )}
                 </>
               ) : (
-                <span>{formatFileSize(document.file_size)}</span>
+                <span className="flex-shrink-0">{formatFileSize(document.file_size)}</span>
               )}
-              <span>{new Date(document.created_at).toLocaleDateString('fr-FR')}</span>
+              <span className="flex-shrink-0">
+                {new Date(document.created_at).toLocaleDateString('fr-FR')}
+              </span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             {/* Bouton de prévisualisation pour les documents avec file_path */}
             {!isMeeting && document.file_path && (
               <Button
@@ -129,6 +134,7 @@ export const CompactDocumentItem = ({
                 size="sm"
                 onClick={() => setShowPreview(true)}
                 title="Prévisualiser le document"
+                className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
                 <Eye className="h-4 w-4" />
               </Button>
@@ -139,6 +145,7 @@ export const CompactDocumentItem = ({
                 size="sm"
                 onClick={handlePlayAudio}
                 title="Écouter l'audio"
+                className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
                 <Play className="h-4 w-4" />
               </Button>
@@ -148,6 +155,7 @@ export const CompactDocumentItem = ({
               size="sm"
               onClick={onDownload}
               title={isMeeting ? "Voir la page du meeting" : "Télécharger"}
+              className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
             >
               <Download className="h-4 w-4" />
             </Button>
@@ -157,6 +165,7 @@ export const CompactDocumentItem = ({
                 size="sm"
                 onClick={onDelete}
                 disabled={isDeleting}
+                className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -176,34 +185,34 @@ export const CompactDocumentItem = ({
 
       {/* Modal pour les détails */}
       {showDetails && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex relative">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 lg:p-4">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] lg:max-h-[90vh] overflow-hidden flex flex-col lg:flex-row relative">
             {/* Bouton de fermeture en haut à droite */}
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => setShowDetails(false)}
-              className="absolute top-4 right-4 z-10"
+              className="absolute top-2 right-2 lg:top-4 lg:right-4 z-10 h-8 w-8 p-0"
             >
               <X className="h-4 w-4" />
             </Button>
 
             {/* Partie gauche - Détails du document/meeting */}
-            <div className="flex-1 flex flex-col">
-              <div className="p-6 border-b pr-16">
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="p-4 lg:p-6 border-b pr-12 lg:pr-16">
                 <div className="flex items-center gap-2 mb-2">
                   {isMeeting ? (
-                    <Mic className="h-5 w-5 text-blue-600" />
+                    <Mic className="h-5 w-5 text-blue-600 flex-shrink-0" />
                   ) : (
-                    <FileText className="h-5 w-5 text-gray-600" />
+                    <FileText className="h-5 w-5 text-gray-600 flex-shrink-0" />
                   )}
-                  <h2 className="text-lg font-semibold">
+                  <h2 className="text-base lg:text-lg font-semibold truncate">
                     {document.ai_generated_name || document.original_name}
                   </h2>
                 </div>
                 
                 {document.ai_generated_name && document.original_name !== document.ai_generated_name && (
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1 truncate">
                     Nom original: {document.original_name}
                   </p>
                 )}
@@ -217,7 +226,7 @@ export const CompactDocumentItem = ({
                 )}
               </div>
               
-              <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div className="p-4 lg:p-6 flex-1 overflow-y-auto space-y-4">
                 {/* Résumé */}
                 {document.ai_summary && (
                   <div>
@@ -281,7 +290,7 @@ export const CompactDocumentItem = ({
             </div>
             
             {/* Partie droite - Chat avec le document/meeting */}
-            <div className="w-96 border-l bg-gray-50">
+            <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l bg-gray-50 min-h-[300px] lg:min-h-0">
               <CompactDocumentChat document={document} />
             </div>
           </div>
