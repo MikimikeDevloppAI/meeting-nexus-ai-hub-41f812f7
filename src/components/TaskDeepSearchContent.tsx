@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -365,44 +364,48 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                             Plein écran
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-6xl max-h-[95vh] w-[95vw] flex flex-col">
-                          <DialogHeader>
+                        <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] flex flex-col p-0">
+                          <DialogHeader className="px-6 py-4 border-b shrink-0">
                             <DialogTitle>Résultat de la recherche approfondie (Sonar Pro)</DialogTitle>
                           </DialogHeader>
-                          <ScrollArea className="flex-1 pr-4">
-                            <div className="space-y-6">
-                              <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <h3 className="font-semibold">Résultat principal</h3>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(searchResult)}
-                                  >
-                                    <Copy className="h-4 w-4 mr-1" />
-                                    Copier tout
-                                  </Button>
-                                </div>
-                                <div className="border rounded-md p-4 bg-gray-50">
-                                  <ScrollArea className="max-h-[400px]">
-                                    <DeepSearchContent text={searchResult} sources={sources} />
-                                  </ScrollArea>
-                                </div>
-                              </div>
-                              
-                              {currentDeepSearchId && (
+                          <div className="flex-1 min-h-0 p-6">
+                            <ScrollArea className="h-full w-full">
+                              <div className="space-y-8 pr-4">
                                 <div>
-                                  <Separator className="my-6" />
-                                  <TaskDeepSearchFollowups 
-                                    deepSearchId={currentDeepSearchId}
-                                    todoId={todoId}
-                                    todoDescription={todoDescription}
-                                    isFullScreen={true}
-                                  />
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-semibold text-lg">Résultat principal</h3>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => copyToClipboard(searchResult)}
+                                    >
+                                      <Copy className="h-4 w-4 mr-1" />
+                                      Copier tout
+                                    </Button>
+                                  </div>
+                                  <div className="border rounded-md bg-gray-50">
+                                    <ScrollArea className="h-[500px] w-full">
+                                      <div className="p-4">
+                                        <DeepSearchContent text={searchResult} sources={sources} />
+                                      </div>
+                                    </ScrollArea>
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          </ScrollArea>
+                                
+                                {currentDeepSearchId && (
+                                  <div>
+                                    <Separator className="my-6" />
+                                    <TaskDeepSearchFollowups 
+                                      deepSearchId={currentDeepSearchId}
+                                      todoId={todoId}
+                                      todoDescription={todoDescription}
+                                      isFullScreen={true}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          </div>
                         </DialogContent>
                       </Dialog>
                       <Button
