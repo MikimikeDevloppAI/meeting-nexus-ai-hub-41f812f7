@@ -40,7 +40,7 @@ type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 export default function Todos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("confirmed"); // Filtre par défaut sur "En cours"
   const [participantFilter, setParticipantFilter] = useState<string>("all");
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
@@ -320,13 +320,6 @@ export default function Todos() {
         <div className="flex items-center gap-2">
           <div className="flex gap-2">
             <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              Toutes
-            </Button>
-            <Button
               variant={statusFilter === "confirmed" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("confirmed")}
@@ -339,6 +332,13 @@ export default function Todos() {
               onClick={() => setStatusFilter("completed")}
             >
               Terminées
+            </Button>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+            >
+              Toutes
             </Button>
           </div>
           
