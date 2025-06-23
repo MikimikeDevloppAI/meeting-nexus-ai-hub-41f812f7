@@ -35,6 +35,7 @@ export const useUnifiedChatHistory = ({
   maxSentHistory = 20
 }: UseUnifiedChatHistoryProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Charger l'historique au démarrage
   useEffect(() => {
@@ -51,33 +52,30 @@ export const useUnifiedChatHistory = ({
         console.log(`[CHAT_HISTORY] ✅ Historique chargé (${storageKey}):`, messagesWithDates.length, 'messages');
       } catch (error) {
         console.error(`[CHAT_HISTORY] ❌ Erreur chargement historique (${storageKey}):`, error);
-        // En cas d'erreur, démarrer avec le message d'accueil si fourni
-        if (initialMessage) {
-          initializeChat();
-        }
+        // En cas d'erreur, initialiser proprement
+        initializeWithWelcome();
       }
     } else {
       // Première visite, initialiser avec le message d'accueil si fourni
-      if (initialMessage) {
-        initializeChat();
-      }
+      initializeWithWelcome();
     }
-  }, [storageKey, initialMessage]);
+    setIsInitialized(true);
+  }, [storageKey]);
 
   // Sauvegarder l'historique à chaque modification
   useEffect(() => {
-    if (messages.length > 0) {
+    if (isInitialized && messages.length > 0) {
       // Limiter la taille de l'historique sauvegardé
       const limitedMessages = messages.slice(-maxHistoryLength);
       localStorage.setItem(storageKey, JSON.stringify(limitedMessages));
       console.log(`[CHAT_HISTORY] 💾 Historique sauvegardé (${storageKey}):`, limitedMessages.length, 'messages');
     }
-  }, [messages, storageKey, maxHistoryLength]);
+  }, [messages, storageKey, maxHistoryLength, isInitialized]);
 
-  const initializeChat = () => {
+  const initializeWithWelcome = () => {
     if (initialMessage) {
       const welcomeMessage: ChatMessage = {
-        id: '1',
+        id: 'welcome-1',
         content: initialMessage,
         isUser: false,
         timestamp: new Date(),
@@ -88,8 +86,18 @@ export const useUnifiedChatHistory = ({
 
   const addMessage = (message: ChatMessage) => {
     setMessages(prev => {
+      // Éviter les doublons de messages d'accueil
+      if (!message.isUser && message.content.includes("Bonjour ! Je suis l'assistant IA")) {
+        const hasWelcome = prev.some(msg => 
+          !msg.isUser && msg.content.includes("Bonjour ! Je suis l'assistant IA")
+        );
+        if (hasWelcome) {
+          console.log('[CHAT_HISTORY] 🚫 Éviter doublon message d\'accueil');
+          return prev;
+        }
+      }
+      
       const newMessages = [...prev, message];
-      // Limiter automatiquement si nécessaire
       return newMessages.length > maxHistoryLength 
         ? newMessages.slice(-maxHistoryLength)
         : newMessages;
@@ -99,17 +107,20 @@ export const useUnifiedChatHistory = ({
   const clearHistory = () => {
     localStorage.removeItem(storageKey);
     if (initialMessage) {
-      initializeChat();
+      initializeWithWelcome();
     } else {
       setMessages([]);
     }
     console.log(`[CHAT_HISTORY] 🗑️ Historique effacé (${storageKey})`);
   };
 
-  // Obtenir l'historique formaté pour l'envoi aux Edge Functions
+  // Obtenir l'historique formaté pour l'envoi aux Edge Functions (sans doublons d'accueil)
   const getFormattedHistory = () => {
     return messages
-      .slice(-maxSentHistory) // Prendre les N derniers messages
+      .filter(msg => 
+        msg.isUser || !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche")
+      )
+      .slice(-maxSentHistory)
       .map(msg => ({
         isUser: msg.isUser,
         content: msg.content,
@@ -123,6 +134,7 @@ export const useUnifiedChatHistory = ({
     setMessages,
     addMessage,
     clearHistory,
-    getFormattedHistory
+    getFormattedHistory,
+    isInitialized
   };
 };

@@ -33,7 +33,8 @@ export const TodoAssistantFullscreen = ({
     messages,
     addMessage,
     clearHistory,
-    getFormattedHistory
+    getFormattedHistory,
+    isInitialized
   } = useUnifiedChatHistory({
     // Utiliser le même storageKey que le composant normal pour partager l'historique
     storageKey: `todo-assistant-${todoId}`,
@@ -43,7 +44,7 @@ export const TodoAssistantFullscreen = ({
   });
 
   const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !isInitialized) return;
 
     const userMessage = {
       id: Date.now().toString(),
@@ -52,6 +53,7 @@ export const TodoAssistantFullscreen = ({
       timestamp: new Date()
     };
 
+    const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
     setIsTyping(true);
@@ -79,17 +81,14 @@ export const TodoAssistantFullscreen = ({
         console.error('Erreur récupération tâche:', todoError);
       }
 
-      // Obtenir l'historique filtré (sans messages d'accueil dupliqués)
-      const history = getFormattedHistory().filter(msg => 
-        !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") ||
-        msg.isUser
-      );
+      // Obtenir l'historique formaté (déjà filtré par le hook)
+      const history = getFormattedHistory();
 
       const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
         body: {
           todoId,
           todoDescription,
-          userMessage: inputValue,
+          userMessage: currentInput,
           conversationHistory: history,
           todoData: todoData || null
         }
@@ -110,20 +109,10 @@ export const TodoAssistantFullscreen = ({
         timestamp: new Date()
       };
 
-      // Supprimer le message de typing et reconstruire l'historique proprement
-      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
+      // Remplacer le message de typing par la vraie réponse
+      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
       clearHistory();
-      filteredMessages.forEach((msg, index) => {
-        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
-          addMessage({
-            id: `restored-fullscreen-${Date.now()}-${index}`,
-            content: msg.content,
-            isUser: msg.isUser,
-            timestamp: new Date(msg.timestamp),
-            sources: msg.sources
-          });
-        }
-      });
+      updatedMessages.forEach(msg => addMessage(msg));
       addMessage(userMessage);
       addMessage(assistantMessage);
 
@@ -152,20 +141,10 @@ export const TodoAssistantFullscreen = ({
         timestamp: new Date()
       };
       
-      // Supprimer le message de typing et ajouter l'erreur
-      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
+      // Remplacer le message de typing par l'erreur
+      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
       clearHistory();
-      filteredMessages.forEach((msg, index) => {
-        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
-          addMessage({
-            id: `restored-error-fullscreen-${Date.now()}-${index}`,
-            content: msg.content,
-            isUser: msg.isUser,
-            timestamp: new Date(msg.timestamp),
-            sources: msg.sources
-          });
-        }
-      });
+      updatedMessages.forEach(msg => addMessage(msg));
       addMessage(userMessage);
       addMessage(errorMessage);
       
@@ -187,6 +166,10 @@ export const TodoAssistantFullscreen = ({
       sendMessage();
     }
   };
+
+  if (!isInitialized) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

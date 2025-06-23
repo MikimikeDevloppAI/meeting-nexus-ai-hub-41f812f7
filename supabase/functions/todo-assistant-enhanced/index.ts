@@ -41,11 +41,11 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: 'Tu es un assistant de recherche. Fournir des informations factuelles et récentes en français.'
+                content: 'Tu es un assistant de recherche. Fournir des informations factuelles et récentes en français pour un cabinet d\'ophtalmologie en Suisse.'
               },
               {
                 role: 'user',
-                content: `Recherche des informations pertinentes pour cette question dans le contexte d'une tâche ophtalmologique: ${userMessage}`
+                content: `Recherche des informations pertinentes pour cette question dans le contexte d'un cabinet d'ophtalmologie à Genève, Suisse: ${userMessage}`
               }
             ],
             temperature: 0.2,
@@ -67,8 +67,16 @@ serve(async (req) => {
       }
     }
 
-    // Préparer le contexte pour l'IA
-    let contextPrompt = `Tu es un assistant IA spécialisé dans l'aide aux tâches pour le cabinet d'ophtalmologie Dr Tabibian.
+    // Préparer le contexte enrichi pour l'IA
+    let contextPrompt = `Tu es l'assistant IA spécialisé pour le cabinet d'ophtalmologie Dr David Tabibian à Genève, Suisse.
+
+CONTEXTE DU CABINET:
+- Cabinet d'ophtalmologie spécialisé dirigé par le Dr David Tabibian
+- Localisation: Genève, Suisse
+- Équipe: Leïla (assistante), Émilie, Parmis et autres collaborateurs
+- Spécialités: consultations ophtalmologiques complètes, chirurgie de la cataracte, contactologie, traitement des pathologies rétiniennes
+- Environnement: cabinet médical moderne avec équipements de pointe
+- Patientèle: patients francophones de Genève et région lémanique
 
 TÂCHE ACTUELLE:
 - ID: ${todoId}
@@ -77,7 +85,7 @@ TÂCHE ACTUELLE:
     if (todoData?.meetings?.[0]) {
       contextPrompt += `
 
-CONTEXTE DE LA RÉUNION:
+CONTEXTE DE LA RÉUNION ASSOCIÉE:
 - Titre: ${todoData.meetings[0].title}`;
       
       if (todoData.meetings[0].summary) {
@@ -101,33 +109,31 @@ ${recommendation}`;
     if (internetContext) {
       contextPrompt += `
 
-INFORMATIONS INTERNET RÉCENTES:
+INFORMATIONS RÉCENTES (RECHERCHE INTERNET):
 ${internetContext}`;
     }
 
     contextPrompt += `
 
-INSTRUCTIONS:
-- Aide l'utilisateur avec sa tâche en utilisant toutes les informations disponibles
-- Si besoin, suggère des améliorations ou des actions concrètes
-- Reste concis et pratique
-- Si tu ne peux pas répondre avec les informations disponibles, dis-le clairement
-- Utilise les informations internet récentes si disponibles pour enrichir tes réponses
+INSTRUCTIONS SPÉCIALISÉES:
+- Utilise ton expertise en ophtalmologie et gestion de cabinet médical suisse
+- Prends en compte le contexte réglementaire et médical suisse/genevois
+- Suggère des solutions pratiques adaptées à un cabinet d'ophtalmologie
+- Si tu proposes des actions concrètes, sois spécifique au domaine médical
+- Utilise les informations de recherche internet pour enrichir tes conseils
+- Reste professionnel et précis dans tes recommandations médicales
+- Si une information dépasse tes compétences, recommande de consulter des sources spécialisées
 
-Réponds de manière naturelle et utile à la question de l'utilisateur.`;
+Réponds de manière professionnelle et utile à la question de l'utilisateur en utilisant tout le contexte disponible.`;
 
-    // Préparer l'historique de conversation SANS le message d'accueil
+    // Préparer l'historique de conversation sans doublons
     const messages = [
       { role: 'system', content: contextPrompt }
     ];
 
-    // Ajouter l'historique de conversation en filtrant les messages d'accueil
+    // Ajouter l'historique filtré (l'historique reçu est déjà filtré côté frontend)
     if (conversationHistory && conversationHistory.length > 0) {
-      const filteredHistory = conversationHistory.filter((msg: any) => 
-        !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche")
-      );
-      
-      filteredHistory.forEach((msg: any) => {
+      conversationHistory.forEach((msg: any) => {
         messages.push({
           role: msg.isUser ? 'user' : 'assistant',
           content: msg.content
@@ -138,7 +144,7 @@ Réponds de manière naturelle et utile à la question de l'utilisateur.`;
     // Ajouter le message actuel
     messages.push({ role: 'user', content: userMessage });
 
-    console.log('🔍 Envoi requête à OpenAI...');
+    console.log('🔍 Envoi requête à OpenAI avec contexte enrichi...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -150,7 +156,7 @@ Réponds de manière naturelle et utile à la question de l'utilisateur.`;
         model: 'gpt-4.1-2025-04-14',
         messages: messages,
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 1200,
         stream: false
       }),
     });
@@ -194,7 +200,8 @@ function shouldSearchInternet(message: string): boolean {
     'prix', 'coût', 'tarif', 'fournisseur', 'contact', 'entreprise',
     'recommandation', 'avis', 'comparaison', 'alternative', 'solution',
     'médecin', 'clinique', 'hôpital', 'spécialiste', 'traitement',
-    'médicament', 'équipement', 'matériel', 'acheter', 'commander'
+    'médicament', 'équipement', 'matériel', 'acheter', 'commander',
+    'réglementation', 'norme', 'loi', 'suisse', 'genève', 'formation'
   ];
   
   const lowerMessage = message.toLowerCase();

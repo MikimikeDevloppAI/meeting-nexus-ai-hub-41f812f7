@@ -36,7 +36,8 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     messages,
     addMessage,
     clearHistory,
-    getFormattedHistory
+    getFormattedHistory,
+    isInitialized
   } = useUnifiedChatHistory({
     storageKey: `todo-assistant-${todoId}`,
     initialMessage: "Bonjour ! Je suis l'assistant IA pour cette tâche. Je peux vous aider avec des conseils, des suggestions ou répondre à vos questions en utilisant le contexte de la tâche et de la réunion associée.",
@@ -70,7 +71,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
   };
 
   const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !isInitialized) return;
 
     const userMessage = {
       id: Date.now().toString(),
@@ -79,6 +80,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       timestamp: new Date()
     };
 
+    const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
     setIsTyping(true);
@@ -94,7 +96,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
     addMessage(typingMessage);
 
     try {
-      console.log('📤 Envoi demande assistant IA:', inputValue);
+      console.log('📤 Envoi demande assistant IA:', currentInput);
       
       // Récupérer les informations de la tâche et de la réunion
       const { data: todoData, error: todoError } = await supabase
@@ -110,17 +112,14 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         console.error('Erreur récupération tâche:', todoError);
       }
 
-      // Obtenir l'historique filtré (sans messages d'accueil dupliqués)
-      const history = getFormattedHistory().filter(msg => 
-        !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") ||
-        msg.isUser
-      );
+      // Obtenir l'historique formaté (déjà filtré par le hook)
+      const history = getFormattedHistory();
 
       const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
         body: {
           todoId,
           todoDescription,
-          userMessage: inputValue,
+          userMessage: currentInput,
           conversationHistory: history,
           todoData: todoData || null,
           recommendation: recommendation?.recommendation_text || null
@@ -144,23 +143,11 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         timestamp: new Date()
       };
 
-      // Supprimer le message de typing et ajouter la vraie réponse
-      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
-      
+      // Remplacer le message de typing par la vraie réponse
+      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
       // Reconstruire l'historique proprement
       clearHistory();
-      filteredMessages.forEach((msg, index) => {
-        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
-          addMessage({
-            id: `restored-${Date.now()}-${index}`,
-            content: msg.content,
-            isUser: msg.isUser,
-            timestamp: new Date(msg.timestamp),
-            sources: msg.sources
-          });
-        }
-      });
-      
+      updatedMessages.forEach(msg => addMessage(msg));
       addMessage(userMessage);
       addMessage(assistantMessage);
 
@@ -191,20 +178,10 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         timestamp: new Date()
       };
       
-      // Supprimer le message de typing et ajouter l'erreur
-      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
+      // Remplacer le message de typing par l'erreur
+      const updatedMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
       clearHistory();
-      filteredMessages.forEach((msg, index) => {
-        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
-          addMessage({
-            id: `restored-error-${Date.now()}-${index}`,
-            content: msg.content,
-            isUser: msg.isUser,
-            timestamp: new Date(msg.timestamp),
-            sources: msg.sources
-          });
-        }
-      });
+      updatedMessages.forEach(msg => addMessage(msg));
       addMessage(userMessage);
       addMessage(errorMessage);
       
@@ -226,6 +203,12 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       sendMessage();
     }
   };
+
+  if (!isInitialized) {
+    return <div className="flex items-center justify-center p-4">
+      <div className="text-sm text-muted-foreground">Initialisation...</div>
+    </div>;
+  }
 
   return (
     <>
