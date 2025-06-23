@@ -12,265 +12,235 @@ export async function processTaskRecommendations(
     return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
-  console.log(`⚡ [RECOMMENDATION-SERVICE] DÉBUT génération des recommandations pour ${tasks.length} tâches par batch de 5`);
+  console.log(`⚡ [RECOMMENDATION-SERVICE] DÉBUT génération des recommandations SINGLE BATCH pour ${tasks.length} tâches avec GPT-4.1`);
   
   const supabaseClient = createSupabaseClient();
-  const BATCH_SIZE = 5;
-  const batches = [];
   
-  // Diviser les tâches en groupes de 5
-  for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
-    batches.push(tasks.slice(i, i + BATCH_SIZE));
-  }
-  
-  console.log(`📊 [RECOMMENDATION-SERVICE] ${batches.length} batches créés (${BATCH_SIZE} tâches par batch)`);
-
   try {
     const participantNames = participants?.map(p => p.name).join(', ') || '';
 
-    // Traiter tous les batches en parallèle
-    const batchPromises = batches.map(async (batchTasks, batchIndex) => {
-      console.log(`🚀 [RECOMMENDATION-SERVICE] Démarrage batch ${batchIndex + 1}/${batches.length} (${batchTasks.length} tâches)`);
-      
-      const tasksForPrompt = batchTasks.map((task, index) => ({
-        index: index,
-        id: task.id,
-        description: task.description,
-        assigned_to: task.todo_participants?.map(tp => tp.participants?.name).join(', ') || 'Non assigné'
-      }));
+    // Traiter TOUTES les tâches en un seul batch optimisé
+    console.log(`🚀 [RECOMMENDATION-SERVICE] Traitement SINGLE BATCH pour ${tasks.length} tâches`);
+    
+    const tasksForPrompt = tasks.map((task, index) => ({
+      index: index,
+      id: task.id,
+      description: task.description,
+      assigned_to: task.todo_participants?.map(tp => tp.participants?.name).join(', ') || 'Non assigné'
+    }));
 
-      // Créer un prompt optimisé pour ce batch spécifique
-      const batchPrompt = `
-Tu es un assistant IA spécialisé dans la génération de recommandations DÉTAILLÉES pour des tâches issues de réunions du cabinet d'ophtalmologie Dr Tabibian à Genève.
+    // Prompt optimisé pour GPT-4.1 - plus concis et efficace
+    const optimizedPrompt = `Tu es un assistant IA spécialisé dans la génération de recommandations DÉTAILLÉES et d'emails pour des tâches du cabinet d'ophtalmologie Dr Tabibian à Genève.
 
-CONTEXTE DE LA RÉUNION :
+CONTEXTE RÉUNION:
 - Titre: ${meetingData.title || 'Réunion'}
 - Date: ${meetingData.created_at || new Date().toISOString()}
 - Participants: ${participantNames}
 
-TRANSCRIPT DE LA RÉUNION :
+TRANSCRIPT:
 ${cleanedTranscript}
 
-TÂCHES À ANALYSER (Batch ${batchIndex + 1} - ${batchTasks.length} tâches) :
+TÂCHES (${tasks.length} total):
 ${tasksForPrompt.map(task => `
 ${task.index}. [ID: ${task.id}] ${task.description}
-   - Assigné à: ${task.assigned_to}
+   - Assigné: ${task.assigned_to}
 `).join('')}
 
-INSTRUCTIONS :
-Pour chaque tâche, génère une recommandation DÉTAILLÉE qui :
-1. Proposer un **plan d'exécution clair** si la tâche est complexe ou nécessite plusieurs étapes.
-2. **Signaler les éléments importants à considérer** (contraintes réglementaires, risques, coordination nécessaire, points d'attention).
-3. **Suggérer des prestataires, fournisseurs ou outils** qui peuvent faciliter l’exécution.
-4. Si pertinent, **challenger les décisions prises** ou proposer une alternative plus efficace ou moins risquée.
-5. Ne faire **aucune recommandation** si la tâche est simple ou évidente (dans ce cas, répondre uniquement : “Aucune recommandation.”).
-6. Génère un email pré-rédigé si communication nécessaire. si c'est une communication interne soit directe et concis. Pour les communications externe soit plus professionel et mets tout le contexte pour que l'email soit clair.
- 
-Critères de qualité à respecter:
-- Sois **concis, structuré et actionnable**.
-- Fournis uniquement des recommandations qui **ajoutent une vraie valeur**. ne pas paraphraser la Tache
-- N’invente pas de contacts si tu n’en as pas.
-- Évite les banalités ou les évidences.
+INSTRUCTIONS:
+Pour chaque tâche, génère:
+1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils, ou challenge les décisions si pertinent.
+2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte).
+3. Si la tâche est simple/évidente, marque hasRecommendation: false avec "Aucune recommandation nécessaire."
 
+Critères qualité:
+- Concis, structuré, actionnable
+- Valeur ajoutée réelle
+- Pas d'invention de contacts
+- Éviter banalités
 
-
-Réponds UNIQUEMENT en JSON avec cette structure EXACTE :
+Réponds UNIQUEMENT en JSON:
 {
   "recommendations": [
     {
       "taskIndex": 0,
-      "taskId": "uuid-de-la-tache",
-      "hasRecommendation": true,
+      "taskId": "uuid-tache",
+      "hasRecommendation": true/false,
       "recommendation": "Recommandation détaillée...",
       "emailDraft": "Email COMPLET (optionnel)"
     }
   ]
 }
 
-ASSURE-TOI d'inclure TOUTES les ${batchTasks.length} tâches de ce batch.`;
+IMPORTANT: Inclus TOUTES les ${tasks.length} tâches avec recommandations détaillées.`;
 
-      const payload = {
-        batchPrompt,
-        tasks: tasksForPrompt,
-        transcript: cleanedTranscript,
-        meetingContext: {
-          title: meetingData.title || 'Réunion',
-          date: meetingData.created_at || new Date().toISOString(),
-          participants: participantNames,
-          batchInfo: `Batch ${batchIndex + 1}/${batches.length}`
-        }
-      };
-
-      console.log(`📤 [RECOMMENDATION-SERVICE] Envoi batch ${batchIndex + 1} à task-recommendation-agent`);
-      const callStartTime = Date.now();
-
-      const { data: batchResult, error: openaiError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
-        body: payload
-      });
-      
-      const callDuration = Date.now() - callStartTime;
-      console.log(`⏱️ [RECOMMENDATION-SERVICE] Batch ${batchIndex + 1} terminé (${callDuration}ms)`);
-
-      if (openaiError) {
-        console.error(`❌ [RECOMMENDATION-SERVICE] Erreur batch ${batchIndex + 1}:`, openaiError);
-        // Retourner des recommandations par défaut pour ce batch
-        return {
-          batchIndex,
-          recommendations: batchTasks.map((task, index) => ({
-            taskIndex: index,
-            taskId: task.id,
-            hasRecommendation: false,
-            recommendation: "Erreur lors de la génération de la recommandation",
-            emailDraft: null
-          })),
-          success: false
-        };
+    const payload = {
+      batchPrompt: optimizedPrompt,
+      tasks: tasksForPrompt,
+      transcript: cleanedTranscript,
+      meetingContext: {
+        title: meetingData.title || 'Réunion',
+        date: meetingData.created_at || new Date().toISOString(),
+        participants: participantNames,
+        singleBatch: true,
+        totalTasks: tasks.length
       }
+    };
 
-      // Extraire les recommandations
-      let recommendations = [];
-      if (batchResult?.recommendation?.recommendations) {
-        recommendations = batchResult.recommendation.recommendations;
-      } else if (batchResult?.recommendations) {
-        recommendations = batchResult.recommendations;
-      } else if (Array.isArray(batchResult)) {
-        recommendations = batchResult;
-      }
+    console.log(`📤 [RECOMMENDATION-SERVICE] Envoi SINGLE BATCH à task-recommendation-agent`);
+    const callStartTime = Date.now();
 
-      console.log(`✅ [RECOMMENDATION-SERVICE] Batch ${batchIndex + 1}: ${recommendations.length} recommandations extraites`);
-
-      return {
-        batchIndex,
-        recommendations,
-        tasks: batchTasks,
-        success: true
-      };
+    const { data: batchResult, error: openaiError } = await supabaseClient.functions.invoke('task-recommendation-agent', {
+      body: payload
     });
+    
+    const callDuration = Date.now() - callStartTime;
+    console.log(`⏱️ [RECOMMENDATION-SERVICE] Single batch terminé (${callDuration}ms)`);
 
-    // Attendre que tous les batches soient terminés
-    console.log(`🔄 [RECOMMENDATION-SERVICE] Traitement de ${batches.length} batches en parallèle...`);
-    const batchResults = await Promise.all(batchPromises);
-    console.log(`✅ [RECOMMENDATION-SERVICE] Tous les batches terminés`);
+    if (openaiError) {
+      console.error(`❌ [RECOMMENDATION-SERVICE] Erreur single batch:`, openaiError);
+      throw new Error(`Erreur lors de l'appel à task-recommendation-agent: ${openaiError.message || openaiError}`);
+    }
+
+    // Extraire les recommandations
+    let recommendations = [];
+    if (batchResult?.recommendation?.recommendations) {
+      recommendations = batchResult.recommendation.recommendations;
+    } else if (batchResult?.recommendations) {
+      recommendations = batchResult.recommendations;
+    } else if (Array.isArray(batchResult)) {
+      recommendations = batchResult;
+    }
+
+    console.log(`✅ [RECOMMENDATION-SERVICE] Single batch: ${recommendations.length} recommandations extraites pour ${tasks.length} tâches`);
 
     // Sauvegarder toutes les recommandations
     let totalSuccessful = 0;
     let totalFailed = 0;
 
-    for (const batchResult of batchResults) {
-      const { batchIndex, recommendations, tasks: batchTasks, success } = batchResult;
-      
-      console.log(`💾 [RECOMMENDATION-SERVICE] Sauvegarde batch ${batchIndex + 1}: ${recommendations.length} recommandations`);
+    console.log(`💾 [RECOMMENDATION-SERVICE] Sauvegarde de ${recommendations.length} recommandations`);
 
-      for (let i = 0; i < batchTasks.length; i++) {
-        const task = batchTasks[i];
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      try {
+        // Trouver la recommandation correspondante
+        let recommendation = recommendations.find(rec => rec.taskId === task.id);
+        
+        if (!recommendation) {
+          recommendation = recommendations.find(rec => rec.taskIndex === i);
+        }
+        
+        if (!recommendation) {
+          recommendation = {
+            hasRecommendation: true,
+            recommendation: "Recommandation non trouvée - veuillez revoir cette tâche.",
+            emailDraft: null
+          };
+        }
+
+        // Toujours sauvegarder une recommandation
+        const { error: saveError } = await supabaseClient
+          .from('todo_ai_recommendations')
+          .insert({
+            todo_id: task.id,
+            recommendation_text: recommendation.recommendation || "Recommandation générée avec succès",
+            email_draft: recommendation.emailDraft || null
+          });
+        
+        if (saveError) {
+          console.error(`❌ [RECOMMENDATION-SERVICE] Erreur sauvegarde tâche ${task.id}:`, saveError);
+          totalFailed++;
+        } else {
+          console.log(`✅ [RECOMMENDATION-SERVICE] Recommandation sauvegardée pour tâche ${task.id}`);
+          totalSuccessful++;
+        }
+        
+        // Marquer la tâche comme traitée
+        await supabaseClient
+          .from('todos')
+          .update({ ai_recommendation_generated: true })
+          .eq('id', task.id);
+          
+      } catch (error) {
+        console.error(`❌ [RECOMMENDATION-SERVICE] Erreur traitement tâche ${task.id}:`, error);
+        
+        // Créer une recommandation de fallback
         try {
-          // Trouver la recommandation correspondante
-          let recommendation = recommendations.find(rec => rec.taskId === task.id);
+          await supabaseClient
+            .from('todo_ai_recommendations')
+            .insert({
+              todo_id: task.id,
+              recommendation_text: `Erreur lors de la génération: ${error.message}. Veuillez revoir cette tâche manuellement.`,
+              email_draft: null
+            });
           
-          if (!recommendation) {
-            recommendation = recommendations.find(rec => rec.taskIndex === i);
-          }
-          
-          if (!recommendation) {
-            recommendation = {
-              hasRecommendation: false,
-              recommendation: "Recommandation non trouvée dans la réponse du batch",
-              emailDraft: null
-            };
-          }
-
-          if (recommendation.hasRecommendation !== false) {
-            // Sauvegarder la recommandation
-            const { error: saveError } = await supabaseClient
-              .from('todo_ai_recommendations')
-              .insert({
-                todo_id: task.id,
-                recommendation_text: recommendation.recommendation || "Recommandation générée avec succès",
-                email_draft: recommendation.emailDraft || null
-              });
-            
-            if (saveError) {
-              console.error(`❌ [RECOMMENDATION-SERVICE] Erreur sauvegarde tâche ${task.id}:`, saveError);
-              totalFailed++;
-            } else {
-              console.log(`✅ [RECOMMENDATION-SERVICE] Recommandation sauvegardée pour tâche ${task.id}`);
-              totalSuccessful++;
-            }
-          } else {
-            // Créer une recommandation par défaut
-            const { error: saveError } = await supabaseClient
-              .from('todo_ai_recommendations')
-              .insert({
-                todo_id: task.id,
-                recommendation_text: recommendation.recommendation || "Cette tâche nécessite votre attention.",
-                email_draft: null
-              });
-            
-            if (saveError) {
-              totalFailed++;
-            } else {
-              totalSuccessful++;
-            }
-          }
-          
-          // Marquer la tâche comme traitée
           await supabaseClient
             .from('todos')
             .update({ ai_recommendation_generated: true })
             .eq('id', task.id);
             
-        } catch (error) {
-          console.error(`❌ [RECOMMENDATION-SERVICE] Erreur traitement tâche ${task.id}:`, error);
-          
-          // Marquer quand même comme traitée
-          try {
-            await supabaseClient
-              .from('todos')
-              .update({ ai_recommendation_generated: true })
-              .eq('id', task.id);
-          } catch (updateError) {
-            console.error(`❌ [RECOMMENDATION-SERVICE] Erreur marquage tâche ${task.id}:`, updateError);
-          }
-          
+          totalSuccessful++; // Considérer comme succès car une recommandation a été sauvée
+        } catch (fallbackError) {
+          console.error(`❌ [RECOMMENDATION-SERVICE] Erreur fallback tâche ${task.id}:`, fallbackError);
           totalFailed++;
         }
       }
     }
     
-    console.log(`🏁 [RECOMMENDATION-SERVICE] Traitement par batches terminé: ${totalSuccessful} succès, ${totalFailed} échecs sur ${tasks.length} tâches`);
+    // Vérification finale
+    const { data: finalCheck, error: checkError } = await supabaseClient
+      .from('todo_ai_recommendations')
+      .select('todo_id, recommendation_text')
+      .in('todo_id', tasks.map(t => t.id));
+
+    if (!checkError && finalCheck) {
+      console.log(`🔍 [RECOMMENDATION-SERVICE] Vérification finale: ${finalCheck.length}/${tasks.length} recommandations confirmées en base`);
+    }
+    
+    console.log(`🏁 [RECOMMENDATION-SERVICE] Single batch terminé: ${totalSuccessful} succès, ${totalFailed} échecs sur ${tasks.length} tâches`);
     
     return {
       processed: tasks.length,
       successful: totalSuccessful,
       failed: totalFailed,
       fullyCompleted: true,
-      batchInfo: {
-        totalBatches: batches.length,
-        batchSize: BATCH_SIZE
-      }
+      singleBatch: true,
+      model: 'gpt-4.1-2025-04-14'
     };
     
   } catch (error) {
-    console.error('❌ [RECOMMENDATION-SERVICE] Erreur générale lors du traitement par batches:', error);
+    console.error('❌ [RECOMMENDATION-SERVICE] Erreur générale lors du traitement single batch:', error);
     
-    // Marquer toutes les tâches comme traitées
+    // Marquer toutes les tâches comme traitées avec recommandations de fallback
+    let fallbackSuccessful = 0;
     for (const task of tasks) {
       try {
+        await supabaseClient
+          .from('todo_ai_recommendations')
+          .insert({
+            todo_id: task.id,
+            recommendation_text: `Erreur système lors de la génération: ${error.message}. Veuillez revoir cette tâche manuellement.`,
+            email_draft: null
+          });
+        
         await supabaseClient
           .from('todos')
           .update({ ai_recommendation_generated: true })
           .eq('id', task.id);
-      } catch (updateError) {
-        console.error(`❌ [RECOMMENDATION-SERVICE] Erreur final marquage tâche ${task.id}:`, updateError);
+          
+        fallbackSuccessful++;
+      } catch (fallbackError) {
+        console.error(`❌ [RECOMMENDATION-SERVICE] Erreur fallback final tâche ${task.id}:`, fallbackError);
       }
     }
     
     return { 
       processed: tasks.length, 
-      successful: 0, 
-      failed: tasks.length,
+      successful: fallbackSuccessful, 
+      failed: tasks.length - fallbackSuccessful,
       fullyCompleted: true,
-      error: error.message 
+      error: error.message,
+      singleBatch: true,
+      model: 'gpt-4.1-2025-04-14'
     };
   }
 }
