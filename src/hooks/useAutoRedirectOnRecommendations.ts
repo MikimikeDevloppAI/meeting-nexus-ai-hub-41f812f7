@@ -60,6 +60,47 @@ export const useAutoRedirectOnRecommendations = (
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'todo_ai_recommendations'
+        },
+        (payload) => {
+          console.log('[AutoRedirect] 🤖 Nouvelle recommandation IA créée:', payload);
+          
+          // Vérifier si cette recommandation appartient à une tâche de cette réunion
+          if (payload.new && !hasRedirectedRef.current) {
+            // Vérifiez si la tâche appartient à cette réunion
+            supabase
+              .from('todos')
+              .select('meeting_id')
+              .eq('id', payload.new.todo_id)
+              .single()
+              .then(({ data }) => {
+                if (data && data.meeting_id === meetingId) {
+                  console.log('[AutoRedirect] ✅ Recommandation pour cette réunion détectée, redirection...');
+                  
+                  if (!hasRedirectedRef.current) {
+                    hasRedirectedRef.current = true;
+                    
+                    timeoutRef.current = setTimeout(() => {
+                      if (!hasRedirectedRef.current) return;
+                      
+                      toast({
+                        title: "Recommandations IA créées",
+                        description: "Redirection vers votre réunion...",
+                      });
+                      
+                      navigate(`/meetings/${meetingId}`);
+                    }, 1000);
+                  }
+                }
+              });
+          }
+        }
+      )
       .subscribe((status) => {
         console.log('[AutoRedirect] 📡 Statut du channel:', status);
       });
