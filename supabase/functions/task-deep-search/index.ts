@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -15,17 +16,8 @@ serve(async (req) => {
   try {
     const { todoId, userContext, todoDescription, enrichmentAnswers, followupQuestion, deepSearchId } = await req.json()
     
-    // Vérifier que les clés API sont disponibles
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    // Vérifier que la clé API OpenAI est disponible
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!perplexityApiKey) {
-      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
-      return new Response(
-        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
     
     if (!openAIKey) {
       console.error('❌ Missing OPENAI_API_KEY environment variable');
@@ -94,22 +86,23 @@ ${index + 1}. Question : ${fh.question}
 INSTRUCTIONS POUR LA RÉPONSE :
 - Tu as accès à tout le contexte de la recherche précédente
 - Réponds spécifiquement à la nouvelle question en t'appuyant sur ce contexte
-- Si nécessaire, complète avec de nouvelles informations actualisées
+- Si nécessaire, complète avec de nouvelles informations actualisées grâce à pro-search
 - Structure ta réponse de manière claire avec des titres et bullet points
 - Reste cohérent avec les informations déjà fournies dans la recherche originale
+- Utilise des recherches web récentes pour compléter tes réponses
 `;
 
-        console.log('🚀 Envoi de la question de suivi avec Sonar Pro');
+        console.log('🚀 Envoi de la question de suivi avec GPT-4.1 Pro-Search');
 
-        // Appel à l'API Perplexity avec le modèle sonar-pro pour la question de suivi
-        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        // Appel à l'API OpenAI avec GPT-4.1 et pro-search activé
+        const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${perplexityApiKey}`,
+            'Authorization': `Bearer ${openAIKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-pro',
+            model: 'gpt-4.1-2025-04-14',
             messages: [
               {
                 role: 'user',
@@ -119,33 +112,31 @@ INSTRUCTIONS POUR LA RÉPONSE :
             temperature: 0.2,
             max_tokens: 4000,
             top_p: 0.9,
-            return_images: false,
-            return_related_questions: false,
-            search_recency_filter: 'month'
+            pro_search: true
           })
         });
 
-        console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
+        console.log('📡 Statut réponse GPT-4.1:', openAIResponse.status);
 
-        if (!perplexityResponse.ok) {
-          const errorText = await perplexityResponse.text();
-          console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
+        if (!openAIResponse.ok) {
+          const errorText = await openAIResponse.text();
+          console.error('❌ GPT-4.1 API error:', openAIResponse.status, openAIResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
             JSON.stringify({ 
-              error: `Erreur API Perplexity: ${perplexityResponse.status}`,
+              error: `Erreur API OpenAI: ${openAIResponse.status}`,
               details: errorText
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const perplexityData = await perplexityResponse.json()
-        const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
-        const followupSources = perplexityData.citations || []
+        const openAIData = await openAIResponse.json()
+        const followupAnswer = openAIData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
+        const followupSources = openAIData.sources || []
         
-        console.log('✅ Réponse de suivi Sonar Pro reçue:', followupAnswer.length, 'caractères');
+        console.log('✅ Réponse de suivi GPT-4.1 reçue:', followupAnswer.length, 'caractères');
         console.log('📚 Sources de suivi trouvées:', followupSources.length);
 
         // Sauvegarder la question/réponse de suivi avec les sources
@@ -239,7 +230,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Sonar Pro
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec GPT-4.1 Pro-Search
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
     try {
@@ -251,9 +242,9 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Sonar Pro');
+      console.log('🔍 Phase 3: Recherche finale avec GPT-4.1 Pro-Search');
       
-      // Prompt optimisé pour Sonar Pro avec le contexte réécrit
+      // Prompt optimisé pour GPT-4.1 avec pro-search activé
       const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
@@ -267,17 +258,19 @@ INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
 - Présente les comparaisons sous forme de tableaux quand c'est approprié
 - Numérote les étapes d'action de manière claire
 - Sépare visuellement les différentes sections de ta réponse
+- Utilise des recherches web récentes et actualisées pour fournir les informations les plus pertinentes
 
 Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 ## 1. INFORMATIONS PRATIQUES
 • Des informations fiables et directement exploitables
 • Des détails spécifiques au contexte genevois/suisse si pertinent
+• Des données récentes et actualisées
 
 ## 2. ANALYSE COMPARATIVE (si applicable)
 • Tableau comparatif des options disponibles
 • Avantages et inconvénients clairement listés
-• Informations sur les prix, délais, qualité
+• Informations sur les prix, délais, qualité actualisées
 
 ## 3. PLAN D'ACTION STRUCTURÉ
 • Étapes numérotées et chronologiques
@@ -286,22 +279,22 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 ## 4. RECOMMANDATIONS SPÉCIFIQUES
 • Adaptées au fonctionnement d'un cabinet médical à Genève
-• Prise en compte de la réglementation locale
+• Prise en compte de la réglementation locale actuelle
 • Suggestions de prestataires locaux fiables si nécessaire
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-      console.log('🚀 Envoi de la recherche finale avec Sonar Pro');
+      console.log('🚀 Envoi de la recherche finale avec GPT-4.1 Pro-Search');
 
-      // Appel à l'API Perplexity avec le modèle sonar-pro
-      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+      // Appel à l'API OpenAI avec GPT-4.1 et pro-search activé
+      const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${perplexityApiKey}`,
+          'Authorization': `Bearer ${openAIKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro',
+          model: 'gpt-4.1-2025-04-14',
           messages: [
             {
               role: 'user',
@@ -311,37 +304,35 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           temperature: 0.2,
           max_tokens: 8000,
           top_p: 0.9,
-          return_images: false,
-          return_related_questions: false,
-          search_recency_filter: 'month'
+          pro_search: true
         })
       });
 
-      console.log('📡 Sonar Pro API response status:', perplexityResponse.status);
+      console.log('📡 GPT-4.1 API response status:', openAIResponse.status);
 
-      if (!perplexityResponse.ok) {
-        const errorText = await perplexityResponse.text();
-        console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
+      if (!openAIResponse.ok) {
+        const errorText = await openAIResponse.text();
+        console.error('❌ GPT-4.1 API error:', openAIResponse.status, openAIResponse.statusText);
         console.error('❌ Error details:', errorText);
         
         return new Response(
           JSON.stringify({ 
-            error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
+            error: `Erreur API OpenAI: ${openAIResponse.status} ${openAIResponse.statusText}`,
             details: errorText
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const perplexityData = await perplexityResponse.json()
-      console.log('📊 Sonar Pro response structure:', Object.keys(perplexityData));
+      const openAIData = await openAIResponse.json()
+      console.log('📊 GPT-4.1 response structure:', Object.keys(openAIData));
       
-      const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
+      const searchResult = openAIData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
       
-      // Extraire les sources/citations de la réponse Perplexity
-      const sources = perplexityData.citations || perplexityData.sources || []
+      // Extraire les sources de la réponse OpenAI
+      const sources = openAIData.sources || []
       
-      console.log('✅ Recherche Sonar Pro terminée avec succès')
+      console.log('✅ Recherche GPT-4.1 terminée avec succès')
       console.log('📚 Sources trouvées:', sources.length)
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
