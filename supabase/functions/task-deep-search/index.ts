@@ -109,7 +109,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-pro',
+            model: 'sonar-deep-search',
             messages: [
               {
                 role: 'user',
