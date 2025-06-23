@@ -44,7 +44,7 @@ L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
 Génère des questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE si nécessaire qui permettront d'affiner la recherche.Maximum 5 questions minimum 1. Ces questions doivent être :
 
 1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
-2. **PRATIQUES** - Focalisées sur les aspects opérationnels (budget, délai, priorité, contraintes)
+2. **PRATIQUES** - Focalisées sur les aspects opérationnels et budgétaire
 3. **SPÉCIFIQUES au contexte médical/administratif** d'un cabinet d'ophtalmologie à Genève
 4. **ORIENTÉES ACTION** - Pour aider à prendre des décisions concrètes
 
@@ -59,7 +59,7 @@ Format ta réponse UNIQUEMENT avec les  questions, une par ligne, sans numérota
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-deep-search',
+          model: 'sonar-pro',
           messages: [
             {
               role: 'user',
@@ -67,7 +67,7 @@ Format ta réponse UNIQUEMENT avec les  questions, une par ligne, sans numérota
             }
           ],
           temperature: 0.2,
-          max_tokens: 600,
+          max_tokens: 400,
           top_p: 0.9,
           return_images: false,
           return_related_questions: false,
@@ -163,7 +163,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-deep-search',
+        model: 'sonar-pro',
         messages: [
           {
             role: 'user',
@@ -171,7 +171,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           }
         ],
         temperature: 0.2,
-        max_tokens: 4000,
+        max_tokens: 8000,
         top_p: 0.9,
         return_images: false,
         return_related_questions: false,
