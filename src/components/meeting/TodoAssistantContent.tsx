@@ -26,6 +26,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
   const [isLoading, setIsLoading] = useState(false);
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const { toast } = useToast();
 
   // Utiliser le hook unifié pour l'historique avec une clé unique pour cette tâche
@@ -78,7 +79,17 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
 
     setInputValue("");
     setIsLoading(true);
+    setIsTyping(true);
     addMessage(userMessage);
+
+    // Ajouter un message de typing temporaire
+    const typingMessage = {
+      id: `typing-${Date.now()}`,
+      content: "L'assistant réfléchit...",
+      isUser: false,
+      timestamp: new Date()
+    };
+    addMessage(typingMessage);
 
     try {
       console.log('📤 Envoi demande assistant IA:', inputValue);
@@ -125,6 +136,11 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         timestamp: new Date()
       };
 
+      // Remplacer le message de typing par la vraie réponse
+      clearHistory();
+      const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
+      filteredHistory.forEach(msg => addMessage(msg));
+      addMessage(userMessage);
       addMessage(assistantMessage);
 
       if (data.updated && onUpdate) {
@@ -147,6 +163,11 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         timestamp: new Date()
       };
       
+      // Supprimer le message de typing et ajouter l'erreur
+      clearHistory();
+      const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
+      filteredHistory.forEach(msg => addMessage(msg));
+      addMessage(userMessage);
       addMessage(errorMessage);
       
       toast({
@@ -157,6 +178,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
 
     } finally {
       setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -198,6 +220,16 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
             <div className="flex items-center gap-2 mb-3">
               <Bot className="h-4 w-4 text-green-600" />
               <span className="font-medium text-sm">Assistant IA</span>
+              {isTyping && (
+                <div className="flex items-center gap-1 ml-2">
+                  <Bot className="h-3 w-3 text-green-500 animate-pulse" />
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
               <Button
                 onClick={clearHistory}
                 variant="ghost"
@@ -229,7 +261,9 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
                       <div className={`rounded-lg p-2 text-xs ${
                         message.isUser 
                           ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted'
+                          : message.content.includes('réfléchit')
+                            ? 'bg-yellow-100 text-yellow-800 animate-pulse'
+                            : 'bg-muted'
                       }`}>
                         <p className="whitespace-pre-wrap">{message.content}</p>
                         <div className="text-xs opacity-70 mt-1">
@@ -251,7 +285,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Posez votre question à l'assistant IA..."
+                placeholder={isLoading ? "Traitement en cours..." : "Posez votre question à l'assistant IA..."}
                 disabled={isLoading}
                 className="flex-1 text-xs h-7"
               />
@@ -259,7 +293,7 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
                 onClick={sendMessage} 
                 disabled={isLoading || !inputValue.trim()}
                 size="sm"
-                className="h-7 w-7 p-0"
+                className={`h-7 w-7 p-0 ${isLoading ? 'animate-pulse' : ''}`}
               >
                 {isLoading ? (
                   <Loader2 className="h-3 w-3 animate-spin" />

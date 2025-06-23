@@ -50,6 +50,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   const [emailChatMessages, setEmailChatMessages] = useState<EmailChatMessage[]>([]);
   const [emailChatInput, setEmailChatInput] = useState("");
   const [isEmailChatLoading, setIsEmailChatLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   
   const { toast } = useToast();
 
@@ -143,6 +144,15 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
     const currentInput = emailChatInput;
     setEmailChatInput("");
     setIsEmailChatLoading(true);
+    setIsTyping(true);
+
+    // Ajouter un message de typing temporaire
+    const typingMessage: EmailChatMessage = {
+      role: 'assistant',
+      content: "Je modifie l'email...",
+      timestamp: new Date(),
+    };
+    setEmailChatMessages(prev => [...prev, typingMessage]);
 
     try {
       console.log('📧 Envoi demande modification email:', currentInput);
@@ -175,13 +185,15 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
         throw new Error(data?.error || 'Erreur inconnue');
       }
 
-      const assistantMessage: EmailChatMessage = {
-        role: 'assistant',
-        content: data.explanation || "Email modifié avec succès",
-        timestamp: new Date(),
-      };
-
-      setEmailChatMessages(prev => [...prev, assistantMessage]);
+      // Supprimer le message de typing et ajouter la vraie réponse
+      setEmailChatMessages(prev => {
+        const filtered = prev.filter(msg => !msg.content.includes('modifie'));
+        return [...filtered, {
+          role: 'assistant',
+          content: data.explanation || "Email modifié avec succès",
+          timestamp: new Date(),
+        }];
+      });
 
       // Mettre à jour l'email dans l'état local ET en base de données
       if (data.modifiedEmail) {
@@ -212,13 +224,15 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
     } catch (error: any) {
       console.error('❌ Erreur modification email:', error);
       
-      const errorMessage: EmailChatMessage = {
-        role: 'assistant',
-        content: `❌ ${error.message}`,
-        timestamp: new Date()
-      };
-      
-      setEmailChatMessages(prev => [...prev, errorMessage]);
+      // Supprimer le message de typing et ajouter l'erreur
+      setEmailChatMessages(prev => {
+        const filtered = prev.filter(msg => !msg.content.includes('modifie'));
+        return [...filtered, {
+          role: 'assistant',
+          content: `❌ ${error.message}`,
+          timestamp: new Date()
+        }];
+      });
       
       toast({
         title: "⚠️ Erreur",
@@ -228,6 +242,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
 
     } finally {
       setIsEmailChatLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -287,6 +302,16 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
             <div className="flex items-center gap-2 mb-3">
               <MessageSquare className="h-4 w-4 text-blue-500" />
               <span className="font-medium text-sm">Modifier l'email</span>
+              {isTyping && (
+                <div className="flex items-center gap-1 ml-2">
+                  <Bot className="h-3 w-3 text-blue-500 animate-pulse" />
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               {/* Messages du chat email */}
@@ -319,7 +344,9 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                         <div className={`rounded-lg p-2 text-xs ${
                           message.role === 'user' 
                             ? 'bg-blue-500 text-white' 
-                            : 'bg-blue-100 text-blue-800'
+                            : message.content.includes('modifie')
+                              ? 'bg-yellow-100 text-yellow-800 animate-pulse'
+                              : 'bg-blue-100 text-blue-800'
                         }`}>
                           <p className="whitespace-pre-wrap">{message.content}</p>
                           <div className="text-xs opacity-70 mt-1">
@@ -341,7 +368,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                   value={emailChatInput}
                   onChange={(e) => setEmailChatInput(e.target.value)}
                   onKeyPress={handleEmailChatKeyPress}
-                  placeholder="Modifier l'email (ex: rendre plus formel, ajouter des détails...)"
+                  placeholder={isEmailChatLoading ? "Modification en cours..." : "Modifier l'email (ex: rendre plus formel, ajouter des détails...)"}
                   disabled={isEmailChatLoading}
                   className="flex-1 text-xs h-7"
                 />
@@ -349,7 +376,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                   onClick={sendEmailChatMessage} 
                   disabled={isEmailChatLoading || !emailChatInput.trim()}
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className={`h-7 w-7 p-0 ${isEmailChatLoading ? 'animate-pulse' : ''}`}
                 >
                   {isEmailChatLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
