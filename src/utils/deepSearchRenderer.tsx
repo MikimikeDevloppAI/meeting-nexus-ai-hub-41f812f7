@@ -7,10 +7,72 @@ interface DeepSearchRendererProps {
 }
 
 export const DeepSearchContent: React.FC<DeepSearchRendererProps> = ({ text, sources }) => {
+  // Fonction pour convertir les tableaux Markdown en HTML
+  const convertMarkdownTables = (text: string) => {
+    // Regex pour détecter les tableaux Markdown
+    const tableRegex = /(\|[^\n]+\|\n\|[\s\-:]+\|\n(?:\|[^\n]+\|\n?)+)/g;
+    
+    return text.replace(tableRegex, (match) => {
+      const lines = match.trim().split('\n');
+      if (lines.length < 3) return match;
+      
+      // Première ligne = headers
+      const headerLine = lines[0];
+      // Deuxième ligne = séparateurs (ignorée)
+      // Lignes suivantes = données
+      const dataLines = lines.slice(2);
+      
+      // Parser les headers
+      const headers = headerLine.split('|')
+        .map(h => h.trim())
+        .filter(h => h.length > 0);
+      
+      // Parser les données
+      const rows = dataLines.map(line => 
+        line.split('|')
+          .map(cell => cell.trim())
+          .filter(cell => cell.length > 0)
+      ).filter(row => row.length > 0);
+      
+      // Construire le HTML du tableau
+      let tableHTML = '<table class="markdown-table">';
+      
+      // Headers
+      if (headers.length > 0) {
+        tableHTML += '<thead><tr>';
+        headers.forEach(header => {
+          tableHTML += `<th>${header}</th>`;
+        });
+        tableHTML += '</tr></thead>';
+      }
+      
+      // Body
+      if (rows.length > 0) {
+        tableHTML += '<tbody>';
+        rows.forEach(row => {
+          tableHTML += '<tr>';
+          row.forEach(cell => {
+            // Convertir le markdown en gras dans les cellules
+            const processedCell = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            tableHTML += `<td>${processedCell}</td>`;
+          });
+          tableHTML += '</tr>';
+        });
+        tableHTML += '</tbody>';
+      }
+      
+      tableHTML += '</table>';
+      return tableHTML;
+    });
+  };
+
   // Prétraitement du texte pour améliorer la mise en forme
   const processText = (text: string) => {
+    // D'abord convertir les tableaux Markdown
+    let processedText = convertMarkdownTables(text);
+    
     // Remplacer les références [1], [2], etc. par des liens cliquables
-    let processedText = text.replace(/\[(\d+)\]/g, (match, number) => {
+    processedText = processedText.replace(/\[(\d+)\]/g, (match, number) => {
       const sourceIndex = parseInt(number) - 1;
       const sourceUrl = sources[sourceIndex];
       

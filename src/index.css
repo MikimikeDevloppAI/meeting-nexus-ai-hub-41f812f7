@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -153,6 +154,77 @@
 
 .deep-search-content tbody tr:hover {
   background-color: #f9fafb;
+}
+
+/* Styles spécifiques pour les tableaux Markdown convertis */
+.deep-search-content .markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.deep-search-content .markdown-table thead {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.deep-search-content .markdown-table th {
+  padding: 1rem 0.75rem;
+  text-align: left;
+  border-bottom: 2px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.deep-search-content .markdown-table th:last-child {
+  border-right: none;
+}
+
+.deep-search-content .markdown-table td {
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.deep-search-content .markdown-table td:last-child {
+  border-right: none;
+}
+
+.deep-search-content .markdown-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.deep-search-content .markdown-table tbody tr:hover {
+  background-color: #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+
+.deep-search-content .markdown-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Responsive design pour les tableaux */
+@media (max-width: 768px) {
+  .deep-search-content .markdown-table {
+    font-size: 0.75rem;
+  }
+  
+  .deep-search-content .markdown-table th,
+  .deep-search-content .markdown-table td {
+    padding: 0.5rem 0.375rem;
+  }
 }
 
 .deep-search-content p {
