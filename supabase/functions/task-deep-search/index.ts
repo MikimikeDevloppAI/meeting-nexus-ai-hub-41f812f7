@@ -90,8 +90,12 @@ ${index + 1}. Question : ${fh.question}
 ` : ''}
 
 **NOUVELLE QUESTION DE SUIVI :** ${followupQuestion}
+INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
+imperatif:repond en francais et 
+Rules:
+1. Provide only the final answer. It is important that you do not include any explanation on the steps below.
+2. Do not show the intermediate steps information.retourne uniquement le resultat final sans toutes les etapes intermediaires
 
-INSTRUCTIONS POUR LA RÉPONSE :
 - Tu as accès à tout le contexte de la recherche précédente
 - Réponds spécifiquement à la nouvelle question en t'appuyant sur ce contexte
 - Si nécessaire, complète avec de nouvelles informations actualisées grâce à tes capacités de recherche
@@ -111,7 +115,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sonar-reasoning-pro',
+            model: 'sonar-deep-research',
             messages: [
               {
                 role: 'user',
@@ -119,11 +123,10 @@ INSTRUCTIONS POUR LA RÉPONSE :
               }
             ],
             temperature: 0.2,
-            max_tokens: 4000,
+            max_tokens:8000,
             top_p: 0.9,
             return_images: false,
-            return_related_questions: false,
-            search_recency_filter: 'month'
+            return_related_questions: false
           })
         });
 
@@ -262,12 +265,17 @@ INSTRUCTIONS POUR LA RÉPONSE :
 **Contexte enrichi :** ${rewrittenContext}
 
 INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
+imperatif:repond en francais et 
+Rules:
+1. Provide only the final answer. It is important that you do not include any explanation on the steps below.
+2. Do not show the intermediate steps information.retourne uniquement le resultat final sans toutes les etapes intermediaires
+
+
 - Structure ta réponse de manière très claire avec des titres, sous-titres et bullet points
 - Évite absolument les répétitions d'informations
 - Organise le contenu en sections logiques avec des paragraphes distincts
 - Utilise des listes à puces pour les éléments multiples (avantages, inconvénients, étapes, etc.)
 - Présente les comparaisons sous forme de tableaux quand c'est approprié
-- Numérote les étapes d'action de manière claire
 - Sépare visuellement les différentes sections de ta réponse
 - Utilise des recherches web récentes et actualisées pour fournir les informations les plus pertinentes
 - ne retourne que le résultat final sans parler des etapes intermediaire
@@ -306,7 +314,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-reasoning-pro',
+          model: 'sonar-deep-research',
           messages: [
             {
               role: 'user',
@@ -317,8 +325,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           max_tokens: 8000,
           top_p: 0.9,
           return_images: false,
-          return_related_questions: false,
-          search_recency_filter: 'month'
+          return_related_questions: false
         })
       });
 
