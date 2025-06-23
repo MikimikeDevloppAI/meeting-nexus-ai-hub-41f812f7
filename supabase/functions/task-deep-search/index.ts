@@ -125,6 +125,7 @@ Rules:
             temperature: 0.2,
             max_tokens:8000,
             top_p: 0.9,
+            search: 'deep',
             return_images: false,
             return_related_questions: false
           })
@@ -324,6 +325,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
           temperature: 0.2,
           max_tokens: 8000,
           top_p: 0.9,
+          search: 'deep',
           return_images: false,
           return_related_questions: false
         })
