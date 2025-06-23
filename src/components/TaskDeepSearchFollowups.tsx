@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ interface TaskDeepSearchFollowupsProps {
   deepSearchId: string;
   todoId: string;
   todoDescription: string;
+  isFullScreen?: boolean;
 }
 
 interface Followup {
@@ -26,7 +26,8 @@ interface Followup {
 export const TaskDeepSearchFollowups = ({ 
   deepSearchId, 
   todoId, 
-  todoDescription 
+  todoDescription,
+  isFullScreen = false
 }: TaskDeepSearchFollowupsProps) => {
   const [followups, setFollowups] = useState<Followup[]>([]);
   const [newQuestion, setNewQuestion] = useState("");
@@ -172,7 +173,7 @@ export const TaskDeepSearchFollowups = ({
       {/* Historique des questions/réponses */}
       {followups.length > 0 && (
         <div className="space-y-4">
-          <ScrollArea className="max-h-[400px] w-full">
+          <ScrollArea className={`w-full ${isFullScreen ? 'max-h-[50vh]' : 'max-h-[400px]'}`}>
             <div className="space-y-4 pr-4">
               {followups.map((followup, index) => (
                 <div key={followup.id} className="space-y-2">
