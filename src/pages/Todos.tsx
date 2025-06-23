@@ -147,26 +147,34 @@ export default function Todos() {
 
   const completeTodo = async (todoId: string) => {
     try {
+      const currentTodo = todos.find(todo => todo.id === todoId);
+      if (!currentTodo) return;
+
+      // Toggle between completed and confirmed
+      const newStatus = currentTodo.status === 'completed' ? 'confirmed' : 'completed';
+      
       const { error } = await supabase
         .from("todos")
-        .update({ status: 'completed' })
+        .update({ status: newStatus })
         .eq("id", todoId);
 
       if (error) throw error;
 
       setTodos(todos.map(todo => 
-        todo.id === todoId ? { ...todo, status: 'completed' } : todo
+        todo.id === todoId ? { ...todo, status: newStatus } : todo
       ));
 
       toast({
-        title: "Tâche terminée",
-        description: "La tâche a été marquée comme terminée",
+        title: newStatus === 'completed' ? "Tâche terminée" : "Tâche remise en cours",
+        description: newStatus === 'completed' 
+          ? "La tâche a été marquée comme terminée" 
+          : "La tâche a été remise en cours",
       });
     } catch (error: any) {
-      console.error("Error completing todo:", error);
+      console.error("Error updating todo:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de terminer la tâche",
+        description: "Impossible de modifier le statut de la tâche",
         variant: "destructive",
       });
     }
@@ -406,16 +414,18 @@ export default function Todos() {
                         >
                           <Pen className="h-4 w-4" />
                         </Button>
-                        {todo.status !== 'completed' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => completeTodo(todo.id)}
-                            className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => completeTodo(todo.id)}
+                          className={`h-8 px-3 ${
+                            todo.status === 'completed'
+                              ? 'bg-green-500 text-white hover:bg-green-600 border-green-500'
+                              : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          }`}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
