@@ -1,9 +1,8 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Link } from "react-router-dom";
 
 interface LoginFormProps {
   email: string;
@@ -20,50 +19,48 @@ export const LoginForm = ({
   password,
   setPassword,
   isLoading,
-  onSubmit
+  onSubmit,
 }: LoginFormProps) => {
   return (
-    <form onSubmit={onSubmit}>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="name@company.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
-            <Link 
-              to="/forgot-password" 
-              className="text-sm text-primary hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="nom@exemple.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={isLoading}
+          required
+        />
       </div>
-      <div className="mt-4 flex flex-col space-y-4">
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Signing in..." : "Sign In"}
-        </Button>
-        <div className="text-center text-sm">
-          Don't have an account?{" "}
+      <div className="space-y-2">
+        <Label htmlFor="password">Mot de passe</Label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={isLoading}
+          required
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? "Connexion..." : "Se connecter"}
+      </Button>
+      
+      <div className="text-center space-y-2">
+        <Link 
+          to="/forgot-password" 
+          className="text-sm text-muted-foreground hover:text-primary"
+        >
+          Mot de passe oublié ?
+        </Link>
+        <div className="text-sm text-muted-foreground">
+          Pas encore de compte ?{" "}
           <Link to="/signup" className="text-primary hover:underline">
-            Sign up
+            S'inscrire
           </Link>
         </div>
       </div>

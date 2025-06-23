@@ -15,6 +15,8 @@ import Documents from "./pages/Documents";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import AuthCallback from "./pages/AuthCallback";
 import NotApproved from "./pages/NotApproved";
 import NotFound from "./pages/NotFound";
