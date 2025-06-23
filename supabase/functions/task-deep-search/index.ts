@@ -53,8 +53,11 @@ serve(async (req) => {
           .single();
 
         if (searchError || !originalSearch) {
+          console.error('❌ Erreur récupération recherche originale:', searchError);
           throw new Error('Impossible de récupérer la recherche originale');
         }
+
+        console.log('✅ Recherche originale récupérée');
 
         // Récupérer l'historique des questions de suivi
         const { data: followupHistory, error: followupError } = await supabaseClient
@@ -64,8 +67,10 @@ serve(async (req) => {
           .order('created_at', { ascending: true });
 
         if (followupError) {
-          console.error('Erreur récupération historique suivi:', followupError);
+          console.error('❌ Erreur récupération historique suivi:', followupError);
         }
+
+        console.log('✅ Historique récupéré:', followupHistory?.length || 0, 'questions précédentes');
 
         // Construire le contexte enrichi pour la question de suivi
         const enrichedContext = `
@@ -120,10 +125,20 @@ INSTRUCTIONS POUR LA RÉPONSE :
           })
         });
 
+        console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
+
         if (!perplexityResponse.ok) {
           const errorText = await perplexityResponse.text();
           console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
-          throw new Error(`Erreur API Perplexity: ${perplexityResponse.status}`);
+          console.error('❌ Détails de l\'erreur:', errorText);
+          
+          return new Response(
+            JSON.stringify({ 
+              error: `Erreur API Perplexity: ${perplexityResponse.status}`,
+              details: errorText
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         const perplexityData = await perplexityResponse.json()
@@ -138,6 +153,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
           const { data: { user } } = await supabaseClient.auth.getUser(token)
           
           if (user) {
+            console.log('💾 Sauvegarde de la question de suivi...');
             const { error: insertError } = await supabaseClient
               .from('task_deep_search_followups')
               .insert({
@@ -150,7 +166,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
             if (insertError) {
               console.error('❌ Error saving followup:', insertError)
             } else {
-              console.log('💾 Followup saved successfully')
+              console.log('✅ Followup saved successfully')
             }
           }
         }

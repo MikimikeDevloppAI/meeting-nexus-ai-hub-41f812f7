@@ -90,7 +90,10 @@ export const TaskDeepSearchFollowups = ({
         }
       });
 
+      console.log('📡 Réponse reçue:', response);
+
       if (response.error) {
+        console.error('❌ Erreur dans la réponse:', response.error);
         throw new Error(response.error.message || 'Erreur lors de la question de suivi');
       }
 
@@ -113,6 +116,7 @@ export const TaskDeepSearchFollowups = ({
         // Recharger les followups pour avoir les IDs corrects
         setTimeout(() => loadFollowups(), 1000);
       } else {
+        console.error('❌ Réponse inattendue:', response.data);
         throw new Error(response.data?.error || 'Erreur inconnue');
       }
 
