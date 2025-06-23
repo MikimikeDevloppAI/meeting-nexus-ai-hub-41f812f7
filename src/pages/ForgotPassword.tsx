@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -148,7 +149,7 @@ const ForgotPassword = () => {
                   to="/login" 
                   className="text-sm text-muted-foreground hover:text-primary inline-flex items-center"
                 >
-                  <ArrowLeft className="w-4 w-4 mr-1" />
+                  <ArrowLeft className="w-4 h-4 mr-1" />
                   Retour à la connexion
                 </Link>
               </div>

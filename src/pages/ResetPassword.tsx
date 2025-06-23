@@ -17,27 +17,50 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidSession, setIsValidSession] = useState(false);
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Vérifier et traiter les paramètres de réinitialisation
+  // Vérifier la session de récupération
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const accessToken = searchParams.get('access_token');
-      const refreshToken = searchParams.get('refresh_token');
-      const type = searchParams.get('type');
-      
-      if (accessToken && refreshToken && type === 'recovery') {
-        try {
-          // Établir la session avec les tokens de l'URL
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+    const checkSession = async () => {
+      try {
+        // Récupérer la session actuelle
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log("Session actuelle:", session);
+        
+        if (error) {
+          console.error("Erreur de session:", error);
+          throw error;
+        }
+
+        if (session?.user) {
+          console.log("Session valide trouvée pour la réinitialisation");
+          setIsValidSession(true);
+        } else {
+          // Si pas de session, vérifier si on a des paramètres de récupération
+          const token = searchParams.get('token');
+          const type = searchParams.get('type');
           
-          if (error) {
-            console.error('Erreur lors de l\'établissement de la session:', error);
+          if (token && type === 'recovery') {
+            console.log("Token de récupération détecté, attente de la session...");
+            // Attendre un peu que Supabase traite le token
+            setTimeout(async () => {
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              if (newSession?.user) {
+                setIsValidSession(true);
+              } else {
+                toast({
+                  title: "Lien invalide",
+                  description: "Ce lien de réinitialisation est invalide ou a expiré",
+                  variant: "destructive",
+                });
+                navigate("/forgot-password");
+              }
+            }, 1000);
+          } else {
             toast({
               title: "Lien invalide",
               description: "Ce lien de réinitialisation est invalide ou a expiré",
@@ -45,31 +68,32 @@ const ResetPassword = () => {
             });
             navigate("/forgot-password");
           }
-        } catch (error) {
-          console.error('Erreur lors du traitement du lien:', error);
-          toast({
-            title: "Erreur",
-            description: "Une erreur est survenue lors du traitement du lien",
-            variant: "destructive",
-          });
-          navigate("/forgot-password");
         }
-      } else if (!accessToken && !refreshToken) {
-        // Si aucun paramètre n'est présent, rediriger vers forgot-password
+      } catch (error) {
+        console.error("Erreur lors de la vérification de la session:", error);
         toast({
-          title: "Lien invalide",
-          description: "Ce lien de réinitialisation est invalide ou a expiré",
+          title: "Erreur",
+          description: "Une erreur est survenue lors du traitement du lien",
           variant: "destructive",
         });
         navigate("/forgot-password");
       }
     };
 
-    handleAuthCallback();
+    checkSession();
   }, [searchParams, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isValidSession) {
+      toast({
+        title: "Session invalide",
+        description: "Veuillez utiliser le lien de réinitialisation reçu par email",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const validation = validatePassword(password);
     if (!validation.isValid) {
@@ -117,6 +141,31 @@ const ResetPassword = () => {
       setIsLoading(false);
     }
   };
+
+  // Afficher un loader pendant la vérification de la session
+  if (!isValidSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-accent p-4">
+        <div className="w-full max-w-md">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
+            <p className="text-muted-foreground">Internal Management System</p>
+          </div>
+          
+          <Card className="animate-scale-in">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+              <p className="text-center text-muted-foreground mt-4">
+                Vérification du lien de réinitialisation...
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent p-4">
