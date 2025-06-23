@@ -18,10 +18,10 @@ export const useSimpleMeetingCreation = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Use the new auto-redirect hook
+  // Désactiver complètement la redirection automatique
   const { cleanup: cleanupAutoRedirect } = useAutoRedirectOnRecommendations(
     currentMeetingId,
-    !!currentMeetingId && isSubmitting
+    false // Toujours désactivé
   );
 
   console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
@@ -107,7 +107,7 @@ export const useSimpleMeetingCreation = () => {
           );
 
           console.log('[PROCESS] Starting AI processing in background...');
-          console.log('[PROCESS] 🎯 Auto-redirect will trigger when recommendations are created');
+          console.log('[PROCESS] 🎯 PAS de redirection automatique - l\'utilisateur navigue manuellement');
           
           // Start AI processing without waiting (let it run in background)
           AudioProcessingService.processTranscriptWithAI(
@@ -122,49 +122,42 @@ export const useSimpleMeetingCreation = () => {
 
           toast({
             title: "Traitement en cours",
-            description: "Votre réunion est créée. L'analyse IA est en cours, vous serez redirigé automatiquement.",
+            description: "Votre réunion est créée. L'analyse IA continue en arrière-plan.",
           });
 
-          // Set up safety timeout (5 minutes) in case auto-redirect fails
-          redirectTimeoutRef.current = setTimeout(() => {
-            console.log('[SAFETY] ⏰ 5-minute timeout reached, forcing redirection');
-            toast({
-              title: "Réunion créée",
-              description: "Le traitement continue en arrière-plan. Vous pouvez consulter votre réunion.",
-            });
-            navigate(`/meetings/${meetingId}`);
-          }, 5 * 60 * 1000);
+          // PAS de redirection automatique - l'utilisateur peut naviguer manuellement
+          console.log('[NO_AUTO_REDIRECT] ✅ Réunion créée, PAS de redirection automatique');
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
-          // For audio processing errors, still redirect to show the meeting
           toast({
             title: "Réunion créée",
             description: "La réunion a été créée mais le traitement audio a échoué",
           });
-          navigate(`/meetings/${meetingId}`);
         }
       } else {
-        // No audio to process, redirect immediately
-        console.log('[NO_AUDIO] No audio to process, redirecting immediately');
+        // No audio to process
+        console.log('[NO_AUDIO] No audio to process');
         toast({
           title: "Réunion créée",
           description: "Votre réunion a été créée avec succès",
         });
-        navigate(`/meetings/${meetingId}`);
       }
+
+      // Réinitialiser l'état de soumission après création réussie
+      setIsSubmitting(false);
+      setCurrentMeetingId(null);
 
     } catch (error: any) {
       console.error("[ERROR] Meeting creation error:", error);
       
       if (meetingId) {
-        // Meeting was created, still redirect
-        console.log('[ERROR] Meeting created, navigating despite errors');
+        // Meeting was created, show success
+        console.log('[ERROR] Meeting created, showing success despite errors');
         toast({
           title: "Réunion créée",
           description: "La réunion a été créée avec succès",
         });
-        navigate(`/meetings/${meetingId}`);
       } else {
         // Complete failure
         console.error('[ERROR] Complete failure - meeting not created');
@@ -173,24 +166,22 @@ export const useSimpleMeetingCreation = () => {
           description: error.message || "Veuillez réessayer",
           variant: "destructive",
         });
-        
-        setIsSubmitting(false);
-        setCurrentMeetingId(null);
       }
+      
+      setIsSubmitting(false);
+      setCurrentMeetingId(null);
     }
   };
 
   const resetMeetingCreation = () => {
     console.log('[useSimpleMeetingCreation] resetMeetingCreation called, isSubmitting:', isSubmitting);
-    if (!isSubmitting) {
-      setIsSubmitting(false);
-      setCurrentMeetingId(null);
-      cleanupAutoRedirect();
-      
-      if (redirectTimeoutRef.current) {
-        clearTimeout(redirectTimeoutRef.current);
-        redirectTimeoutRef.current = null;
-      }
+    setIsSubmitting(false);
+    setCurrentMeetingId(null);
+    cleanupAutoRedirect();
+    
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = null;
     }
   };
 

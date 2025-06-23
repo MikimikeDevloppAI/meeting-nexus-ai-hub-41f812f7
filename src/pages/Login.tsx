@@ -13,30 +13,10 @@ const Login = () => {
   const location = useLocation();
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   
+  // Supprimer la vérification automatique de session qui causait des redirections
   useEffect(() => {
-    // Vérifier la session seulement au premier chargement de la page de login
-    const checkSession = async () => {
-      // Ne faire la vérification que si on est vraiment sur /login
-      if (location.pathname !== "/login") {
-        setInitialCheckDone(true);
-        return;
-      }
-
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          console.log("Session trouvée sur page login, redirection vers assistant");
-          navigate("/assistant", { replace: true });
-        }
-      } catch (error) {
-        console.error("Erreur lors de la vérification de session:", error);
-      } finally {
-        setInitialCheckDone(true);
-      }
-    };
-    
-    checkSession();
-  }, []); // Dépendance vide pour ne s'exécuter qu'une fois
+    setInitialCheckDone(true);
+  }, []);
 
   const {
     email,

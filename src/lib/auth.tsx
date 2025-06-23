@@ -115,15 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (!mounted) return;
         
-        // Ignorer les événements TOKEN_REFRESHED pour éviter les rechargements
-        if (event === "TOKEN_REFRESHED") {
-          console.log("Événement TOKEN_REFRESHED ignoré pour éviter les redirections");
+        // Ignorer TOUS les événements automatiques pour éviter les redirections
+        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+          console.log(`Événement ${event} ignoré pour éviter les redirections automatiques`);
           return;
         }
         
+        // Ne traiter que les événements de connexion/déconnexion explicites
         if (event === "SIGNED_IN" && session?.user) {
-          console.log("Utilisateur connecté, mise à jour du profil");
-          // Utiliser setTimeout pour éviter les conflits avec la navigation
+          console.log("Utilisateur connecté explicitement, mise à jour du profil");
           setTimeout(async () => {
             if (!mounted) return;
             
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }, 100);
         } else if (event === "SIGNED_OUT") {
-          console.log("Utilisateur déconnecté");
+          console.log("Utilisateur déconnecté explicitement");
           setUser(null);
         }
       }
