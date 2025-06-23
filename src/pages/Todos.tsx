@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Pen, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Pen, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -463,15 +463,15 @@ export default function Todos() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-yellow-100 border border-yellow-200 ${
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
                             activeTool === 'recommendation' 
-                              ? 'ring-2 ring-yellow-300' 
-                              : 'hover:bg-yellow-200'
+                              ? 'ring-2 ring-blue-300' 
+                              : 'hover:bg-blue-200'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Lightbulb className="h-4 w-4 text-yellow-600" />
-                            <span className="text-sm font-medium text-black">Recommandation IA</span>
+                            <Mail className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-black">Communication</span>
                           </div>
                           {activeTool === 'recommendation' ? (
                             <ChevronUp className="h-4 w-4 flex-shrink-0" />
@@ -484,14 +484,14 @@ export default function Todos() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'assistant')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
+                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-green-100 border border-green-200 ${
                             activeTool === 'assistant' 
-                              ? 'ring-2 ring-blue-300' 
-                              : 'hover:bg-blue-200'
+                              ? 'ring-2 ring-green-300' 
+                              : 'hover:bg-green-200'
                           }`}
                         >
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Bot className="h-4 w-4 text-blue-600" />
+                            <Bot className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium text-black">Assistant IA</span>
                           </div>
                           {activeTool === 'assistant' ? (

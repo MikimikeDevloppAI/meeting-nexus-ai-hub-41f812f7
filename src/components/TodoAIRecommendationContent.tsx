@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Lightbulb, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, 
+  Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, 
   Send, Loader2, MessageSquare, User, Bot
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -43,7 +43,7 @@ interface EmailChatMessage {
 export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: TodoAIRecommendationContentProps) => {
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [showEmailDraft, setShowEmailDraft] = useState(autoOpenEmail);
+  const [showEmailDraft, setShowEmailDraft] = useState(true);
   const [showContacts, setShowContacts] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -51,7 +51,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   const [emailChatMessages, setEmailChatMessages] = useState<EmailChatMessage[]>([]);
   const [emailChatInput, setEmailChatInput] = useState("");
   const [isEmailChatLoading, setIsEmailChatLoading] = useState(false);
-  const [showEmailChat, setShowEmailChat] = useState(false);
+  const [showEmailChat, setShowEmailChat] = useState(true);
   
   const { toast } = useToast();
 
@@ -134,8 +134,9 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
 
   const handleRecommendationToggle = (newIsOpen: boolean) => {
     setIsOpen(newIsOpen);
-    if (newIsOpen && recommendation?.email_draft && autoOpenEmail) {
+    if (newIsOpen) {
       setShowEmailDraft(true);
+      setShowEmailChat(true);
     }
   };
 
@@ -250,18 +251,17 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 text-sm text-foreground p-4 bg-gray-100 rounded min-h-[80px]">
-        <Lightbulb className="h-4 w-4 animate-pulse text-yellow-500" />
-        <span>Analyse IA...</span>
+        <Mail className="h-4 w-4 animate-pulse text-blue-500" />
+        <span>Chargement communication...</span>
       </div>
     );
   }
 
-  if (!recommendation) {
+  if (!recommendation || !recommendation.email_draft) {
     return null;
   }
 
   const hasContactInfo = recommendation.contacts && recommendation.contacts.length > 0;
-  const hasRecommendation = recommendation.recommendation_text && !recommendation.recommendation_text.includes('Aucune recommandation spécifique');
 
   return (
     <>
@@ -272,10 +272,9 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
             size="sm"
             className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-gray-200/50 px-2"
           >
-            <Lightbulb className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-black text-center leading-tight">Recommandation IA</span>
+            <Mail className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-black text-center leading-tight">Communication</span>
             <div className="flex items-center gap-1">
-              {recommendation.email_draft && <Mail className="h-2 w-2" />}
               {hasContactInfo && <Phone className="h-2 w-2" />}
               {isOpen ? <ChevronUp className="h-2 w-2" /> : <ChevronDown className="h-2 w-2" />}
             </div>
@@ -287,41 +286,9 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
             <Card className="mt-2 border-muted/50">
               <CardContent className="p-4">
                 <div className="space-y-3">
-                  {hasRecommendation && (
-                    <div className="text-sm text-muted-foreground">
-                      {recommendation.recommendation_text.split('\n').map((line, index) => {
-                        if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                          return (
-                            <div key={index} className="font-medium text-foreground mt-2 mb-1">
-                              {line.replace(/\*\*/g, '')}
-                            </div>
-                          );
-                        }
-                        if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-                          return (
-                            <div key={index} className="ml-3 mb-1">
-                              {line.trim().substring(2)}
-                            </div>
-                          );
-                        }
-                        return line.trim() ? (
-                          <div key={index} className="mb-1">{line}</div>
-                        ) : (
-                          <div key={index} className="h-1" />
-                        );
-                      })}
-                      
-                      {recommendation.estimated_cost && (
-                        <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
-                          <strong>Coût estimé :</strong> {recommendation.estimated_cost}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {/* Section contacts */}
                   {hasContactInfo && (
-                    <div className={hasRecommendation ? "border-t pt-3" : ""}>
+                    <div>
                       <Collapsible open={showContacts} onOpenChange={setShowContacts}>
                         <CollapsibleTrigger asChild>
                           <Button
@@ -399,151 +366,105 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                   )}
 
                   {/* Section email avec chat de modification */}
-                  {recommendation.email_draft && (
-                    <div className={(hasRecommendation || hasContactInfo) ? "border-t pt-3" : ""}>
-                      <Collapsible open={showEmailDraft} onOpenChange={setShowEmailDraft}>
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-between text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-3 w-3" />
-                              <span>Email pré-rédigé</span>
-                            </div>
-                            {showEmailDraft ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent>
-                          <div className="mt-2 space-y-3">
-                            {/* Chat de modification d'email */}
-                            <div className="border rounded-lg p-3 bg-blue-50/50">
-                              <Collapsible open={showEmailChat} onOpenChange={setShowEmailChat}>
-                                <CollapsibleTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full justify-between text-sm mb-2"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <MessageSquare className="h-3 w-3 text-blue-600" />
-                                      <span className="text-blue-800">Modifier cet email avec l'IA</span>
+                  <div className={hasContactInfo ? "border-t pt-3" : ""}>
+                    <div className="space-y-3">
+                      {/* Chat de modification d'email */}
+                      <div className="border rounded-lg p-3 bg-blue-50/50">
+                        <div className="space-y-2">
+                          {/* Messages du chat email */}
+                          <ScrollArea className="h-[150px] pr-2">
+                            <div className="space-y-2">
+                              {emailChatMessages.length === 0 && (
+                                <div className="text-center py-2 text-muted-foreground">
+                                  <p className="text-xs">
+                                    Demandez des modifications à l'email (ton, contenu, structure...)
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {emailChatMessages.map((message, index) => (
+                                <div
+                                  key={index}
+                                  className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                  <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                      message.role === 'user' ? 'bg-blue-500' : 'bg-blue-200'
+                                    }`}>
+                                      {message.role === 'user' ? (
+                                        <User className="h-2 w-2 text-white" />
+                                      ) : (
+                                        <Bot className="h-2 w-2 text-blue-600" />
+                                      )}
                                     </div>
-                                    {showEmailChat ? (
-                                      <ChevronUp className="h-3 w-3" />
-                                    ) : (
-                                      <ChevronDown className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </CollapsibleTrigger>
-
-                                <CollapsibleContent>
-                                  <div className="space-y-2">
-                                    {/* Messages du chat email */}
-                                    <ScrollArea className="h-[150px] pr-2">
-                                      <div className="space-y-2">
-                                        {emailChatMessages.length === 0 && (
-                                          <div className="text-center py-2 text-muted-foreground">
-                                            <p className="text-xs">
-                                              Demandez des modifications à l'email (ton, contenu, structure...)
-                                            </p>
-                                          </div>
-                                        )}
-                                        
-                                        {emailChatMessages.map((message, index) => (
-                                          <div
-                                            key={index}
-                                            className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                          >
-                                            <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                              <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                                message.role === 'user' ? 'bg-blue-500' : 'bg-blue-200'
-                                              }`}>
-                                                {message.role === 'user' ? (
-                                                  <User className="h-2 w-2 text-white" />
-                                                ) : (
-                                                  <Bot className="h-2 w-2 text-blue-600" />
-                                                )}
-                                              </div>
-                                              
-                                              <div className={`rounded-lg p-2 text-xs ${
-                                                message.role === 'user' 
-                                                  ? 'bg-blue-500 text-white' 
-                                                  : 'bg-blue-100 text-blue-800'
-                                              }`}>
-                                                <p className="whitespace-pre-wrap">{message.content}</p>
-                                                <div className="text-xs opacity-70 mt-1">
-                                                  {message.timestamp.toLocaleTimeString('fr-FR', { 
-                                                    hour: '2-digit', 
-                                                    minute: '2-digit' 
-                                                  })}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
+                                    
+                                    <div className={`rounded-lg p-2 text-xs ${
+                                      message.role === 'user' 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      <p className="whitespace-pre-wrap">{message.content}</p>
+                                      <div className="text-xs opacity-70 mt-1">
+                                        {message.timestamp.toLocaleTimeString('fr-FR', { 
+                                          hour: '2-digit', 
+                                          minute: '2-digit' 
+                                        })}
                                       </div>
-                                    </ScrollArea>
-
-                                    {/* Input du chat email */}
-                                    <div className="flex gap-2">
-                                      <Input
-                                        value={emailChatInput}
-                                        onChange={(e) => setEmailChatInput(e.target.value)}
-                                        onKeyPress={handleEmailChatKeyPress}
-                                        placeholder="Modifier l'email (ex: rendre plus formel, ajouter des détails...)"
-                                        disabled={isEmailChatLoading}
-                                        className="flex-1 text-xs h-7"
-                                      />
-                                      <Button 
-                                        onClick={sendEmailChatMessage} 
-                                        disabled={isEmailChatLoading || !emailChatInput.trim()}
-                                        size="sm"
-                                        className="h-7 w-7 p-0"
-                                      >
-                                        {isEmailChatLoading ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Send className="h-3 w-3" />
-                                        )}
-                                      </Button>
                                     </div>
                                   </div>
-                                </CollapsibleContent>
-                              </Collapsible>
+                                </div>
+                              ))}
                             </div>
+                          </ScrollArea>
 
-                            {/* Email content */}
-                            <div className="bg-muted/50 rounded p-3">
-                              <pre className="text-xs whitespace-pre-wrap font-sans">
-                                {recommendation.email_draft}
-                              </pre>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(recommendation.email_draft || '');
-                                  toast({
-                                    title: "Email copié",
-                                    description: "L'email a été copié dans le presse-papiers",
-                                  });
-                                }}
-                                className="w-full mt-3"
-                              >
-                                Copier l'email
-                              </Button>
-                            </div>
+                          {/* Input du chat email */}
+                          <div className="flex gap-2">
+                            <Input
+                              value={emailChatInput}
+                              onChange={(e) => setEmailChatInput(e.target.value)}
+                              onKeyPress={handleEmailChatKeyPress}
+                              placeholder="Modifier l'email (ex: rendre plus formel, ajouter des détails...)"
+                              disabled={isEmailChatLoading}
+                              className="flex-1 text-xs h-7"
+                            />
+                            <Button 
+                              onClick={sendEmailChatMessage} 
+                              disabled={isEmailChatLoading || !emailChatInput.trim()}
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                            >
+                              {isEmailChatLoading ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Send className="h-3 w-3" />
+                              )}
+                            </Button>
                           </div>
-                        </CollapsibleContent>
-                      </Collapsible>
+                        </div>
+                      </div>
+
+                      {/* Email content */}
+                      <div className="bg-muted/50 rounded p-3">
+                        <pre className="text-xs whitespace-pre-wrap font-sans">
+                          {recommendation.email_draft}
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(recommendation.email_draft || '');
+                            toast({
+                              title: "Email copié",
+                              description: "L'email a été copié dans le presse-papiers",
+                            });
+                          }}
+                          className="w-full mt-3"
+                        >
+                          Copier l'email
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                  </div>
 
                   <div className="text-xs text-muted-foreground text-right">
                     {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
