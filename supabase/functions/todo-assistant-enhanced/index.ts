@@ -116,12 +116,12 @@ INSTRUCTIONS:
 
 Réponds de manière naturelle et utile à la question de l'utilisateur.`;
 
-    // Préparer l'historique de conversation SANS répéter le message d'accueil
+    // Préparer l'historique de conversation SANS le message d'accueil
     const messages = [
       { role: 'system', content: contextPrompt }
     ];
 
-    // Ajouter l'historique de conversation en filtrant les messages d'accueil répétés
+    // Ajouter l'historique de conversation en filtrant les messages d'accueil
     if (conversationHistory && conversationHistory.length > 0) {
       const filteredHistory = conversationHistory.filter((msg: any) => 
         !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche")
@@ -147,7 +147,7 @@ Réponds de manière naturelle et utile à la question de l'utilisateur.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4.1-2025-04-14',
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,
