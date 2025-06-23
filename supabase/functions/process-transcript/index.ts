@@ -79,13 +79,13 @@ serve(async (req) => {
 
     const participantNames = allParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript - UTILISER GPT-4-TURBO avec retry
+    // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry
     const cleaningStartTime = Date.now();
-    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4-turbo and retry mechanism...');
+    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4.1-2025-04-14 and retry mechanism...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
     
     try {
-      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4-turbo', 3);
+      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4.1-2025-04-14', 3);
       await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
       console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
       console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);

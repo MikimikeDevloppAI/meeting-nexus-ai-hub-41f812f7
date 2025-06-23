@@ -21,7 +21,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature,
-          max_tokens: 16384,
+          max_tokens: 4096,
         }),
       });
 

@@ -16,6 +16,7 @@ Tâches à effectuer UNIQUEMENT :
 - Améliorer la ponctuation pour la lisibilité
 - Structurer en paragraphes cohérents
 - Reortographie les mots suivant si ils sont mal écrit: Ophtacare, Liris
+- ATTENTION PHRASES COUPÉES : Si une phrase est commencée par un speaker et continue chez le speaker suivant (phrase coupée au milieu), réattribuer la fin de la phrase au bon speaker original pour reconstituer la phrase complète
 
 INTERDICTIONS ABSOLUES :
 - NE PAS résumer ou condenser le contenu
