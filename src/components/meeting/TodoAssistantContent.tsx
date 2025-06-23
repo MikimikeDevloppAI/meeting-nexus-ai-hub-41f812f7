@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -109,12 +110,18 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         console.error('Erreur récupération tâche:', todoError);
       }
 
+      // Obtenir l'historique filtré (sans messages d'accueil dupliqués)
+      const history = getFormattedHistory().filter(msg => 
+        !msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") ||
+        msg.isUser
+      );
+
       const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
         body: {
           todoId,
           todoDescription,
           userMessage: inputValue,
-          conversationHistory: getFormattedHistory(),
+          conversationHistory: history,
           todoData: todoData || null,
           recommendation: recommendation?.recommendation_text || null
         }
@@ -137,16 +144,23 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         timestamp: new Date()
       };
 
-      // Remplacer le message de typing par la vraie réponse
+      // Supprimer le message de typing et ajouter la vraie réponse
+      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
+      
+      // Reconstruire l'historique proprement
       clearHistory();
-      const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
-      filteredHistory.forEach((msg, index) => addMessage({
-        id: `restored-${Date.now()}-${index}`,
-        content: msg.content,
-        isUser: msg.isUser,
-        timestamp: new Date(msg.timestamp),
-        sources: msg.sources
-      }));
+      filteredMessages.forEach((msg, index) => {
+        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
+          addMessage({
+            id: `restored-${Date.now()}-${index}`,
+            content: msg.content,
+            isUser: msg.isUser,
+            timestamp: new Date(msg.timestamp),
+            sources: msg.sources
+          });
+        }
+      });
+      
       addMessage(userMessage);
       addMessage(assistantMessage);
 
@@ -157,6 +171,13 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
         toast({
           title: "✅ Tâche mise à jour",
           description: data.explanation || "La tâche a été modifiée par l'assistant",
+        });
+      }
+
+      if (data.hasInternetContext) {
+        toast({
+          title: "🌐 Recherche internet effectuée",
+          description: "Des informations récentes ont été trouvées pour enrichir la réponse",
         });
       }
 
@@ -171,15 +192,19 @@ export const TodoAssistantContent = ({ todoId, todoDescription, onUpdate }: Todo
       };
       
       // Supprimer le message de typing et ajouter l'erreur
+      const filteredMessages = messages.filter(msg => !msg.content.includes("réfléchit"));
       clearHistory();
-      const filteredHistory = getFormattedHistory().filter(msg => !msg.content.includes("réfléchit"));
-      filteredHistory.forEach((msg, index) => addMessage({
-        id: `restored-error-${Date.now()}-${index}`,
-        content: msg.content,
-        isUser: msg.isUser,
-        timestamp: new Date(msg.timestamp),
-        sources: msg.sources
-      }));
+      filteredMessages.forEach((msg, index) => {
+        if (!msg.content.includes("Bonjour ! Je suis l'assistant IA pour cette tâche") || index === 0) {
+          addMessage({
+            id: `restored-error-${Date.now()}-${index}`,
+            content: msg.content,
+            isUser: msg.isUser,
+            timestamp: new Date(msg.timestamp),
+            sources: msg.sources
+          });
+        }
+      });
       addMessage(userMessage);
       addMessage(errorMessage);
       
