@@ -41,23 +41,16 @@ serve(async (req) => {
 Une tâche a été créée suite à une réunion : "${todoDescription}"
 L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
 
-Génère des questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE si nécessaire qui permettront d'affiner la recherche.Maximum 5 questions. Ces questions doivent être :
+Génère des questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE si nécessaire qui permettront d'affiner la recherche.Maximum 5 questions minimum 1. Ces questions doivent être :
 
 1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
 2. **PRATIQUES** - Focalisées sur les aspects opérationnels (budget, délai, priorité, contraintes)
 3. **SPÉCIFIQUES au contexte médical/administratif** d'un cabinet d'ophtalmologie à Genève
 4. **ORIENTÉES ACTION** - Pour aider à prendre des décisions concrètes
 
-Exemples de bonnes questions :
-- Quel est le budget approximatif disponible pour cette action ?
-- Dans quel délai cette tâche doit-elle être réalisée ?
-- Y a-t-il des contraintes particulières à respecter (réglementaires, logistiques, etc.) ?
-- Quelle est la priorité de cette tâche par rapport aux autres projets du cabinet ?
-- Qui sera responsable de la mise en œuvre de cette solution ?
-
 Adapte ces exemples au contexte spécifique de la tâche demandée.
 
-Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérotation ni formatage spécial.`;
+Format ta réponse UNIQUEMENT avec les  questions, une par ligne, sans numérotation ni formatage spécial.`;
 
       const questionsResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -66,7 +59,7 @@ Format ta réponse UNIQUEMENT avec les 4 questions, une par ligne, sans numérot
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro',
+          model: 'sonar-deep-search',
           messages: [
             {
               role: 'user',
@@ -156,7 +149,7 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 ## 4. RECOMMANDATIONS SPÉCIFIQUES
 • Adaptées au fonctionnement d'un cabinet médical à Genève
 • Prise en compte de la réglementation locale
-• Suggestions de prestataires locaux fiables
+• Suggestions de prestataires locaux fiables si nécessaire
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
@@ -170,7 +163,7 @@ Format ta réponse de manière professionnelle, aérée et facilement scannable 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar-deep-search',
         messages: [
           {
             role: 'user',
