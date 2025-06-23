@@ -42,8 +42,7 @@ interface EmailChatMessage {
 
 export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: TodoAIRecommendationContentProps) => {
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [showEmailDraft, setShowEmailDraft] = useState(true);
+  const [isOpen, setIsOpen] = useState(true); // Auto-open by default
   const [showContacts, setShowContacts] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -51,7 +50,6 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   const [emailChatMessages, setEmailChatMessages] = useState<EmailChatMessage[]>([]);
   const [emailChatInput, setEmailChatInput] = useState("");
   const [isEmailChatLoading, setIsEmailChatLoading] = useState(false);
-  const [showEmailChat, setShowEmailChat] = useState(true);
   
   const { toast } = useToast();
 
@@ -129,14 +127,6 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
       console.error("Error:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRecommendationToggle = (newIsOpen: boolean) => {
-    setIsOpen(newIsOpen);
-    if (newIsOpen) {
-      setShowEmailDraft(true);
-      setShowEmailChat(true);
     }
   };
 
@@ -264,222 +254,202 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   const hasContactInfo = recommendation.contacts && recommendation.contacts.length > 0;
 
   return (
-    <>
-      <Collapsible open={isOpen} onOpenChange={handleRecommendationToggle}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-gray-200/50 px-2"
-          >
-            <Mail className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-black text-center leading-tight">Communication</span>
-            <div className="flex items-center gap-1">
-              {hasContactInfo && <Phone className="h-2 w-2" />}
-              {isOpen ? <ChevronUp className="h-2 w-2" /> : <ChevronDown className="h-2 w-2" />}
+    <Card className="border-muted/50">
+      <CardContent className="p-4">
+        <div className="space-y-4">
+          {/* Email content first */}
+          <div className="bg-muted/50 rounded p-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Mail className="h-4 w-4 text-blue-500" />
+              <span className="font-medium text-sm">Email de communication</span>
             </div>
-          </Button>
-        </CollapsibleTrigger>
+            <pre className="text-xs whitespace-pre-wrap font-sans mb-3">
+              {recommendation.email_draft}
+            </pre>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(recommendation.email_draft || '');
+                toast({
+                  title: "Email copié",
+                  description: "L'email a été copié dans le presse-papiers",
+                });
+              }}
+              className="w-full"
+            >
+              Copier l'email
+            </Button>
+          </div>
 
-        {isOpen && (
-          <CollapsibleContent className="col-span-full">
-            <Card className="mt-2 border-muted/50">
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {/* Section contacts */}
-                  {hasContactInfo && (
-                    <div>
-                      <Collapsible open={showContacts} onOpenChange={setShowContacts}>
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-between text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-3 w-3" />
-                              <span>Contacts ({recommendation.contacts.length})</span>
-                            </div>
-                            {showContacts ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent>
-                          <div className="mt-2 space-y-2">
-                            {recommendation.contacts.map((contact, index) => (
-                              <div key={index} className="bg-muted/50 rounded p-2">
-                                <div className="font-medium text-sm">{contact.name}</div>
-                                <div className="text-xs text-muted-foreground space-y-1 mt-1">
-                                  {contact.phone && (
-                                    <div className="flex items-center gap-1">
-                                      <Phone className="h-3 w-3" />
-                                      <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
-                                        {contact.phone}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {contact.email && (
-                                    <div className="flex items-center gap-1">
-                                      <Mail className="h-3 w-3" />
-                                      <a href={`mailto:${contact.email}`} className="hover:underline break-all">
-                                        {contact.email}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {contact.website && (
-                                    <div className="flex items-center gap-1">
-                                      <Globe className="h-3 w-3" />
-                                      <a 
-                                        href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="hover:underline break-all"
-                                      >
-                                        {contact.website.replace(/^https?:\/\//i, '')}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {contact.address && (
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <a 
-                                        href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        className="hover:underline"
-                                      >
-                                        {contact.address}
-                                      </a>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
+          {/* Chat de modification d'email second */}
+          <div className="border rounded-lg p-3 bg-blue-50/50">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="h-4 w-4 text-blue-500" />
+              <span className="font-medium text-sm">Modifier l'email</span>
+            </div>
+            <div className="space-y-2">
+              {/* Messages du chat email */}
+              <ScrollArea className="h-[150px] pr-2">
+                <div className="space-y-2">
+                  {emailChatMessages.length === 0 && (
+                    <div className="text-center py-2 text-muted-foreground">
+                      <p className="text-xs">
+                        Demandez des modifications à l'email (ton, contenu, structure...)
+                      </p>
                     </div>
                   )}
-
-                  {/* Section email avec chat de modification */}
-                  <div className={hasContactInfo ? "border-t pt-3" : ""}>
-                    <div className="space-y-3">
-                      {/* Chat de modification d'email */}
-                      <div className="border rounded-lg p-3 bg-blue-50/50">
-                        <div className="space-y-2">
-                          {/* Messages du chat email */}
-                          <ScrollArea className="h-[150px] pr-2">
-                            <div className="space-y-2">
-                              {emailChatMessages.length === 0 && (
-                                <div className="text-center py-2 text-muted-foreground">
-                                  <p className="text-xs">
-                                    Demandez des modifications à l'email (ton, contenu, structure...)
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {emailChatMessages.map((message, index) => (
-                                <div
-                                  key={index}
-                                  className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                >
-                                  <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      message.role === 'user' ? 'bg-blue-500' : 'bg-blue-200'
-                                    }`}>
-                                      {message.role === 'user' ? (
-                                        <User className="h-2 w-2 text-white" />
-                                      ) : (
-                                        <Bot className="h-2 w-2 text-blue-600" />
-                                      )}
-                                    </div>
-                                    
-                                    <div className={`rounded-lg p-2 text-xs ${
-                                      message.role === 'user' 
-                                        ? 'bg-blue-500 text-white' 
-                                        : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      <p className="whitespace-pre-wrap">{message.content}</p>
-                                      <div className="text-xs opacity-70 mt-1">
-                                        {message.timestamp.toLocaleTimeString('fr-FR', { 
-                                          hour: '2-digit', 
-                                          minute: '2-digit' 
-                                        })}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-
-                          {/* Input du chat email */}
-                          <div className="flex gap-2">
-                            <Input
-                              value={emailChatInput}
-                              onChange={(e) => setEmailChatInput(e.target.value)}
-                              onKeyPress={handleEmailChatKeyPress}
-                              placeholder="Modifier l'email (ex: rendre plus formel, ajouter des détails...)"
-                              disabled={isEmailChatLoading}
-                              className="flex-1 text-xs h-7"
-                            />
-                            <Button 
-                              onClick={sendEmailChatMessage} 
-                              disabled={isEmailChatLoading || !emailChatInput.trim()}
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                            >
-                              {isEmailChatLoading ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Send className="h-3 w-3" />
-                              )}
-                            </Button>
+                  
+                  {emailChatMessages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          message.role === 'user' ? 'bg-blue-500' : 'bg-blue-200'
+                        }`}>
+                          {message.role === 'user' ? (
+                            <User className="h-2 w-2 text-white" />
+                          ) : (
+                            <Bot className="h-2 w-2 text-blue-600" />
+                          )}
+                        </div>
+                        
+                        <div className={`rounded-lg p-2 text-xs ${
+                          message.role === 'user' 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <div className="text-xs opacity-70 mt-1">
+                            {message.timestamp.toLocaleTimeString('fr-FR', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
                           </div>
                         </div>
                       </div>
-
-                      {/* Email content */}
-                      <div className="bg-muted/50 rounded p-3">
-                        <pre className="text-xs whitespace-pre-wrap font-sans">
-                          {recommendation.email_draft}
-                        </pre>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            navigator.clipboard.writeText(recommendation.email_draft || '');
-                            toast({
-                              title: "Email copié",
-                              description: "L'email a été copié dans le presse-papiers",
-                            });
-                          }}
-                          className="w-full mt-3"
-                        >
-                          Copier l'email
-                        </Button>
-                      </div>
                     </div>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground text-right">
-                    {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        )}
-      </Collapsible>
-    </>
+              </ScrollArea>
+
+              {/* Input du chat email */}
+              <div className="flex gap-2">
+                <Input
+                  value={emailChatInput}
+                  onChange={(e) => setEmailChatInput(e.target.value)}
+                  onKeyPress={handleEmailChatKeyPress}
+                  placeholder="Modifier l'email (ex: rendre plus formel, ajouter des détails...)"
+                  disabled={isEmailChatLoading}
+                  className="flex-1 text-xs h-7"
+                />
+                <Button 
+                  onClick={sendEmailChatMessage} 
+                  disabled={isEmailChatLoading || !emailChatInput.trim()}
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                >
+                  {isEmailChatLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section contacts */}
+          {hasContactInfo && (
+            <div className="border-t pt-3">
+              <Collapsible open={showContacts} onOpenChange={setShowContacts}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-between text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      <span>Contacts ({recommendation.contacts.length})</span>
+                    </div>
+                    {showContacts ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <div className="mt-2 space-y-2">
+                    {recommendation.contacts.map((contact, index) => (
+                      <div key={index} className="bg-muted/50 rounded p-2">
+                        <div className="font-medium text-sm">{contact.name}</div>
+                        <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                          {contact.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
+                                {contact.phone}
+                              </a>
+                            </div>
+                          )}
+                          {contact.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              <a href={`mailto:${contact.email}`} className="hover:underline break-all">
+                                {contact.email}
+                              </a>
+                            </div>
+                          )}
+                          {contact.website && (
+                            <div className="flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              <a 
+                                href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:underline break-all"
+                              >
+                                {contact.website.replace(/^https?:\/\//i, '')}
+                              </a>
+                            </div>
+                          )}
+                          {contact.address && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              <a 
+                                href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="hover:underline"
+                              >
+                                {contact.address}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground text-right">
+            {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
