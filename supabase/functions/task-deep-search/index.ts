@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,8 +23,10 @@ serve(async (req) => {
       )
     }
 
-    // Vérifier que la clé API Perplexity est disponible
+    // Vérifier que les clés API sont disponibles
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const openAIKey = Deno.env.get('OPENAI_API_KEY');
+    
     if (!perplexityApiKey) {
       console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
       return new Response(
@@ -31,95 +34,63 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    if (!openAIKey) {
+      console.error('❌ Missing OPENAI_API_KEY environment variable');
+      return new Response(
+        JSON.stringify({ error: 'Configuration manquante: clé API OpenAI non trouvée' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    // Phase 1: Générer des questions d'enrichissement (obligatoire maintenant)
+    // Phase 1: Génération des questions d'enrichissement avec ChatGPT 4.1
     if (!enrichmentAnswers) {
-      console.log('🔍 Phase 1: Génération des questions d\'enrichissement (obligatoire)');
+      console.log('🔍 Phase 1: Génération des questions avec ChatGPT 4.1');
       
-      const questionsPrompt = `Tu es un assistant spécialisé pour le cabinet d'ophtalmologie du Dr Tabibian à Genève.
-
-Une tâche a été créée suite à une réunion : "${todoDescription}"
-L'utilisateur souhaite approfondir avec ce contexte : "${userContext}"
-
-Génère des questions d'enrichissement PRATIQUES ET FACILES À RÉPONDRE si nécessaire qui permettront d'affiner la recherche.Maximum 5 questions minimum 1. Ces questions doivent être :
-
-1. **SIMPLES et DIRECTES** - L'utilisateur ne doit pas faire de recherches pour répondre
-2. **PRATIQUES** - Focalisées sur les aspects opérationnels et budgétaire
-3. **SPÉCIFIQUES au contexte médical/administratif** d'un cabinet d'ophtalmologie à Genève
-4. **ORIENTÉES ACTION** - Pour aider à prendre des décisions concrètes
-
-Adapte ces exemples au contexte spécifique de la tâche demandée.
-
-Format ta réponse UNIQUEMENT avec les  questions, une par ligne, sans numérotation ni formatage spécial.`;
-
-      const questionsResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${perplexityApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'sonar-pro',
-          messages: [
-            {
-              role: 'user',
-              content: questionsPrompt
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 400,
-          top_p: 0.9,
-          return_images: false,
-          return_related_questions: false,
-          search_recency_filter: 'month'
-        })
-      });
-
-      if (!questionsResponse.ok) {
-        console.error('❌ Erreur génération questions:', questionsResponse.status);
+      try {
+        const questions = await generateEnrichmentQuestions(todoDescription, userContext, openAIKey);
+        
+        console.log('✅ Questions générées:', questions.length);
+        
         return new Response(
-          JSON.stringify({ error: 'Erreur lors de la génération des questions' }),
+          JSON.stringify({ 
+            success: true, 
+            phase: 'questions',
+            questions: questions
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        );
+      } catch (error) {
+        console.error('❌ Erreur génération questions ChatGPT:', error);
+        return new Response(
+          JSON.stringify({ error: 'Erreur lors de la génération des questions avec ChatGPT' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      const questionsData = await questionsResponse.json();
-      const questionsText = questionsData.choices?.[0]?.message?.content || '';
-      const questions = questionsText.split('\n').filter(q => q.trim().length > 0).slice(0, 4);
-
-      console.log('✅ Questions générées:', questions.length);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          phase: 'questions',
-          questions: questions
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
     }
 
-    // Phase 2: Recherche finale avec contexte enrichi
-    console.log('🔍 Phase 2: Recherche finale avec Sonar Pro');
+    // Phase 2: Réécriture du contexte avec ChatGPT 4.1 puis recherche avec Sonar Pro
+    console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT 4.1');
     
-    let enrichedContext = userContext;
-    if (enrichmentAnswers && enrichmentAnswers.length > 0) {
-      enrichedContext += '\n\nRÉPONSES AUX QUESTIONS D\'ENRICHISSEMENT:\n';
-      enrichedContext += enrichmentAnswers.map((answer: any, index: number) => 
-        `${index + 1}. ${answer.question}\nRéponse: ${answer.answer}`
-      ).join('\n\n');
-    }
+    try {
+      // Réécrire le contexte avec ChatGPT 4.1
+      const rewrittenContext = await rewriteUserContext(
+        todoDescription, 
+        userContext, 
+        enrichmentAnswers || [], 
+        openAIKey
+      );
 
-    // Prompt optimisé pour Sonar Pro
-    const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
-
-Tu aides principalement le personnel administratif à accomplir des tâches non médicales. Une nouvelle tâche a été générée suite à une réunion :
+      console.log('🔍 Phase 3: Recherche finale avec Sonar Pro');
+      
+      // Prompt optimisé pour Sonar Pro avec le contexte réécrit
+      const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 **Tâche :** ${todoDescription}
-**Contexte détaillé :** ${enrichedContext}
+**Contexte enrichi :** ${rewrittenContext}
 
 INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
 - Structure ta réponse de manière très claire avec des titres, sous-titres et bullet points
@@ -153,104 +124,119 @@ Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
 Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`;
 
-    console.log('🚀 Envoi de la recherche finale avec Sonar Pro');
+      console.log('🚀 Envoi de la recherche finale avec Sonar Pro');
 
-    // Appel à l'API Perplexity avec le modèle sonar-pro
-    const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${perplexityApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'sonar-pro',
-        messages: [
-          {
-            role: 'user',
-            content: searchQuery
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: 8000,
-        top_p: 0.9,
-        return_images: false,
-        return_related_questions: false,
-        search_recency_filter: 'month'
-      })
-    });
+      // Appel à l'API Perplexity avec le modèle sonar-pro
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${perplexityApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [
+            {
+              role: 'user',
+              content: searchQuery
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 8000,
+          top_p: 0.9,
+          return_images: false,
+          return_related_questions: false,
+          search_recency_filter: 'month'
+        })
+      });
 
-    console.log('📡 Sonar Pro API response status:', perplexityResponse.status);
+      console.log('📡 Sonar Pro API response status:', perplexityResponse.status);
 
-    if (!perplexityResponse.ok) {
-      const errorText = await perplexityResponse.text();
-      console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
-      console.error('❌ Error details:', errorText);
+      if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error('❌ Sonar Pro API error:', perplexityResponse.status, perplexityResponse.statusText);
+        console.error('❌ Error details:', errorText);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
+            details: errorText
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const perplexityData = await perplexityResponse.json()
+      console.log('📊 Sonar Pro response structure:', Object.keys(perplexityData));
       
-      return new Response(
-        JSON.stringify({ 
-          error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
-          details: errorText
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
+      
+      // Extraire les sources/citations de la réponse Perplexity
+      const sources = perplexityData.citations || perplexityData.sources || []
+      
+      console.log('✅ Recherche Sonar Pro terminée avec succès')
+      console.log('📚 Sources trouvées:', sources.length)
+      console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
+
+      // Sauvegarder dans Supabase
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
-    }
 
-    const perplexityData = await perplexityResponse.json()
-    console.log('📊 Sonar Pro response structure:', Object.keys(perplexityData));
-    
-    const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
-    
-    // Extraire les sources/citations de la réponse Perplexity
-    const sources = perplexityData.citations || perplexityData.sources || []
-    
-    console.log('✅ Recherche Sonar Pro terminée avec succès')
-    console.log('📚 Sources trouvées:', sources.length)
-    console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
+      const authHeader = req.headers.get('Authorization')
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user } } = await supabaseClient.auth.getUser(token)
+        
+        if (user) {
+          const { error: insertError } = await supabaseClient
+            .from('task_deep_searches')
+            .insert({
+              todo_id: todoId,
+              user_context: rewrittenContext,
+              search_query: searchQuery,
+              search_result: searchResult,
+              sources: sources,
+              created_by: user.id
+            })
 
-    // Sauvegarder dans Supabase
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '')
-      const { data: { user } } = await supabaseClient.auth.getUser(token)
-      
-      if (user) {
-        const { error: insertError } = await supabaseClient
-          .from('task_deep_searches')
-          .insert({
-            todo_id: todoId,
-            user_context: enrichedContext,
-            search_query: searchQuery,
-            search_result: searchResult,
-            sources: sources,
-            created_by: user.id
-          })
-
-        if (insertError) {
-          console.error('❌ Error saving search result:', insertError)
-        } else {
-          console.log('💾 Search result saved successfully')
+          if (insertError) {
+            console.error('❌ Error saving search result:', insertError)
+          } else {
+            console.log('💾 Search result saved successfully')
+          }
         }
       }
-    }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        phase: 'result',
-        result: searchResult,
-        sources: sources,
-        query: searchQuery
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    )
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          phase: 'result',
+          result: searchResult,
+          sources: sources,
+          query: searchQuery,
+          rewrittenContext: rewrittenContext
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      )
+
+    } catch (error) {
+      console.error('❌ Erreur lors de la phase 2/3:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Erreur lors de la réécriture du contexte ou de la recherche',
+          details: error.message 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
   } catch (error) {
     console.error('❌ Deep search error:', error)
