@@ -348,9 +348,6 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
           {searchPhase === 'result' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Recherche terminée avec Sonar Pro
-                </Badge>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" onClick={resetSearch}>
                     Nouvelle recherche
