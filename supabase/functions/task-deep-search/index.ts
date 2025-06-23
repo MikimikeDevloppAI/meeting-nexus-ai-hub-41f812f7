@@ -26,20 +26,41 @@ serve(async (req) => {
     const searchQuery = `Tu es un assistant intelligent spécialisé dans les recherches approfondies pour le cabinet d'ophtalmologie du Dr Tabibian, situé à Genève.
 
 Tu aides principalement le personnel administratif à accomplir des tâches non médicales. Une nouvelle tâche a été générée suite à une réunion :
-Tâche : ${todoDescription}
-Contexte précisé par l'utilisateur : ${userContext}
+
+**Tâche :** ${todoDescription}
+**Contexte précisé par l'utilisateur :** ${userContext}
+
+INSTRUCTIONS IMPORTANTES POUR LA RÉPONSE :
+- Structure ta réponse de manière très claire avec des titres, sous-titres et bullet points
+- Évite absolument les répétitions d'informations
+- Organise le contenu en sections logiques avec des paragraphes distincts
+- Utilise des listes à puces pour les éléments multiples (avantages, inconvénients, étapes, etc.)
+- Présente les comparaisons sous forme de tableaux quand c'est approprié
+- Numérote les étapes d'action de manière claire
+- Sépare visuellement les différentes sections de ta réponse
 
 Effectue une recherche approfondie, orientée vers l'action, et fournis :
 
-des informations pratiques, fiables et directement exploitables ;
+## 1. INFORMATIONS PRATIQUES
+• Des informations fiables et directement exploitables
+• Des détails spécifiques au contexte genevois/suisse si pertinent
 
-une comparaison claire (avantages/inconvénients, prix, délais) si plusieurs options existent (ex. : fournisseurs) ;
+## 2. ANALYSE COMPARATIVE (si applicable)
+• Tableau comparatif des options disponibles
+• Avantages et inconvénients clairement listés
+• Informations sur les prix, délais, qualité
 
-un plan d'action structuré si la tâche l'exige (ex. : organisation d'un événement, amélioration de processus) ;
+## 3. PLAN D'ACTION STRUCTURÉ
+• Étapes numérotées et chronologiques
+• Responsabilités et échéances suggérées
+• Points de contrôle et validations nécessaires
 
-des recommandations adaptées au fonctionnement d'un cabinet médical à Genève (réglementation locale, prestataires locaux, spécificités suisses).
+## 4. RECOMMANDATIONS SPÉCIFIQUES
+• Adaptées au fonctionnement d'un cabinet médical à Genève
+• Prise en compte de la réglementation locale
+• Suggestions de prestataires locaux fiables
 
-Ne propose que des éléments utiles et concrets pour aider l'équipe à exécuter efficacement cette tâche.`
+Format ta réponse de manière professionnelle, aérée et facilement scannable pour une lecture rapide et efficace.`
 
     console.log('🔍 Launching deep search for task:', todoId)
     console.log('📝 Search query:', searchQuery)
