@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Fonction pour récupérer le profil utilisateur
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      console.log(`Fetching user profile for ${userId}`);
+      console.log(`Récupération du profil utilisateur pour ${userId}`);
       const { data: userProfile, error } = await supabase
         .from('users')
         .select('*')
@@ -37,13 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error || !userProfile) {
-        console.error('Error fetching user profile:', error);
+        console.error('Erreur lors de la récupération du profil:', error);
         return null;
       }
 
       return userProfile as User;
     } catch (error) {
-      console.error('Exception fetching user profile:', error);
+      console.error('Exception lors de la récupération du profil:', error);
       return null;
     }
   };
@@ -52,14 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initializeAuth = async () => {
-      if (sessionChecked) return; // Éviter les re-vérifications
+      if (sessionChecked) return;
 
       try {
-        console.log("Checking initial auth session...");
+        console.log("Vérification de la session d'authentification...");
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Session error:", error);
+          console.error("Erreur de session:", error);
           if (mounted) {
             setUser(null);
             setIsLoading(false);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (session?.user && mounted) {
-          console.log("Found existing session for user:", session.user.id);
+          console.log("Session existante trouvée pour l'utilisateur:", session.user.id);
           
           const userProfile = await fetchUserProfile(session.user.id);
           
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (userProfile) {
             if (!userProfile.approved) {
-              console.log("User not approved");
+              console.log("Utilisateur non approuvé");
               toast({
                 title: "Compte en attente",
                 description: "Votre compte attend l'approbation de l'administrateur.",
@@ -85,16 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
               setUser(null);
             } else {
-              console.log("User approved, setting user state:", userProfile);
+              console.log("Utilisateur approuvé, mise à jour de l'état:", userProfile);
               setUser(userProfile);
             }
           }
         } else {
-          console.log("No existing session found");
+          console.log("Aucune session existante trouvée");
           if (mounted) setUser(null);
         }
       } catch (error) {
-        console.error("Auth check error:", error);
+        console.error("Erreur lors de la vérification d'authentification:", error);
         if (mounted) setUser(null);
       } finally {
         if (mounted) {
@@ -104,20 +104,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Vérifier la session une seule fois au démarrage
     if (!sessionChecked) {
       initializeAuth();
     }
 
-    // Écouter les changements d'état d'auth seulement pour les événements importants
+    // Écouter les changements d'état d'authentification avec filtrage des événements
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("Auth state changed:", event);
+        console.log("Changement d'état d'authentification:", event);
         
         if (!mounted) return;
         
+        // Ignorer les événements TOKEN_REFRESHED pour éviter les rechargements
+        if (event === "TOKEN_REFRESHED") {
+          console.log("Événement TOKEN_REFRESHED ignoré pour éviter les redirections");
+          return;
+        }
+        
         if (event === "SIGNED_IN" && session?.user) {
-          // Ne pas naviguer automatiquement, juste mettre à jour l'état
+          console.log("Utilisateur connecté, mise à jour du profil");
+          // Utiliser setTimeout pour éviter les conflits avec la navigation
           setTimeout(async () => {
             if (!mounted) return;
             
@@ -137,10 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }, 100);
         } else if (event === "SIGNED_OUT") {
-          console.log("User signed out");
+          console.log("Utilisateur déconnecté");
           setUser(null);
         }
-        // Ignorer TOKEN_REFRESHED pour éviter les rechargements
       }
     );
 
@@ -165,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "Vous êtes maintenant connecté.",
       });
     } catch (error: any) {
-      console.error("Sign in error:", error);
+      console.error("Erreur de connexion:", error);
       toast({
         title: "Erreur de connexion",
         description: error.message || "Veuillez réessayer",
@@ -205,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "Votre compte attend l'approbation de l'administrateur.",
       });
     } catch (error: any) {
-      console.error("Sign up error:", error);
+      console.error("Erreur d'inscription:", error);
       toast({
         title: "Erreur d'inscription",
         description: error.message || "Veuillez réessayer",
@@ -219,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setIsLoading(true);
-      console.log("Signing out user...");
+      console.log("Déconnexion de l'utilisateur...");
       await supabase.auth.signOut();
       setUser(null);
       toast({
@@ -227,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "Vous avez été déconnecté avec succès.",
       });
     } catch (error: any) {
-      console.error("Sign out error:", error);
+      console.error("Erreur de déconnexion:", error);
       toast({
         title: "Erreur de déconnexion",
         description: error.message || "Veuillez réessayer",

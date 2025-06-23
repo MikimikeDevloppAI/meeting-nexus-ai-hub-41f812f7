@@ -19,7 +19,7 @@ export const useLogin = () => {
     setEmailNotConfirmed(false);
 
     try {
-      console.log("Attempting to sign in with email:", email);
+      console.log("Tentative de connexion avec email:", email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -27,7 +27,7 @@ export const useLogin = () => {
       });
 
       if (error) {
-        console.error("Sign in error:", error);
+        console.error("Erreur de connexion:", error);
         if (error.message === "Email not confirmed") {
           setEmailNotConfirmed(true);
         }
@@ -35,18 +35,18 @@ export const useLogin = () => {
       }
 
       if (data.user) {
-        console.log("Sign in successful, user:", data.user.id);
+        console.log("Connexion réussie, utilisateur:", data.user.id);
         
         toast({
           title: "Connexion réussie !",
           description: "Redirection vers l'assistant...",
         });
         
-        // Naviguer vers l'assistant après connexion réussie
-        navigate("/assistant");
+        // Navigation simple sans forcer le rechargement
+        navigate("/assistant", { replace: true });
       }
     } catch (error: any) {
-      console.error("Sign in error:", error);
+      console.error("Erreur de connexion:", error);
       toast({
         title: "Erreur de connexion",
         description: error.message || "Veuillez réessayer",
@@ -83,7 +83,7 @@ export const useLogin = () => {
       });
       setEmailNotConfirmed(false);
     } catch (error: any) {
-      console.error("Resend error:", error);
+      console.error("Erreur d'envoi:", error);
       toast({
         title: "Erreur d'envoi de l'email de confirmation",
         description: error.message || "Veuillez réessayer",
