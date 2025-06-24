@@ -19,14 +19,14 @@ const Invoices = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upload Form */}
-        <div className="lg:col-span-1">
+      <div className="space-y-6">
+        {/* Upload Form - Full Width */}
+        <div className="w-full">
           <InvoiceUploadForm onUploadSuccess={handleUploadSuccess} />
         </div>
 
-        {/* Invoice List */}
-        <div className="lg:col-span-2">
+        {/* Invoice List - Below */}
+        <div className="w-full">
           <InvoiceList refreshKey={refreshKey} />
         </div>
       </div>
