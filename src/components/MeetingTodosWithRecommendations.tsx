@@ -367,7 +367,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                         className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
                         title="Gérer les participants"
                       >
-                        <Users className="h-3 w-3" />
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
@@ -430,7 +430,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                     >
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Zap className="h-4 w-4 text-purple-600" />
-                        <span className="text-sm font-medium text-black">Perplexity Search</span>
+                        <span className="text-sm font-medium text-black">Deep Search</span>
                         {hasDeepSearchResults && (
                           <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
                         )}
