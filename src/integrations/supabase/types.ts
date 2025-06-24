@@ -112,6 +112,7 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          line_items: Json | null
           mindee_raw_response: Json | null
           original_filename: string
           payment_details: string | null
@@ -120,6 +121,7 @@ export type Database = {
           supplier_address: string | null
           supplier_company_registration: string | null
           supplier_email: string | null
+          supplier_iban: string | null
           supplier_name: string | null
           supplier_phone_number: string | null
           supplier_vat_number: string | null
@@ -147,6 +149,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          line_items?: Json | null
           mindee_raw_response?: Json | null
           original_filename: string
           payment_details?: string | null
@@ -155,6 +158,7 @@ export type Database = {
           supplier_address?: string | null
           supplier_company_registration?: string | null
           supplier_email?: string | null
+          supplier_iban?: string | null
           supplier_name?: string | null
           supplier_phone_number?: string | null
           supplier_vat_number?: string | null
@@ -182,6 +186,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          line_items?: Json | null
           mindee_raw_response?: Json | null
           original_filename?: string
           payment_details?: string | null
@@ -190,6 +195,7 @@ export type Database = {
           supplier_address?: string | null
           supplier_company_registration?: string | null
           supplier_email?: string | null
+          supplier_iban?: string | null
           supplier_name?: string | null
           supplier_phone_number?: string | null
           supplier_vat_number?: string | null

@@ -16,7 +16,7 @@ interface MindeeResponse {
     inference: {
       prediction: {
         invoice_number: { value: string };
-        invoice_date: { value: string };
+        date: { value: string }; // Mindee utilise 'date' au lieu de 'invoice_date'
         due_date: { value: string };
         total_net: { value: number };
         total_amount: { value: number };
@@ -33,7 +33,22 @@ interface MindeeResponse {
         customer_address: { value: string };
         customer_company_registrations: Array<{ value: string }>;
         customer_tax_ids: Array<{ value: string }>;
-        payment_details: Array<{ account_number: string; iban: string; routing_number: string }>;
+        supplier_payment_details: Array<{ 
+          account_number: string; 
+          iban: string; 
+          routing_number: string;
+          swift: string;
+        }>;
+        line_items: Array<{
+          description: string;
+          quantity: number;
+          unit_price: number;
+          total_amount: number;
+          tax_rate: number;
+          tax_amount: number;
+          product_code: string;
+          unit_measure: string;
+        }>;
       };
     };
   };
@@ -132,9 +147,12 @@ Deno.serve(async (req) => {
     // Extract relevant data
     const prediction = mindeeData.document.inference.prediction;
     
+    // Extract IBAN from supplier_payment_details
+    const supplierIban = prediction.supplier_payment_details?.find(detail => detail.iban)?.iban || null;
+    
     const extractedData = {
       invoice_number: prediction.invoice_number?.value || null,
-      invoice_date: prediction.invoice_date?.value || null,
+      invoice_date: prediction.date?.value || null, // Utiliser 'date' au lieu de 'invoice_date'
       due_date: prediction.due_date?.value || null,
       total_net: prediction.total_net?.value || null,
       total_amount: prediction.total_amount?.value || null,
@@ -147,13 +165,15 @@ Deno.serve(async (req) => {
       supplier_website: prediction.supplier_website?.value || null,
       supplier_email: prediction.supplier_email?.value || null,
       supplier_phone_number: prediction.supplier_phone_number?.value || null,
+      supplier_iban: supplierIban,
       customer_name: prediction.customer_name?.value || null,
       customer_address: prediction.customer_address?.value || null,
       customer_company_registration: prediction.customer_company_registrations?.[0]?.value || null,
       customer_vat_number: prediction.customer_tax_ids?.[0]?.value || null,
-      payment_details: prediction.payment_details?.map(p => 
-        [p.account_number, p.iban, p.routing_number].filter(Boolean).join(', ')
+      payment_details: prediction.supplier_payment_details?.map(p => 
+        [p.account_number, p.iban, p.routing_number, p.swift].filter(Boolean).join(', ')
       ).join('; ') || null,
+      line_items: prediction.line_items || null,
       mindee_raw_response: mindeeData,
       status: 'completed',
       processed_at: new Date().toISOString()

@@ -209,11 +209,13 @@ export interface Database {
           supplier_website: string | null
           supplier_email: string | null
           supplier_phone_number: string | null
+          supplier_iban: string | null
           customer_name: string | null
           customer_address: string | null
           customer_company_registration: string | null
           customer_vat_number: string | null
           payment_details: string | null
+          line_items: Json | null
           mindee_raw_response: Json | null
           created_by: string | null
           created_at: string
@@ -244,11 +246,13 @@ export interface Database {
           supplier_website?: string | null
           supplier_email?: string | null
           supplier_phone_number?: string | null
+          supplier_iban?: string | null
           customer_name?: string | null
           customer_address?: string | null
           customer_company_registration?: string | null
           customer_vat_number?: string | null
           payment_details?: string | null
+          line_items?: Json | null
           mindee_raw_response?: Json | null
           created_by?: string | null
           created_at?: string
@@ -279,11 +283,13 @@ export interface Database {
           supplier_website?: string | null
           supplier_email?: string | null
           supplier_phone_number?: string | null
+          supplier_iban?: string | null
           customer_name?: string | null
           customer_address?: string | null
           customer_company_registration?: string | null
           customer_vat_number?: string | null
           payment_details?: string | null
+          line_items?: Json | null
           mindee_raw_response?: Json | null
           created_by?: string | null
           created_at?: string

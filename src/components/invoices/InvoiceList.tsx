@@ -28,9 +28,11 @@ interface Invoice {
   supplier_address?: string;
   supplier_email?: string;
   supplier_phone_number?: string;
+  supplier_iban?: string;
   customer_name?: string;
   customer_address?: string;
   payment_details?: string;
+  line_items?: any;
   created_at: string;
   processed_at?: string;
   error_message?: string;
@@ -194,6 +196,29 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                       }
                     </span>
                   </div>
+                  {invoice.supplier_iban && (
+                    <div>
+                      <span className="font-medium">IBAN:</span>
+                      <span className="ml-2">{invoice.supplier_iban}</span>
+                    </div>
+                  )}
+                  {invoice.line_items && Array.isArray(invoice.line_items) && invoice.line_items.length > 0 && (
+                    <div className="md:col-span-2">
+                      <span className="font-medium">Articles:</span>
+                      <div className="ml-2 mt-1 space-y-1">
+                        {invoice.line_items.slice(0, 2).map((item: any, index: number) => (
+                          <div key={index} className="text-xs bg-gray-50 p-2 rounded">
+                            {item.description} {item.total_amount && `- ${item.total_amount} ${invoice.currency || 'EUR'}`}
+                          </div>
+                        ))}
+                        {invoice.line_items.length > 2 && (
+                          <div className="text-xs text-gray-500">
+                            +{invoice.line_items.length - 2} article(s) supplémentaire(s)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

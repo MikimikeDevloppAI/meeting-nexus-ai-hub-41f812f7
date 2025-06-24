@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CalendarIcon, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 interface Invoice {
   id: string;
@@ -25,9 +26,11 @@ interface Invoice {
   supplier_address?: string;
   supplier_email?: string;
   supplier_phone_number?: string;
+  supplier_iban?: string;
   customer_name?: string;
   customer_address?: string;
   payment_details?: string;
+  line_items?: any;
 }
 
 interface InvoiceValidationDialogProps {
@@ -60,6 +63,7 @@ export function InvoiceValidationDialog({
         supplier_address: invoice.supplier_address || '',
         supplier_email: invoice.supplier_email || '',
         supplier_phone_number: invoice.supplier_phone_number || '',
+        supplier_iban: invoice.supplier_iban || '',
         customer_name: invoice.customer_name || '',
         customer_address: invoice.customer_address || '',
         payment_details: invoice.payment_details || '',
@@ -190,6 +194,25 @@ export function InvoiceValidationDialog({
                 placeholder="EUR"
               />
             </div>
+
+            {/* Line Items Display */}
+            {invoice.line_items && Array.isArray(invoice.line_items) && invoice.line_items.length > 0 && (
+              <div className="space-y-2">
+                <Label>Articles de la facture</Label>
+                <div className="max-h-32 overflow-y-auto space-y-2 border p-2 rounded">
+                  {invoice.line_items.map((item: any, index: number) => (
+                    <div key={index} className="text-sm bg-gray-50 p-2 rounded">
+                      <div className="font-medium">{item.description}</div>
+                      {item.total_amount && (
+                        <div className="text-gray-600">
+                          Montant: {item.total_amount} {invoice.currency || 'EUR'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Supplier and Customer Information */}
@@ -237,6 +260,16 @@ export function InvoiceValidationDialog({
                   placeholder="01 23 45 67 89"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="supplier_iban">IBAN</Label>
+              <Input
+                id="supplier_iban"
+                value={formData.supplier_iban || ''}
+                onChange={(e) => handleInputChange('supplier_iban', e.target.value)}
+                placeholder="CH37 3000 0001 1200 4870 8"
+              />
             </div>
 
             <h3 className="font-semibold text-lg border-b pb-2 mt-6">Client</h3>
