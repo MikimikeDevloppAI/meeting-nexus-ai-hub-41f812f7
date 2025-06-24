@@ -55,3 +55,6 @@ verify_jwt = false
 
 [functions.task-recommendation-agent]
 verify_jwt = false
+
+[functions.process-invoice]
+verify_jwt = false
