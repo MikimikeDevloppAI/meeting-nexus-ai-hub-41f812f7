@@ -8,6 +8,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Fonction pour extraire les URLs de la réponse
+function extractUrlsFromResponse(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s\)]+/g;
+  const urls = text.match(urlRegex) || [];
+  // Nettoyer les URLs et enlever les doublons
+  return [...new Set(urls.map(url => url.trim()))];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -145,7 +153,11 @@ Sois pratique, synthétique et orienté solution`
         const perplexityData = await perplexityResponse.json();
         const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
         
+        // Extraire les URLs de la réponse
+        const extractedSources = extractUrlsFromResponse(followupAnswer);
+        
         console.log('✅ Réponse de suivi générée par Perplexity:', followupAnswer.length, 'caractères');
+        console.log('🔗 URLs extraites:', extractedSources.length, 'sources');
 
         // Sauvegarder la question/réponse de suivi
         const authHeader = req.headers.get('Authorization')
@@ -161,7 +173,7 @@ Sois pratique, synthétique et orienté solution`
                 deep_search_id: deepSearchId,
                 question: followupQuestion,
                 answer: followupAnswer,
-                sources: [], // Sources intégrées dans la réponse Perplexity
+                sources: extractedSources,
                 created_by: user.id
               })
 
@@ -179,7 +191,7 @@ Sois pratique, synthétique et orienté solution`
             phase: 'followup',
             question: followupQuestion,
             answer: followupAnswer,
-            sources: [] // Sources intégrées dans la réponse Perplexity
+            sources: extractedSources
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -268,14 +280,20 @@ Sois pratique, synthétique et orienté solution`
               role: 'system',
               content: `Tu es un assistant de recherche intelligent dédié au cabinet ophtalmologique du Dr Tabibian à Genève. Ta mission est d'effectuer une recherche web approfondie, précise et structurée, dans un contexte administratif, organisationnel ou commercial.
 
+tu dois repondre a cette demande: ${rewrittenContext}
+
 🎯 OBJECTIF
 Fournir une réponse claire, structurée et exploitable immédiatement, adaptée aux besoins d'un cabinet médical : recherche de fournisseurs, élaboration de plans d'action, analyse comparative de services ou solutions, recommandations pratiques, etc.
 
 📌 TYPES DE RÉPONSES À PRODUIRE
 ✅ Plan d'action : si l'objectif est de structurer une démarche ou projet
+
 ✅ Recherche ciblée : si l'on cherche une info précise ou une solution
+
 ✅ Recherche fournisseurs : si l'on cherche un produit, service ou prestataire
+
 ✅ Comparatif : si une analyse entre plusieurs options est nécessaire
+
 ✅ Recommandations : si l'on cherche à optimiser une démarche
 
 🧱 STRUCTURE ATTENDUE
@@ -293,11 +311,17 @@ Liste d'actions concrètes à réaliser dès maintenant
 
 ✅ RÈGLES À RESPECTER
 Rédige en français clair et professionnel
+
 Donne priorité aux infos récentes (moins de 30 jours) si pertinent
+
 Structure bien la réponse avec titres ## et listes à puces
+
 Évite les généralités ou répétitions inutiles
+
 Inclue les URLs directement dans le texte ou en bas de section
+
 Privilégie les sources fiables (sites officiels, comparateurs, presse spécialisée)
+
 Sois pratique, synthétique et orienté solution`
             },
             {
@@ -336,11 +360,12 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
       const perplexityData = await perplexityResponse.json();
       const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
       
+      // Extraire les URLs de la réponse
+      const extractedSources = extractUrlsFromResponse(searchResult);
+      
       console.log('✅ Recherche Perplexity terminée avec succès');
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
-
-      // Les sources sont intégrées dans la réponse de Perplexity
-      const sources: string[] = [];
+      console.log('🔗 URLs extraites:', extractedSources.length, 'sources');
 
       // Sauvegarder dans Supabase
       const authHeader = req.headers.get('Authorization')
@@ -356,7 +381,7 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
               user_context: rewrittenContext,
               search_query: `${todoDescription} - ${rewrittenContext}`,
               search_result: searchResult,
-              sources: sources,
+              sources: extractedSources,
               created_by: user.id
             })
             .select()
@@ -375,7 +400,7 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
           success: true, 
           phase: 'result',
           result: searchResult,
-          sources: sources,
+          sources: extractedSources,
           query: `${todoDescription} - ${rewrittenContext}`,
           rewrittenContext: rewrittenContext
         }),
