@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Copy, ChevronUp, ChevronDown, Zap, HelpCircle, ArrowRight } from "lucide-react";
+import { Search, Loader2, Copy, ChevronUp, ChevronDown, Brain, HelpCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +102,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Génération des questions d\'enrichissement (obligatoire)');
+      console.log('🔍 Génération des questions d\'enrichissement');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -154,7 +155,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Lancement de la recherche finale');
+      console.log('🔍 Lancement de la recherche intelligente');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -230,14 +231,14 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
           <Button
             variant="ghost"
             size="sm"
-            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-purple-100/50 px-2"
+            className="w-full h-16 flex flex-col items-center justify-center gap-1 text-foreground hover:text-foreground hover:bg-blue-100/50 px-2"
           >
-            <Zap className="h-4 w-4 text-purple-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-black text-center leading-tight">Sonar Pro</span>
+            <Brain className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-black text-center leading-tight">Recherche IA</span>
             <div className="flex items-center gap-1">
               <Search className="h-2 w-2" />
               {hasExistingResults && (
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs h-3 px-1">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs h-3 px-1">
                   Résultats
                 </Badge>
               )}
@@ -262,15 +263,18 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       <div className="space-y-3">
                         <div>
                           <label className="text-xs font-medium mb-1 block">
-                            Contexte additionnel pour la recherche :
+                            Contexte pour la recherche IA :
                           </label>
                           <Textarea
-                            placeholder="Décrivez les points spécifiques que vous souhaitez approfondir..."
+                            placeholder="Décrivez ce que vous souhaitez rechercher (plan d'action, informations spécialisées, fournisseurs, etc.)..."
                             value={userContext}
                             onChange={(e) => setUserContext(e.target.value)}
                             rows={3}
                             className="resize-none text-xs"
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            💡 Types de recherches : plans d'action, recherches spécialisées, analyses comparatives, recommandations
+                          </p>
                         </div>
                         
                         <Button 
@@ -287,7 +291,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                           ) : (
                             <>
                               <HelpCircle className="h-3 w-3 mr-1" />
-                              Commencer la recherche
+                              Commencer la recherche IA
                             </>
                           )}
                         </Button>
@@ -306,7 +310,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                         
                         <div className="bg-blue-50 p-2 rounded-md border-l-2 border-blue-400">
                           <p className="text-xs text-blue-700">
-                            💡 Répondez aux questions pertinentes pour affiner votre recherche
+                            🤖 Répondez aux questions pertinentes pour optimiser votre recherche IA
                           </p>
                         </div>
                         
@@ -335,12 +339,12 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                           {isSearching ? (
                             <>
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Recherche...
+                              Recherche IA...
                             </>
                           ) : (
                             <>
                               <ArrowRight className="h-3 w-3 mr-1" />
-                              Recherche finale
+                              Recherche intelligente
                             </>
                           )}
                         </Button>
@@ -353,7 +357,7 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                       <>
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                            Sonar Pro terminé
+                            Recherche IA terminée
                           </Badge>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={resetSearch} className="h-6 text-xs">
@@ -383,12 +387,12 @@ export const TaskDeepSearch = ({ todoId, todoDescription }: TaskDeepSearchProps)
                         {isSearching ? (
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-xs">Recherche Sonar Pro en cours...</span>
+                            <span className="text-xs">Recherche IA en cours...</span>
                           </div>
                         ) : (
                           <div>
                             <p className="text-xs mb-1">Aucun résultat à afficher</p>
-                            <p className="text-xs opacity-70">Effectuez d'abord une recherche</p>
+                            <p className="text-xs opacity-70">Effectuez d'abord une recherche IA</p>
                           </div>
                         )}
                       </div>

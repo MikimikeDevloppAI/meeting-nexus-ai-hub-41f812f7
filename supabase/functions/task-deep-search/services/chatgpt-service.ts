@@ -4,29 +4,49 @@ export async function generateEnrichmentQuestions(
   userContext: string,
   openAIKey: string
 ): Promise<string[]> {
-  console.log('🤖 Génération des questions avec ChatGPT optimisé');
+  console.log('🤖 Génération des questions d\'enrichissement polyvalentes');
   
-  const prompt = `Tu es un assistant spécialisé pour un cabinet d'ophtalmologie à Genève.
+  const prompt = `Tu es un assistant intelligent spécialisé dans l'optimisation de recherches web.
 
 TÂCHE : "${todoDescription}"
 CONTEXTE : "${userContext}"
 
-Génère exactement 5 questions d'enrichissement SPÉCIFIQUES ET PRATIQUES pour optimiser une recherche commerciale.
+Génère exactement 5 questions d'enrichissement SPÉCIFIQUES ET PRATIQUES pour optimiser une recherche web intelligente.
 
-Ces questions doivent être :
+Adapte les questions selon le TYPE DE DEMANDE :
 
-1. **COMMERCIALES** - Focus sur fournisseurs, prix, conditions de vente
-2. **GÉOGRAPHIQUES** - Préférence locale (Genève) vs internationale
-3. **BUDGÉTAIRES** - Contraintes financières et options de paiement
-4. **TECHNIQUES** - Spécifications requises pour un cabinet médical
-5. **TEMPORELLES** - Urgence, délais, planning
+🎯 **PLAN D'ACTION** - Questions sur objectifs, étapes, ressources, délais, contraintes
+🔍 **RECHERCHE SPÉCIALISÉE** - Questions sur scope, critères, sources, profondeur d'analyse
+🛒 **RECHERCHE COMMERCIALE** - Questions sur budget, fournisseurs, localisation, spécifications
+📊 **ANALYSE COMPARATIVE** - Questions sur critères de comparaison, priorités, alternatives
+💡 **CONSEIL/RECOMMANDATION** - Questions sur contraintes, préférences, contexte d'usage
 
-EXEMPLES DE BONNES QUESTIONS :
+EXEMPLES DE BONNES QUESTIONS SELON LE TYPE :
+
+**Plan d'action :**
+- Quel est l'objectif principal à atteindre et dans quel délai ?
+- Quelles sont vos ressources disponibles (budget, équipe, outils) ?
+- Quelles contraintes ou limitations faut-il prendre en compte ?
+
+**Recherche spécialisée :**
+- Quel niveau de détail technique souhaitez-vous ?
+- Y a-t-il des sources ou références spécifiques à privilégier ?
+- Dans quel contexte ces informations seront-elles utilisées ?
+
+**Recherche commerciale :**
 - Quel est votre budget maximum pour cette acquisition ?
-- Préférez-vous un fournisseur local genevois ou acceptez-vous l'international ?
-- Avez-vous des contraintes d'installation ou d'espace spécifiques ?
-- Dans quel délai cette solution doit-elle être opérationnelle ?
-- Souhaitez-vous inclure la maintenance ou la gérer séparément ?
+- Préférez-vous des fournisseurs locaux ou acceptez-vous l'international ?
+- Avez-vous des contraintes d'installation ou techniques spécifiques ?
+
+**Analyse comparative :**
+- Quels sont vos critères de choix prioritaires ?
+- Y a-t-il des solutions que vous avez déjà évaluées ?
+- Quels sont les facteurs décisifs pour votre décision ?
+
+**Conseil/Recommandation :**
+- Quel est votre niveau d'expérience dans ce domaine ?
+- Quelles sont vos préférences ou priorités principales ?
+- Y a-t-il des contraintes spécifiques à respecter ?
 
 RÉPONSE : Uniquement les 5 questions, une par ligne, sans numérotation.`;
 
@@ -41,7 +61,7 @@ RÉPONSE : Uniquement les 5 questions, une par ligne, sans numérotation.`;
       messages: [
         { role: 'user', content: prompt }
       ],
-      temperature: 0.3,
+      temperature: 0.4,
       max_tokens: 800,
     }),
   });
@@ -66,7 +86,7 @@ export async function rewriteUserContext(
   enrichmentAnswers: any[],
   openAIKey: string
 ): Promise<string> {
-  console.log('🤖 Réécriture du contexte avec ChatGPT optimisé');
+  console.log('🤖 Réécriture du contexte pour recherche web polyvalente');
   
   const enrichmentText = enrichmentAnswers.length > 0 
     ? '\n\nINFORMATIONS COMPLÉMENTAIRES:\n' + 
@@ -75,35 +95,42 @@ export async function rewriteUserContext(
       ).join('\n\n')
     : '';
 
-  const prompt = `Tu optimises des contextes pour des recherches commerciales B2B.
+  const prompt = `Tu optimises des contextes pour des recherches web intelligentes et polyvalentes.
 
 TÂCHE ORIGINALE : "${todoDescription}"
 CONTEXTE INITIAL : "${userContext}"${enrichmentText}
 
-**MISSION :** Réécrire ce contexte pour maximiser l'efficacité d'une recherche Perplexity ciblée sur :
+**MISSION :** Réécrire ce contexte pour maximiser l'efficacité d'une recherche web Jina AI ciblée.
 
-🎯 **FOURNISSEURS & DISTRIBUTEURS**
-🎯 **INFORMATIONS COMMERCIALES** (prix, conditions, délais)
-🎯 **SOLUTIONS LOCALES** (Genève/Suisse prioritaire)
-🎯 **SPÉCIFICATIONS TECHNIQUES**
+**OBJECTIFS DE RECHERCHE WEB POSSIBLES :**
 
-**STRUCTURE OPTIMISÉE :**
+🎯 **PLAN D'ACTION** - Méthodologies, étapes, ressources, timeline
+🔍 **RECHERCHE SPÉCIALISÉE** - Informations techniques, analyses, études
+🛒 **SOLUTIONS COMMERCIALES** - Fournisseurs, produits, services, prix
+📊 **ANALYSES COMPARATIVES** - Alternatives, benchmarks, évaluations
+💡 **RECOMMANDATIONS** - Meilleures pratiques, conseils d'experts
+📋 **GUIDES PRATIQUES** - Tutoriels, procédures, check-lists
 
-**CONTEXTE :** Cabinet d'ophtalmologie Dr Tabibian, Genève, Suisse
+**STRUCTURE OPTIMISÉE POUR RECHERCHE WEB :**
 
-**BESOIN SPÉCIFIQUE :** [Reformuler clairement la demande]
+**OBJECTIF PRINCIPAL :** [Reformuler clairement la demande]
 
-**CRITÈRES DE RECHERCHE :**
-- Fournisseurs prioritaires : Genève → Suisse → Europe
-- Budget : [indiquer si mentionné, sinon "à définir"]
-- Délais : [indiquer si mentionné, sinon "flexible"]
-- Contraintes techniques : [spécifier pour usage médical]
+**TYPE DE RECHERCHE :** [Plan d'action / Recherche spécialisée / Solutions commerciales / etc.]
 
-**MOTS-CLÉS COMMERCIAUX :** [Ajouter synonymes et termes techniques]
+**CONTEXTE D'USAGE :** [Situation, environnement, contraintes]
 
-**RÉSULTATS ATTENDUS :** Coordonnées fournisseurs, tarifs, conditions, alternatives
+**CRITÈRES SPÉCIFIQUES :**
+- Priorité géographique : [si applicable]
+- Budget/Ressources : [si mentionné]
+- Délais/Timeline : [si mentionné]  
+- Contraintes techniques : [si applicable]
+- Niveau de détail souhaité : [selon le type]
 
-Écris un contexte enrichi et structuré en français, optimisé pour une recherche commerciale efficace.`;
+**MOTS-CLÉS DE RECHERCHE :** [Termes principaux + synonymes techniques]
+
+**RÉSULTATS ATTENDUS :** [Type d'informations, format, niveau de détail]
+
+Écris un contexte enrichi et structuré en français, optimisé pour une recherche web intelligente et polyvalente.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -116,7 +143,7 @@ CONTEXTE INITIAL : "${userContext}"${enrichmentText}
       messages: [
         { role: 'user', content: prompt }
       ],
-      temperature: 0.2,
+      temperature: 0.3,
       max_tokens: 1500,
     }),
   });

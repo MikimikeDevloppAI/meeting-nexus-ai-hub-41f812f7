@@ -16,14 +16,14 @@ serve(async (req) => {
   try {
     const { todoId, userContext, todoDescription, enrichmentAnswers, followupQuestion, deepSearchId } = await req.json()
     
-    // Vérifier que la clé API Perplexity est disponible
-    const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+    // Vérifier que les clés API sont disponibles
+    const jinaApiKey = Deno.env.get('JINA_API_KEY');
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!perplexityKey) {
-      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
+    if (!jinaApiKey) {
+      console.error('❌ Missing JINA_API_KEY environment variable');
       return new Response(
-        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
+        JSON.stringify({ error: 'Configuration manquante: clé API Jina AI non trouvée' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -73,82 +73,95 @@ serve(async (req) => {
 
         console.log('✅ Historique récupéré:', followupHistory?.length || 0, 'questions précédentes');
 
-        // Construire le contexte enrichi pour la question de suivi
-        const enrichedContext = `
-CONTEXTE COMPLET DE LA RECHERCHE ORIGINALE :
+        // Construire la query de recherche pour Jina AI
+        const jinaSearchQuery = `${originalSearch.user_context}\n\n${followupQuestion}`;
 
-**Tâche :** ${todoDescription}
-**Contexte utilisateur initial :** ${originalSearch.user_context}
-**Résultat de la recherche approfondie précédente :**
-${originalSearch.search_result}
+        console.log('🚀 Recherche de suivi avec Jina AI');
 
-${followupHistory && followupHistory.length > 0 ? `
-**Historique des questions de suivi précédentes :**
-${followupHistory.map((fh, index) => `
-${index + 1}. Question : ${fh.question}
-   Réponse : ${fh.answer}
-`).join('\n')}
-` : ''}
-
-**NOUVELLE QUESTION DE SUIVI :** ${followupQuestion}
-
-INSTRUCTIONS POUR LA RÉPONSE :
-- Réponds en français
-- Sois spécifique et actionnable
-- Utilise tes capacités de recherche web récentes
-- Structure ta réponse clairement avec des titres et bullet points
-- Focus sur les informations pratiques et commerciales
-- Inclue des contacts, prix, délais si disponibles
-`;
-
-        console.log('🚀 Envoi de la question de suivi avec Perplexity');
-
-        // Appel à l'API Perplexity avec le modèle optimisé
-        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+        // Recherche web avec Jina AI
+        const jinaResponse = await fetch('https://s.jina.ai/search', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${perplexityKey}`,
+            'Authorization': `Bearer ${jinaApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'llama-3.1-sonar-large-128k-online',
-            messages: [
-              {
-                role: 'user',
-                content: enrichedContext
-              }
-            ],
-            temperature: 0.1,
-            max_tokens: 4000,
-            top_p: 0.9,
-            search_domain_filter: ['*.ch', '*.com', '*.fr', '*.be'],
-            search_recency_filter: 'month',
-            return_images: false,
-            return_related_questions: false
+            q: jinaSearchQuery,
+            count: 10,
+            lang: 'fr'
           })
         });
 
-        console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
+        console.log('📡 Statut réponse Jina AI:', jinaResponse.status);
 
-        if (!perplexityResponse.ok) {
-          const errorText = await perplexityResponse.text();
-          console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
+        if (!jinaResponse.ok) {
+          const errorText = await jinaResponse.text();
+          console.error('❌ Jina AI API error:', jinaResponse.status, jinaResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
             JSON.stringify({ 
-              error: `Erreur API Perplexity: ${perplexityResponse.status}`,
+              error: `Erreur API Jina AI: ${jinaResponse.status}`,
               details: errorText
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const perplexityData = await perplexityResponse.json()
-        const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée'
-        const followupSources = perplexityData.citations || []
+        const jinaData = await jinaResponse.json();
+        console.log('✅ Données Jina AI reçues:', jinaData.data?.length || 0, 'résultats');
+
+        // Synthèse avec ChatGPT
+        const synthesisPrompt = `SYNTHÈSE DE RECHERCHE WEB POUR QUESTION DE SUIVI
+
+CONTEXTE ORIGINAL:
+${originalSearch.user_context}
+
+RÉSULTAT PRÉCÉDENT:
+${originalSearch.search_result}
+
+NOUVELLE QUESTION: ${followupQuestion}
+
+RÉSULTATS DE RECHERCHE WEB:
+${jinaData.data?.map((result: any, index: number) => `
+${index + 1}. ${result.title}
+   URL: ${result.url}
+   Contenu: ${result.content?.substring(0, 500) || 'Pas de contenu'}
+`).join('\n') || 'Aucun résultat trouvé'}
+
+INSTRUCTIONS:
+- Réponds en français de manière structurée et actionnable
+- Focus sur la nouvelle question en t'appuyant sur le contexte
+- Utilise les résultats de recherche pour enrichir ta réponse
+- Inclue des liens vers les sources pertinentes
+- Structure avec des titres et bullet points
+- Fournis des informations pratiques et concrètes`;
+
+        const synthesisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'user', content: synthesisPrompt }
+            ],
+            temperature: 0.2,
+            max_tokens: 2000,
+          }),
+        });
+
+        if (!synthesisResponse.ok) {
+          throw new Error(`Erreur synthèse ChatGPT: ${synthesisResponse.status}`);
+        }
+
+        const synthesisData = await synthesisResponse.json();
+        const followupAnswer = synthesisData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
+        const followupSources = jinaData.data?.map((result: any) => result.url) || [];
         
-        console.log('✅ Réponse de suivi Perplexity reçue:', followupAnswer.length, 'caractères');
+        console.log('✅ Réponse de suivi générée:', followupAnswer.length, 'caractères');
         console.log('📚 Sources de suivi trouvées:', followupSources.length);
 
         // Sauvegarder la question/réponse de suivi avec les sources
@@ -242,7 +255,7 @@ INSTRUCTIONS POUR LA RÉPONSE :
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Perplexity
+    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Jina AI
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT');
     
     try {
@@ -254,106 +267,114 @@ INSTRUCTIONS POUR LA RÉPONSE :
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Perplexity optimisé');
+      console.log('🔍 Phase 3: Recherche finale avec Jina AI');
       
-      // Prompt optimisé pour Perplexity avec recherche commerciale ciblée
-      const searchQuery = `RECHERCHE COMMERCIALE SPÉCIALISÉE - Cabinet d'ophtalmologie Genève
+      // Construction de la query optimisée pour Jina AI
+      const jinaSearchQuery = `${todoDescription} ${rewrittenContext}`;
 
-**TÂCHE À RÉSOUDRE :** ${todoDescription}
+      console.log('🚀 Recherche web avec Jina AI');
 
-**CONTEXTE DÉTAILLÉ :** ${rewrittenContext}
-
-**INSTRUCTIONS DE RECHERCHE :**
-Tu es un assistant commercial spécialisé dans la recherche de fournisseurs et solutions B2B pour un cabinet médical à Genève, Suisse.
-
-**OBJECTIF :** Trouver des informations commerciales CONCRÈTES et ACTIONNABLES :
-
-🎯 **PRIORITÉ 1 - FOURNISSEURS LOCAUX (Genève/Suisse) :**
-- Entreprises, distributeurs, fournisseurs spécialisés
-- Coordonnées complètes (téléphone, email, adresse)
-- Services proposés et conditions commerciales
-
-🎯 **PRIORITÉ 2 - INFORMATIONS COMMERCIALES :**
-- Tarifs, prix, coûts estimés
-- Conditions de vente (avec/sans abonnement, maintenance)
-- Délais de livraison et installation
-
-🎯 **PRIORITÉ 3 - ASPECTS PRATIQUES :**
-- Spécifications techniques adaptées au contexte médical
-- Alternatives et options disponibles
-- Contraintes réglementaires ou sanitaires
-
-**FORMAT DE RÉPONSE STRUCTURÉ :**
-
-## 🔍 FOURNISSEURS IDENTIFIÉS
-[Liste des entreprises avec coordonnées complètes]
-
-## 💰 INFORMATIONS TARIFAIRES
-[Prix, coûts, options de financement]
-
-## 📋 SOLUTIONS RECOMMANDÉES
-[Comparaison des meilleures options avec avantages/inconvénients]
-
-## 📞 ACTIONS CONCRÈTES
-[Étapes à suivre, contacts à prendre, questions à poser]
-
-**ZONES GÉOGRAPHIQUES :** Priorité Genève > Suisse > France/Europe
-**SECTEUR :** Matériel médical/bureau, équipements professionnels
-**LANGUE :** Réponse complète en français`;
-
-      console.log('🚀 Envoi de la recherche finale avec Perplexity optimisé');
-
-      // Appel à l'API Perplexity avec modèle et paramètres optimisés
-      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+      // Recherche web avec Jina AI
+      const jinaResponse = await fetch('https://s.jina.ai/search', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${perplexityKey}`,
+          'Authorization': `Bearer ${jinaApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-large-128k-online',
-          messages: [
-            {
-              role: 'user',
-              content: searchQuery
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 8000,
-          top_p: 0.9,
-          search_domain_filter: ['*.ch', '*.com', '*.fr', '*.be', '*.de'],
-          search_recency_filter: 'month',
-          return_images: false,
-          return_related_questions: false
+          q: jinaSearchQuery,
+          count: 15,
+          lang: 'fr'
         })
       });
 
-      console.log('📡 Perplexity API response status:', perplexityResponse.status);
+      console.log('📡 Statut réponse Jina AI:', jinaResponse.status);
 
-      if (!perplexityResponse.ok) {
-        const errorText = await perplexityResponse.text();
-        console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
-        console.error('❌ Error details:', errorText);
+      if (!jinaResponse.ok) {
+        const errorText = await jinaResponse.text();
+        console.error('❌ Jina AI API error:', jinaResponse.status, jinaResponse.statusText);
+        console.error('❌ Détails de l\'erreur:', errorText);
         
         return new Response(
           JSON.stringify({ 
-            error: `Erreur API Perplexity: ${perplexityResponse.status} ${perplexityResponse.statusText}`,
+            error: `Erreur API Jina AI: ${jinaResponse.status}`,
             details: errorText
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const perplexityData = await perplexityResponse.json()
-      console.log('📊 Perplexity response structure:', Object.keys(perplexityData));
+      const jinaData = await jinaResponse.json();
+      console.log('✅ Données Jina AI reçues:', jinaData.data?.length || 0, 'résultats');
       
-      const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé'
+      // Synthèse intelligente avec ChatGPT
+      const synthesisPrompt = `SYNTHÈSE INTELLIGENTE DE RECHERCHE WEB
+
+TÂCHE: ${todoDescription}
+CONTEXTE: ${rewrittenContext}
+
+RÉSULTATS DE RECHERCHE WEB:
+${jinaData.data?.map((result: any, index: number) => `
+${index + 1}. ${result.title}
+   URL: ${result.url}
+   Contenu: ${result.content?.substring(0, 600) || 'Pas de contenu'}
+`).join('\n') || 'Aucun résultat trouvé'}
+
+MISSION:
+Tu es un assistant intelligent spécialisé dans l'analyse et la synthèse d'informations. 
+Crée une réponse complète et structurée basée sur la recherche web.
+
+TYPES DE RÉPONSES POSSIBLES:
+🎯 **PLAN D'ACTION** si c'est une demande de planification
+📋 **RECHERCHE SPÉCIALISÉE** si c'est une recherche d'informations spécifiques  
+🛒 **RECHERCHE FOURNISSEURS** si c'est une recherche commerciale
+📊 **ANALYSE COMPARATIVE** si c'est une comparaison
+💡 **RECOMMANDATIONS** si c'est une demande de conseils
+
+STRUCTURE DE RÉPONSE:
+1. **RÉSUMÉ EXÉCUTIF** - Point clé en 2-3 phrases
+2. **INFORMATIONS PRINCIPALES** - Détails structurés avec titres
+3. **SOURCES ET LIENS** - URLs des sources pertinentes  
+4. **ACTIONS RECOMMANDÉES** - Étapes concrètes à suivre
+
+EXIGENCES:
+- Réponse en français, claire et actionnable
+- Utilise les données de recherche web comme sources principales
+- Structure avec titres (##) et listes à puces
+- Inclue les URLs pertinentes en format markdown
+- Focus sur les informations pratiques et vérifiables
+- Adapte le style selon le type de demande`;
+
+      const synthesisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'user', content: synthesisPrompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 3000,
+        }),
+      });
+
+      if (!synthesisResponse.ok) {
+        const errorText = await synthesisResponse.text();
+        console.error('❌ Erreur synthèse ChatGPT:', synthesisResponse.status, errorText);
+        throw new Error(`Erreur synthèse ChatGPT: ${synthesisResponse.status}`);
+      }
+
+      const synthesisData = await synthesisResponse.json();
+      const searchResult = synthesisData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
       
-      // Extraire les sources de la réponse Perplexity
-      const sources = perplexityData.citations || []
+      // Extraire les sources des résultats Jina AI
+      const sources = jinaData.data?.map((result: any) => result.url) || [];
       
-      console.log('✅ Recherche Perplexity terminée avec succès')
-      console.log('📚 Sources trouvées:', sources.length)
+      console.log('✅ Recherche Jina AI + synthèse terminée avec succès');
+      console.log('📚 Sources trouvées:', sources.length);
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
       // Sauvegarder dans Supabase
@@ -368,7 +389,7 @@ Tu es un assistant commercial spécialisé dans la recherche de fournisseurs et 
             .insert({
               todo_id: todoId,
               user_context: rewrittenContext,
-              search_query: searchQuery,
+              search_query: jinaSearchQuery,
               search_result: searchResult,
               sources: sources,
               created_by: user.id
@@ -390,7 +411,7 @@ Tu es un assistant commercial spécialisé dans la recherche de fournisseurs et 
           phase: 'result',
           result: searchResult,
           sources: sources,
-          query: searchQuery,
+          query: jinaSearchQuery,
           rewrittenContext: rewrittenContext
         }),
         { 
