@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Users, Play, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Pen, Users, Play, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -302,6 +302,14 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingTodoId(todo.id)}
+                      className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
+                    >
+                      <Pen className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
