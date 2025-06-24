@@ -6,16 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
-import { Upload, FileText, AlertCircle, X } from "lucide-react";
+import { Upload, FileText, AlertCircle, X, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { cleanFileName, validateFileName } from "@/utils/fileUtils";
 
 interface InvoiceUploadFormProps {
   onUploadSuccess: () => void;
 }
 
+interface FileWithValidation {
+  file: File;
+  cleanedName: string;
+  hasIssues: boolean;
+  issues: string[];
+}
+
 export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileWithValidation[]>([]);
   const [allocation, setAllocation] = useState<'david' | 'cabinet' | 'split'>('david');
   const [davidPercentage, setDavidPercentage] = useState(100);
   const [uploading, setUploading] = useState(false);
@@ -27,9 +35,27 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
       'image/png': ['.png']
     },
     maxSize: 10 * 1024 * 1024, // 10MB
-    multiple: true, // Allow multiple files
+    multiple: true,
     onDrop: (acceptedFiles) => {
-      setFiles(prev => [...prev, ...acceptedFiles]);
+      const filesWithValidation = acceptedFiles.map(file => {
+        const validation = validateFileName(file.name);
+        const cleanedName = cleanFileName(file.name);
+        
+        return {
+          file,
+          cleanedName,
+          hasIssues: !validation.isValid,
+          issues: validation.issues
+        };
+      });
+      
+      setFiles(prev => [...prev, ...filesWithValidation]);
+      
+      // Afficher un avertissement si des fichiers ont des problèmes
+      const filesWithIssues = filesWithValidation.filter(f => f.hasIssues);
+      if (filesWithIssues.length > 0) {
+        toast.warning(`${filesWithIssues.length} fichier(s) ont des noms qui seront automatiquement nettoyés`);
+      }
     }
   });
 
@@ -55,24 +81,39 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     const cabinetPercentage = 100 - davidPercentage;
     let successCount = 0;
     let errorCount = 0;
+    const errorDetails: string[] = [];
 
     setUploading(true);
     
     try {
-      for (const file of files) {
+      for (const fileData of files) {
         try {
-          // Generate unique filename
+          // Utiliser le nom nettoyé avec timestamp
           const timestamp = Date.now();
-          const fileName = `${timestamp}-${file.name}`;
+          const cleanedFileName = `${timestamp}-${fileData.cleanedName}`;
+          
+          console.log(`Uploading file: ${fileData.file.name} as ${cleanedFileName}`);
           
           // Upload to storage
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('invoices')
-            .upload(fileName, file);
+            .upload(cleanedFileName, fileData.file);
 
           if (uploadError) {
-            console.error('Upload error:', uploadError);
-            toast.error(`Erreur lors de l'upload de ${file.name}`);
+            console.error('Upload error for file:', fileData.file.name, uploadError);
+            
+            // Messages d'erreur plus spécifiques
+            let errorMessage = `Erreur lors de l'upload de "${fileData.file.name}"`;
+            if (uploadError.message.includes('Invalid key')) {
+              errorMessage += ' (nom de fichier invalide)';
+            } else if (uploadError.message.includes('File size')) {
+              errorMessage += ' (fichier trop volumineux)';
+            } else {
+              errorMessage += ` (${uploadError.message})`;
+            }
+            
+            toast.error(errorMessage);
+            errorDetails.push(errorMessage);
             errorCount++;
             continue;
           }
@@ -81,10 +122,10 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
           const { data: invoice, error: insertError } = await supabase
             .from('invoices')
             .insert({
-              original_filename: file.name,
+              original_filename: fileData.file.name, // Garder le nom original pour l'affichage
               file_path: uploadData.path,
-              file_size: file.size,
-              content_type: file.type,
+              file_size: fileData.file.size,
+              content_type: fileData.file.type,
               david_percentage: davidPercentage,
               cabinet_percentage: cabinetPercentage,
               status: 'pending'
@@ -93,8 +134,9 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
             .single();
 
           if (insertError) {
-            console.error('Insert error:', insertError);
-            toast.error(`Erreur lors de la création de l'enregistrement pour ${file.name}`);
+            console.error('Insert error for file:', fileData.file.name, insertError);
+            toast.error(`Erreur lors de la création de l'enregistrement pour "${fileData.file.name}"`);
+            errorDetails.push(`Erreur base de données: ${fileData.file.name}`);
             errorCount++;
             continue;
           }
@@ -105,31 +147,39 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
           });
 
           if (processError) {
-            console.error('Process error:', processError);
-            toast.error(`Erreur lors du traitement de ${file.name}`);
+            console.error('Process error for file:', fileData.file.name, processError);
+            toast.error(`Erreur lors du traitement de "${fileData.file.name}"`);
+            errorDetails.push(`Erreur traitement: ${fileData.file.name}`);
             errorCount++;
           } else {
             successCount++;
+            console.log(`Successfully processed: ${fileData.file.name}`);
           }
         } catch (fileError) {
-          console.error(`Error processing file ${file.name}:`, fileError);
-          toast.error(`Erreur lors du traitement de ${file.name}`);
+          console.error(`Unexpected error processing file ${fileData.file.name}:`, fileError);
+          toast.error(`Erreur inattendue lors du traitement de "${fileData.file.name}"`);
+          errorDetails.push(`Erreur inattendue: ${fileData.file.name}`);
           errorCount++;
         }
       }
 
-      // Show summary toast
+      // Show detailed summary
       if (successCount > 0) {
         toast.success(`${successCount} fichier(s) uploadé(s) et en cours de traitement`);
       }
       if (errorCount > 0) {
-        toast.error(`${errorCount} fichier(s) ont échoué`);
+        const errorSummary = `${errorCount} fichier(s) ont échoué`;
+        toast.error(errorSummary);
+        console.log('Détails des erreurs:', errorDetails);
       }
 
-      setFiles([]);
-      onUploadSuccess();
+      // Reset only if at least one file succeeded
+      if (successCount > 0) {
+        setFiles([]);
+        onUploadSuccess();
+      }
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('Unexpected error during upload process:', error);
       toast.error("Une erreur inattendue s'est produite");
     } finally {
       setUploading(false);
@@ -161,12 +211,26 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
                   {files.length} fichier(s) sélectionné(s)
                 </div>
                 <div className="max-h-32 overflow-y-auto space-y-2">
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <div className="flex items-center gap-2 text-sm">
+                  {files.map((fileData, index) => (
+                    <div key={index} className={`flex items-center justify-between p-2 rounded ${
+                      fileData.hasIssues ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-2 text-sm flex-1">
                         <FileText className="h-4 w-4" />
-                        <span>{file.name}</span>
-                        <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span>{fileData.file.name}</span>
+                            {fileData.hasIssues && (
+                              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                            )}
+                          </div>
+                          {fileData.hasIssues && (
+                            <div className="text-xs text-yellow-700 mt-1">
+                              Sera renommé: {fileData.cleanedName}
+                            </div>
+                          )}
+                          <span className="text-gray-500">({(fileData.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
