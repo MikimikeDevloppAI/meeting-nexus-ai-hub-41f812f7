@@ -8,12 +8,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Fonction pour extraire les URLs de la réponse
-function extractUrlsFromResponse(text: string): string[] {
-  const urlRegex = /https?:\/\/[^\s\)]+/g;
-  const urls = text.match(urlRegex) || [];
-  // Nettoyer les URLs et enlever les doublons
-  return [...new Set(urls.map(url => url.trim()))];
+// Fonction pour extraire les URLs directement des citations Perplexity
+function extractSourcesFromPerplexity(perplexityData: any): string[] {
+  console.log('🔍 Extraction des sources depuis Perplexity...');
+  
+  // Méthode 1: Extraction depuis les citations (nouvelle approche)
+  const citations = perplexityData.citations || [];
+  console.log('📚 Citations trouvées:', citations.length);
+  
+  let sources: string[] = [];
+  
+  if (citations.length > 0) {
+    sources = citations.map((citation: any) => citation.url).filter((url: string) => url);
+    console.log('✅ Sources extraites des citations:', sources.length, sources);
+  }
+  
+  // Méthode 2: Fallback avec regex si pas de citations
+  if (sources.length === 0) {
+    console.log('⚠️ Pas de citations trouvées, utilisation du fallback regex');
+    const content = perplexityData.choices?.[0]?.message?.content || '';
+    const urlRegex = /https?:\/\/[^\s\)\]\},"']+/g;
+    const urls = content.match(urlRegex) || [];
+    
+    // Nettoyer les URLs et enlever les doublons
+    sources = [...new Set(urls.map(url => {
+      // Enlever la ponctuation en fin d'URL
+      return url.replace(/[.,;:!?)]+$/, '').trim();
+    }))];
+    
+    console.log('📝 Sources extraites par regex:', sources.length, sources);
+  }
+  
+  // Validation finale des URLs
+  const validSources = sources.filter(url => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      console.log('❌ URL invalide rejetée:', url);
+      return false;
+    }
+  });
+  
+  console.log('✅ Sources finales validées:', validSources.length, validSources);
+  return validSources;
 }
 
 serve(async (req) => {
@@ -129,6 +167,8 @@ Sois pratique, synthétique et orienté solution`
             search_recency_filter: 'month',
             return_images: false,
             return_related_questions: false,
+            return_citations: true,
+            cite_sources: true,
             frequency_penalty: 1,
             presence_penalty: 0
           })
@@ -153,11 +193,10 @@ Sois pratique, synthétique et orienté solution`
         const perplexityData = await perplexityResponse.json();
         const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
         
-        // Extraire les URLs de la réponse
-        const extractedSources = extractUrlsFromResponse(followupAnswer);
+        // Extraire les sources depuis Perplexity (nouvelles méthodes)
+        const extractedSources = extractSourcesFromPerplexity(perplexityData);
         
         console.log('✅ Réponse de suivi générée par Perplexity:', followupAnswer.length, 'caractères');
-        console.log('🔗 URLs extraites:', extractedSources.length, 'sources');
 
         // Sauvegarder la question/réponse de suivi
         const authHeader = req.headers.get('Authorization')
@@ -336,6 +375,8 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
           search_recency_filter: 'month',
           return_images: false,
           return_related_questions: false,
+          return_citations: true,
+          cite_sources: true,
           frequency_penalty: 1,
           presence_penalty: 0
         })
@@ -360,12 +401,11 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
       const perplexityData = await perplexityResponse.json();
       const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
       
-      // Extraire les URLs de la réponse
-      const extractedSources = extractUrlsFromResponse(searchResult);
+      // Extraire les sources depuis Perplexity (nouvelles méthodes)
+      const extractedSources = extractSourcesFromPerplexity(perplexityData);
       
       console.log('✅ Recherche Perplexity terminée avec succès');
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
-      console.log('🔗 URLs extraites:', extractedSources.length, 'sources');
 
       // Sauvegarder dans Supabase
       const authHeader = req.headers.get('Authorization')
