@@ -158,7 +158,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
         throw new Error('Not authenticated');
       }
 
-      console.log('🔍 Lancement de la recherche finale avec Sonar Pro');
+      console.log('🔍 Lancement de la recherche finale avec Perplexity');
 
       const response = await supabase.functions.invoke('task-deep-search', {
         body: {
@@ -190,7 +190,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
 
         toast({
           title: "Recherche terminée",
-          description: "Les résultats ont été sauvegardés avec Sonar Pro",
+          description: "Les résultats ont été sauvegardés avec Perplexity",
         });
       } else {
         throw new Error(response.data?.error || 'Erreur inconnue');
@@ -238,7 +238,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-purple-600" />
-              <span className="font-medium text-sm">Recherche approfondie (Sonar Pro)</span>
+              <span className="font-medium text-sm">Recherche approfondie (Perplexity)</span>
             </div>
             <div className="flex items-center gap-2">
               {hasExistingResults && (
@@ -333,7 +333,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 {isSearching ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Recherche en cours avec Sonar Pro...
+                    Recherche en cours avec Perplexity...
                   </>
                 ) : (
                   <>
@@ -363,7 +363,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                         </DialogTrigger>
                         <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] flex flex-col p-0">
                           <DialogHeader className="px-6 py-4 border-b shrink-0">
-                            <DialogTitle>Résultat de la recherche approfondie (Sonar Pro)</DialogTitle>
+                            <DialogTitle>Résultat de la recherche approfondie (Perplexity)</DialogTitle>
                           </DialogHeader>
                           <div className="flex-1 min-h-0 p-6">
                             <ScrollArea className="h-full w-full">
@@ -446,7 +446,7 @@ export const TaskDeepSearchContent = ({ todoId, todoDescription }: TaskDeepSearc
                 <div className="text-center py-6 text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Recherche en cours avec Sonar Pro...</span>
+                    <span className="text-sm">Recherche en cours avec Perplexity...</span>
                   </div>
                 </div>
               ) : (

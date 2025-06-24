@@ -17,13 +17,13 @@ serve(async (req) => {
     const { todoId, userContext, todoDescription, enrichmentAnswers, followupQuestion, deepSearchId } = await req.json()
     
     // Vérifier que les clés API sont disponibles
-    const jinaApiKey = Deno.env.get('JINA_API_KEY');
+    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!jinaApiKey) {
-      console.error('❌ Missing JINA_API_KEY environment variable');
+    if (!perplexityApiKey) {
+      console.error('❌ Missing PERPLEXITY_API_KEY environment variable');
       return new Response(
-        JSON.stringify({ error: 'Configuration manquante: clé API Jina AI non trouvée' }),
+        JSON.stringify({ error: 'Configuration manquante: clé API Perplexity non trouvée' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -41,9 +41,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Phase nouvelle : Question de suivi avec Jina AI Deep Search
+    // Phase nouvelle : Question de suivi avec Perplexity
     if (followupQuestion && deepSearchId) {
-      console.log('🔍 Phase Follow-up: Question de suivi avec Jina AI Deep Search');
+      console.log('🔍 Phase Follow-up: Question de suivi avec Perplexity');
       
       try {
         // Récupérer le contexte complet de la deep search originale
@@ -60,17 +60,17 @@ serve(async (req) => {
 
         console.log('✅ Recherche originale récupérée');
 
-        // Appel à Jina AI Deep Search avec le nouveau format
-        console.log('🚀 Recherche de suivi avec Jina AI Deep Search');
+        // Appel à Perplexity avec le nouveau format
+        console.log('🚀 Recherche de suivi avec Perplexity');
 
-        const jinaResponse = await fetch('https://deepsearch.jina.ai/v1/chat/completions', {
+        const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${jinaApiKey}`,
+            'Authorization': `Bearer ${perplexityApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'jina-deepsearch-v1',
+            model: 'sonar-pro',
             messages: [
               {
                 role: 'system',
@@ -79,40 +79,51 @@ serve(async (req) => {
 CONTEXTE ORIGINAL: ${originalSearch.user_context}
 RÉSULTAT PRÉCÉDENT: ${originalSearch.search_result}
 
-Ta mission est de répondre à la question de suivi en français de manière structurée et actionnable, en utilisant tes capacités de recherche web pour trouver les informations les plus récentes et pertinentes.`
+Ta mission est de répondre à la question de suivi en français de manière structurée et actionnable, en utilisant tes capacités de recherche web pour trouver les informations les plus récentes et pertinentes.
+
+STRUCTURE DE RÉPONSE ATTENDUE:
+1. **RÉSUMÉ EXÉCUTIF** - Point clé en 2-3 phrases
+2. **INFORMATIONS PRINCIPALES** - Détails structurés avec titres
+3. **SOURCES ET LIENS** - URLs des sources pertinentes intégrées naturellement
+4. **ACTIONS RECOMMANDÉES** - Étapes concrètes à suivre
+
+Réponds en français, de manière claire et actionnable.`
               },
               {
                 role: 'user',
                 content: followupQuestion
               }
             ],
-            reasoning_effort: 'high',
-            max_attempts: 2,
-            no_direct_answer: false,
-            stream: false
+            max_tokens: 4000,
+            temperature: 0.3,
+            search_recency_filter: 'month',
+            return_images: false,
+            return_related_questions: false,
+            frequency_penalty: 1,
+            presence_penalty: 0
           })
         });
 
-        console.log('📡 Statut réponse Jina AI Deep Search:', jinaResponse.status);
+        console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
 
-        if (!jinaResponse.ok) {
-          const errorText = await jinaResponse.text();
-          console.error('❌ Jina AI Deep Search API error:', jinaResponse.status, jinaResponse.statusText);
+        if (!perplexityResponse.ok) {
+          const errorText = await perplexityResponse.text();
+          console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
             JSON.stringify({ 
-              error: `Erreur API Jina AI Deep Search: ${jinaResponse.status}`,
+              error: `Erreur API Perplexity: ${perplexityResponse.status}`,
               details: errorText
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const jinaData = await jinaResponse.json();
-        const followupAnswer = jinaData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
+        const perplexityData = await perplexityResponse.json();
+        const followupAnswer = perplexityData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
         
-        console.log('✅ Réponse de suivi générée par Jina AI Deep Search:', followupAnswer.length, 'caractères');
+        console.log('✅ Réponse de suivi générée par Perplexity:', followupAnswer.length, 'caractères');
 
         // Sauvegarder la question/réponse de suivi
         const authHeader = req.headers.get('Authorization')
@@ -128,7 +139,7 @@ Ta mission est de répondre à la question de suivi en français de manière str
                 deep_search_id: deepSearchId,
                 question: followupQuestion,
                 answer: followupAnswer,
-                sources: [], // Jina AI Deep Search intègre les sources dans la réponse
+                sources: [], // Sources intégrées dans la réponse Perplexity
                 created_by: user.id
               })
 
@@ -146,7 +157,7 @@ Ta mission est de répondre à la question de suivi en français de manière str
             phase: 'followup',
             question: followupQuestion,
             answer: followupAnswer,
-            sources: [] // Sources intégrées dans la réponse Jina AI
+            sources: [] // Sources intégrées dans la réponse Perplexity
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -205,7 +216,7 @@ Ta mission est de répondre à la question de suivi en français de manière str
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Jina AI Deep Search
+    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Perplexity
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT');
     
     try {
@@ -217,25 +228,25 @@ Ta mission est de répondre à la question de suivi en français de manière str
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Jina AI Deep Search');
+      console.log('🔍 Phase 3: Recherche finale avec Perplexity');
 
-      // Appel à Jina AI Deep Search avec le nouveau format
-      console.log('🚀 Recherche intelligente avec Jina AI Deep Search');
+      // Appel à Perplexity avec le nouveau format
+      console.log('🚀 Recherche intelligente avec Perplexity');
 
-      const jinaResponse = await fetch('https://deepsearch.jina.ai/v1/chat/completions', {
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${jinaApiKey}`,
+          'Authorization': `Bearer ${perplexityApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'jina-deepsearch-v1',
+          model: 'sonar-pro',
           messages: [
             {
               role: 'system',
-              content: `Tu es un assistant de recherche intelligent spécialisé dans l'analyse et la synthèse d'informations web.
+              content: `Tu es un assistant de recherche intelligent spécialisé dans l'analyse et la synthèse d'informations web récentes.
 
-MISSION: Créer une réponse complète et structurée basée sur une recherche web approfondie.
+MISSION: Créer une réponse complète et structurée basée sur une recherche web approfondie et récente.
 
 TYPES DE RÉPONSES POSSIBLES:
 🎯 **PLAN D'ACTION** si c'est une demande de planification
@@ -255,7 +266,8 @@ EXIGENCES:
 - Structure avec titres (##) et listes à puces
 - Inclue les URLs pertinentes en format markdown
 - Focus sur les informations pratiques, récentes et vérifiables
-- Adapte le style selon le type de demande`
+- Adapte le style selon le type de demande
+- Privilégie les informations du dernier mois quand c'est pertinent`
             },
             {
               role: 'user',
@@ -263,39 +275,42 @@ EXIGENCES:
 
 CONTEXTE ENRICHI: ${rewrittenContext}
 
-Effectue une recherche web approfondie et fournis une analyse complète et structurée pour répondre à cette demande.`
+Effectue une recherche web approfondie et fournis une analyse complète et structurée pour répondre à cette demande. Concentre-toi sur les informations récentes et pertinentes.`
             }
           ],
-          reasoning_effort: 'high',
-          max_attempts: 2,
-          no_direct_answer: false,
-          stream: false
+          max_tokens: 4000,
+          temperature: 0.3,
+          search_recency_filter: 'month',
+          return_images: false,
+          return_related_questions: false,
+          frequency_penalty: 1,
+          presence_penalty: 0
         })
       });
 
-      console.log('📡 Statut réponse Jina AI Deep Search:', jinaResponse.status);
+      console.log('📡 Statut réponse Perplexity:', perplexityResponse.status);
 
-      if (!jinaResponse.ok) {
-        const errorText = await jinaResponse.text();
-        console.error('❌ Jina AI Deep Search API error:', jinaResponse.status, jinaResponse.statusText);
+      if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error('❌ Perplexity API error:', perplexityResponse.status, perplexityResponse.statusText);
         console.error('❌ Détails de l\'erreur:', errorText);
         
         return new Response(
           JSON.stringify({ 
-            error: `Erreur API Jina AI Deep Search: ${jinaResponse.status}`,
+            error: `Erreur API Perplexity: ${perplexityResponse.status}`,
             details: errorText
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const jinaData = await jinaResponse.json();
-      const searchResult = jinaData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
+      const perplexityData = await perplexityResponse.json();
+      const searchResult = perplexityData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
       
-      console.log('✅ Recherche Jina AI Deep Search terminée avec succès');
+      console.log('✅ Recherche Perplexity terminée avec succès');
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
 
-      // Les sources sont intégrées dans la réponse de Jina AI Deep Search
+      // Les sources sont intégrées dans la réponse de Perplexity
       const sources: string[] = [];
 
       // Sauvegarder dans Supabase
@@ -345,7 +360,7 @@ Effectue une recherche web approfondie et fournis une analyse complète et struc
       console.error('❌ Erreur lors de la phase 2/3:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Erreur lors de la réécriture du contexte ou de la recherche Jina AI Deep Search',
+          error: 'Erreur lors de la réécriture du contexte ou de la recherche Perplexity',
           details: error.message 
         }),
         { 

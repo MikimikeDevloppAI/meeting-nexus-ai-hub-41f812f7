@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -405,7 +404,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                     >
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Zap className="h-4 w-4 text-purple-600" />
-                        <span className="text-sm font-medium text-black">Deep Search</span>
+                        <span className="text-sm font-medium text-black">Perplexity Search</span>
                         {hasDeepSearchResults && (
                           <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
                         )}
