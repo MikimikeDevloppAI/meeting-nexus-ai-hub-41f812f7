@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Pen, Users, Play, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Pen, Users, Play, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -12,6 +12,12 @@ import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent"
 import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
 import { EditableContent } from "@/components/EditableContent";
 import { Todo } from "@/types/meeting";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MeetingTodosWithRecommendationsProps {
   meetingId: string;
@@ -25,6 +31,8 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
+  const [showParticipantDialog, setShowParticipantDialog] = useState(false);
+  const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -216,6 +224,15 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
     ));
   };
 
+  const openParticipantManager = (todoId: string) => {
+    setCurrentTodoId(todoId);
+    setShowParticipantDialog(true);
+  };
+
+  const handleParticipantsUpdated = () => {
+    fetchTodos();
+  };
+
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -332,17 +349,26 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                   </div>
                 </div>
                 
-                {/* Status and participants */}
+                {/* Status and participants with management */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {getStatusBadge(todo.status)}
-                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <TodoParticipantManager
                         todoId={todo.id}
                         currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
                         onParticipantsUpdate={fetchTodos}
                         compact={true}
                       />
+                      <Button 
+                        onClick={() => openParticipantManager(todo.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                        title="Gérer les participants"
+                      >
+                        <Users className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -447,6 +473,25 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           </Card>
         );
       })}
+
+      {/* Dialog for managing participants */}
+      <Dialog open={showParticipantDialog} onOpenChange={setShowParticipantDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gérer les participants de la tâche</DialogTitle>
+          </DialogHeader>
+          {currentTodoId && (
+            <TodoParticipantManager
+              todoId={currentTodoId}
+              currentParticipants={
+                todos.find(todo => todo.id === currentTodoId)?.todo_participants?.map(tp => tp.participants) || []
+              }
+              onParticipantsUpdate={handleParticipantsUpdated}
+              compact={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
