@@ -1,40 +1,35 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload } from "lucide-react";
+import { useState } from "react";
+import { InvoiceUploadForm } from "@/components/invoices/InvoiceUploadForm";
+import { InvoiceList } from "@/components/invoices/InvoiceList";
 
 const Invoices = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleUploadSuccess = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Invoice Processing</h1>
+        <h1 className="text-2xl font-bold">Gestion des factures</h1>
         <p className="text-muted-foreground">
-          Upload and manage invoices with automatic data extraction
+          Uploadez vos factures PDF ou images pour un traitement automatique
         </p>
       </div>
 
-      <Card className="border-dashed border-primary/50">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Upload className="mr-2 h-5 w-5 text-primary" />
-            Coming Soon
-          </CardTitle>
-          <CardDescription>
-            This feature is under development
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>
-            The Invoice Processing module will allow you to:
-          </p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>Upload invoice files (PDF or image)</li>
-            <li>Automatic data extraction via backend service</li>
-            <li>View and search processed invoices</li>
-            <li>Edit and validate extracted data</li>
-            <li>Preview invoice documents</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Upload Form */}
+        <div className="lg:col-span-1">
+          <InvoiceUploadForm onUploadSuccess={handleUploadSuccess} />
+        </div>
+
+        {/* Invoice List */}
+        <div className="lg:col-span-2">
+          <InvoiceList refreshKey={refreshKey} />
+        </div>
+      </div>
     </div>
   );
 };

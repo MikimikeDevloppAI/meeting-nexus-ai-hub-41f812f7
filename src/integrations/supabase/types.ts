@@ -93,6 +93,114 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          cabinet_percentage: number
+          content_type: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          customer_address: string | null
+          customer_company_registration: string | null
+          customer_name: string | null
+          customer_vat_number: string | null
+          david_percentage: number
+          due_date: string | null
+          error_message: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          mindee_raw_response: Json | null
+          original_filename: string
+          payment_details: string | null
+          processed_at: string | null
+          status: string
+          supplier_address: string | null
+          supplier_company_registration: string | null
+          supplier_email: string | null
+          supplier_name: string | null
+          supplier_phone_number: string | null
+          supplier_vat_number: string | null
+          supplier_website: string | null
+          total_amount: number | null
+          total_net: number | null
+          total_tax: number | null
+          updated_at: string
+        }
+        Insert: {
+          cabinet_percentage?: number
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          customer_address?: string | null
+          customer_company_registration?: string | null
+          customer_name?: string | null
+          customer_vat_number?: string | null
+          david_percentage?: number
+          due_date?: string | null
+          error_message?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          mindee_raw_response?: Json | null
+          original_filename: string
+          payment_details?: string | null
+          processed_at?: string | null
+          status?: string
+          supplier_address?: string | null
+          supplier_company_registration?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone_number?: string | null
+          supplier_vat_number?: string | null
+          supplier_website?: string | null
+          total_amount?: number | null
+          total_net?: number | null
+          total_tax?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cabinet_percentage?: number
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          customer_address?: string | null
+          customer_company_registration?: string | null
+          customer_name?: string | null
+          customer_vat_number?: string | null
+          david_percentage?: number
+          due_date?: string | null
+          error_message?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          mindee_raw_response?: Json | null
+          original_filename?: string
+          payment_details?: string | null
+          processed_at?: string | null
+          status?: string
+          supplier_address?: string | null
+          supplier_company_registration?: string | null
+          supplier_email?: string | null
+          supplier_name?: string | null
+          supplier_phone_number?: string | null
+          supplier_vat_number?: string | null
+          supplier_website?: string | null
+          total_amount?: number | null
+          total_net?: number | null
+          total_tax?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meeting_participants: {
         Row: {
           meeting_id: string

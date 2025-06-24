@@ -186,27 +186,108 @@ export interface Database {
       invoices: {
         Row: {
           id: string
-          uploaded_by: string
-          file_url: string
-          extracted_data: Json
-          created_at: string
+          original_filename: string
+          file_path: string
+          file_size: number | null
+          content_type: string | null
           status: string
+          processed_at: string | null
+          error_message: string | null
+          david_percentage: number
+          cabinet_percentage: number
+          invoice_number: string | null
+          invoice_date: string | null
+          due_date: string | null
+          total_net: number | null
+          total_amount: number | null
+          total_tax: number | null
+          currency: string | null
+          supplier_name: string | null
+          supplier_address: string | null
+          supplier_company_registration: string | null
+          supplier_vat_number: string | null
+          supplier_website: string | null
+          supplier_email: string | null
+          supplier_phone_number: string | null
+          customer_name: string | null
+          customer_address: string | null
+          customer_company_registration: string | null
+          customer_vat_number: string | null
+          payment_details: string | null
+          mindee_raw_response: Json | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          uploaded_by: string
-          file_url: string
-          extracted_data?: Json
-          created_at?: string
+          original_filename: string
+          file_path: string
+          file_size?: number | null
+          content_type?: string | null
           status?: string
+          processed_at?: string | null
+          error_message?: string | null
+          david_percentage: number
+          cabinet_percentage: number
+          invoice_number?: string | null
+          invoice_date?: string | null
+          due_date?: string | null
+          total_net?: number | null
+          total_amount?: number | null
+          total_tax?: number | null
+          currency?: string | null
+          supplier_name?: string | null
+          supplier_address?: string | null
+          supplier_company_registration?: string | null
+          supplier_vat_number?: string | null
+          supplier_website?: string | null
+          supplier_email?: string | null
+          supplier_phone_number?: string | null
+          customer_name?: string | null
+          customer_address?: string | null
+          customer_company_registration?: string | null
+          customer_vat_number?: string | null
+          payment_details?: string | null
+          mindee_raw_response?: Json | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          uploaded_by?: string
-          file_url?: string
-          extracted_data?: Json
-          created_at?: string
+          original_filename?: string
+          file_path?: string
+          file_size?: number | null
+          content_type?: string | null
           status?: string
+          processed_at?: string | null
+          error_message?: string | null
+          david_percentage?: number
+          cabinet_percentage?: number
+          invoice_number?: string | null
+          invoice_date?: string | null
+          due_date?: string | null
+          total_net?: number | null
+          total_amount?: number | null
+          total_tax?: number | null
+          currency?: string | null
+          supplier_name?: string | null
+          supplier_address?: string | null
+          supplier_company_registration?: string | null
+          supplier_vat_number?: string | null
+          supplier_website?: string | null
+          supplier_email?: string | null
+          supplier_phone_number?: string | null
+          customer_name?: string | null
+          customer_address?: string | null
+          customer_company_registration?: string | null
+          customer_vat_number?: string | null
+          payment_details?: string | null
+          mindee_raw_response?: Json | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }
