@@ -41,9 +41,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Phase nouvelle : Question de suivi
+    // Phase nouvelle : Question de suivi avec Jina AI Deep Search
     if (followupQuestion && deepSearchId) {
-      console.log('🔍 Phase Follow-up: Question de suivi avec contexte complet');
+      console.log('🔍 Phase Follow-up: Question de suivi avec Jina AI Deep Search');
       
       try {
         // Récupérer le contexte complet de la deep search originale
@@ -60,48 +60,49 @@ serve(async (req) => {
 
         console.log('✅ Recherche originale récupérée');
 
-        // Récupérer l'historique des questions de suivi
-        const { data: followupHistory, error: followupError } = await supabaseClient
-          .from('task_deep_search_followups')
-          .select('question, answer, created_at')
-          .eq('deep_search_id', deepSearchId)
-          .order('created_at', { ascending: true });
+        // Appel à Jina AI Deep Search avec le nouveau format
+        console.log('🚀 Recherche de suivi avec Jina AI Deep Search');
 
-        if (followupError) {
-          console.error('❌ Erreur récupération historique suivi:', followupError);
-        }
-
-        console.log('✅ Historique récupéré:', followupHistory?.length || 0, 'questions précédentes');
-
-        // Construire la query de recherche pour Jina AI
-        const jinaSearchQuery = `${originalSearch.user_context}\n\n${followupQuestion}`;
-
-        console.log('🚀 Recherche de suivi avec Jina AI');
-
-        // Recherche web avec Jina AI
-        const jinaResponse = await fetch('https://s.jina.ai/search', {
+        const jinaResponse = await fetch('https://deepsearch.jina.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${jinaApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            q: jinaSearchQuery,
-            count: 10,
-            lang: 'fr'
+            model: 'jina-deepsearch-v1',
+            messages: [
+              {
+                role: 'system',
+                content: `Tu es un assistant de recherche intelligent spécialisé dans l'analyse approfondie. 
+
+CONTEXTE ORIGINAL: ${originalSearch.user_context}
+RÉSULTAT PRÉCÉDENT: ${originalSearch.search_result}
+
+Ta mission est de répondre à la question de suivi en français de manière structurée et actionnable, en utilisant tes capacités de recherche web pour trouver les informations les plus récentes et pertinentes.`
+              },
+              {
+                role: 'user',
+                content: followupQuestion
+              }
+            ],
+            reasoning_effort: 'high',
+            max_attempts: 2,
+            no_direct_answer: false,
+            stream: false
           })
         });
 
-        console.log('📡 Statut réponse Jina AI:', jinaResponse.status);
+        console.log('📡 Statut réponse Jina AI Deep Search:', jinaResponse.status);
 
         if (!jinaResponse.ok) {
           const errorText = await jinaResponse.text();
-          console.error('❌ Jina AI API error:', jinaResponse.status, jinaResponse.statusText);
+          console.error('❌ Jina AI Deep Search API error:', jinaResponse.status, jinaResponse.statusText);
           console.error('❌ Détails de l\'erreur:', errorText);
           
           return new Response(
             JSON.stringify({ 
-              error: `Erreur API Jina AI: ${jinaResponse.status}`,
+              error: `Erreur API Jina AI Deep Search: ${jinaResponse.status}`,
               details: errorText
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,83 +110,32 @@ serve(async (req) => {
         }
 
         const jinaData = await jinaResponse.json();
-        console.log('✅ Données Jina AI reçues:', jinaData.data?.length || 0, 'résultats');
-
-        // Synthèse avec ChatGPT
-        const synthesisPrompt = `SYNTHÈSE DE RECHERCHE WEB POUR QUESTION DE SUIVI
-
-CONTEXTE ORIGINAL:
-${originalSearch.user_context}
-
-RÉSULTAT PRÉCÉDENT:
-${originalSearch.search_result}
-
-NOUVELLE QUESTION: ${followupQuestion}
-
-RÉSULTATS DE RECHERCHE WEB:
-${jinaData.data?.map((result: any, index: number) => `
-${index + 1}. ${result.title}
-   URL: ${result.url}
-   Contenu: ${result.content?.substring(0, 500) || 'Pas de contenu'}
-`).join('\n') || 'Aucun résultat trouvé'}
-
-INSTRUCTIONS:
-- Réponds en français de manière structurée et actionnable
-- Focus sur la nouvelle question en t'appuyant sur le contexte
-- Utilise les résultats de recherche pour enrichir ta réponse
-- Inclue des liens vers les sources pertinentes
-- Structure avec des titres et bullet points
-- Fournis des informations pratiques et concrètes`;
-
-        const synthesisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-              { role: 'user', content: synthesisPrompt }
-            ],
-            temperature: 0.2,
-            max_tokens: 2000,
-          }),
-        });
-
-        if (!synthesisResponse.ok) {
-          throw new Error(`Erreur synthèse ChatGPT: ${synthesisResponse.status}`);
-        }
-
-        const synthesisData = await synthesisResponse.json();
-        const followupAnswer = synthesisData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
-        const followupSources = jinaData.data?.map((result: any) => result.url) || [];
+        const followupAnswer = jinaData.choices?.[0]?.message?.content || 'Aucune réponse trouvée';
         
-        console.log('✅ Réponse de suivi générée:', followupAnswer.length, 'caractères');
-        console.log('📚 Sources de suivi trouvées:', followupSources.length);
+        console.log('✅ Réponse de suivi générée par Jina AI Deep Search:', followupAnswer.length, 'caractères');
 
-        // Sauvegarder la question/réponse de suivi avec les sources
+        // Sauvegarder la question/réponse de suivi
         const authHeader = req.headers.get('Authorization')
         if (authHeader) {
           const token = authHeader.replace('Bearer ', '')
           const { data: { user } } = await supabaseClient.auth.getUser(token)
           
           if (user) {
-            console.log('💾 Sauvegarde de la question de suivi avec sources...');
+            console.log('💾 Sauvegarde de la question de suivi...');
             const { error: insertError } = await supabaseClient
               .from('task_deep_search_followups')
               .insert({
                 deep_search_id: deepSearchId,
                 question: followupQuestion,
                 answer: followupAnswer,
-                sources: followupSources,
+                sources: [], // Jina AI Deep Search intègre les sources dans la réponse
                 created_by: user.id
               })
 
             if (insertError) {
               console.error('❌ Error saving followup:', insertError)
             } else {
-              console.log('✅ Followup saved successfully with sources')
+              console.log('✅ Followup saved successfully')
             }
           }
         }
@@ -196,7 +146,7 @@ INSTRUCTIONS:
             phase: 'followup',
             question: followupQuestion,
             answer: followupAnswer,
-            sources: followupSources
+            sources: [] // Sources intégrées dans la réponse Jina AI
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,7 +205,7 @@ INSTRUCTIONS:
       }
     }
 
-    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Jina AI
+    // Phase 2: Réécriture du contexte avec ChatGPT puis recherche avec Jina AI Deep Search
     console.log('🔍 Phase 2: Réécriture du contexte avec ChatGPT');
     
     try {
@@ -267,62 +217,25 @@ INSTRUCTIONS:
         openAIKey
       );
 
-      console.log('🔍 Phase 3: Recherche finale avec Jina AI');
-      
-      // Construction de la query optimisée pour Jina AI
-      const jinaSearchQuery = `${todoDescription} ${rewrittenContext}`;
+      console.log('🔍 Phase 3: Recherche finale avec Jina AI Deep Search');
 
-      console.log('🚀 Recherche web avec Jina AI');
+      // Appel à Jina AI Deep Search avec le nouveau format
+      console.log('🚀 Recherche intelligente avec Jina AI Deep Search');
 
-      // Recherche web avec Jina AI
-      const jinaResponse = await fetch('https://s.jina.ai/search', {
+      const jinaResponse = await fetch('https://deepsearch.jina.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${jinaApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          q: jinaSearchQuery,
-          count: 15,
-          lang: 'fr'
-        })
-      });
+          model: 'jina-deepsearch-v1',
+          messages: [
+            {
+              role: 'system',
+              content: `Tu es un assistant de recherche intelligent spécialisé dans l'analyse et la synthèse d'informations web.
 
-      console.log('📡 Statut réponse Jina AI:', jinaResponse.status);
-
-      if (!jinaResponse.ok) {
-        const errorText = await jinaResponse.text();
-        console.error('❌ Jina AI API error:', jinaResponse.status, jinaResponse.statusText);
-        console.error('❌ Détails de l\'erreur:', errorText);
-        
-        return new Response(
-          JSON.stringify({ 
-            error: `Erreur API Jina AI: ${jinaResponse.status}`,
-            details: errorText
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const jinaData = await jinaResponse.json();
-      console.log('✅ Données Jina AI reçues:', jinaData.data?.length || 0, 'résultats');
-      
-      // Synthèse intelligente avec ChatGPT
-      const synthesisPrompt = `SYNTHÈSE INTELLIGENTE DE RECHERCHE WEB
-
-TÂCHE: ${todoDescription}
-CONTEXTE: ${rewrittenContext}
-
-RÉSULTATS DE RECHERCHE WEB:
-${jinaData.data?.map((result: any, index: number) => `
-${index + 1}. ${result.title}
-   URL: ${result.url}
-   Contenu: ${result.content?.substring(0, 600) || 'Pas de contenu'}
-`).join('\n') || 'Aucun résultat trouvé'}
-
-MISSION:
-Tu es un assistant intelligent spécialisé dans l'analyse et la synthèse d'informations. 
-Crée une réponse complète et structurée basée sur la recherche web.
+MISSION: Créer une réponse complète et structurée basée sur une recherche web approfondie.
 
 TYPES DE RÉPONSES POSSIBLES:
 🎯 **PLAN D'ACTION** si c'est une demande de planification
@@ -331,51 +244,59 @@ TYPES DE RÉPONSES POSSIBLES:
 📊 **ANALYSE COMPARATIVE** si c'est une comparaison
 💡 **RECOMMANDATIONS** si c'est une demande de conseils
 
-STRUCTURE DE RÉPONSE:
+STRUCTURE DE RÉPONSE ATTENDUE:
 1. **RÉSUMÉ EXÉCUTIF** - Point clé en 2-3 phrases
 2. **INFORMATIONS PRINCIPALES** - Détails structurés avec titres
-3. **SOURCES ET LIENS** - URLs des sources pertinentes  
+3. **SOURCES ET LIENS** - URLs des sources pertinentes intégrées naturellement
 4. **ACTIONS RECOMMANDÉES** - Étapes concrètes à suivre
 
 EXIGENCES:
 - Réponse en français, claire et actionnable
-- Utilise les données de recherche web comme sources principales
 - Structure avec titres (##) et listes à puces
 - Inclue les URLs pertinentes en format markdown
-- Focus sur les informations pratiques et vérifiables
-- Adapte le style selon le type de demande`;
+- Focus sur les informations pratiques, récentes et vérifiables
+- Adapte le style selon le type de demande`
+            },
+            {
+              role: 'user',
+              content: `TÂCHE: ${todoDescription}
 
-      const synthesisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'user', content: synthesisPrompt }
+CONTEXTE ENRICHI: ${rewrittenContext}
+
+Effectue une recherche web approfondie et fournis une analyse complète et structurée pour répondre à cette demande.`
+            }
           ],
-          temperature: 0.3,
-          max_tokens: 3000,
-        }),
+          reasoning_effort: 'high',
+          max_attempts: 2,
+          no_direct_answer: false,
+          stream: false
+        })
       });
 
-      if (!synthesisResponse.ok) {
-        const errorText = await synthesisResponse.text();
-        console.error('❌ Erreur synthèse ChatGPT:', synthesisResponse.status, errorText);
-        throw new Error(`Erreur synthèse ChatGPT: ${synthesisResponse.status}`);
+      console.log('📡 Statut réponse Jina AI Deep Search:', jinaResponse.status);
+
+      if (!jinaResponse.ok) {
+        const errorText = await jinaResponse.text();
+        console.error('❌ Jina AI Deep Search API error:', jinaResponse.status, jinaResponse.statusText);
+        console.error('❌ Détails de l\'erreur:', errorText);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: `Erreur API Jina AI Deep Search: ${jinaResponse.status}`,
+            details: errorText
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
-      const synthesisData = await synthesisResponse.json();
-      const searchResult = synthesisData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
+      const jinaData = await jinaResponse.json();
+      const searchResult = jinaData.choices?.[0]?.message?.content || 'Aucun résultat trouvé';
       
-      // Extraire les sources des résultats Jina AI
-      const sources = jinaData.data?.map((result: any) => result.url) || [];
-      
-      console.log('✅ Recherche Jina AI + synthèse terminée avec succès');
-      console.log('📚 Sources trouvées:', sources.length);
+      console.log('✅ Recherche Jina AI Deep Search terminée avec succès');
       console.log('📝 Résultat longueur:', searchResult.length, 'caractères');
+
+      // Les sources sont intégrées dans la réponse de Jina AI Deep Search
+      const sources: string[] = [];
 
       // Sauvegarder dans Supabase
       const authHeader = req.headers.get('Authorization')
@@ -389,7 +310,7 @@ EXIGENCES:
             .insert({
               todo_id: todoId,
               user_context: rewrittenContext,
-              search_query: jinaSearchQuery,
+              search_query: `${todoDescription} - ${rewrittenContext}`,
               search_result: searchResult,
               sources: sources,
               created_by: user.id
@@ -411,7 +332,7 @@ EXIGENCES:
           phase: 'result',
           result: searchResult,
           sources: sources,
-          query: jinaSearchQuery,
+          query: `${todoDescription} - ${rewrittenContext}`,
           rewrittenContext: rewrittenContext
         }),
         { 
@@ -424,7 +345,7 @@ EXIGENCES:
       console.error('❌ Erreur lors de la phase 2/3:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Erreur lors de la réécriture du contexte ou de la recherche',
+          error: 'Erreur lors de la réécriture du contexte ou de la recherche Jina AI Deep Search',
           details: error.message 
         }),
         { 
