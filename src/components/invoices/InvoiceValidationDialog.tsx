@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Building, User, FileText, CreditCard } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Invoice {
   id: string;
@@ -27,8 +28,13 @@ interface Invoice {
   supplier_email?: string;
   supplier_phone_number?: string;
   supplier_iban?: string;
+  supplier_website?: string;
+  supplier_company_registration?: string;
+  supplier_vat_number?: string;
   customer_name?: string;
   customer_address?: string;
+  customer_company_registration?: string;
+  customer_vat_number?: string;
   payment_details?: string;
   line_items?: any;
 }
@@ -64,8 +70,13 @@ export function InvoiceValidationDialog({
         supplier_email: invoice.supplier_email || '',
         supplier_phone_number: invoice.supplier_phone_number || '',
         supplier_iban: invoice.supplier_iban || '',
+        supplier_website: invoice.supplier_website || '',
+        supplier_company_registration: invoice.supplier_company_registration || '',
+        supplier_vat_number: invoice.supplier_vat_number || '',
         customer_name: invoice.customer_name || '',
         customer_address: invoice.customer_address || '',
+        customer_company_registration: invoice.customer_company_registration || '',
+        customer_vat_number: invoice.customer_vat_number || '',
         payment_details: invoice.payment_details || '',
       });
     }
@@ -78,12 +89,10 @@ export function InvoiceValidationDialog({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Préparer les données en gérant les dates vides
       const updateData = {
         ...formData,
         status: 'validated',
         processed_at: new Date().toISOString(),
-        // Convertir les dates vides en null pour éviter l'erreur PostgreSQL
         invoice_date: formData.invoice_date === '' ? null : formData.invoice_date,
         due_date: formData.due_date === '' ? null : formData.due_date,
       };
@@ -108,7 +117,7 @@ export function InvoiceValidationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
@@ -116,22 +125,50 @@ export function InvoiceValidationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-          {/* Document Information */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Informations document</h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="invoice_number">Numéro de facture</Label>
-              <Input
-                id="invoice_number"
-                value={formData.invoice_number || ''}
-                onChange={(e) => handleInputChange('invoice_number', e.target.value)}
-                placeholder="N° facture"
-              />
-            </div>
+        <Tabs defaultValue="document" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="document" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Document
+            </TabsTrigger>
+            <TabsTrigger value="supplier" className="flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              Fournisseur
+            </TabsTrigger>
+            <TabsTrigger value="customer" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Client
+            </TabsTrigger>
+            <TabsTrigger value="payment" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Paiement
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="document" className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Informations du document</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoice_number">Numéro de facture</Label>
+                <Input
+                  id="invoice_number"
+                  value={formData.invoice_number || ''}
+                  onChange={(e) => handleInputChange('invoice_number', e.target.value)}
+                  placeholder="N° facture"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currency">Devise</Label>
+                <Input
+                  id="currency"
+                  value={formData.currency || ''}
+                  onChange={(e) => handleInputChange('currency', e.target.value)}
+                  placeholder="EUR"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="invoice_date">Date facture</Label>
                 <Input
@@ -141,6 +178,7 @@ export function InvoiceValidationDialog({
                   onChange={(e) => handleInputChange('invoice_date', e.target.value)}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="due_date">Date d'échéance</Label>
                 <Input
@@ -150,9 +188,7 @@ export function InvoiceValidationDialog({
                   onChange={(e) => handleInputChange('due_date', e.target.value)}
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="total_net">Montant HT</Label>
                 <Input
@@ -163,6 +199,7 @@ export function InvoiceValidationDialog({
                   onChange={(e) => handleInputChange('total_net', parseFloat(e.target.value) || 0)}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="total_tax">TVA</Label>
                 <Input
@@ -173,6 +210,7 @@ export function InvoiceValidationDialog({
                   onChange={(e) => handleInputChange('total_tax', parseFloat(e.target.value) || 0)}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="total_amount">Montant TTC</Label>
                 <Input
@@ -185,48 +223,91 @@ export function InvoiceValidationDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="currency">Devise</Label>
-              <Input
-                id="currency"
-                value={formData.currency || ''}
-                onChange={(e) => handleInputChange('currency', e.target.value)}
-                placeholder="EUR"
-              />
-            </div>
-
             {/* Line Items Display */}
             {invoice.line_items && Array.isArray(invoice.line_items) && invoice.line_items.length > 0 && (
               <div className="space-y-2">
                 <Label>Articles de la facture</Label>
-                <div className="max-h-32 overflow-y-auto space-y-2 border p-2 rounded">
+                <div className="max-h-40 overflow-y-auto space-y-2 border p-3 rounded">
                   {invoice.line_items.map((item: any, index: number) => (
-                    <div key={index} className="text-sm bg-gray-50 p-2 rounded">
+                    <div key={index} className="text-sm bg-gray-50 p-3 rounded">
                       <div className="font-medium">{item.description}</div>
-                      {item.total_amount && (
-                        <div className="text-gray-600">
-                          Montant: {item.total_amount} {invoice.currency || 'EUR'}
-                        </div>
-                      )}
+                      <div className="grid grid-cols-2 gap-2 mt-1 text-gray-600">
+                        {item.quantity && <div>Quantité: {item.quantity}</div>}
+                        {item.unit_price && <div>Prix unitaire: {item.unit_price}</div>}
+                        {item.total_amount && <div>Montant: {item.total_amount} {invoice.currency || 'EUR'}</div>}
+                        {item.tax_rate && <div>Taux TVA: {item.tax_rate}%</div>}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </div>
+          </TabsContent>
 
-          {/* Supplier and Customer Information */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Fournisseur</h3>
+          <TabsContent value="supplier" className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Informations fournisseur</h3>
             
-            <div className="space-y-2">
-              <Label htmlFor="supplier_name">Nom du fournisseur</Label>
-              <Input
-                id="supplier_name"
-                value={formData.supplier_name || ''}
-                onChange={(e) => handleInputChange('supplier_name', e.target.value)}
-                placeholder="Nom du fournisseur"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="supplier_name">Nom du fournisseur</Label>
+                <Input
+                  id="supplier_name"
+                  value={formData.supplier_name || ''}
+                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
+                  placeholder="Nom du fournisseur"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_email">Email</Label>
+                <Input
+                  id="supplier_email"
+                  type="email"
+                  value={formData.supplier_email || ''}
+                  onChange={(e) => handleInputChange('supplier_email', e.target.value)}
+                  placeholder="email@example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_phone_number">Téléphone</Label>
+                <Input
+                  id="supplier_phone_number"
+                  value={formData.supplier_phone_number || ''}
+                  onChange={(e) => handleInputChange('supplier_phone_number', e.target.value)}
+                  placeholder="01 23 45 67 89"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_website">Site web</Label>
+                <Input
+                  id="supplier_website"
+                  value={formData.supplier_website || ''}
+                  onChange={(e) => handleInputChange('supplier_website', e.target.value)}
+                  placeholder="https://example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_company_registration">N° d'enregistrement</Label>
+                <Input
+                  id="supplier_company_registration"
+                  value={formData.supplier_company_registration || ''}
+                  onChange={(e) => handleInputChange('supplier_company_registration', e.target.value)}
+                  placeholder="Numéro SIRET/SIREN"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_vat_number">N° TVA</Label>
+                <Input
+                  id="supplier_vat_number"
+                  value={formData.supplier_vat_number || ''}
+                  onChange={(e) => handleInputChange('supplier_vat_number', e.target.value)}
+                  placeholder="FR12345678901"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -239,49 +320,41 @@ export function InvoiceValidationDialog({
                 rows={3}
               />
             </div>
+          </TabsContent>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="supplier_email">Email</Label>
-                <Input
-                  id="supplier_email"
-                  type="email"
-                  value={formData.supplier_email || ''}
-                  onChange={(e) => handleInputChange('supplier_email', e.target.value)}
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier_phone_number">Téléphone</Label>
-                <Input
-                  id="supplier_phone_number"
-                  value={formData.supplier_phone_number || ''}
-                  onChange={(e) => handleInputChange('supplier_phone_number', e.target.value)}
-                  placeholder="01 23 45 67 89"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="supplier_iban">IBAN</Label>
-              <Input
-                id="supplier_iban"
-                value={formData.supplier_iban || ''}
-                onChange={(e) => handleInputChange('supplier_iban', e.target.value)}
-                placeholder="CH37 3000 0001 1200 4870 8"
-              />
-            </div>
-
-            <h3 className="font-semibold text-lg border-b pb-2 mt-6">Client</h3>
+          <TabsContent value="customer" className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Informations client</h3>
             
-            <div className="space-y-2">
-              <Label htmlFor="customer_name">Nom du client</Label>
-              <Input
-                id="customer_name"
-                value={formData.customer_name || ''}
-                onChange={(e) => handleInputChange('customer_name', e.target.value)}
-                placeholder="Nom du client"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="customer_name">Nom du client</Label>
+                <Input
+                  id="customer_name"
+                  value={formData.customer_name || ''}
+                  onChange={(e) => handleInputChange('customer_name', e.target.value)}
+                  placeholder="Nom du client"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customer_company_registration">N° d'enregistrement client</Label>
+                <Input
+                  id="customer_company_registration"
+                  value={formData.customer_company_registration || ''}
+                  onChange={(e) => handleInputChange('customer_company_registration', e.target.value)}
+                  placeholder="Numéro SIRET/SIREN"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customer_vat_number">N° TVA client</Label>
+                <Input
+                  id="customer_vat_number"
+                  value={formData.customer_vat_number || ''}
+                  onChange={(e) => handleInputChange('customer_vat_number', e.target.value)}
+                  placeholder="FR12345678901"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -294,34 +367,50 @@ export function InvoiceValidationDialog({
                 rows={3}
               />
             </div>
+          </TabsContent>
 
-            <div className="space-y-2">
-              <Label htmlFor="payment_details">Détails de paiement</Label>
-              <Textarea
-                id="payment_details"
-                value={formData.payment_details || ''}
-                onChange={(e) => handleInputChange('payment_details', e.target.value)}
-                placeholder="IBAN, références..."
-                rows={2}
-              />
+          <TabsContent value="payment" className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Informations de paiement</h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="supplier_iban">IBAN du fournisseur</Label>
+                <Input
+                  id="supplier_iban"
+                  value={formData.supplier_iban || ''}
+                  onChange={(e) => handleInputChange('supplier_iban', e.target.value)}
+                  placeholder="CH37 3000 0001 1200 4870 8"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment_details">Détails de paiement</Label>
+                <Textarea
+                  id="payment_details"
+                  value={formData.payment_details || ''}
+                  onChange={(e) => handleInputChange('payment_details', e.target.value)}
+                  placeholder="IBAN, références, instructions de paiement..."
+                  rows={4}
+                />
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Allocation Display */}
-        <div className="border-t pt-4">
-          <h3 className="font-semibold mb-2">Répartition actuelle</h3>
-          <div className="flex gap-4">
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm">
-              David: {invoice.david_percentage}%
-            </span>
-            <span className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm">
-              Cabinet: {invoice.cabinet_percentage}%
-            </span>
-          </div>
-        </div>
+            {/* Allocation Display */}
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-3">Répartition actuelle</h4>
+              <div className="flex gap-4">
+                <span className="bg-blue-100 text-blue-800 px-3 py-2 rounded text-sm font-medium">
+                  David: {invoice.david_percentage}%
+                </span>
+                <span className="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">
+                  Cabinet: {invoice.cabinet_percentage}%
+                </span>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
