@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateEnrichmentQuestions, rewriteUserContext } from './services/chatgpt-service.ts'
@@ -128,6 +127,19 @@ RÉSULTAT PRÉCÉDENT: ${originalSearch.search_result}
 🎯 OBJECTIF
 Fournir une réponse claire, structurée et exploitable immédiatement, adaptée aux besoins d'un cabinet médical : recherche de fournisseurs, élaboration de plans d'action, analyse comparative de services ou solutions, recommandations pratiques, etc.
 
+📊 UTILISATION DES TABLEAUX COMPARATIFS
+Quand c'est pertinent, intègre des tableaux comparatifs en format Markdown pour :
+- Comparer plusieurs fournisseurs, services ou solutions
+- Présenter des tarifs, caractéristiques ou délais
+- Organiser des critères de sélection
+- Structurer des données complexes
+
+Format tableau Markdown requis :
+| Critère | Option A | Option B | Option C |
+|---------|----------|----------|----------|
+| Prix | XXX € | XXX € | XXX € |
+| Délai | X jours | X jours | X jours |
+
 📌 TYPES DE RÉPONSES À PRODUIRE
 ✅ Plan d'action : si l'objectif est de structurer une démarche ou projet
 ✅ Recherche ciblée : si l'on cherche une info précise ou une solution
@@ -136,16 +148,17 @@ Fournir une réponse claire, structurée et exploitable immédiatement, adaptée
 ✅ Recommandations : si l'on cherche à optimiser une démarche
 
 🧱 STRUCTURE ATTENDUE
-Résumé exécutif
+## Résumé exécutif
 2–3 phrases pour résumer la meilleure piste/action identifiée
 
-Informations clés
+## Informations clés
 Détails organisés par thème ou critère (prix, délais, avantages, contraintes…)
+Utiliser des tableaux comparatifs quand approprié
 
-Sources utilisées
+## Sources utilisées
 Liste de liens en markdown (fiables, récents, utiles)
 
-Étapes recommandées
+## Étapes recommandées
 Liste d'actions concrètes à réaliser dès maintenant
 
 ✅ RÈGLES À RESPECTER
@@ -153,9 +166,10 @@ Rédige en français clair et professionnel
 Donne priorité aux infos récentes (moins de 30 jours) si pertinent
 Structure bien la réponse avec titres ## et listes à puces
 Évite les généralités ou répétitions inutiles
-Inclue les URLs directement dans le texte ou en bas de section
+Inclue les URLs directement dans le texte ou en bas de section avec [1], [2], etc.
 Privilégie les sources fiables (sites officiels, comparateurs, presse spécialisée)
-Sois pratique, synthétique et orienté solution`
+Sois pratique, synthétique et orienté solution
+UTILISE des tableaux comparatifs en Markdown pour structurer les données`
               },
               {
                 role: 'user',
@@ -324,6 +338,19 @@ tu dois repondre a cette demande: ${rewrittenContext}
 🎯 OBJECTIF
 Fournir une réponse claire, structurée et exploitable immédiatement, adaptée aux besoins d'un cabinet médical : recherche de fournisseurs, élaboration de plans d'action, analyse comparative de services ou solutions, recommandations pratiques, etc.
 
+📊 UTILISATION DES TABLEAUX COMPARATIFS
+Quand c'est pertinent, intègre des tableaux comparatifs en format Markdown pour :
+- Comparer plusieurs fournisseurs, services ou solutions
+- Présenter des tarifs, caractéristiques ou délais
+- Organiser des critères de sélection
+- Structurer des données complexes
+
+Format tableau Markdown requis :
+| Critère | Option A | Option B | Option C |
+|---------|----------|----------|----------|
+| Prix | XXX € | XXX € | XXX € |
+| Délai | X jours | X jours | X jours |
+
 📌 TYPES DE RÉPONSES À PRODUIRE
 ✅ Plan d'action : si l'objectif est de structurer une démarche ou projet
 
@@ -336,16 +363,17 @@ Fournir une réponse claire, structurée et exploitable immédiatement, adaptée
 ✅ Recommandations : si l'on cherche à optimiser une démarche
 
 🧱 STRUCTURE ATTENDUE
-Résumé exécutif
+## Résumé exécutif
 2–3 phrases pour résumer la meilleure piste/action identifiée
 
-Informations clés
+## Informations clés
 Détails organisés par thème ou critère (prix, délais, avantages, contraintes…)
+Utiliser des tableaux comparatifs quand approprié
 
-Sources utilisées
+## Sources utilisées
 Liste de liens en markdown (fiables, récents, utiles)
 
-Étapes recommandées
+## Étapes recommandées
 Liste d'actions concrètes à réaliser dès maintenant
 
 ✅ RÈGLES À RESPECTER
@@ -357,17 +385,19 @@ Structure bien la réponse avec titres ## et listes à puces
 
 Évite les généralités ou répétitions inutiles
 
-Inclue les URLs directement dans le texte ou en bas de section
+Inclue les URLs directement dans le texte ou en bas de section avec [1], [2], etc.
 
 Privilégie les sources fiables (sites officiels, comparateurs, presse spécialisée)
 
-Sois pratique, synthétique et orienté solution`
+Sois pratique, synthétique et orienté solution
+
+UTILISE des tableaux comparatifs en Markdown pour structurer les données quand approprié`
             },
             {
               role: 'user',
               content: `Tu dois répondre à cette demande: ${rewrittenContext}
 
-Effectue une recherche web approfondie et fournis une analyse complète et structurée pour répondre à cette demande. Concentre-toi sur les informations récentes et pertinentes.`
+Effectue une recherche web approfondie et fournis une analyse complète et structurée pour répondre à cette demande. Concentre-toi sur les informations récentes et pertinentes. Utilise des tableaux comparatifs en Markdown quand c'est approprié pour organiser les données.`
             }
           ],
           max_tokens: 4000,
