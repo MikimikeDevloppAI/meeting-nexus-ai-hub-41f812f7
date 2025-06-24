@@ -511,6 +511,7 @@ export default function Todos() {
                           )}
                         </Button>
 
+                        {/* Deep Search button temporarily disabled
                         <Button
                           variant="ghost"
                           size="sm"
@@ -534,6 +535,7 @@ export default function Todos() {
                             <ChevronDown className="h-4 w-4 flex-shrink-0" />
                           )}
                         </Button>
+                        */}
                       </div>
 
                       {/* AI Tool Content - Full width below buttons */}
@@ -549,12 +551,14 @@ export default function Todos() {
                               onUpdate={fetchTodos}
                             />
                           )}
+                          {/* Deep Search content temporarily disabled
                           {activeTool === 'search' && (
                             <TaskDeepSearchContent 
                               todoId={todo.id} 
                               todoDescription={todo.description}
                             />
                           )}
+                          */}
                         </div>
                       )}
                     </div>

@@ -1,14 +1,14 @@
-
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, FileText } from "lucide-react";
+import { Calendar, Users, FileText, Search } from "lucide-react";
 import { MeetingTodosWithRecommendations } from "@/components/MeetingTodosWithRecommendations";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { useState } from "react";
+import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 
 interface Participant {
   id: string;
@@ -182,6 +182,23 @@ export default function MeetingDetail() {
           <MeetingTodosWithRecommendations meetingId={meeting.id} />
         </CardContent>
       </Card>
+
+      {/* Deep Search temporarily disabled
+      <Card data-updated>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Recherche IA avancée
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TaskDeepSearch 
+            todoId={meeting.id} 
+            todoDescription={meeting.title || "Recherche pour cette réunion"}
+          />
+        </CardContent>
+      </Card>
+      */}
 
       {/* Transcript */}
       {meeting.transcript && (
