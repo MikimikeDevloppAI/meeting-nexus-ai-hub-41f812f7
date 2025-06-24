@@ -1,52 +1,24 @@
-
 export async function generateEnrichmentQuestions(
   todoDescription: string,
   userContext: string,
   openAIKey: string
 ): Promise<string[]> {
-  console.log('🤖 Génération des questions d\'enrichissement polyvalentes');
+  console.log('🤖 Génération des questions d\'enrichissement pour le cabinet ophtalmologique');
   
-  const prompt = `Tu es un assistant intelligent spécialisé dans l'optimisation de recherches web.
+  const prompt = `Tu es un assistant intelligent au service du cabinet ophtalmologique du Dr Tabibian à Genève. Ton rôle est d'aider à formuler 5 questions simples et claires pour mieux cadrer une recherche approfondie que l'utilisateur souhaite lancer. Ces questions doivent :
 
-TÂCHE : "${todoDescription}"
-CONTEXTE : "${userContext}"
+Être faciles à comprendre et rapides à répondre
 
-Génère exactement 5 questions d'enrichissement SPÉCIFIQUES ET PRATIQUES pour optimiser une recherche web intelligente.
+Aider à mieux cibler la recherche en évitant des résultats trop larges
 
-Adapte les questions selon le TYPE DE DEMANDE :
+Être adaptées à un contexte administratif, logistique ou organisationnel
 
-🎯 **PLAN D'ACTION** - Questions sur objectifs, étapes, ressources, délais, contraintes
-🔍 **RECHERCHE SPÉCIALISÉE** - Questions sur scope, critères, sources, profondeur d'analyse
-🛒 **RECHERCHE COMMERCIALE** - Questions sur budget, fournisseurs, localisation, spécifications
-📊 **ANALYSE COMPARATIVE** - Questions sur critères de comparaison, priorités, alternatives
-💡 **CONSEIL/RECOMMANDATION** - Questions sur contraintes, préférences, contexte d'usage
+Se concentrer sur des éléments comme le budget, les délais, les critères de sélection, les besoins spécifiques ou la région géographique
 
-EXEMPLES DE BONNES QUESTIONS SELON LE TYPE :
+Voici la tâche à effectuer : ${todoDescription}
+Voici les éléments de contexte ajoutés par l'utilisateur : ${userContext}
 
-**Plan d'action :**
-- Quel est l'objectif principal à atteindre et dans quel délai ?
-- Quelles sont vos ressources disponibles (budget, équipe, outils) ?
-- Quelles contraintes ou limitations faut-il prendre en compte ?
-
-**Recherche spécialisée :**
-- Quel niveau de détail technique souhaitez-vous ?
-- Y a-t-il des sources ou références spécifiques à privilégier ?
-- Dans quel contexte ces informations seront-elles utilisées ?
-
-**Recherche commerciale :**
-- Quel est votre budget maximum pour cette acquisition ?
-- Préférez-vous des fournisseurs locaux ou acceptez-vous l'international ?
-- Avez-vous des contraintes d'installation ou techniques spécifiques ?
-
-**Analyse comparative :**
-- Quels sont vos critères de choix prioritaires ?
-- Y a-t-il des solutions que vous avez déjà évaluées ?
-- Quels sont les facteurs décisifs pour votre décision ?
-
-**Conseil/Recommandation :**
-- Quel est votre niveau d'expérience dans ce domaine ?
-- Quelles sont vos préférences ou priorités principales ?
-- Y a-t-il des contraintes spécifiques à respecter ?
+Génère maintenant 5 questions claires et pertinentes à poser à l'utilisateur pour mieux cibler la recherche.
 
 RÉPONSE : Uniquement les 5 questions, une par ligne, sans numérotation.`;
 
@@ -76,7 +48,7 @@ RÉPONSE : Uniquement les 5 questions, une par ligne, sans numérotation.`;
   const questionsText = data.choices?.[0]?.message?.content || '';
   const questions = questionsText.split('\n').filter(q => q.trim().length > 0).slice(0, 5);
 
-  console.log('✅ Questions générées par ChatGPT:', questions.length);
+  console.log('✅ Questions générées par ChatGPT pour le cabinet ophtalmologique:', questions.length);
   return questions;
 }
 
