@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
-import { Upload, FileText, AlertCircle } from "lucide-react";
+import { Upload, FileText, AlertCircle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,8 +27,9 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
       'image/png': ['.png']
     },
     maxSize: 10 * 1024 * 1024, // 10MB
+    multiple: true, // Allow multiple files
     onDrop: (acceptedFiles) => {
-      setFiles(acceptedFiles);
+      setFiles(prev => [...prev, ...acceptedFiles]);
     }
   });
 
@@ -40,65 +42,88 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     }
   };
 
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
-      toast.error("Veuillez sélectionner un fichier");
+      toast.error("Veuillez sélectionner au moins un fichier");
       return;
     }
 
     const cabinetPercentage = 100 - davidPercentage;
+    let successCount = 0;
+    let errorCount = 0;
 
     setUploading(true);
     
     try {
       for (const file of files) {
-        // Generate unique filename
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        
-        // Upload to storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('invoices')
-          .upload(fileName, file);
+        try {
+          // Generate unique filename
+          const timestamp = Date.now();
+          const fileName = `${timestamp}-${file.name}`;
+          
+          // Upload to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('invoices')
+            .upload(fileName, file);
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          toast.error(`Erreur lors de l'upload de ${file.name}`);
-          continue;
-        }
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            toast.error(`Erreur lors de l'upload de ${file.name}`);
+            errorCount++;
+            continue;
+          }
 
-        // Create invoice record
-        const { data: invoice, error: insertError } = await supabase
-          .from('invoices')
-          .insert({
-            original_filename: file.name,
-            file_path: uploadData.path,
-            file_size: file.size,
-            content_type: file.type,
-            david_percentage: davidPercentage,
-            cabinet_percentage: cabinetPercentage,
-            status: 'pending'
-          })
-          .select()
-          .single();
+          // Create invoice record
+          const { data: invoice, error: insertError } = await supabase
+            .from('invoices')
+            .insert({
+              original_filename: file.name,
+              file_path: uploadData.path,
+              file_size: file.size,
+              content_type: file.type,
+              david_percentage: davidPercentage,
+              cabinet_percentage: cabinetPercentage,
+              status: 'pending'
+            })
+            .select()
+            .single();
 
-        if (insertError) {
-          console.error('Insert error:', insertError);
-          toast.error(`Erreur lors de la création de l'enregistrement pour ${file.name}`);
-          continue;
-        }
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            toast.error(`Erreur lors de la création de l'enregistrement pour ${file.name}`);
+            errorCount++;
+            continue;
+          }
 
-        // Process with Mindee API
-        const { error: processError } = await supabase.functions.invoke('process-invoice', {
-          body: { invoiceId: invoice.id }
-        });
+          // Process with Mindee API
+          const { error: processError } = await supabase.functions.invoke('process-invoice', {
+            body: { invoiceId: invoice.id }
+          });
 
-        if (processError) {
-          console.error('Process error:', processError);
+          if (processError) {
+            console.error('Process error:', processError);
+            toast.error(`Erreur lors du traitement de ${file.name}`);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
           toast.error(`Erreur lors du traitement de ${file.name}`);
-        } else {
-          toast.success(`${file.name} uploadé et en cours de traitement`);
+          errorCount++;
         }
+      }
+
+      // Show summary toast
+      if (successCount > 0) {
+        toast.success(`${successCount} fichier(s) uploadé(s) et en cours de traitement`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} fichier(s) ont échoué`);
       }
 
       setFiles([]);
@@ -122,7 +147,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
       <CardContent className="space-y-6">
         {/* File Upload */}
         <div>
-          <Label className="text-sm font-medium">Fichier</Label>
+          <Label className="text-sm font-medium">Fichiers</Label>
           <div
             {...getRootProps()}
             className={`mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
@@ -132,13 +157,31 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
             <input {...getInputProps()} />
             {files.length > 0 ? (
               <div className="space-y-2">
-                {files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-center gap-2 text-sm">
-                    <FileText className="h-4 w-4" />
-                    <span>{file.name}</span>
-                    <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </div>
-                ))}
+                <div className="text-sm text-gray-600 mb-3">
+                  {files.length} fichier(s) sélectionné(s)
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div className="flex items-center gap-2 text-sm">
+                        <FileText className="h-4 w-4" />
+                        <span>{file.name}</span>
+                        <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(index);
+                        }}
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -151,7 +194,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
                   )}
                 </div>
                 <div className="text-xs text-gray-500">
-                  PDF, JPG, PNG (max 10MB)
+                  PDF, JPG, PNG (max 10MB par fichier) - Sélection multiple possible
                 </div>
               </div>
             )}
@@ -211,7 +254,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
           disabled={uploading || files.length === 0 || davidPercentage < 0 || davidPercentage > 100}
           className="w-full"
         >
-          {uploading ? 'Upload en cours...' : 'Uploader et traiter'}
+          {uploading ? 'Upload en cours...' : `Uploader et traiter ${files.length > 0 ? `(${files.length} fichier${files.length > 1 ? 's' : ''})` : ''}`}
         </Button>
       </CardContent>
     </Card>
