@@ -58,7 +58,7 @@ export async function rewriteUserContext(
   enrichmentAnswers: any[],
   openAIKey: string
 ): Promise<string> {
-  console.log('🤖 Réécriture du contexte pour recherche web polyvalente');
+  console.log('🤖 Reformulation simplifiée de la demande');
   
   const enrichmentText = enrichmentAnswers.length > 0 
     ? '\n\nINFORMATIONS COMPLÉMENTAIRES:\n' + 
@@ -67,42 +67,12 @@ export async function rewriteUserContext(
       ).join('\n\n')
     : '';
 
-  const prompt = `Tu optimises des contextes pour des recherches web intelligentes et polyvalentes.
+  const prompt = `Tu es un assistant intelligent. Reformule cette demande de manière claire et complète en intégrant toutes les informations disponibles pour faciliter une recherche web approfondie.
 
 TÂCHE ORIGINALE : "${todoDescription}"
 CONTEXTE INITIAL : "${userContext}"${enrichmentText}
 
-**MISSION :** Réécrire ce contexte pour maximiser l'efficacité d'une recherche web Jina AI ciblée.
-
-**OBJECTIFS DE RECHERCHE WEB POSSIBLES :**
-
-🎯 **PLAN D'ACTION** - Méthodologies, étapes, ressources, timeline
-🔍 **RECHERCHE SPÉCIALISÉE** - Informations techniques, analyses, études
-🛒 **SOLUTIONS COMMERCIALES** - Fournisseurs, produits, services, prix
-📊 **ANALYSES COMPARATIVES** - Alternatives, benchmarks, évaluations
-💡 **RECOMMANDATIONS** - Meilleures pratiques, conseils d'experts
-📋 **GUIDES PRATIQUES** - Tutoriels, procédures, check-lists
-
-**STRUCTURE OPTIMISÉE POUR RECHERCHE WEB :**
-
-**OBJECTIF PRINCIPAL :** [Reformuler clairement la demande]
-
-**TYPE DE RECHERCHE :** [Plan d'action / Recherche spécialisée / Solutions commerciales / etc.]
-
-**CONTEXTE D'USAGE :** [Situation, environnement, contraintes]
-
-**CRITÈRES SPÉCIFIQUES :**
-- Priorité géographique : [si applicable]
-- Budget/Ressources : [si mentionné]
-- Délais/Timeline : [si mentionné]  
-- Contraintes techniques : [si applicable]
-- Niveau de détail souhaité : [selon le type]
-
-**MOTS-CLÉS DE RECHERCHE :** [Termes principaux + synonymes techniques]
-
-**RÉSULTATS ATTENDUS :** [Type d'informations, format, niveau de détail]
-
-Écris un contexte enrichi et structuré en français, optimisé pour une recherche web intelligente et polyvalente.`;
+Reformule cette demande en français de manière claire, structurée et complète, en intégrant tous les éléments de contexte et réponses disponibles. L'objectif est de créer une demande parfaitement compréhensible pour une recherche web intelligente.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -129,6 +99,6 @@ CONTEXTE INITIAL : "${userContext}"${enrichmentText}
   const data = await response.json();
   const rewrittenContext = data.choices?.[0]?.message?.content || userContext;
 
-  console.log('✅ Contexte réécrit par ChatGPT:', rewrittenContext.length, 'caractères');
+  console.log('✅ Contexte reformulé par ChatGPT:', rewrittenContext.length, 'caractères');
   return rewrittenContext;
 }
