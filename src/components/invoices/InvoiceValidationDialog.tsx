@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,13 +74,19 @@ export function InvoiceValidationDialog({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Préparer les données en gérant les dates vides
+      const updateData = {
+        ...formData,
+        status: 'validated',
+        processed_at: new Date().toISOString(),
+        // Convertir les dates vides en null pour éviter l'erreur PostgreSQL
+        invoice_date: formData.invoice_date === '' ? null : formData.invoice_date,
+        due_date: formData.due_date === '' ? null : formData.due_date,
+      };
+
       const { error } = await supabase
         .from('invoices')
-        .update({
-          ...formData,
-          status: 'validated',
-          processed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', invoice.id);
 
       if (error) throw error;
