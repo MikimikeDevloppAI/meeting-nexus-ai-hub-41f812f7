@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button";
@@ -162,7 +161,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         {/* Allocation */}
         <div>
           <Label className="text-sm font-medium mb-3 block">Répartition</Label>
-          <RadioGroup value={allocation} onValueChange={handleAllocationChange}>
+          <RadioGroup value={allocation} onValueChange={handleAllocationChange} className="flex flex-row gap-6">
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="david" id="david" />
               <Label htmlFor="david">David (100%)</Label>
