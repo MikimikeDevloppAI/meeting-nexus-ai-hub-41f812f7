@@ -1,14 +1,14 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
+import { toast } from "sonner";
 
 interface Invoice {
   id: string;
@@ -45,6 +45,7 @@ interface InvoiceListProps {
 export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
@@ -109,6 +110,44 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading file:', error);
+    }
+  };
+
+  const deleteInvoice = async (invoice: Invoice) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.original_filename}" ?`)) {
+      return;
+    }
+
+    setDeletingInvoiceId(invoice.id);
+    
+    try {
+      // Supprimer le fichier du storage
+      const { error: storageError } = await supabase.storage
+        .from('invoices')
+        .remove([invoice.file_path]);
+
+      if (storageError) {
+        console.error('Erreur lors de la suppression du fichier:', storageError);
+        // Continuer même si la suppression du fichier échoue
+      }
+
+      // Supprimer l'enregistrement de la base de données
+      const { error: dbError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoice.id);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      toast.success(`Facture "${invoice.original_filename}" supprimée avec succès`);
+      refetch();
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setDeletingInvoiceId(null);
     }
   };
 
@@ -285,6 +324,17 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     Réessayer
                   </Button>
                 )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => deleteInvoice(invoice)}
+                  disabled={deletingInvoiceId === invoice.id}
+                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deletingInvoiceId === invoice.id ? 'Suppression...' : 'Supprimer'}
+                </Button>
               </div>
             </CardContent>
           </Card>
