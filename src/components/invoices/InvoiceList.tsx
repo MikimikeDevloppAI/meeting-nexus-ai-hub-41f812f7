@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -147,7 +148,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       }
 
       toast.success(`Facture "${invoice.original_filename}" supprimée avec succès`);
-      refetch();
+      
+      // Force un refresh immédiat de la liste
+      await refetch();
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
       toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -183,7 +186,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   return (
     <>
       <div className="space-y-4">
-        {invoices.map((invoice) => (
+        {invoices?.map((invoice) => (
           <Card key={invoice.id}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
