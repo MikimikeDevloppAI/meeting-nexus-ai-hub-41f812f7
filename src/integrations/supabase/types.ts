@@ -607,6 +607,7 @@ export type Database = {
           due_date: string | null
           id: string
           meeting_id: string | null
+          priority: string | null
           status: string
         }
         Insert: {
@@ -617,6 +618,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           meeting_id?: string | null
+          priority?: string | null
           status?: string
         }
         Update: {
@@ -627,6 +629,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           meeting_id?: string | null
+          priority?: string | null
           status?: string
         }
         Relationships: [
