@@ -121,17 +121,22 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     setDeletingInvoiceId(invoice.id);
     
     try {
-      // Supprimer le fichier du storage
-      const { error: storageError } = await supabase.storage
-        .from('invoices')
-        .remove([invoice.file_path]);
+      // Supprimer le fichier du storage (ne pas arrêter si cela échoue)
+      if (invoice.file_path) {
+        try {
+          const { error: storageError } = await supabase.storage
+            .from('invoices')
+            .remove([invoice.file_path]);
 
-      if (storageError) {
-        console.error('Erreur lors de la suppression du fichier:', storageError);
-        // Continuer même si la suppression du fichier échoue
+          if (storageError) {
+            console.warn('Erreur lors de la suppression du fichier (continuons quand même):', storageError);
+          }
+        } catch (storageError) {
+          console.warn('Erreur lors de la suppression du fichier (continuons quand même):', storageError);
+        }
       }
 
-      // Supprimer l'enregistrement de la base de données
+      // Supprimer l'enregistrement de la base de données (toujours essayer)
       const { error: dbError } = await supabase
         .from('invoices')
         .delete()
