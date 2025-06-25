@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Pen, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoParticipantManager } from "@/components/TodoParticipantManager";
@@ -276,11 +276,6 @@ export default function Todos() {
     }
   };
 
-  const startEditingTodo = (todoId: string) => {
-    console.log("Starting to edit todo:", todoId);
-    setEditingTodoId(todoId);
-  };
-
   const getStatusBadge = (status: Todo['status']) => {
     const labels = {
       'pending': 'En cours',
@@ -417,7 +412,7 @@ export default function Todos() {
               }`}>
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {/* Task header with priority, edit, complete and delete buttons */}
+                    {/* Task header with priority, complete and delete buttons */}
                     <div className="flex justify-between items-start">
                       <div className="text-lg flex-grow mr-2">
                         <EditableContent
@@ -437,14 +432,6 @@ export default function Todos() {
                           onPriorityUpdate={fetchTodos}
                           compact={true}
                         />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startEditingTodo(todo.id)}
-                          className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
-                        >
-                          <Pen className="h-4 w-4" />
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
