@@ -11,6 +11,7 @@ import { EditableContent } from "@/components/EditableContent";
 import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationContent";
 import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
 import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
+import { TodoPriorityButton } from "@/components/TodoPriorityButton";
 import { Todo } from "@/types/meeting";
 import {
   Dialog,
@@ -37,8 +38,13 @@ interface Participant {
 
 type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 
+// Étendre l'interface Todo pour inclure la priorité
+interface TodoWithPriority extends Todo {
+  priority?: 'high' | 'normal' | 'low';
+}
+
 export default function Todos() {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todos, setTodos] = useState<TodoWithPriority[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("confirmed"); // Filtre par défaut sur "En cours"
   const [participantFilter, setParticipantFilter] = useState<string>("all");
@@ -90,7 +96,8 @@ export default function Todos() {
             participants(id, name, email)
           )
         `)
-        .order("created_at", { ascending: false });
+        .order("priority", { ascending: false }) // Tri par priorité d'abord
+        .order("created_at", { ascending: false }); // Puis par date
 
       if (error) {
         console.error("Error fetching todos:", error);
@@ -106,7 +113,7 @@ export default function Todos() {
       }).filter(todo => todo.status === 'confirmed' || todo.status === 'completed') || [];
 
       console.log("Fetched todos:", updatedTodos);
-      setTodos(updatedTodos as Todo[]);
+      setTodos(updatedTodos as TodoWithPriority[]);
       
       // Check for existing deep search results
       checkDeepSearchResults(updatedTodos.map(todo => todo.id));
@@ -227,7 +234,8 @@ export default function Todos() {
         .from("todos")
         .insert([{ 
           description: data.description,
-          status: 'confirmed'
+          status: 'confirmed',
+          priority: 'normal' // Priorité normale par défaut
         }])
         .select()
         .single();
@@ -298,15 +306,30 @@ export default function Todos() {
     }));
   };
 
-  const filteredTodos = todos.filter(todo => {
-    const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
-    const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
-    
-    const participantMatch = participantFilter === "all" || 
-      todo.todo_participants?.some(tp => tp.participant_id === participantFilter);
-    
-    return statusMatch && participantMatch;
-  });
+  // Tri des tâches avec priorité en premier
+  const filteredTodos = todos
+    .filter(todo => {
+      const effectiveStatus = todo.status === 'pending' ? 'confirmed' : todo.status;
+      const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
+      
+      const participantMatch = participantFilter === "all" || 
+        todo.todo_participants?.some(tp => tp.participant_id === participantFilter);
+      
+      return statusMatch && participantMatch;
+    })
+    .sort((a, b) => {
+      // Tri par priorité d'abord (high > normal > low)
+      const priorityOrder = { high: 3, normal: 2, low: 1 };
+      const aPriority = priorityOrder[a.priority || 'normal'];
+      const bPriority = priorityOrder[b.priority || 'normal'];
+      
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority;
+      }
+      
+      // Puis par date de création (plus récent en premier)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   if (loading) {
     return (
@@ -389,10 +412,12 @@ export default function Todos() {
             const hasDeepSearchResults = deepSearchResults[todo.id] || false;
             
             return (
-              <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+              <Card key={todo.id} className={`hover:shadow-sm transition-shadow ${
+                todo.priority === 'high' ? 'ring-2 ring-orange-200 bg-orange-50/30' : ''
+              }`}>
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {/* Task header with edit, complete and delete buttons */}
+                    {/* Task header with priority, edit, complete and delete buttons */}
                     <div className="flex justify-between items-start">
                       <div className="text-lg flex-grow mr-2">
                         <EditableContent
@@ -406,6 +431,12 @@ export default function Todos() {
                         />
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <TodoPriorityButton
+                          todoId={todo.id}
+                          currentPriority={todo.priority || 'normal'}
+                          onPriorityUpdate={fetchTodos}
+                          compact={true}
+                        />
                         <Button
                           variant="outline"
                           size="sm"
@@ -466,7 +497,7 @@ export default function Todos() {
                       </div>
                     </div>
 
-                    {/* AI Tools - Three buttons in a row with pastel colors as base */}
+                    {/* AI Tools */}
                     <div className="space-y-3">
                       <div className="flex gap-2">
                         <Button
@@ -510,35 +541,9 @@ export default function Todos() {
                             <ChevronDown className="h-4 w-4 flex-shrink-0" />
                           )}
                         </Button>
-
-                        {/* Deep Search button temporarily disabled
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAIToolToggle(todo.id, 'search')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-purple-100 border border-purple-200 ${
-                            activeTool === 'search' 
-                              ? 'ring-2 ring-purple-300' 
-                              : 'hover:bg-purple-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Zap className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-black">Deep Search</span>
-                            {hasDeepSearchResults && (
-                              <div className="w-2 h-2 bg-green-500 rounded-full ml-1"></div>
-                            )}
-                          </div>
-                          {activeTool === 'search' ? (
-                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                          )}
-                        </Button>
-                        */}
                       </div>
 
-                      {/* AI Tool Content - Full width below buttons */}
+                      {/* AI Tool Content */}
                       {activeTool !== 'none' && (
                         <div className="w-full">
                           {activeTool === 'recommendation' && (
@@ -551,14 +556,6 @@ export default function Todos() {
                               onUpdate={fetchTodos}
                             />
                           )}
-                          {/* Deep Search content temporarily disabled
-                          {activeTool === 'search' && (
-                            <TaskDeepSearchContent 
-                              todoId={todo.id} 
-                              todoDescription={todo.description}
-                            />
-                          )}
-                          */}
                         </div>
                       )}
                     </div>
