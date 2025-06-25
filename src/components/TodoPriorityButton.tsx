@@ -62,16 +62,16 @@ export const TodoPriorityButton = ({
         size="sm"
         onClick={togglePriority}
         disabled={isUpdating}
-        className={`h-6 w-6 p-0 bg-white border border-gray-300 hover:bg-gray-50 rounded-md ${
+        className={`h-8 px-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-md ${
           currentPriority === 'high' 
             ? 'text-orange-500 hover:text-orange-600' 
             : 'text-gray-400 hover:text-orange-500'
         }`}
       >
         {isUpdating ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Star className={`h-3 w-3 ${currentPriority === 'high' ? 'fill-current' : ''}`} />
+          <Star className={`h-4 w-4 ${currentPriority === 'high' ? 'fill-current' : ''}`} />
         )}
       </Button>
     );
