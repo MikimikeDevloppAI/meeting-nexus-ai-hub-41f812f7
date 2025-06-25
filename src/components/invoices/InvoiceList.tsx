@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,12 +50,18 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
     queryFn: async () => {
+      console.log('Fetching invoices...');
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        throw error;
+      }
+      
+      console.log('Invoices fetched:', data);
       return data as Invoice[];
     }
   });
@@ -122,6 +127,21 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     setDeletingInvoiceId(invoice.id);
     
     try {
+      console.log('Deleting invoice:', invoice.id);
+      
+      // Supprimer l'enregistrement de la base de données
+      const { error: dbError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoice.id);
+
+      if (dbError) {
+        console.error('Database deletion error:', dbError);
+        throw dbError;
+      }
+
+      console.log('Invoice deleted from database successfully');
+
       // Supprimer le fichier du storage (ne pas arrêter si cela échoue)
       if (invoice.file_path) {
         try {
@@ -130,27 +150,22 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             .remove([invoice.file_path]);
 
           if (storageError) {
-            console.warn('Erreur lors de la suppression du fichier (continuons quand même):', storageError);
+            console.warn('Storage deletion warning (continuing anyway):', storageError);
+          } else {
+            console.log('File deleted from storage successfully');
           }
         } catch (storageError) {
-          console.warn('Erreur lors de la suppression du fichier (continuons quand même):', storageError);
+          console.warn('Storage deletion error (continuing anyway):', storageError);
         }
-      }
-
-      // Supprimer l'enregistrement de la base de données (toujours essayer)
-      const { error: dbError } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', invoice.id);
-
-      if (dbError) {
-        throw dbError;
       }
 
       toast.success(`Facture "${invoice.original_filename}" supprimée avec succès`);
       
-      // Force un refresh immédiat de la liste
+      // Force un refresh immédiat et complet de la liste
+      console.log('Refreshing invoice list...');
       await refetch();
+      console.log('Invoice list refreshed');
+      
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
       toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
