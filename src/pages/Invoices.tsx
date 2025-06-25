@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { InvoiceUploadForm } from "@/components/invoices/InvoiceUploadForm";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
+import { InvoiceExportButton } from "@/components/invoices/InvoiceExportButton";
 
 const Invoices = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -12,11 +13,14 @@ const Invoices = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Gestion des factures</h1>
-        <p className="text-muted-foreground">
-          Uploadez vos factures PDF ou images pour un traitement automatique
-        </p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Gestion des factures</h1>
+          <p className="text-muted-foreground">
+            Uploadez vos factures PDF ou images pour un traitement automatique
+          </p>
+        </div>
+        <InvoiceExportButton />
       </div>
 
       <div className="space-y-6">

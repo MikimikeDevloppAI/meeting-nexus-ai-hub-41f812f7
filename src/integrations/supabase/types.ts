@@ -95,29 +95,29 @@ export type Database = {
       }
       invoices: {
         Row: {
-          cabinet_percentage: number
+          cabinet_percentage: number | null
           content_type: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           currency: string | null
           customer_address: string | null
           customer_company_registration: string | null
           customer_name: string | null
           customer_vat_number: string | null
-          david_percentage: number
+          david_percentage: number | null
           due_date: string | null
           error_message: string | null
-          file_path: string
+          file_path: string | null
           file_size: number | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
           line_items: Json | null
           mindee_raw_response: Json | null
-          original_filename: string
+          original_filename: string | null
           payment_details: string | null
           processed_at: string | null
-          status: string
+          status: string | null
           supplier_address: string | null
           supplier_company_registration: string | null
           supplier_email: string | null
@@ -129,32 +129,32 @@ export type Database = {
           total_amount: number | null
           total_net: number | null
           total_tax: number | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          cabinet_percentage?: number
+          cabinet_percentage?: number | null
           content_type?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           currency?: string | null
           customer_address?: string | null
           customer_company_registration?: string | null
           customer_name?: string | null
           customer_vat_number?: string | null
-          david_percentage?: number
+          david_percentage?: number | null
           due_date?: string | null
           error_message?: string | null
-          file_path: string
+          file_path?: string | null
           file_size?: number | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
-          original_filename: string
+          original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
-          status?: string
+          status?: string | null
           supplier_address?: string | null
           supplier_company_registration?: string | null
           supplier_email?: string | null
@@ -166,32 +166,32 @@ export type Database = {
           total_amount?: number | null
           total_net?: number | null
           total_tax?: number | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          cabinet_percentage?: number
+          cabinet_percentage?: number | null
           content_type?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           currency?: string | null
           customer_address?: string | null
           customer_company_registration?: string | null
           customer_name?: string | null
           customer_vat_number?: string | null
-          david_percentage?: number
+          david_percentage?: number | null
           due_date?: string | null
           error_message?: string | null
-          file_path?: string
+          file_path?: string | null
           file_size?: number | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
-          original_filename?: string
+          original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
-          status?: string
+          status?: string | null
           supplier_address?: string | null
           supplier_company_registration?: string | null
           supplier_email?: string | null
@@ -203,7 +203,7 @@ export type Database = {
           total_amount?: number | null
           total_net?: number | null
           total_tax?: number | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
