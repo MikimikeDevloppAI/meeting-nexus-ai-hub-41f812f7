@@ -53,7 +53,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
 
     return Array.from(supplierMap.entries())
       .map(([name, amount]) => ({ 
-        name: name.length > 15 ? name.substring(0, 15) + '...' : name, 
+        name: name.length > 12 ? name.substring(0, 12) + '...' : name, 
         amount: Math.round(amount)
       }))
       .sort((a, b) => b.amount - a.amount)
@@ -67,7 +67,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         x={x + width / 2}
         y={y - 5}
         textAnchor="middle"
-        fontSize={12}
+        fontSize={11}
         fill="#1e3a8a"
         fontWeight="600"
       >
@@ -82,21 +82,24 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         <CardTitle>Top 10 Fournisseurs</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px]">
-          <BarChart data={supplierData} margin={{ top: 40, right: 30, left: 20, bottom: 60 }}>
-            <XAxis 
-              dataKey="name" 
-              angle={-45} 
-              textAnchor="end" 
-              height={100}
-              interval={0}
-            />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="amount" fill="var(--color-amount)" name="Montant CHF">
-              <LabelList content={CustomLabel} />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+        <div className="w-full overflow-x-auto">
+          <ChartContainer config={chartConfig} className="h-[400px] min-w-[600px]">
+            <BarChart data={supplierData} margin={{ top: 40, right: 30, left: 20, bottom: 80 }}>
+              <XAxis 
+                dataKey="name" 
+                angle={-45} 
+                textAnchor="end" 
+                height={120}
+                interval={0}
+                fontSize={10}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="amount" fill="var(--color-amount)" name="Montant CHF">
+                <LabelList content={CustomLabel} />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </div>
       </CardContent>
     </Card>
   );

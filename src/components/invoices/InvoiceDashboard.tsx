@@ -44,7 +44,17 @@ interface DashboardFilters {
 }
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
-  const [filters, setFilters] = useState<DashboardFilters>({});
+  // Initialiser avec "année en cours" par défaut
+  const getDefaultFilters = (): DashboardFilters => {
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1); // Premier jour de l'année
+    const dateFrom = yearStart.toISOString().split('T')[0];
+    const dateTo = now.toISOString().split('T')[0];
+    
+    return { dateFrom, dateTo };
+  };
+
+  const [filters, setFilters] = useState<DashboardFilters>(getDefaultFilters());
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
@@ -63,7 +73,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   });
 
-  // Fonctions pour les filtres de date
+  // Fonctions pour les filtres de date - CORRIGÉES
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     let dateFrom: string | undefined;
@@ -71,10 +81,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
     switch (type) {
       case 'mtd':
+        // Premier jour du mois en cours
         dateFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         dateTo = now.toISOString().split('T')[0];
         break;
       case 'ytd':
+        // Premier jour de l'année en cours
         dateFrom = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
         dateTo = now.toISOString().split('T')[0];
         break;
@@ -88,7 +100,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     setFilters(prev => ({ ...prev, dateFrom, dateTo }));
   };
 
-  // Fonction pour vérifier si un bouton est actif
+  // Fonction pour vérifier si un bouton est actif - CORRIGÉE
   const isButtonActive = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -104,7 +116,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       case 'ytd':
         if (!filters.dateFrom || !filters.dateTo) return false;
         const ytdStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
-        return filters.dateFrom === ytdStart && filters.dateFrom !== new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+        return filters.dateFrom === ytdStart;
       default:
         return false;
     }
@@ -257,7 +269,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </Button>
         </div>
 
-        {/* Boutons de filtre de date */}
+        {/* Boutons de filtre de date - ORDRE MODIFIÉ */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
@@ -265,10 +277,10 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           <CardContent>
             <div className="flex gap-2 mb-4">
               <Button 
-                variant={isButtonActive('all') ? "default" : "outline"}
-                onClick={() => setDateFilter('all')}
+                variant={isButtonActive('ytd') ? "default" : "outline"}
+                onClick={() => setDateFilter('ytd')}
               >
-                Toutes périodes
+                Année en cours
               </Button>
               <Button 
                 variant={isButtonActive('mtd') ? "default" : "outline"}
@@ -277,10 +289,10 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
                 Mois en cours
               </Button>
               <Button 
-                variant={isButtonActive('ytd') ? "default" : "outline"}
-                onClick={() => setDateFilter('ytd')}
+                variant={isButtonActive('all') ? "default" : "outline"}
+                onClick={() => setDateFilter('all')}
               >
-                Année en cours
+                Toute période
               </Button>
             </div>
             
