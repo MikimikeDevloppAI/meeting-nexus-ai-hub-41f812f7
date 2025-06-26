@@ -75,7 +75,7 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
     <Card>
       <CardHeader>
         <CardTitle>{getModeTitle()}</CardTitle>
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-center">
           <Button 
             variant={mode === 'compte' ? "default" : "outline"}
             size="sm"
@@ -112,6 +112,7 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
               innerRadius={40}
               fill="#8884d8"
               dataKey="value"
+              style={{ fill: "#000000" }}
             >
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

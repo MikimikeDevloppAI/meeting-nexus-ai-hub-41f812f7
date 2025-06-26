@@ -11,6 +11,7 @@ import { DonutCategoryChart } from "./DonutCategoryChart";
 import { SupplierChart } from "./SupplierChart";
 import { FilteredInvoiceList } from "./FilteredInvoiceList";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
+import { GrowthComparisonCard } from "./GrowthComparisonCard";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
@@ -275,7 +276,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </Button>
         </div>
 
-        {/* Boutons de filtre de date - ORDRE MODIFIÉ : Année en cours, Mois en cours, Toute période */}
+        {/* Boutons de filtre de date */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
@@ -302,13 +303,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               </Button>
             </div>
             
-            {/* Filtres existants */}
             <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
           </CardContent>
         </Card>
 
-        {/* Statistiques principales - 3 cartes maintenant */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Statistiques principales - 4 cartes maintenant */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
@@ -321,6 +321,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               </p>
             </CardContent>
           </Card>
+
+          <GrowthComparisonCard 
+            invoices={filteredInvoices} 
+            dateFrom={filters.dateFrom}
+            dateTo={filters.dateTo}
+          />
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -356,7 +362,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           dateTo={filters.dateTo}
         />
 
-        {/* Graphiques côte à côte */}
+        {/* Graphiques côte à côte - maintenant alignés */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <DonutCategoryChart invoices={filteredInvoices} />
           <SupplierChart invoices={filteredInvoices} />
