@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -37,7 +36,7 @@ const cleanUtf8Text = (text: string): string => {
   }
 };
 
-// Function to convert ArrayBuffer to base64 using chunks to avoid stack overflow
+// Safe base64 conversion function that avoids stack overflow
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   console.log(`Converting file to base64, size: ${buffer.byteLength} bytes`);
   
@@ -46,16 +45,21 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   }
   
   try {
-    // Use TextDecoder for smaller files or chunk processing for larger ones
     const uint8Array = new Uint8Array(buffer);
-    const chunkSize = 32768; // 32KB chunks to avoid stack overflow
     let binary = '';
     
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, chunk);
+    // Manual byte-by-byte conversion to avoid stack overflow
+    console.log('Starting byte-by-byte base64 conversion...');
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+      
+      // Log progress for large files
+      if (i > 0 && i % 100000 === 0) {
+        console.log(`Conversion progress: ${i}/${uint8Array.length} bytes (${(i/uint8Array.length*100).toFixed(1)}%)`);
+      }
     }
     
+    console.log('Binary string created, converting to base64...');
     const base64 = btoa(binary);
     console.log(`Base64 conversion successful, length: ${base64.length}`);
     return base64;
@@ -416,12 +420,13 @@ async function callMindeeAPI(fileData: Blob, documentType: string) {
   }
   
   try {
-    // Convert file to base64 for Mindee API using safe chunked approach
+    // Convert file to base64 using the new safe method
+    console.log('Converting file to ArrayBuffer...');
     const arrayBuffer = await fileData.arrayBuffer();
     console.log(`ArrayBuffer created successfully, size: ${arrayBuffer.byteLength} bytes`);
     
     const base64Data = arrayBufferToBase64(arrayBuffer);
-    console.log(`Base64 conversion completed successfully`);
+    console.log(`Safe base64 conversion completed successfully`);
 
     const mindeeEndpoint = getMindeeEndpoint(documentType);
     console.log(`Calling Mindee API: ${mindeeEndpoint}`);
