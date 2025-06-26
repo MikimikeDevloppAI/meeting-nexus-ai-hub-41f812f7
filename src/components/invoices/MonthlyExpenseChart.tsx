@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
@@ -105,13 +104,13 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
     return `${Math.round(value).toLocaleString('fr-CH')} CHF`;
   };
 
-  // Composant personnalisé pour les labels de la courbe de tendance avec background centré et alignement corrigé
+  // Composant personnalisé pour les labels de la courbe de tendance avec style noir et centré
   const TrendLineLabel = ({ x, y, value, viewBox }: any) => {
     if (!value || value === 0) return null;
     
     const formattedValue = formatAmount(value);
     const labelX = x;
-    const labelY = y - 20; // Ajusté pour être mieux centré
+    const labelY = y; // Centré verticalement par rapport au point
     
     // Calculer la largeur du texte plus précisément
     const textWidth = formattedValue.length * 5.5;
@@ -134,8 +133,9 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
           y={labelY}
           textAnchor="middle"
           fontSize={10}
-          fill="#1e40af"
+          fill="#000000"
           fontWeight="600"
+          dominantBaseline="middle"
         >
           {formattedValue}
         </text>

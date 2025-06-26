@@ -56,7 +56,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         name: name.length > 12 ? name.substring(0, 12) + '...' : name, 
         amount: Math.round(amount)
       }))
-      .sort((a, b) => b.amount - a.amount); // Afficher tous les fournisseurs, pas seulement le top 10
+      .sort((a, b) => b.amount - a.amount); // Trier par montant décroissant
   }, [invoices]);
 
   // Composant pour les labels au-dessus des barres avec style noir
@@ -93,6 +93,9 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
     );
   };
 
+  // Calculer la largeur minimum pour afficher 10 fournisseurs
+  const minWidth = Math.max(600, supplierData.length * 80);
+
   return (
     <Card>
       <CardHeader>
@@ -100,7 +103,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
       </CardHeader>
       <CardContent>
         <div className="w-full overflow-x-auto">
-          <ChartContainer config={chartConfig} className="h-[400px] min-w-[600px]">
+          <ChartContainer config={chartConfig} className="h-[400px]" style={{ minWidth: `${minWidth}px` }}>
             <BarChart data={supplierData} margin={{ top: 40, right: 30, left: 20, bottom: 80 }}>
               <XAxis 
                 dataKey="name" 
