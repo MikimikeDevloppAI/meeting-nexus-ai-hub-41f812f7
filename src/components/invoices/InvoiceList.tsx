@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,13 +47,37 @@ interface InvoiceListProps {
 const formatSupplierName = (supplierName?: string): string => {
   if (!supplierName) return 'N/A';
   
-  // Decode HTML entities if present
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = supplierName;
-  const decoded = textarea.value;
-  
-  // Return the properly formatted name
-  return decoded || supplierName;
+  try {
+    // First try to decode HTML entities
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = supplierName;
+    let decoded = textarea.value;
+    
+    // If still contains encoded characters, try to decode URL encoding
+    if (decoded.includes('%') || decoded.includes('\\u')) {
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch (e) {
+        // If decodeURIComponent fails, try manual replacement of common issues
+        decoded = decoded.replace(/\?/g, 'é')
+                        .replace(/Ã©/g, 'é')
+                        .replace(/Ã¨/g, 'è')
+                        .replace(/Ã /g, 'à')
+                        .replace(/Ã§/g, 'ç')
+                        .replace(/Ã´/g, 'ô')
+                        .replace(/Ã¢/g, 'â')
+                        .replace(/Ã¯/g, 'ï')
+                        .replace(/Ã«/g, 'ë')
+                        .replace(/Ã¹/g, 'ù')
+                        .replace(/Ã»/g, 'û');
+      }
+    }
+    
+    return decoded || supplierName;
+  } catch (error) {
+    console.error('Error decoding supplier name:', error);
+    return supplierName;
+  }
 };
 
 export function InvoiceList({ refreshKey }: InvoiceListProps) {
