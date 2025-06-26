@@ -46,6 +46,19 @@ interface InvoiceValidationDialogProps {
   onValidated: () => void;
 }
 
+// Helper function to convert ISO date to yyyy-MM-dd format
+const formatDateForInput = (isoDate?: string): string => {
+  if (!isoDate) return '';
+  try {
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
 export function InvoiceValidationDialog({ 
   invoice, 
   open, 
@@ -59,8 +72,8 @@ export function InvoiceValidationDialog({
     if (invoice) {
       setFormData({
         invoice_number: invoice.invoice_number || '',
-        invoice_date: invoice.invoice_date || '',
-        due_date: invoice.due_date || '',
+        invoice_date: formatDateForInput(invoice.invoice_date),
+        due_date: formatDateForInput(invoice.due_date),
         total_amount: invoice.total_amount || 0,
         total_net: invoice.total_net || 0,
         total_tax: invoice.total_tax || 0,
