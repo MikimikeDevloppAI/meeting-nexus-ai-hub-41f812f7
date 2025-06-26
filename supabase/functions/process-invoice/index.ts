@@ -171,6 +171,8 @@ serve(async (req) => {
         customer_company_registration: '',
         customer_vat_number: '',
         payment_details: '',
+        purchase_category: prediction.category?.value || null,
+        purchase_subcategory: prediction.subcategory?.value || null,
         line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
           description: item.description || '',
           quantity: item.quantity || null,
@@ -182,7 +184,7 @@ serve(async (req) => {
         compte: invoice.compte || 'Commun'
       };
     } else {
-      // Invoice-specific data extraction (existing logic)
+      // Invoice-specific data extraction with proper category handling
       extractedData = {
         invoice_number: prediction.invoice_number?.value || '',
         invoice_date: prediction.invoice_date?.value || null,
@@ -204,6 +206,8 @@ serve(async (req) => {
         customer_company_registration: prediction.customer_company_registrations?.[0]?.value || '',
         customer_vat_number: prediction.customer_tax_id?.value || '',
         payment_details: prediction.payment_details?.value || '',
+        purchase_category: prediction.category?.value || null,
+        purchase_subcategory: prediction.subcategory?.value || null,
         line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
           description: item.description || '',
           quantity: item.quantity || null,

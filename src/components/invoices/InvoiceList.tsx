@@ -279,51 +279,60 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {invoice.compte && getCompteBadge(invoice.compte)}
                   {getStatusBadge(invoice.status)}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Informations essentielles */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {/* Informations essentielles en format texte */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <span className="font-medium">Date facture:</span>
-                  <span className="ml-2">
-                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
-                  </span>
+                  <span className="font-medium text-gray-700">Compte:</span>
+                  <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
                 </div>
                 <div>
-                  <span className="font-medium">Montant HT:</span>
-                  <span className="ml-2">
+                  <span className="font-medium text-gray-700">Date facture:</span>
+                  <div className="text-gray-900">
+                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Montant HT:</span>
+                  <div className="text-gray-900">
                     {invoice.total_net ? 
                       `${invoice.total_net.toFixed(2)} ${invoice.currency || 'EUR'}` : 
                       'N/A'
                     }
-                  </span>
+                  </div>
                 </div>
                 <div>
-                  <span className="font-medium">Montant TTC:</span>
-                  <span className="ml-2">
+                  <span className="font-medium text-gray-700">Montant TTC:</span>
+                  <div className="text-gray-900 font-semibold">
                     {invoice.total_amount ? 
                       `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
                       'N/A'
                     }
-                  </span>
+                  </div>
                 </div>
-                {invoice.purchase_category && (
-                  <div>
-                    <span className="font-medium">Catégorie:</span>
-                    <span className="ml-2">{invoice.purchase_category}</span>
-                  </div>
-                )}
-                {invoice.purchase_subcategory && (
-                  <div>
-                    <span className="font-medium">Sous-catégorie:</span>
-                    <span className="ml-2">{invoice.purchase_subcategory}</span>
-                  </div>
-                )}
               </div>
+
+              {/* Informations supplémentaires si disponibles */}
+              {(invoice.purchase_category || invoice.purchase_subcategory) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-2 border-t">
+                  {invoice.purchase_category && (
+                    <div>
+                      <span className="font-medium text-gray-700">Catégorie:</span>
+                      <div className="text-gray-900">{invoice.purchase_category}</div>
+                    </div>
+                  )}
+                  {invoice.purchase_subcategory && (
+                    <div>
+                      <span className="font-medium text-gray-700">Sous-catégorie:</span>
+                      <div className="text-gray-900">{invoice.purchase_subcategory}</div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Error Message */}
               {invoice.status === 'error' && invoice.error_message && (
