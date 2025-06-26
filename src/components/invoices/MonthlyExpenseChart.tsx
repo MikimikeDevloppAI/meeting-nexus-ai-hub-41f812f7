@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
@@ -81,6 +80,45 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
     return completeData;
   }, [invoices]);
 
+  // Fonction pour formatter les montants en CHF avec séparateurs de milliers
+  const formatAmount = (value: number): string => {
+    if (value === 0) return '';
+    return `${Math.round(value).toLocaleString('fr-CH')} CHF`;
+  };
+
+  // Composant personnalisé pour les labels avec background
+  const CustomLabel = ({ x, y, width, value }: any) => {
+    if (!value || value === 0) return null;
+    
+    const formattedValue = formatAmount(value);
+    const labelX = x + width / 2;
+    const labelY = y - 10;
+    
+    return (
+      <g>
+        <rect
+          x={labelX - formattedValue.length * 3}
+          y={labelY - 8}
+          width={formattedValue.length * 6}
+          height={16}
+          fill="#f3f4f6"
+          rx={3}
+          opacity={0.8}
+        />
+        <text
+          x={labelX}
+          y={labelY}
+          textAnchor="middle"
+          fontSize={10}
+          fill="#374151"
+          fontWeight="500"
+        >
+          {formattedValue}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -88,14 +126,14 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ComposedChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <ComposedChart data={monthlyData} margin={{ top: 40, right: 30, left: 20, bottom: 5 }}>
             <XAxis dataKey="month" />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar dataKey="commun" fill="var(--color-commun)" name="Commun">
-              <LabelList dataKey="commun" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+              <LabelList content={CustomLabel} />
             </Bar>
             <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian">
-              <LabelList dataKey="david" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+              <LabelList content={CustomLabel} />
             </Bar>
             <Line 
               type="monotone" 
@@ -106,7 +144,16 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
               name="Tendance totale"
               dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 5 }}
             >
-              <LabelList dataKey="total" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+              <LabelList 
+                dataKey="total" 
+                position="top" 
+                formatter={formatAmount}
+                style={{
+                  fill: "#374151",
+                  fontSize: "10px",
+                  fontWeight: "500"
+                }}
+              />
             </Line>
           </ComposedChart>
         </ChartContainer>
