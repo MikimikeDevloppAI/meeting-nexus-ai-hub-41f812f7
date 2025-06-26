@@ -71,12 +71,12 @@ export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFi
 
           <div className="space-y-2">
             <Label>Compte</Label>
-            <Select value={filters.compte || ''} onValueChange={(value) => onFiltersChange({ ...filters, compte: value || undefined })}>
+            <Select value={filters.compte || 'all'} onValueChange={(value) => onFiltersChange({ ...filters, compte: value === 'all' ? undefined : value })}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les comptes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les comptes</SelectItem>
+                <SelectItem value="all">Tous les comptes</SelectItem>
                 {uniqueComptes.map(compte => (
                   <SelectItem key={compte} value={compte}>{compte}</SelectItem>
                 ))}
@@ -86,12 +86,12 @@ export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFi
 
           <div className="space-y-2">
             <Label>Catégorie</Label>
-            <Select value={filters.category || ''} onValueChange={(value) => onFiltersChange({ ...filters, category: value || undefined })}>
+            <Select value={filters.category || 'all'} onValueChange={(value) => onFiltersChange({ ...filters, category: value === 'all' ? undefined : value })}>
               <SelectTrigger>
                 <SelectValue placeholder="Toutes les catégories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes les catégories</SelectItem>
+                <SelectItem value="all">Toutes les catégories</SelectItem>
                 {uniqueCategories.map(category => (
                   <SelectItem key={category} value={category}>{category}</SelectItem>
                 ))}
