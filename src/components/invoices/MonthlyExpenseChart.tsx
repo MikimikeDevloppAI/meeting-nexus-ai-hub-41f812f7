@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
@@ -25,7 +25,7 @@ const chartConfig = {
   },
   total: {
     label: "Tendance totale",
-    color: "#ef4444",
+    color: "#f97316", // Couleur plus pastel (orange)
   },
 };
 
@@ -52,37 +52,62 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       }
     });
 
-    // Tri chronologique correct par la clé monthKey (YYYY-MM)
-    return Array.from(dataMap.values())
-      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
-      .slice(-12) // Derniers 12 mois
-      .map(item => ({
-        ...item,
-        total: item.commun + item.david // Ligne de tendance totale
-      }));
+    // Créer une série complète de mois pour les 12 derniers mois
+    const now = new Date();
+    const completeData = [];
+    
+    for (let i = 11; i >= 0; i--) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = targetDate.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
+      
+      const existingData = dataMap.get(monthKey);
+      if (existingData) {
+        completeData.push({
+          ...existingData,
+          total: existingData.commun + existingData.david
+        });
+      } else {
+        completeData.push({
+          month: monthLabel,
+          monthKey,
+          commun: 0,
+          david: 0,
+          total: 0
+        });
+      }
+    }
+
+    return completeData;
   }, [invoices]);
 
   return (
-    <Card>
+    <Card className="col-span-full">
       <CardHeader>
         <CardTitle>Évolution Mensuelle des Dépenses</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px]">
-          <ComposedChart data={monthlyData}>
+        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+          <ComposedChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <XAxis dataKey="month" />
-            <YAxis />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
-            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
+            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun">
+              <LabelList dataKey="commun" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+            </Bar>
+            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian">
+              <LabelList dataKey="david" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+            </Bar>
             <Line 
               type="monotone" 
               dataKey="total" 
               stroke="var(--color-total)" 
-              strokeWidth={2}
+              strokeWidth={3}
+              strokeDasharray="8 4"
               name="Tendance totale"
-              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 4 }}
-            />
+              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 5 }}
+            >
+              <LabelList dataKey="total" position="top" formatter={(value: number) => value > 0 ? `${value.toFixed(0)}€` : ''} />
+            </Line>
           </ComposedChart>
         </ChartContainer>
       </CardContent>
