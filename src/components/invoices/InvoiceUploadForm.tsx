@@ -13,15 +13,17 @@ interface InvoiceUploadFormProps {
   onUploadSuccess: () => void;
 }
 
-interface FileWithType {
+interface FileWithMetadata {
   file: File;
   documentType: 'invoice' | 'receipt';
+  compte: 'David Tabibian' | 'Commun';
 }
 
 export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
-  const [files, setFiles] = useState<FileWithType[]>([]);
+  const [files, setFiles] = useState<FileWithMetadata[]>([]);
   const [uploading, setUploading] = useState(false);
   const [defaultDocumentType, setDefaultDocumentType] = useState<'invoice' | 'receipt'>('invoice');
+  const [defaultCompte, setDefaultCompte] = useState<'David Tabibian' | 'Commun'>('Commun');
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -34,7 +36,8 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     onDrop: (acceptedFiles) => {
       const newFiles = acceptedFiles.map(file => ({
         file,
-        documentType: defaultDocumentType
+        documentType: defaultDocumentType,
+        compte: defaultCompte
       }));
       setFiles(prev => [...prev, ...newFiles]);
     }
@@ -50,6 +53,12 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     ));
   };
 
+  const updateFileCompte = (index: number, compte: 'David Tabibian' | 'Commun') => {
+    setFiles(prev => prev.map((item, i) => 
+      i === index ? { ...item, compte } : item
+    ));
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast.error("Veuillez sélectionner au moins un fichier");
@@ -61,9 +70,9 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     let errorCount = 0;
 
     try {
-      for (const { file, documentType } of files) {
+      for (const { file, documentType, compte } of files) {
         try {
-          console.log(`Processing file: ${file.name} as ${documentType}`);
+          console.log(`Processing file: ${file.name} as ${documentType} for ${compte}`);
           
           // Generate unique filename
           const timestamp = Date.now();
@@ -86,7 +95,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
               file_path: uploadData.path,
               file_size: file.size,
               content_type: file.type,
-              compte: 'Commun',
+              compte: compte,
               status: 'pending'
             })
             .select()
@@ -145,18 +154,32 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Default Document Type Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="default-type">Type de document par défaut</Label>
-          <Select value={defaultDocumentType} onValueChange={(value: 'invoice' | 'receipt') => setDefaultDocumentType(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner le type de document" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="invoice">Facture</SelectItem>
-              <SelectItem value="receipt">Reçu</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Default Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="default-type">Type de document par défaut</Label>
+            <Select value={defaultDocumentType} onValueChange={(value: 'invoice' | 'receipt') => setDefaultDocumentType(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner le type de document" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="invoice">Facture</SelectItem>
+                <SelectItem value="receipt">Reçu</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="default-compte">Compte par défaut</Label>
+            <Select value={defaultCompte} onValueChange={(value: 'David Tabibian' | 'Commun') => setDefaultCompte(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner le compte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Commun">Commun</SelectItem>
+                <SelectItem value="David Tabibian">David Tabibian</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* File Upload */}
@@ -200,12 +223,24 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
                     value={item.documentType} 
                     onValueChange={(value: 'invoice' | 'receipt') => updateFileType(index, value)}
                   >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="invoice">Facture</SelectItem>
                       <SelectItem value="receipt">Reçu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select 
+                    value={item.compte} 
+                    onValueChange={(value: 'David Tabibian' | 'Commun') => updateFileCompte(index, value)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Commun">Commun</SelectItem>
+                      <SelectItem value="David Tabibian">David Tabibian</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button
