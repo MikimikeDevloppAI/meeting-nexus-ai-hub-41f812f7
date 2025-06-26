@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
@@ -23,11 +23,15 @@ const chartConfig = {
     label: "David Tabibian",
     color: "#3b82f6",
   },
+  total: {
+    label: "Tendance totale",
+    color: "#ef4444",
+  },
 };
 
 export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
   const monthlyData = useMemo(() => {
-    const dataMap = new Map<string, { month: string; commun: number; david: number }>();
+    const dataMap = new Map<string, { month: string; monthKey: string; commun: number; david: number }>();
 
     invoices.forEach(invoice => {
       if (!invoice.invoice_date || !invoice.total_amount) return;
@@ -37,7 +41,7 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       const monthLabel = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
 
       if (!dataMap.has(monthKey)) {
-        dataMap.set(monthKey, { month: monthLabel, commun: 0, david: 0 });
+        dataMap.set(monthKey, { month: monthLabel, monthKey, commun: 0, david: 0 });
       }
 
       const data = dataMap.get(monthKey)!;
@@ -48,9 +52,14 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       }
     });
 
+    // Tri chronologique correct par la clé monthKey (YYYY-MM)
     return Array.from(dataMap.values())
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-12); // Derniers 12 mois
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+      .slice(-12) // Derniers 12 mois
+      .map(item => ({
+        ...item,
+        total: item.commun + item.david // Ligne de tendance totale
+      }));
   }, [invoices]);
 
   return (
@@ -60,13 +69,21 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[300px]">
-          <BarChart data={monthlyData}>
+          <ComposedChart data={monthlyData}>
             <XAxis dataKey="month" />
             <YAxis />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
             <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
-          </BarChart>
+            <Line 
+              type="monotone" 
+              dataKey="total" 
+              stroke="var(--color-total)" 
+              strokeWidth={2}
+              name="Tendance totale"
+              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 4 }}
+            />
+          </ComposedChart>
         </ChartContainer>
       </CardContent>
     </Card>
