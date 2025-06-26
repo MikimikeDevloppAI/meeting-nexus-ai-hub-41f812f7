@@ -323,7 +323,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </Card>
 
           <GrowthComparisonCard 
-            invoices={filteredInvoices} 
+            allInvoices={invoices || []}
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}
           />

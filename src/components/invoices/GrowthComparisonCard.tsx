@@ -9,12 +9,12 @@ interface Invoice {
 }
 
 interface GrowthComparisonCardProps {
-  invoices: Invoice[];
+  allInvoices: Invoice[]; // Toutes les factures (non filtrées)
   dateFrom?: string;
   dateTo?: string;
 }
 
-export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthComparisonCardProps) {
+export function GrowthComparisonCard({ allInvoices, dateFrom, dateTo }: GrowthComparisonCardProps) {
   const growthData = useMemo(() => {
     if (!dateFrom || !dateTo) {
       return { currentAmount: 0, previousAmount: 0, growth: 0, periodDays: 0 };
@@ -40,7 +40,7 @@ export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthCompa
     let currentAmount = 0;
     let previousAmount = 0;
 
-    invoices.forEach(invoice => {
+    allInvoices.forEach(invoice => {
       if (!invoice.invoice_date || !invoice.total_amount) return;
       
       const invoiceDate = new Date(invoice.invoice_date);
@@ -62,7 +62,7 @@ export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthCompa
                    currentAmount > 0 ? 100 : 0;
 
     return { currentAmount, previousAmount, growth, periodDays };
-  }, [invoices, dateFrom, dateTo]);
+  }, [allInvoices, dateFrom, dateTo]);
 
   const formatAmount = (amount: number): string => {
     return `${Math.round(amount).toLocaleString('fr-CH')} CHF`;
