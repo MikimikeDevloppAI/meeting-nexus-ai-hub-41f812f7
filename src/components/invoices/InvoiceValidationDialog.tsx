@@ -4,18 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, Building, User, FileText, CreditCard } from "lucide-react";
+import { CheckCircle, Building, User, FileText, CreditCard, Tag } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Invoice {
   id: string;
   original_filename: string;
   status: string;
-  david_percentage: number;
-  cabinet_percentage: number;
+  compte: string;
+  purchase_category?: string;
+  purchase_subcategory?: string;
   invoice_number?: string;
   invoice_date?: string;
   due_date?: string;
@@ -78,6 +80,9 @@ export function InvoiceValidationDialog({
         total_net: invoice.total_net || 0,
         total_tax: invoice.total_tax || 0,
         currency: invoice.currency || 'EUR',
+        compte: invoice.compte || 'Commun',
+        purchase_category: invoice.purchase_category || '',
+        purchase_subcategory: invoice.purchase_subcategory || '',
         supplier_name: invoice.supplier_name || '',
         supplier_address: invoice.supplier_address || '',
         supplier_email: invoice.supplier_email || '',
@@ -139,10 +144,14 @@ export function InvoiceValidationDialog({
         </DialogHeader>
 
         <Tabs defaultValue="document" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="document" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Document
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Catégories
             </TabsTrigger>
             <TabsTrigger value="supplier" className="flex items-center gap-2">
               <Building className="h-4 w-4" />
@@ -255,6 +264,45 @@ export function InvoiceValidationDialog({
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="categories" className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Attribution et catégories</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="compte">Compte</Label>
+                <Select value={formData.compte || ''} onValueChange={(value) => handleInputChange('compte', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un compte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="David Tabibian">David Tabibian</SelectItem>
+                    <SelectItem value="Commun">Commun</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="purchase_category">Catégorie d'achat</Label>
+                <Input
+                  id="purchase_category"
+                  value={formData.purchase_category || ''}
+                  onChange={(e) => handleInputChange('purchase_category', e.target.value)}
+                  placeholder="Ex: Matériel informatique, Fournitures bureau..."
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="purchase_subcategory">Sous-catégorie d'achat</Label>
+                <Input
+                  id="purchase_subcategory"
+                  value={formData.purchase_subcategory || ''}
+                  onChange={(e) => handleInputChange('purchase_subcategory', e.target.value)}
+                  placeholder="Ex: Ordinateurs portables, Stylos..."
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="supplier" className="space-y-4">
@@ -405,19 +453,6 @@ export function InvoiceValidationDialog({
                   placeholder="IBAN, références, instructions de paiement..."
                   rows={4}
                 />
-              </div>
-            </div>
-
-            {/* Allocation Display */}
-            <div className="border-t pt-4">
-              <h4 className="font-semibold mb-3">Répartition actuelle</h4>
-              <div className="flex gap-4">
-                <span className="bg-blue-100 text-blue-800 px-3 py-2 rounded text-sm font-medium">
-                  David: {invoice.david_percentage}%
-                </span>
-                <span className="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">
-                  Cabinet: {invoice.cabinet_percentage}%
-                </span>
               </div>
             </div>
           </TabsContent>

@@ -15,8 +15,9 @@ interface Invoice {
   original_filename: string;
   file_path: string;
   status: string;
-  david_percentage: number;
-  cabinet_percentage: number;
+  compte: string;
+  purchase_category?: string;
+  purchase_subcategory?: string;
   invoice_number?: string;
   invoice_date?: string;
   due_date?: string;
@@ -154,6 +155,19 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   };
 
+  const getCompteBadge = (compte: string) => {
+    if (compte === 'David Tabibian') {
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        David Tabibian
+      </Badge>;
+    } else if (compte === 'Commun') {
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        Commun
+      </Badge>;
+    }
+    return <Badge variant="outline">{compte}</Badge>;
+  };
+
   const downloadFile = async (filePath: string, filename: string) => {
     try {
       const { data, error } = await supabase.storage
@@ -264,7 +278,10 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     </div>
                   </div>
                 </div>
-                {getStatusBadge(invoice.status)}
+                <div className="flex items-center gap-2">
+                  {invoice.compte && getCompteBadge(invoice.compte)}
+                  {getStatusBadge(invoice.status)}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -294,6 +311,18 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     }
                   </span>
                 </div>
+                {invoice.purchase_category && (
+                  <div>
+                    <span className="font-medium">Catégorie:</span>
+                    <span className="ml-2">{invoice.purchase_category}</span>
+                  </div>
+                )}
+                {invoice.purchase_subcategory && (
+                  <div>
+                    <span className="font-medium">Sous-catégorie:</span>
+                    <span className="ml-2">{invoice.purchase_subcategory}</span>
+                  </div>
+                )}
               </div>
 
               {/* Error Message */}
@@ -321,27 +350,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   </Button>
                 )}
                 
-                {invoice.status === 'completed' && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleValidateInvoice(invoice)}
-                    className="flex items-center gap-1"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Valider/Modifier
-                  </Button>
-                )}
-                
-                {invoice.status === 'validated' && (
+                {(invoice.status === 'completed' || invoice.status === 'validated') && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleValidateInvoice(invoice)}
                     className="flex items-center gap-1"
                   >
-                    <Eye className="h-4 w-4" />
-                    Voir/Modifier
+                    <Edit className="h-4 w-4" />
+                    {invoice.status === 'validated' ? 'Modifier' : 'Valider'}
                   </Button>
                 )}
                 

@@ -193,8 +193,9 @@ export interface Database {
           status: string
           processed_at: string | null
           error_message: string | null
-          david_percentage: number
-          cabinet_percentage: number
+          compte: string | null
+          purchase_category: string | null
+          purchase_subcategory: string | null
           invoice_number: string | null
           invoice_date: string | null
           due_date: string | null
@@ -230,8 +231,9 @@ export interface Database {
           status?: string
           processed_at?: string | null
           error_message?: string | null
-          david_percentage: number
-          cabinet_percentage: number
+          compte?: string | null
+          purchase_category?: string | null
+          purchase_subcategory?: string | null
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null
@@ -267,8 +269,9 @@ export interface Database {
           status?: string
           processed_at?: string | null
           error_message?: string | null
-          david_percentage?: number
-          cabinet_percentage?: number
+          compte?: string | null
+          purchase_category?: string | null
+          purchase_subcategory?: string | null
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null

@@ -95,7 +95,7 @@ export type Database = {
       }
       invoices: {
         Row: {
-          cabinet_percentage: number | null
+          compte: string | null
           content_type: string | null
           created_at: string | null
           created_by: string | null
@@ -104,7 +104,6 @@ export type Database = {
           customer_company_registration: string | null
           customer_name: string | null
           customer_vat_number: string | null
-          david_percentage: number | null
           due_date: string | null
           error_message: string | null
           file_path: string | null
@@ -117,6 +116,8 @@ export type Database = {
           original_filename: string | null
           payment_details: string | null
           processed_at: string | null
+          purchase_category: string | null
+          purchase_subcategory: string | null
           status: string | null
           supplier_address: string | null
           supplier_company_registration: string | null
@@ -132,7 +133,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          cabinet_percentage?: number | null
+          compte?: string | null
           content_type?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -141,7 +142,6 @@ export type Database = {
           customer_company_registration?: string | null
           customer_name?: string | null
           customer_vat_number?: string | null
-          david_percentage?: number | null
           due_date?: string | null
           error_message?: string | null
           file_path?: string | null
@@ -154,6 +154,8 @@ export type Database = {
           original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
+          purchase_category?: string | null
+          purchase_subcategory?: string | null
           status?: string | null
           supplier_address?: string | null
           supplier_company_registration?: string | null
@@ -169,7 +171,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          cabinet_percentage?: number | null
+          compte?: string | null
           content_type?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -178,7 +180,6 @@ export type Database = {
           customer_company_registration?: string | null
           customer_name?: string | null
           customer_vat_number?: string | null
-          david_percentage?: number | null
           due_date?: string | null
           error_message?: string | null
           file_path?: string | null
@@ -191,6 +192,8 @@ export type Database = {
           original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
+          purchase_category?: string | null
+          purchase_subcategory?: string | null
           status?: string | null
           supplier_address?: string | null
           supplier_company_registration?: string | null

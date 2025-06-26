@@ -148,9 +148,8 @@ serve(async (req) => {
 
     console.log('Extracted supplier name:', extractedData.supplier_name)
 
-    // Calculate percentages (default split)
-    const davidPercentage = 50
-    const cabinetPercentage = 50
+    // Set default compte value to "Commun"
+    const compte = 'Commun'
 
     // Update invoice with extracted data
     const { error: updateError } = await supabaseClient
@@ -158,8 +157,7 @@ serve(async (req) => {
       .update({
         ...extractedData,
         line_items: lineItems,
-        david_percentage: davidPercentage,
-        cabinet_percentage: cabinetPercentage,
+        compte: compte,
         status: 'completed',
         processed_at: new Date().toISOString(),
         mindee_raw_response: mindeeData,

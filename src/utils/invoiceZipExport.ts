@@ -1,7 +1,6 @@
 
 import JSZip from 'jszip';
 import { supabase } from "@/integrations/supabase/client";
-import { exportToCSV } from './csvExport';
 
 interface Invoice {
   id: string;
@@ -11,13 +10,16 @@ interface Invoice {
   invoice_date?: string;
   total_amount?: number;
   currency?: string;
+  compte?: string;
+  purchase_category?: string;
+  purchase_subcategory?: string;
   [key: string]: any;
 }
 
 export const createInvoiceZip = async (invoices: Invoice[], filename: string) => {
   const zip = new JSZip();
   
-  // Créer le CSV des factures
+  // Créer le CSV des factures avec les nouveaux champs
   const csvData = invoices.map(invoice => ({
     id: invoice.id,
     nom_fichier: invoice.original_filename,
@@ -25,6 +27,9 @@ export const createInvoiceZip = async (invoices: Invoice[], filename: string) =>
     date_facture: invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A',
     montant_ttc: invoice.total_amount || 0,
     devise: invoice.currency || 'EUR',
+    compte: invoice.compte || 'N/A',
+    categorie_achat: invoice.purchase_category || 'N/A',
+    sous_categorie_achat: invoice.purchase_subcategory || 'N/A',
     statut: invoice.status || 'N/A',
     date_creation: invoice.created_at ? new Date(invoice.created_at).toLocaleDateString('fr-FR') : 'N/A'
   }));
