@@ -41,9 +41,9 @@ serve(async (req) => {
     )
 
     const body = await req.json()
-    const { invoiceId } = body
+    const { invoiceId, documentType = 'invoice' } = body
 
-    console.log('Processing invoice:', invoiceId)
+    console.log('Processing document:', invoiceId, 'as', documentType)
 
     if (!invoiceId) {
       throw new Error('Missing invoiceId parameter');
@@ -80,9 +80,14 @@ serve(async (req) => {
     // Convert to base64
     const base64Data = await convertToBase64(fileData);
 
+    // Choose the appropriate Mindee API endpoint based on document type
+    const apiEndpoint = documentType === 'receipt' 
+      ? 'https://api.mindee.net/v1/products/mindee/expense_receipts/v5/predict'
+      : 'https://api.mindee.net/v1/products/mindee/invoices/v4/predict';
+
     // Call Mindee API
-    console.log('Calling Mindee API...');
-    const mindeeResponse = await fetch('https://api.mindee.net/v1/products/mindee/invoices/v4/predict', {
+    console.log(`Calling Mindee API for ${documentType}...`);
+    const mindeeResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
@@ -107,37 +112,76 @@ serve(async (req) => {
       throw new Error('No prediction data from Mindee')
     }
 
-    const extractedData = {
-      invoice_number: prediction.invoice_number?.value || '',
-      invoice_date: prediction.invoice_date?.value || null,
-      due_date: prediction.due_date?.value || null,
-      total_amount: prediction.total_amount?.value || 0,
-      total_net: prediction.total_net?.value || 0,
-      total_tax: prediction.total_tax?.value || 0,
-      currency: prediction.locale?.currency || 'EUR',
-      supplier_name: prediction.supplier_name?.value || '',
-      supplier_address: prediction.supplier_address?.value || '',
-      supplier_email: prediction.supplier_email?.value || '',
-      supplier_phone_number: prediction.supplier_phone_number?.value || '',
-      supplier_iban: prediction.supplier_payment_details?.iban || '',
-      supplier_website: prediction.supplier_website?.value || '',
-      supplier_company_registration: prediction.supplier_company_registrations?.[0]?.value || '',
-      supplier_vat_number: prediction.supplier_tax_id?.value || '',
-      customer_name: prediction.customer_name?.value || '',
-      customer_address: prediction.customer_address?.value || '',
-      customer_company_registration: prediction.customer_company_registrations?.[0]?.value || '',
-      customer_vat_number: prediction.customer_tax_id?.value || '',
-      payment_details: prediction.payment_details?.value || '',
-      line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
-        description: item.description || '',
-        quantity: item.quantity || null,
-        unit_price: item.unit_price || null,
-        total_amount: item.total_amount || null,
-        tax_rate: item.tax_rate || null
-      })) : [],
-      mindee_raw_response: mindeeData,
-      compte: invoice.compte || 'Commun'
-    };
+    // Extract data based on document type
+    let extractedData;
+    
+    if (documentType === 'receipt') {
+      // Receipt-specific data extraction
+      extractedData = {
+        invoice_number: prediction.receipt_number?.value || '',
+        invoice_date: prediction.date?.value || null,
+        due_date: null, // Receipts typically don't have due dates
+        total_amount: prediction.total_amount?.value || 0,
+        total_net: prediction.total_net?.value || 0,
+        total_tax: prediction.total_tax?.value || 0,
+        currency: prediction.locale?.currency || 'EUR',
+        supplier_name: prediction.supplier_name?.value || '',
+        supplier_address: prediction.supplier_address?.value || '',
+        supplier_email: '',
+        supplier_phone_number: prediction.supplier_phone_number?.value || '',
+        supplier_iban: '',
+        supplier_website: '',
+        supplier_company_registration: '',
+        supplier_vat_number: '',
+        customer_name: '',
+        customer_address: '',
+        customer_company_registration: '',
+        customer_vat_number: '',
+        payment_details: '',
+        line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
+          description: item.description || '',
+          quantity: item.quantity || null,
+          unit_price: item.unit_price || null,
+          total_amount: item.total_amount || null,
+          tax_rate: item.tax_rate || null
+        })) : [],
+        mindee_raw_response: mindeeData,
+        compte: invoice.compte || 'Commun'
+      };
+    } else {
+      // Invoice-specific data extraction (existing logic)
+      extractedData = {
+        invoice_number: prediction.invoice_number?.value || '',
+        invoice_date: prediction.invoice_date?.value || null,
+        due_date: prediction.due_date?.value || null,
+        total_amount: prediction.total_amount?.value || 0,
+        total_net: prediction.total_net?.value || 0,
+        total_tax: prediction.total_tax?.value || 0,
+        currency: prediction.locale?.currency || 'EUR',
+        supplier_name: prediction.supplier_name?.value || '',
+        supplier_address: prediction.supplier_address?.value || '',
+        supplier_email: prediction.supplier_email?.value || '',
+        supplier_phone_number: prediction.supplier_phone_number?.value || '',
+        supplier_iban: prediction.supplier_payment_details?.iban || '',
+        supplier_website: prediction.supplier_website?.value || '',
+        supplier_company_registration: prediction.supplier_company_registrations?.[0]?.value || '',
+        supplier_vat_number: prediction.supplier_tax_id?.value || '',
+        customer_name: prediction.customer_name?.value || '',
+        customer_address: prediction.customer_address?.value || '',
+        customer_company_registration: prediction.customer_company_registrations?.[0]?.value || '',
+        customer_vat_number: prediction.customer_tax_id?.value || '',
+        payment_details: prediction.payment_details?.value || '',
+        line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
+          description: item.description || '',
+          quantity: item.quantity || null,
+          unit_price: item.unit_price || null,
+          total_amount: item.total_amount || null,
+          tax_rate: item.tax_rate || null
+        })) : [],
+        mindee_raw_response: mindeeData,
+        compte: invoice.compte || 'Commun'
+      };
+    }
 
     // Update invoice with extracted data
     const { error: updateError } = await supabaseClient
@@ -154,10 +198,10 @@ serve(async (req) => {
       throw new Error(`Failed to update invoice: ${updateError.message}`)
     }
 
-    console.log('Invoice processing completed successfully')
+    console.log(`${documentType} processing completed successfully`)
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Invoice processed successfully' }),
+      JSON.stringify({ success: true, message: `${documentType} processed successfully` }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -165,7 +209,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error processing invoice:', error)
+    console.error(`Error processing document:`, error)
     
     // Try to update invoice status to error if we have the invoiceId
     const body = await req.json().catch(() => ({}));

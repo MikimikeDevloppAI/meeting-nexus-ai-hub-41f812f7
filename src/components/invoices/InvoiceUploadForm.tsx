@@ -6,14 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, FileText, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface InvoiceUploadFormProps {
   onUploadSuccess: () => void;
 }
 
+interface FileWithType {
+  file: File;
+  documentType: 'invoice' | 'receipt';
+}
+
 export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileWithType[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [defaultDocumentType, setDefaultDocumentType] = useState<'invoice' | 'receipt'>('invoice');
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -24,12 +32,22 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     maxSize: 5 * 1024 * 1024, // 5MB
     multiple: true,
     onDrop: (acceptedFiles) => {
-      setFiles(prev => [...prev, ...acceptedFiles]);
+      const newFiles = acceptedFiles.map(file => ({
+        file,
+        documentType: defaultDocumentType
+      }));
+      setFiles(prev => [...prev, ...newFiles]);
     }
   });
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFileType = (index: number, documentType: 'invoice' | 'receipt') => {
+    setFiles(prev => prev.map((item, i) => 
+      i === index ? { ...item, documentType } : item
+    ));
   };
 
   const handleUpload = async () => {
@@ -43,9 +61,9 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     let errorCount = 0;
 
     try {
-      for (const file of files) {
+      for (const { file, documentType } of files) {
         try {
-          console.log(`Processing file: ${file.name}`);
+          console.log(`Processing file: ${file.name} as ${documentType}`);
           
           // Generate unique filename
           const timestamp = Date.now();
@@ -78,9 +96,12 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
             throw new Error(`Database error: ${insertError.message}`);
           }
 
-          // Process with Mindee API
+          // Process with appropriate API based on document type
           const { error: processError } = await supabase.functions.invoke('process-invoice', {
-            body: { invoiceId: invoice.id }
+            body: { 
+              invoiceId: invoice.id,
+              documentType: documentType
+            }
           });
 
           if (processError) {
@@ -124,6 +145,20 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Default Document Type Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="default-type">Type de document par défaut</Label>
+          <Select value={defaultDocumentType} onValueChange={(value: 'invoice' | 'receipt') => setDefaultDocumentType(value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner le type de document" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="invoice">Facture</SelectItem>
+              <SelectItem value="receipt">Reçu</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* File Upload */}
         <div>
           <div
@@ -153,21 +188,35 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         {files.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Fichiers sélectionnés ({files.length})</h4>
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                <div className="flex items-center gap-2 text-sm">
+            {files.map((item, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+                <div className="flex items-center gap-2 text-sm flex-1">
                   <FileText className="h-4 w-4" />
-                  <span>{file.name}</span>
-                  <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  <span className="flex-1">{item.file.name}</span>
+                  <span className="text-gray-500">({(item.file.size / 1024 / 1024).toFixed(2)} MB)</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Select 
+                    value={item.documentType} 
+                    onValueChange={(value: 'invoice' | 'receipt') => updateFileType(index, value)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invoice">Facture</SelectItem>
+                      <SelectItem value="receipt">Reçu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(index)}
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
