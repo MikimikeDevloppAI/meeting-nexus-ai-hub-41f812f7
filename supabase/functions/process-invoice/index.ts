@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -6,147 +7,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Maximum file size in bytes (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Maximum file size in bytes (5MB)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Helper function to properly handle UTF-8 encoding
-const cleanUtf8Text = (text: string): string => {
-  if (!text) return text;
+// Simple base64 conversion using native Deno methods
+const convertToBase64 = async (fileData: Blob): Promise<string> => {
+  console.log(`Converting file to base64, size: ${fileData.size} bytes`);
   
-  try {
-    // Simple replacement without recursion
-    return text
-      .replace(/Ã©/g, 'é')
-      .replace(/Ã¨/g, 'è')
-      .replace(/Ã /g, 'à')
-      .replace(/Ã§/g, 'ç')
-      .replace(/Ã´/g, 'ô')
-      .replace(/Ã¢/g, 'â')
-      .replace(/Ã¯/g, 'ï')
-      .replace(/Ã«/g, 'ë')
-      .replace(/Ã¹/g, 'ù')
-      .replace(/Ã»/g, 'û')
-      .replace(/Ã®/g, 'î')
-      .replace(/Ãª/g, 'ê')
-      .replace(/\uFFFD/g, '') // Remove replacement characters
-      .trim();
-  } catch (error) {
-    console.error('Error cleaning UTF-8 text:', error);
-    return text;
-  }
-};
-
-// Safe base64 conversion function that avoids stack overflow
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  console.log(`Converting file to base64, size: ${buffer.byteLength} bytes`);
-  
-  if (buffer.byteLength > MAX_FILE_SIZE) {
-    throw new Error(`File too large: ${buffer.byteLength} bytes. Maximum allowed: ${MAX_FILE_SIZE} bytes`);
+  if (fileData.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large: ${fileData.size} bytes. Maximum allowed: ${MAX_FILE_SIZE} bytes`);
   }
   
   try {
-    const uint8Array = new Uint8Array(buffer);
-    let binary = '';
-    
-    // Manual byte-by-byte conversion to avoid stack overflow
-    console.log('Starting byte-by-byte base64 conversion...');
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-      
-      // Log progress for large files
-      if (i > 0 && i % 100000 === 0) {
-        console.log(`Conversion progress: ${i}/${uint8Array.length} bytes (${(i/uint8Array.length*100).toFixed(1)}%)`);
-      }
-    }
-    
-    console.log('Binary string created, converting to base64...');
-    const base64 = btoa(binary);
-    console.log(`Base64 conversion successful, length: ${base64.length}`);
+    const arrayBuffer = await fileData.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    console.log('Base64 conversion successful');
     return base64;
   } catch (error) {
     console.error('Error converting to base64:', error);
     throw new Error(`Failed to convert file to base64: ${error.message}`);
-  }
-};
-
-// Function to generate a safe filename from supplier name and date
-const generateSafeFilename = (supplierName: string, invoiceDate: string, originalExtension: string): string => {
-  const date = invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  
-  const cleanSupplier = supplierName
-    ? supplierName
-        .replace(/[àáâãäå]/g, 'a')
-        .replace(/[èéêë]/g, 'e')
-        .replace(/[ìíîï]/g, 'i')
-        .replace(/[òóôõö]/g, 'o')
-        .replace(/[ùúûü]/g, 'u')
-        .replace(/[ç]/g, 'c')
-        .replace(/[ñ]/g, 'n')
-        .replace(/[^a-zA-Z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .substring(0, 30)
-    : 'Inconnu';
-
-  return `${date}_${cleanSupplier}`;
-};
-
-// Function to check if filename exists and get next available sequence number
-const getNextAvailableFilename = async (supabaseClient: any, baseName: string, extension: string): Promise<string> => {
-  const MAX_ATTEMPTS = 50; // Reduced from 100 to prevent excessive loops
-  let sequenceNumber = 1;
-  
-  console.log(`Starting filename check for base: ${baseName}${extension}`);
-  
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const testFilename = sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
-    
-    console.log(`Checking filename: ${testFilename} (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
-    
-    try {
-      // Check if this filename already exists in storage
-      const { data: existingFiles, error } = await supabaseClient.storage
-        .from('invoices')
-        .list('', { search: testFilename });
-      
-      if (error) {
-        console.error('Error checking file existence:', error);
-        // If there's an error, use the current filename to avoid infinite loop
-        console.log(`Using filename due to error: ${testFilename}`);
-        return testFilename;
-      }
-      
-      if (!existingFiles || existingFiles.length === 0) {
-        console.log(`Filename available: ${testFilename}`);
-        return testFilename;
-      }
-      
-      console.log(`Filename ${testFilename} already exists, trying next sequence number`);
-      sequenceNumber++;
-    } catch (error) {
-      console.error('Error in filename check:', error);
-      // Return current filename to avoid infinite loop
-      const fallbackFilename = sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
-      console.log(`Using fallback filename: ${fallbackFilename}`);
-      return fallbackFilename;
-    }
-  }
-  
-  // If we've reached max attempts, return with timestamp to ensure uniqueness
-  const timestamp = Date.now();
-  const timestampFilename = `${baseName}_${timestamp}${extension}`;
-  console.log(`Max attempts reached, using timestamp filename: ${timestampFilename}`);
-  return timestampFilename;
-};
-
-// Function to get Mindee API endpoint based on document type
-const getMindeeEndpoint = (documentType: string): string => {
-  switch (documentType) {
-    case 'receipt':
-      return 'https://api.mindee.net/v1/products/mindee/expense_receipts/v5/predict';
-    case 'invoice':
-    default:
-      return 'https://api.mindee.net/v1/products/mindee/invoices/v4/predict';
   }
 };
 
@@ -162,38 +41,14 @@ serve(async (req) => {
     )
 
     const body = await req.json()
-    const { invoiceId, invoiceIds, documentType = 'invoice', isGrouped = false } = body
+    const { invoiceId } = body
 
-    console.log('Processing request:', { invoiceId, invoiceIds, documentType, isGrouped })
+    console.log('Processing invoice:', invoiceId)
 
-    if (isGrouped && invoiceIds && invoiceIds.length > 0) {
-      // Traitement groupé - limit to 5 files max to prevent issues
-      const limitedIds = invoiceIds.slice(0, 5);
-      console.log(`Processing grouped invoices (limited to ${limitedIds.length} files):`, limitedIds);
-      return await processGroupedInvoices(supabaseClient, limitedIds, documentType);
-    } else if (invoiceId) {
-      // Traitement individuel
-      return await processSingleInvoice(supabaseClient, invoiceId, documentType);
-    } else {
-      throw new Error('Missing invoiceId or invoiceIds parameter');
+    if (!invoiceId) {
+      throw new Error('Missing invoiceId parameter');
     }
 
-  } catch (error) {
-    console.error('Error processing invoice:', error)
-    return new Response(
-      JSON.stringify({ error: `Processing error: ${error.message}` }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
-    )
-  }
-})
-
-async function processSingleInvoice(supabaseClient: any, invoiceId: string, documentType: string) {
-  console.log('Processing single invoice:', invoiceId)
-
-  try {
     // Get invoice from database
     const { data: invoice, error: fetchError } = await supabaseClient
       .from('invoices')
@@ -222,42 +77,67 @@ async function processSingleInvoice(supabaseClient: any, invoiceId: string, docu
 
     console.log(`File downloaded successfully: ${invoice.file_path}, size: ${fileData.size} bytes`);
 
-    // Process with Mindee
-    const extractedData = await callMindeeAPI(fileData, documentType);
+    // Convert to base64
+    const base64Data = await convertToBase64(fileData);
 
-    // Generate new filename based on supplier and date
-    const originalExtension = invoice.original_filename.split('.').pop() || 'pdf';
-    const supplierName = cleanUtf8Text(extractedData.supplier_name || '');
-    const invoiceDate = extractedData.invoice_date;
+    // Call Mindee API
+    console.log('Calling Mindee API...');
+    const mindeeResponse = await fetch('https://api.mindee.net/v1/products/mindee/invoices/v4/predict', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        document: base64Data
+      })
+    });
 
-    if (supplierName && supplierName !== 'Inconnu') {
-      try {
-        const baseName = generateSafeFilename(supplierName, invoiceDate, '');
-        const newFilename = await getNextAvailableFilename(supabaseClient, baseName, `.${originalExtension}`);
-        
-        console.log(`Attempting to rename file from ${invoice.file_path} to ${newFilename}`);
-        
-        // Copy file to new location with new name
-        const { error: copyError } = await supabaseClient.storage
-          .from('invoices')
-          .copy(invoice.file_path, newFilename);
-        
-        if (!copyError) {
-          // Delete old file
-          await supabaseClient.storage
-            .from('invoices')
-            .remove([invoice.file_path]);
-          
-          // Update file_path in database
-          extractedData.file_path = newFilename;
-          console.log(`File successfully renamed to: ${newFilename}`);
-        } else {
-          console.warn('File copy failed, keeping original name:', copyError);
-        }
-      } catch (renameError) {
-        console.warn('File renaming failed, keeping original name:', renameError);
-      }
+    if (!mindeeResponse.ok) {
+      const errorText = await mindeeResponse.text();
+      throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
     }
+
+    const mindeeData = await mindeeResponse.json()
+    console.log('Mindee response received successfully');
+
+    // Extract data from Mindee response
+    const prediction = mindeeData.document?.inference?.prediction
+    if (!prediction) {
+      throw new Error('No prediction data from Mindee')
+    }
+
+    const extractedData = {
+      invoice_number: prediction.invoice_number?.value || '',
+      invoice_date: prediction.invoice_date?.value || null,
+      due_date: prediction.due_date?.value || null,
+      total_amount: prediction.total_amount?.value || 0,
+      total_net: prediction.total_net?.value || 0,
+      total_tax: prediction.total_tax?.value || 0,
+      currency: prediction.locale?.currency || 'EUR',
+      supplier_name: prediction.supplier_name?.value || '',
+      supplier_address: prediction.supplier_address?.value || '',
+      supplier_email: prediction.supplier_email?.value || '',
+      supplier_phone_number: prediction.supplier_phone_number?.value || '',
+      supplier_iban: prediction.supplier_payment_details?.iban || '',
+      supplier_website: prediction.supplier_website?.value || '',
+      supplier_company_registration: prediction.supplier_company_registrations?.[0]?.value || '',
+      supplier_vat_number: prediction.supplier_tax_id?.value || '',
+      customer_name: prediction.customer_name?.value || '',
+      customer_address: prediction.customer_address?.value || '',
+      customer_company_registration: prediction.customer_company_registrations?.[0]?.value || '',
+      customer_vat_number: prediction.customer_tax_id?.value || '',
+      payment_details: prediction.payment_details?.value || '',
+      line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
+        description: item.description || '',
+        quantity: item.quantity || null,
+        unit_price: item.unit_price || null,
+        total_amount: item.total_amount || null,
+        tax_rate: item.tax_rate || null
+      })) : [],
+      mindee_raw_response: mindeeData,
+      compte: invoice.compte || 'Commun'
+    };
 
     // Update invoice with extracted data
     const { error: updateError } = await supabaseClient
@@ -274,7 +154,7 @@ async function processSingleInvoice(supabaseClient: any, invoiceId: string, docu
       throw new Error(`Failed to update invoice: ${updateError.message}`)
     }
 
-    console.log('Single invoice processing completed successfully')
+    console.log('Invoice processing completed successfully')
 
     return new Response(
       JSON.stringify({ success: true, message: 'Invoice processed successfully' }),
@@ -283,274 +163,34 @@ async function processSingleInvoice(supabaseClient: any, invoiceId: string, docu
         status: 200,
       },
     )
+
   } catch (error) {
-    console.error(`Error processing single invoice ${invoiceId}:`, error);
+    console.error('Error processing invoice:', error)
     
-    // Update invoice status to error
-    await supabaseClient
-      .from('invoices')
-      .update({ 
-        status: 'error', 
-        error_message: error.message,
-        processed_at: new Date().toISOString()
-      })
-      .eq('id', invoiceId);
-
-    throw error;
-  }
-}
-
-async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[], documentType: string) {
-  console.log('Processing grouped invoices:', invoiceIds)
-
-  try {
-    // Get all invoices from database
-    const { data: invoices, error: fetchError } = await supabaseClient
-      .from('invoices')
-      .select('*')
-      .in('id', invoiceIds)
-
-    if (fetchError || !invoices || invoices.length === 0) {
-      throw new Error(`Invoices not found: ${fetchError?.message}`)
-    }
-
-    // Update all statuses to processing
-    await supabaseClient
-      .from('invoices')
-      .update({ status: 'processing' })
-      .in('id', invoiceIds)
-
-    // Process the first file with Mindee API to get shared data
-    const firstInvoice = invoices[0];
-    const { data: firstFileData, error: downloadError } = await supabaseClient.storage
-      .from('invoices')
-      .download(firstInvoice.file_path)
-
-    if (downloadError || !firstFileData) {
-      throw new Error(`Failed to download first file ${firstInvoice.file_path}: ${downloadError?.message}`)
-    }
-
-    console.log(`First file downloaded for group processing: ${firstInvoice.file_path}, size: ${firstFileData.size} bytes`);
-
-    // Get extracted data from the first file
-    const extractedData = await callMindeeAPI(firstFileData, documentType);
-
-    // Apply extracted data to all invoices in the group
-    for (let i = 0; i < invoices.length; i++) {
-      const invoice = invoices[i];
-      const currentData = { ...extractedData };
-
-      // Generate new filename for each file
-      const originalExtension = invoice.original_filename.split('.').pop() || 'pdf';
-      const supplierName = cleanUtf8Text(extractedData.supplier_name || '');
-      const invoiceDate = extractedData.invoice_date;
-
-      if (supplierName && supplierName !== 'Inconnu') {
-        try {
-          const baseName = generateSafeFilename(supplierName, invoiceDate, '');
-          const newFilename = await getNextAvailableFilename(supabaseClient, baseName, `.${originalExtension}`);
-          
-          // Copy file to new location with new name
-          const { error: copyError } = await supabaseClient.storage
-            .from('invoices')
-            .copy(invoice.file_path, newFilename);
-          
-          if (!copyError) {
-            // Delete old file
-            await supabaseClient.storage
-              .from('invoices')
-              .remove([invoice.file_path]);
-            
-            // Update file_path for this invoice
-            currentData.file_path = newFilename;
-            console.log(`File renamed from ${invoice.file_path} to ${newFilename}`);
-          }
-        } catch (renameError) {
-          console.warn(`File renaming failed for ${invoice.file_path}:`, renameError);
-        }
-      }
-
-      // Update each invoice
-      const { error: updateError } = await supabaseClient
+    // Try to update invoice status to error if we have the invoiceId
+    const body = await req.json().catch(() => ({}));
+    if (body.invoiceId) {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
+      await supabaseClient
         .from('invoices')
-        .update({
-          ...currentData,
-          status: 'completed',
-          processed_at: new Date().toISOString(),
-          error_message: null
+        .update({ 
+          status: 'error', 
+          error_message: error.message,
+          processed_at: new Date().toISOString()
         })
-        .eq('id', invoice.id)
-
-      if (updateError) {
-        console.error(`Failed to update invoice ${invoice.id}:`, updateError);
-      }
+        .eq('id', body.invoiceId);
     }
-
-    console.log('Grouped invoice processing completed successfully')
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Grouped invoices processed successfully' }),
+      JSON.stringify({ error: `Processing error: ${error.message}` }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 500,
       },
     )
-  } catch (error) {
-    console.error('Error processing grouped invoices:', error);
-    
-    // Update all invoices status to error
-    await supabaseClient
-      .from('invoices')
-      .update({ 
-        status: 'error', 
-        error_message: error.message,
-        processed_at: new Date().toISOString()
-      })
-      .in('id', invoiceIds);
-
-    throw error;
   }
-}
-
-async function callMindeeAPI(fileData: Blob, documentType: string) {
-  console.log(`Starting Mindee API call for document type: ${documentType}, file size: ${fileData.size} bytes`);
-  
-  if (fileData.size > MAX_FILE_SIZE) {
-    throw new Error(`File too large: ${fileData.size} bytes. Maximum allowed: ${MAX_FILE_SIZE} bytes`);
-  }
-  
-  try {
-    // Convert file to base64 using the new safe method
-    console.log('Converting file to ArrayBuffer...');
-    const arrayBuffer = await fileData.arrayBuffer();
-    console.log(`ArrayBuffer created successfully, size: ${arrayBuffer.byteLength} bytes`);
-    
-    const base64Data = arrayBufferToBase64(arrayBuffer);
-    console.log(`Safe base64 conversion completed successfully`);
-
-    const mindeeEndpoint = getMindeeEndpoint(documentType);
-    console.log(`Calling Mindee API: ${mindeeEndpoint}`);
-
-    // Call Mindee API with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-
-    try {
-      const mindeeResponse = await fetch(mindeeEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          document: base64Data
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!mindeeResponse.ok) {
-        const errorText = await mindeeResponse.text();
-        throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
-      }
-
-      const mindeeData = await mindeeResponse.json()
-      console.log('Mindee response received successfully');
-
-      // Extract and clean data from Mindee response
-      const prediction = mindeeData.document?.inference?.prediction
-      if (!prediction) {
-        throw new Error('No prediction data from Mindee')
-      }
-
-      // Extract data based on document type
-      let extractedData;
-      if (documentType === 'receipt') {
-        extractedData = extractReceiptData(prediction);
-      } else {
-        extractedData = extractInvoiceData(prediction);
-      }
-
-      // Add raw response and set default compte
-      extractedData.mindee_raw_response = mindeeData;
-      extractedData.compte = extractedData.compte || 'Commun';
-
-      return extractedData;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        throw new Error('Mindee API request timed out after 60 seconds');
-      }
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error('Error in callMindeeAPI:', error);
-    throw new Error(`Mindee API processing failed: ${error.message}`);
-  }
-}
-
-function extractInvoiceData(prediction: any) {
-  return {
-    invoice_number: cleanUtf8Text(prediction.invoice_number?.value || ''),
-    invoice_date: prediction.invoice_date?.value || null,
-    due_date: prediction.due_date?.value || null,
-    total_amount: prediction.total_amount?.value || 0,
-    total_net: prediction.total_net?.value || 0,
-    total_tax: prediction.total_tax?.value || 0,
-    currency: cleanUtf8Text(prediction.locale?.currency || 'EUR'),
-    supplier_name: cleanUtf8Text(prediction.supplier_name?.value || ''),
-    supplier_address: cleanUtf8Text(prediction.supplier_address?.value || ''),
-    supplier_email: cleanUtf8Text(prediction.supplier_email?.value || ''),
-    supplier_phone_number: cleanUtf8Text(prediction.supplier_phone_number?.value || ''),
-    supplier_iban: cleanUtf8Text(prediction.supplier_payment_details?.iban || ''),
-    supplier_website: cleanUtf8Text(prediction.supplier_website?.value || ''),
-    supplier_company_registration: cleanUtf8Text(prediction.supplier_company_registrations?.[0]?.value || ''),
-    supplier_vat_number: cleanUtf8Text(prediction.supplier_tax_id?.value || ''),
-    customer_name: cleanUtf8Text(prediction.customer_name?.value || ''),
-    customer_address: cleanUtf8Text(prediction.customer_address?.value || ''),
-    customer_company_registration: cleanUtf8Text(prediction.customer_company_registrations?.[0]?.value || ''),
-    customer_vat_number: cleanUtf8Text(prediction.customer_tax_id?.value || ''),
-    payment_details: cleanUtf8Text(prediction.payment_details?.value || ''),
-    line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
-      description: cleanUtf8Text(item.description || ''),
-      quantity: item.quantity || null,
-      unit_price: item.unit_price || null,
-      total_amount: item.total_amount || null,
-      tax_rate: item.tax_rate || null
-    })) : []
-  };
-}
-
-function extractReceiptData(prediction: any) {
-  // Receipt API has different field structure
-  return {
-    invoice_number: cleanUtf8Text(prediction.receipt_number?.value || ''),
-    invoice_date: prediction.date?.value || null,
-    due_date: null, // Receipts typically don't have due dates
-    total_amount: prediction.total_amount?.value || 0,
-    total_net: prediction.total_net?.value || prediction.total_amount?.value || 0,
-    total_tax: prediction.total_tax?.value || 0,
-    currency: cleanUtf8Text(prediction.locale?.currency || 'EUR'),
-    supplier_name: cleanUtf8Text(prediction.supplier_name?.value || ''),
-    supplier_address: cleanUtf8Text(prediction.supplier_address?.value || ''),
-    supplier_email: cleanUtf8Text(prediction.supplier_email?.value || ''),
-    supplier_phone_number: cleanUtf8Text(prediction.supplier_phone_number?.value || ''),
-    supplier_iban: '',
-    supplier_website: '',
-    supplier_company_registration: cleanUtf8Text(prediction.supplier_company_registrations?.[0]?.value || ''),
-    supplier_vat_number: cleanUtf8Text(prediction.supplier_tax_id?.value || ''),
-    customer_name: '',
-    customer_address: '',
-    customer_company_registration: '',
-    customer_vat_number: '',
-    payment_details: '',
-    line_items: prediction.line_items ? prediction.line_items.map((item: any) => ({
-      description: cleanUtf8Text(item.description || ''),
-      quantity: item.quantity || null,
-      unit_price: item.unit_price || null,
-      total_amount: item.total_amount || null,
-      tax_rate: item.tax_rate || null
-    })) : []
-  };
-}
+})
