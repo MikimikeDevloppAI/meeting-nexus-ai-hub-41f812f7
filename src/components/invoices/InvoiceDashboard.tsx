@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +73,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   });
 
-  // Fonctions pour les filtres de date - CORRIGÉES pour prendre le premier jour
+  // Fonctions pour les filtres de date - CORRIGÉES pour utiliser le premier jour
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     let dateFrom: string | undefined;
@@ -82,13 +81,15 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
     switch (type) {
       case 'mtd':
-        // Premier jour du mois en cours
-        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        // Premier jour du mois en cours (1er du mois)
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateFrom = monthStart.toISOString().split('T')[0];
         dateTo = now.toISOString().split('T')[0];
         break;
       case 'ytd':
-        // Premier jour de l'année en cours
-        dateFrom = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+        // Premier jour de l'année en cours (1er janvier)
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        dateFrom = yearStart.toISOString().split('T')[0];
         dateTo = now.toISOString().split('T')[0];
         break;
       case 'all':
