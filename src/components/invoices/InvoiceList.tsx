@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,34 +47,53 @@ const formatSupplierName = (supplierName?: string): string => {
   if (!supplierName) return 'N/A';
   
   try {
-    // First try to decode HTML entities
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = supplierName;
-    let decoded = textarea.value;
+    let decoded = supplierName;
     
-    // If still contains encoded characters, try to decode URL encoding
-    if (decoded.includes('%') || decoded.includes('\\u')) {
+    // First handle common UTF-8 encoding issues
+    decoded = decoded
+      .replace(/Ã©/g, 'é')
+      .replace(/Ã¨/g, 'è')
+      .replace(/Ã /g, 'à')
+      .replace(/Ã§/g, 'ç')
+      .replace(/Ã´/g, 'ô')
+      .replace(/Ã¢/g, 'â')
+      .replace(/Ã¯/g, 'ï')
+      .replace(/Ã«/g, 'ë')
+      .replace(/Ã¹/g, 'ù')
+      .replace(/Ã»/g, 'û')
+      .replace(/Ã\u00AD/g, 'í')
+      .replace(/Ã\u00A9/g, 'é')
+      .replace(/Ã\u00A8/g, 'è')
+      .replace(/Ã\u00A0/g, 'à');
+    
+    // Handle question marks that should be é
+    if (decoded.includes('?') && supplierName.includes('é')) {
+      decoded = decoded.replace(/\?/g, 'é');
+    }
+    
+    // Try HTML entity decoding
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = decoded;
+    const htmlDecoded = textarea.value;
+    
+    // If HTML decoding changed something, use it
+    if (htmlDecoded !== decoded) {
+      decoded = htmlDecoded;
+    }
+    
+    // Try URL decoding if there are % signs
+    if (decoded.includes('%')) {
       try {
         decoded = decodeURIComponent(decoded);
       } catch (e) {
-        // If decodeURIComponent fails, try manual replacement of common issues
-        decoded = decoded.replace(/\?/g, 'é')
-                        .replace(/Ã©/g, 'é')
-                        .replace(/Ã¨/g, 'è')
-                        .replace(/Ã /g, 'à')
-                        .replace(/Ã§/g, 'ç')
-                        .replace(/Ã´/g, 'ô')
-                        .replace(/Ã¢/g, 'â')
-                        .replace(/Ã¯/g, 'ï')
-                        .replace(/Ã«/g, 'ë')
-                        .replace(/Ã¹/g, 'ù')
-                        .replace(/Ã»/g, 'û');
+        // If URL decoding fails, keep the current value
+        console.warn('URL decoding failed for:', decoded);
       }
     }
     
     return decoded || supplierName;
   } catch (error) {
-    console.error('Error decoding supplier name:', error);
+    console.error('Error decoding supplier name:', error, 'Original:', supplierName);
     return supplierName;
   }
 };
