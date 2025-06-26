@@ -1,6 +1,5 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import { useMemo } from "react";
 
@@ -17,15 +16,15 @@ interface MonthlyExpenseChartProps {
 const chartConfig = {
   commun: {
     label: "Commun",
-    color: "#3b82f6", // Bleu foncé
+    color: "#2563eb", // Bleu moderne
   },
   david: {
     label: "David Tabibian",
-    color: "#60a5fa", // Bleu plus clair
+    color: "#7c3aed", // Violet moderne
   },
   total: {
     label: "Tendance totale",
-    color: "#1e40af", // Bleu très foncé pour la courbe
+    color: "#dc2626", // Rouge pour contraste
   },
 };
 
@@ -125,29 +124,6 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
     );
   };
 
-  // Composant personnalisé pour les labels des barres (à l'intérieur)
-  const BarLabel = ({ x, y, width, height, value }: any) => {
-    if (!value || value === 0) return null;
-    
-    const formattedValue = formatAmount(value);
-    const labelX = x + width / 2;
-    const labelY = y + height / 2;
-    
-    return (
-      <text
-        x={labelX}
-        y={labelY}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={9}
-        fill="white"
-        fontWeight="600"
-      >
-        {formattedValue}
-      </text>
-    );
-  };
-
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -158,12 +134,9 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
           <ComposedChart data={monthlyData} margin={{ top: 50, right: 30, left: 20, bottom: 5 }}>
             <XAxis dataKey="month" />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun">
-              <LabelList content={BarLabel} />
-            </Bar>
-            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian">
-              <LabelList content={BarLabel} />
-            </Bar>
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
+            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
             <Line 
               type="monotone" 
               dataKey="total" 
