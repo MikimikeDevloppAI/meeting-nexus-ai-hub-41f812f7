@@ -120,31 +120,71 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   };
 
   const deleteInvoice = async (invoice: Invoice) => {
+    console.log('=== STARTING INVOICE DELETION ===');
+    console.log('Invoice to delete:', {
+      id: invoice.id,
+      filename: invoice.original_filename,
+      file_path: invoice.file_path
+    });
+
     if (!confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.original_filename}" ?`)) {
+      console.log('Deletion cancelled by user');
       return;
     }
 
     setDeletingInvoiceId(invoice.id);
     
     try {
-      console.log('Deleting invoice:', invoice.id);
+      console.log('=== STEP 1: DELETING FROM DATABASE ===');
+      console.log('Attempting to delete invoice with ID:', invoice.id);
       
+      // Vérifier d'abord si la facture existe
+      const { data: existingInvoice, error: checkError } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('id', invoice.id)
+        .single();
+
+      if (checkError) {
+        console.error('Error checking if invoice exists:', checkError);
+        if (checkError.code === 'PGRST116') {
+          console.log('Invoice does not exist in database');
+          toast.success('La facture a déjà été supprimée');
+          await refetch();
+          return;
+        }
+        throw checkError;
+      }
+
+      console.log('Invoice exists in database:', existingInvoice);
+
       // Supprimer l'enregistrement de la base de données
-      const { error: dbError } = await supabase
+      console.log('Executing DELETE query...');
+      const { data: deleteResult, error: dbError } = await supabase
         .from('invoices')
         .delete()
-        .eq('id', invoice.id);
+        .eq('id', invoice.id)
+        .select(); // Utiliser select() pour voir ce qui a été supprimé
+
+      console.log('DELETE query result:', { deleteResult, dbError });
 
       if (dbError) {
         console.error('Database deletion error:', dbError);
         throw dbError;
       }
 
-      console.log('Invoice deleted from database successfully');
+      if (!deleteResult || deleteResult.length === 0) {
+        console.error('No rows were deleted from database');
+        throw new Error('Aucune ligne supprimée de la base de données');
+      }
 
+      console.log('✅ Invoice successfully deleted from database:', deleteResult);
+
+      console.log('=== STEP 2: DELETING FILE FROM STORAGE ===');
       // Supprimer le fichier du storage (ne pas arrêter si cela échoue)
       if (invoice.file_path) {
         try {
+          console.log('Deleting file from storage:', invoice.file_path);
           const { error: storageError } = await supabase.storage
             .from('invoices')
             .remove([invoice.file_path]);
@@ -152,25 +192,45 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
           if (storageError) {
             console.warn('Storage deletion warning (continuing anyway):', storageError);
           } else {
-            console.log('File deleted from storage successfully');
+            console.log('✅ File deleted from storage successfully');
           }
         } catch (storageError) {
           console.warn('Storage deletion error (continuing anyway):', storageError);
         }
+      } else {
+        console.log('No file path to delete from storage');
       }
 
+      console.log('=== STEP 3: REFRESHING UI ===');
       toast.success(`Facture "${invoice.original_filename}" supprimée avec succès`);
       
       // Force un refresh immédiat et complet de la liste
       console.log('Refreshing invoice list...');
       await refetch();
-      console.log('Invoice list refreshed');
+      console.log('✅ Invoice list refreshed');
+
+      // Vérifier que la facture a bien été supprimée
+      console.log('=== VERIFICATION: Checking if invoice still exists ===');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('id', invoice.id);
+
+      console.log('Verification result:', { verifyData, verifyError });
       
+      if (verifyData && verifyData.length > 0) {
+        console.error('❌ PROBLEM: Invoice still exists in database after deletion!');
+        throw new Error('La facture existe encore dans la base de données après suppression');
+      } else {
+        console.log('✅ VERIFICATION PASSED: Invoice no longer exists in database');
+      }
+
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      console.error('❌ ERROR during deletion process:', error);
       toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setDeletingInvoiceId(null);
+      console.log('=== INVOICE DELETION PROCESS COMPLETED ===');
     }
   };
 
