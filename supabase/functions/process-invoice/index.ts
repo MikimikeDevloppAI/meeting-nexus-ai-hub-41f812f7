@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Maximum file size in bytes (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 // Helper function to properly handle UTF-8 encoding
 const cleanUtf8Text = (text: string): string => {
   if (!text) return text;
@@ -34,6 +37,34 @@ const cleanUtf8Text = (text: string): string => {
   }
 };
 
+// Function to convert ArrayBuffer to base64 using chunks to avoid stack overflow
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  console.log(`Converting file to base64, size: ${buffer.byteLength} bytes`);
+  
+  if (buffer.byteLength > MAX_FILE_SIZE) {
+    throw new Error(`File too large: ${buffer.byteLength} bytes. Maximum allowed: ${MAX_FILE_SIZE} bytes`);
+  }
+  
+  try {
+    // Use TextDecoder for smaller files or chunk processing for larger ones
+    const uint8Array = new Uint8Array(buffer);
+    const chunkSize = 32768; // 32KB chunks to avoid stack overflow
+    let binary = '';
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    
+    const base64 = btoa(binary);
+    console.log(`Base64 conversion successful, length: ${base64.length}`);
+    return base64;
+  } catch (error) {
+    console.error('Error converting to base64:', error);
+    throw new Error(`Failed to convert file to base64: ${error.message}`);
+  }
+};
+
 // Function to generate a safe filename from supplier name and date
 const generateSafeFilename = (supplierName: string, invoiceDate: string, originalExtension: string): string => {
   const date = invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -58,13 +89,15 @@ const generateSafeFilename = (supplierName: string, invoiceDate: string, origina
 
 // Function to check if filename exists and get next available sequence number
 const getNextAvailableFilename = async (supabaseClient: any, baseName: string, extension: string): Promise<string> => {
-  const MAX_ATTEMPTS = 100; // Prevent infinite loops
+  const MAX_ATTEMPTS = 50; // Reduced from 100 to prevent excessive loops
   let sequenceNumber = 1;
+  
+  console.log(`Starting filename check for base: ${baseName}${extension}`);
   
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const testFilename = sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
     
-    console.log(`Checking filename: ${testFilename} (attempt ${attempt + 1})`);
+    console.log(`Checking filename: ${testFilename} (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
     
     try {
       // Check if this filename already exists in storage
@@ -75,6 +108,7 @@ const getNextAvailableFilename = async (supabaseClient: any, baseName: string, e
       if (error) {
         console.error('Error checking file existence:', error);
         // If there's an error, use the current filename to avoid infinite loop
+        console.log(`Using filename due to error: ${testFilename}`);
         return testFilename;
       }
       
@@ -83,17 +117,22 @@ const getNextAvailableFilename = async (supabaseClient: any, baseName: string, e
         return testFilename;
       }
       
+      console.log(`Filename ${testFilename} already exists, trying next sequence number`);
       sequenceNumber++;
     } catch (error) {
       console.error('Error in filename check:', error);
       // Return current filename to avoid infinite loop
-      return sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
+      const fallbackFilename = sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
+      console.log(`Using fallback filename: ${fallbackFilename}`);
+      return fallbackFilename;
     }
   }
   
   // If we've reached max attempts, return with timestamp to ensure uniqueness
   const timestamp = Date.now();
-  return `${baseName}_${timestamp}${extension}`;
+  const timestampFilename = `${baseName}_${timestamp}${extension}`;
+  console.log(`Max attempts reached, using timestamp filename: ${timestampFilename}`);
+  return timestampFilename;
 };
 
 // Function to get Mindee API endpoint based on document type
@@ -124,8 +163,8 @@ serve(async (req) => {
     console.log('Processing request:', { invoiceId, invoiceIds, documentType, isGrouped })
 
     if (isGrouped && invoiceIds && invoiceIds.length > 0) {
-      // Traitement groupé - limit to 10 files max to prevent issues
-      const limitedIds = invoiceIds.slice(0, 10);
+      // Traitement groupé - limit to 5 files max to prevent issues
+      const limitedIds = invoiceIds.slice(0, 5);
       console.log(`Processing grouped invoices (limited to ${limitedIds.length} files):`, limitedIds);
       return await processGroupedInvoices(supabaseClient, limitedIds, documentType);
     } else if (invoiceId) {
@@ -176,6 +215,8 @@ async function processSingleInvoice(supabaseClient: any, invoiceId: string, docu
     if (downloadError || !fileData) {
       throw new Error(`Failed to download file: ${downloadError?.message}`)
     }
+
+    console.log(`File downloaded successfully: ${invoice.file_path}, size: ${fileData.size} bytes`);
 
     // Process with Mindee
     const extractedData = await callMindeeAPI(fileData, documentType);
@@ -285,6 +326,8 @@ async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[],
       throw new Error(`Failed to download first file ${firstInvoice.file_path}: ${downloadError?.message}`)
     }
 
+    console.log(`First file downloaded for group processing: ${firstInvoice.file_path}, size: ${firstFileData.size} bytes`);
+
     // Get extracted data from the first file
     const extractedData = await callMindeeAPI(firstFileData, documentType);
 
@@ -366,55 +409,76 @@ async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[],
 }
 
 async function callMindeeAPI(fileData: Blob, documentType: string) {
-  console.log(`Starting Mindee API call for document type: ${documentType}`);
+  console.log(`Starting Mindee API call for document type: ${documentType}, file size: ${fileData.size} bytes`);
+  
+  if (fileData.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large: ${fileData.size} bytes. Maximum allowed: ${MAX_FILE_SIZE} bytes`);
+  }
   
   try {
-    // Convert file to base64 for Mindee API
-    const arrayBuffer = await fileData.arrayBuffer()
-    const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    // Convert file to base64 for Mindee API using safe chunked approach
+    const arrayBuffer = await fileData.arrayBuffer();
+    console.log(`ArrayBuffer created successfully, size: ${arrayBuffer.byteLength} bytes`);
+    
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+    console.log(`Base64 conversion completed successfully`);
 
     const mindeeEndpoint = getMindeeEndpoint(documentType);
     console.log(`Calling Mindee API: ${mindeeEndpoint}`);
 
-    // Call Mindee API
-    const mindeeResponse = await fetch(mindeeEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        document: base64Data
-      })
-    })
+    // Call Mindee API with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
-    if (!mindeeResponse.ok) {
-      const errorText = await mindeeResponse.text();
-      throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
+    try {
+      const mindeeResponse = await fetch(mindeeEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          document: base64Data
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!mindeeResponse.ok) {
+        const errorText = await mindeeResponse.text();
+        throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
+      }
+
+      const mindeeData = await mindeeResponse.json()
+      console.log('Mindee response received successfully');
+
+      // Extract and clean data from Mindee response
+      const prediction = mindeeData.document?.inference?.prediction
+      if (!prediction) {
+        throw new Error('No prediction data from Mindee')
+      }
+
+      // Extract data based on document type
+      let extractedData;
+      if (documentType === 'receipt') {
+        extractedData = extractReceiptData(prediction);
+      } else {
+        extractedData = extractInvoiceData(prediction);
+      }
+
+      // Add raw response and set default compte
+      extractedData.mindee_raw_response = mindeeData;
+      extractedData.compte = extractedData.compte || 'Commun';
+
+      return extractedData;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Mindee API request timed out after 60 seconds');
+      }
+      throw fetchError;
     }
-
-    const mindeeData = await mindeeResponse.json()
-    console.log('Mindee response received successfully');
-
-    // Extract and clean data from Mindee response
-    const prediction = mindeeData.document?.inference?.prediction
-    if (!prediction) {
-      throw new Error('No prediction data from Mindee')
-    }
-
-    // Extract data based on document type
-    let extractedData;
-    if (documentType === 'receipt') {
-      extractedData = extractReceiptData(prediction);
-    } else {
-      extractedData = extractInvoiceData(prediction);
-    }
-
-    // Add raw response and set default compte
-    extractedData.mindee_raw_response = mindeeData;
-    extractedData.compte = extractedData.compte || 'Commun';
-
-    return extractedData;
   } catch (error) {
     console.error('Error in callMindeeAPI:', error);
     throw new Error(`Mindee API processing failed: ${error.message}`);
