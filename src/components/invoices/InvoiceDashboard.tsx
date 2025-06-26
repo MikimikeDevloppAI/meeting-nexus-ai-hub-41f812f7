@@ -1,0 +1,197 @@
+
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CalendarIcon, DollarSign, TrendingUp, FileText, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { InvoiceFilters } from "./InvoiceFilters";
+import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
+import { CategoryChart } from "./CategoryChart";
+import { SupplierChart } from "./SupplierChart";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
+
+interface InvoiceDashboardProps {
+  onClose: () => void;
+}
+
+interface Invoice {
+  id: string;
+  compte: string;
+  invoice_date?: string;
+  total_amount?: number;
+  total_net?: number;
+  currency?: string;
+  supplier_name?: string;
+  purchase_category?: string;
+  purchase_subcategory?: string;
+  status: string;
+  created_at: string;
+}
+
+interface DashboardFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  compte?: string;
+  category?: string;
+}
+
+export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
+  const [filters, setFilters] = useState<DashboardFilters>({});
+
+  const { data: invoices, isLoading } = useQuery({
+    queryKey: ['dashboard-invoices'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .in('status', ['completed', 'validated'])
+        .order('invoice_date', { ascending: false });
+
+      if (error) throw error;
+      return data as Invoice[];
+    }
+  });
+
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
+    
+    return invoices.filter(invoice => {
+      // Filtre par date
+      if (filters.dateFrom && invoice.invoice_date) {
+        if (new Date(invoice.invoice_date) < new Date(filters.dateFrom)) return false;
+      }
+      if (filters.dateTo && invoice.invoice_date) {
+        if (new Date(invoice.invoice_date) > new Date(filters.dateTo)) return false;
+      }
+      
+      // Filtre par compte
+      if (filters.compte && invoice.compte !== filters.compte) return false;
+      
+      // Filtre par catégorie
+      if (filters.category && invoice.purchase_category !== filters.category) return false;
+      
+      return true;
+    });
+  }, [invoices, filters]);
+
+  const stats = useMemo(() => {
+    if (!filteredInvoices?.length) return {
+      totalAmount: 0,
+      totalNet: 0,
+      invoiceCount: 0,
+      averageAmount: 0,
+      communAmount: 0,
+      davidAmount: 0
+    };
+
+    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    const totalNet = filteredInvoices.reduce((sum, inv) => sum + (inv.total_net || 0), 0);
+    const communAmount = filteredInvoices
+      .filter(inv => inv.compte === 'Commun')
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    const davidAmount = filteredInvoices
+      .filter(inv => inv.compte === 'David Tabibian')
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+    return {
+      totalAmount,
+      totalNet,
+      invoiceCount: filteredInvoices.length,
+      averageAmount: totalAmount / filteredInvoices.length,
+      communAmount,
+      davidAmount
+    };
+  }, [filteredInvoices]);
+
+  if (isLoading) {
+    return <div className="text-center py-8">Chargement du dashboard...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Dashboard Factures</h2>
+          <p className="text-muted-foreground">
+            Analyse et statistiques de vos factures
+          </p>
+        </div>
+        <Button variant="outline" onClick={onClose} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Retour
+        </Button>
+      </div>
+
+      {/* Filtres */}
+      <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
+
+      {/* Statistiques principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalAmount.toFixed(2)} €</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.invoiceCount} facture{stats.invoiceCount > 1 ? 's' : ''}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total HT</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalNet.toFixed(2)} €</div>
+            <p className="text-xs text-muted-foreground">
+              Montant hors taxes
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Compte Commun</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.communAmount.toFixed(2)} €</div>
+            <p className="text-xs text-muted-foreground">
+              Dépenses communes
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.davidAmount.toFixed(2)} €</div>
+            <p className="text-xs text-muted-foreground">
+              Dépenses personnelles
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Graphiques */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <MonthlyExpenseChart invoices={filteredInvoices} />
+        <CategoryChart invoices={filteredInvoices} />
+      </div>
+
+      {/* Graphique des fournisseurs */}
+      <SupplierChart invoices={filteredInvoices} />
+    </div>
+  );
+}
