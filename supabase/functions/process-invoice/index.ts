@@ -10,7 +10,7 @@ const corsHeaders = {
 // Maximum file size in bytes (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Simple base64 conversion using native Deno methods
+// Improved base64 conversion
 const convertToBase64 = async (fileData: Blob): Promise<string> => {
   console.log(`Converting file to base64, size: ${fileData.size} bytes`);
   
@@ -20,7 +20,16 @@ const convertToBase64 = async (fileData: Blob): Promise<string> => {
   
   try {
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 1024;
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    const base64 = btoa(binary);
     console.log('Base64 conversion successful');
     return base64;
   } catch (error) {
@@ -34,14 +43,27 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  let body;
+  try {
+    body = await req.json();
+  } catch (error) {
+    console.error('Error parsing request body:', error);
+    return new Response(
+      JSON.stringify({ error: 'Invalid request body' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      }
+    );
+  }
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const body = await req.json()
-    const { invoiceId, documentType = 'invoice' } = body
+    const { invoiceId, documentType = 'invoice' } = body;
 
     console.log('Processing document:', invoiceId, 'as', documentType)
 
@@ -212,8 +234,7 @@ serve(async (req) => {
     console.error(`Error processing document:`, error)
     
     // Try to update invoice status to error if we have the invoiceId
-    const body = await req.json().catch(() => ({}));
-    if (body.invoiceId) {
+    if (body?.invoiceId) {
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

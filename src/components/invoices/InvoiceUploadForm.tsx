@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, FileText, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 interface InvoiceUploadFormProps {
@@ -22,8 +22,6 @@ interface FileWithMetadata {
 export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
   const [files, setFiles] = useState<FileWithMetadata[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [defaultDocumentType, setDefaultDocumentType] = useState<'invoice' | 'receipt'>('invoice');
-  const [defaultCompte, setDefaultCompte] = useState<'David Tabibian' | 'Commun'>('Commun');
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -36,8 +34,8 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     onDrop: (acceptedFiles) => {
       const newFiles = acceptedFiles.map(file => ({
         file,
-        documentType: defaultDocumentType,
-        compte: defaultCompte
+        documentType: 'invoice' as const,
+        compte: 'Commun' as const
       }));
       setFiles(prev => [...prev, ...newFiles]);
     }
@@ -154,34 +152,6 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Default Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="default-type">Type de document par défaut</Label>
-            <Select value={defaultDocumentType} onValueChange={(value: 'invoice' | 'receipt') => setDefaultDocumentType(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner le type de document" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="invoice">Facture</SelectItem>
-                <SelectItem value="receipt">Reçu</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="default-compte">Compte par défaut</Label>
-            <Select value={defaultCompte} onValueChange={(value: 'David Tabibian' | 'Commun') => setDefaultCompte(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner le compte" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Commun">Commun</SelectItem>
-                <SelectItem value="David Tabibian">David Tabibian</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
         {/* File Upload */}
         <div>
           <div
@@ -212,37 +182,13 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Fichiers sélectionnés ({files.length})</h4>
             {files.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
-                <div className="flex items-center gap-2 text-sm flex-1">
-                  <FileText className="h-4 w-4" />
-                  <span className="flex-1">{item.file.name}</span>
-                  <span className="text-gray-500">({(item.file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Select 
-                    value={item.documentType} 
-                    onValueChange={(value: 'invoice' | 'receipt') => updateFileType(index, value)}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="invoice">Facture</SelectItem>
-                      <SelectItem value="receipt">Reçu</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select 
-                    value={item.compte} 
-                    onValueChange={(value: 'David Tabibian' | 'Commun') => updateFileCompte(index, value)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Commun">Commun</SelectItem>
-                      <SelectItem value="David Tabibian">David Tabibian</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div key={index} className="p-4 bg-gray-50 rounded border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm flex-1">
+                    <FileText className="h-4 w-4" />
+                    <span className="flex-1">{item.file.name}</span>
+                    <span className="text-gray-500">({(item.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -251,6 +197,46 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
                   >
                     <X className="h-4 w-4" />
                   </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Document Type */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-gray-700">Type de document</Label>
+                    <RadioGroup 
+                      value={item.documentType} 
+                      onValueChange={(value: 'invoice' | 'receipt') => updateFileType(index, value)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="invoice" id={`invoice-${index}`} />
+                        <Label htmlFor={`invoice-${index}`} className="text-sm">Facture</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="receipt" id={`receipt-${index}`} />
+                        <Label htmlFor={`receipt-${index}`} className="text-sm">Reçu</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Account */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-gray-700">Compte</Label>
+                    <RadioGroup 
+                      value={item.compte} 
+                      onValueChange={(value: 'David Tabibian' | 'Commun') => updateFileCompte(index, value)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Commun" id={`commun-${index}`} />
+                        <Label htmlFor={`commun-${index}`} className="text-sm">Commun</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="David Tabibian" id={`david-${index}`} />
+                        <Label htmlFor={`david-${index}`} className="text-sm">David Tabibian</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
                 </div>
               </div>
             ))}
