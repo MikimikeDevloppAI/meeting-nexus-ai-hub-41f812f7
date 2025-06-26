@@ -44,12 +44,18 @@ interface DashboardFilters {
 }
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
-  // Initialiser avec "année en cours" par défaut - CORRIGÉ
+  // Fonction pour créer une date au format YYYY-MM-DD sans problème de fuseau horaire
+  const formatDateForInput = (year: number, month: number, day: number): string => {
+    const monthStr = month.toString().padStart(2, '0');
+    const dayStr = day.toString().padStart(2, '0');
+    return `${year}-${monthStr}-${dayStr}`;
+  };
+  
+  // Initialiser avec "année en cours" par défaut
   const getDefaultFilters = (): DashboardFilters => {
     const now = new Date();
-    const yearStart = new Date(now.getFullYear(), 0, 1); // Premier jour de l'année
-    const dateFrom = yearStart.toISOString().split('T')[0];
-    const dateTo = now.toISOString().split('T')[0];
+    const dateFrom = formatDateForInput(now.getFullYear(), 1, 1); // 1er janvier
+    const dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
     
     return { dateFrom, dateTo };
   };
@@ -73,7 +79,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   });
 
-  // Fonctions pour les filtres de date - CORRIGÉES pour utiliser le premier jour
+  // Fonctions pour les filtres de date - CORRIGÉES pour éviter les problèmes de fuseau horaire
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     let dateFrom: string | undefined;
@@ -82,15 +88,13 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     switch (type) {
       case 'mtd':
         // Premier jour du mois en cours (1er du mois)
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        dateFrom = monthStart.toISOString().split('T')[0];
-        dateTo = now.toISOString().split('T')[0];
+        dateFrom = formatDateForInput(now.getFullYear(), now.getMonth() + 1, 1);
+        dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
         break;
       case 'ytd':
         // Premier jour de l'année en cours (1er janvier)
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-        dateFrom = yearStart.toISOString().split('T')[0];
-        dateTo = now.toISOString().split('T')[0];
+        dateFrom = formatDateForInput(now.getFullYear(), 1, 1);
+        dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
         break;
       case 'all':
       default:
@@ -106,19 +110,19 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const isButtonActive = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth() + 1;
     
     switch (type) {
       case 'all':
         return !filters.dateFrom && !filters.dateTo;
       case 'mtd':
         if (!filters.dateFrom || !filters.dateTo) return false;
-        const mtdStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-        return filters.dateFrom === mtdStart;
+        const expectedMtdStart = formatDateForInput(currentYear, currentMonth, 1);
+        return filters.dateFrom === expectedMtdStart;
       case 'ytd':
         if (!filters.dateFrom || !filters.dateTo) return false;
-        const ytdStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
-        return filters.dateFrom === ytdStart;
+        const expectedYtdStart = formatDateForInput(currentYear, 1, 1);
+        return filters.dateFrom === expectedYtdStart;
       default:
         return false;
     }

@@ -56,11 +56,10 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         name: name.length > 12 ? name.substring(0, 12) + '...' : name, 
         amount: Math.round(amount)
       }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 10); // Top 10 fournisseurs
+      .sort((a, b) => b.amount - a.amount); // Afficher tous les fournisseurs, pas seulement le top 10
   }, [invoices]);
 
-  // Composant pour les labels au-dessus des barres avec style amélioré
+  // Composant pour les labels au-dessus des barres avec style noir
   const CustomLabel = ({ x, y, width, value }: any) => {
     const labelX = x + width / 2;
     const labelY = y - 8;
@@ -85,7 +84,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
           y={labelY}
           textAnchor="middle"
           fontSize={11}
-          fill="#1e40af"
+          fill="#000000"
           fontWeight="600"
         >
           {formattedValue}
@@ -110,6 +109,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
                 height={120}
                 interval={0}
                 fontSize={10}
+                fill="#000000"
               />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Bar dataKey="amount" fill="var(--color-amount)" name="Montant CHF">
