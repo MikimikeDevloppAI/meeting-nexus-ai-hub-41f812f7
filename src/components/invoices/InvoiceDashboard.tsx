@@ -106,6 +106,11 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     };
   }, [filteredInvoices]);
 
+  // Fonction pour formatter les montants en CHF avec séparateurs de milliers
+  const formatAmount = (amount: number): string => {
+    return `${Math.round(amount).toLocaleString('fr-CH')} CHF`;
+  };
+
   if (isLoading) {
     return <div className="text-center py-8">Chargement du dashboard...</div>;
   }
@@ -137,7 +142,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAmount.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatAmount(stats.totalAmount)}</div>
             <p className="text-xs text-muted-foreground">
               {stats.invoiceCount} facture{stats.invoiceCount > 1 ? 's' : ''}
             </p>
@@ -150,7 +155,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalNet.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatAmount(stats.totalNet)}</div>
             <p className="text-xs text-muted-foreground">
               Montant hors taxes
             </p>
@@ -163,7 +168,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.communAmount.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
             <p className="text-xs text-muted-foreground">
               Dépenses communes
             </p>
@@ -176,7 +181,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.davidAmount.toFixed(2)} €</div>
+            <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
             <p className="text-xs text-muted-foreground">
               Dépenses personnelles
             </p>
