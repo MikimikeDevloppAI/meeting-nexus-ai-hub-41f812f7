@@ -12,12 +12,8 @@ const cleanUtf8Text = (text: string): string => {
   if (!text) return text;
   
   try {
-    // First, ensure we're working with properly encoded UTF-8
-    const bytes = new TextEncoder().encode(text);
-    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-    
-    // Clean up any remaining encoding artifacts
-    return decoded
+    // Simple replacement without recursion
+    return text
       .replace(/Ã©/g, 'é')
       .replace(/Ã¨/g, 'è')
       .replace(/Ã /g, 'à')
@@ -30,9 +26,6 @@ const cleanUtf8Text = (text: string): string => {
       .replace(/Ã»/g, 'û')
       .replace(/Ã®/g, 'î')
       .replace(/Ãª/g, 'ê')
-      .replace(/Ã\u00A0/g, 'à')
-      .replace(/Ã\u00A8/g, 'è')
-      .replace(/Ã\u00A9/g, 'é')
       .replace(/\uFFFD/g, '') // Remove replacement characters
       .trim();
   } catch (error) {
@@ -42,7 +35,7 @@ const cleanUtf8Text = (text: string): string => {
 };
 
 // Function to generate a safe filename from supplier name and date
-const generateSafeFilename = (supplierName: string, invoiceDate: string, originalExtension: string, sequenceNumber: number = 1): string => {
+const generateSafeFilename = (supplierName: string, invoiceDate: string, originalExtension: string): string => {
   const date = invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
   
   const cleanSupplier = supplierName
@@ -60,28 +53,47 @@ const generateSafeFilename = (supplierName: string, invoiceDate: string, origina
         .substring(0, 30)
     : 'Inconnu';
 
-  const sequenceSuffix = sequenceNumber > 1 ? `_${sequenceNumber}` : '';
-  return `${date}_${cleanSupplier}${sequenceSuffix}${originalExtension}`;
+  return `${date}_${cleanSupplier}`;
 };
 
 // Function to check if filename exists and get next available sequence number
 const getNextAvailableFilename = async (supabaseClient: any, baseName: string, extension: string): Promise<string> => {
+  const MAX_ATTEMPTS = 100; // Prevent infinite loops
   let sequenceNumber = 1;
-  let testFilename = `${baseName}${extension}`;
   
-  while (true) {
-    // Check if this filename already exists in storage
-    const { data: existingFiles } = await supabaseClient.storage
-      .from('invoices')
-      .list('', { search: testFilename });
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const testFilename = sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
     
-    if (!existingFiles || existingFiles.length === 0) {
-      return testFilename;
+    console.log(`Checking filename: ${testFilename} (attempt ${attempt + 1})`);
+    
+    try {
+      // Check if this filename already exists in storage
+      const { data: existingFiles, error } = await supabaseClient.storage
+        .from('invoices')
+        .list('', { search: testFilename });
+      
+      if (error) {
+        console.error('Error checking file existence:', error);
+        // If there's an error, use the current filename to avoid infinite loop
+        return testFilename;
+      }
+      
+      if (!existingFiles || existingFiles.length === 0) {
+        console.log(`Filename available: ${testFilename}`);
+        return testFilename;
+      }
+      
+      sequenceNumber++;
+    } catch (error) {
+      console.error('Error in filename check:', error);
+      // Return current filename to avoid infinite loop
+      return sequenceNumber === 1 ? `${baseName}${extension}` : `${baseName}_${sequenceNumber}${extension}`;
     }
-    
-    sequenceNumber++;
-    testFilename = `${baseName}_${sequenceNumber}${extension}`;
   }
+  
+  // If we've reached max attempts, return with timestamp to ensure uniqueness
+  const timestamp = Date.now();
+  return `${baseName}_${timestamp}${extension}`;
 };
 
 // Function to get Mindee API endpoint based on document type
@@ -111,9 +123,11 @@ serve(async (req) => {
 
     console.log('Processing request:', { invoiceId, invoiceIds, documentType, isGrouped })
 
-    if (isGrouped && invoiceIds) {
-      // Traitement groupé
-      return await processGroupedInvoices(supabaseClient, invoiceIds, documentType);
+    if (isGrouped && invoiceIds && invoiceIds.length > 0) {
+      // Traitement groupé - limit to 10 files max to prevent issues
+      const limitedIds = invoiceIds.slice(0, 10);
+      console.log(`Processing grouped invoices (limited to ${limitedIds.length} files):`, limitedIds);
+      return await processGroupedInvoices(supabaseClient, limitedIds, documentType);
     } else if (invoiceId) {
       // Traitement individuel
       return await processSingleInvoice(supabaseClient, invoiceId, documentType);
@@ -124,7 +138,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing invoice:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: `Processing error: ${error.message}` }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -136,145 +150,50 @@ serve(async (req) => {
 async function processSingleInvoice(supabaseClient: any, invoiceId: string, documentType: string) {
   console.log('Processing single invoice:', invoiceId)
 
-  // Get invoice from database
-  const { data: invoice, error: fetchError } = await supabaseClient
-    .from('invoices')
-    .select('*')
-    .eq('id', invoiceId)
-    .single()
+  try {
+    // Get invoice from database
+    const { data: invoice, error: fetchError } = await supabaseClient
+      .from('invoices')
+      .select('*')
+      .eq('id', invoiceId)
+      .single()
 
-  if (fetchError || !invoice) {
-    throw new Error(`Invoice not found: ${fetchError?.message}`)
-  }
-
-  // Update status to processing
-  await supabaseClient
-    .from('invoices')
-    .update({ status: 'processing' })
-    .eq('id', invoiceId)
-
-  // Download file from storage
-  const { data: fileData, error: downloadError } = await supabaseClient.storage
-    .from('invoices')
-    .download(invoice.file_path)
-
-  if (downloadError || !fileData) {
-    throw new Error(`Failed to download file: ${downloadError?.message}`)
-  }
-
-  // Process with Mindee
-  const extractedData = await callMindeeAPI(fileData, documentType);
-
-  // Generate new filename based on supplier and date
-  const originalExtension = invoice.original_filename.split('.').pop() || '.pdf';
-  const supplierName = cleanUtf8Text(extractedData.supplier_name || '');
-  const invoiceDate = extractedData.invoice_date;
-
-  if (supplierName) {
-    try {
-      const baseName = `${invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}_${supplierName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').substring(0, 30)}`;
-      const newFilename = await getNextAvailableFilename(supabaseClient, baseName, `.${originalExtension}`);
-      
-      // Copy file to new location with new name
-      const { data: copyData, error: copyError } = await supabaseClient.storage
-        .from('invoices')
-        .copy(invoice.file_path, newFilename);
-      
-      if (!copyError) {
-        // Delete old file
-        await supabaseClient.storage
-          .from('invoices')
-          .remove([invoice.file_path]);
-        
-        // Update file_path in database
-        extractedData.file_path = newFilename;
-        console.log(`File renamed from ${invoice.file_path} to ${newFilename}`);
-      }
-    } catch (renameError) {
-      console.warn('File renaming failed, keeping original name:', renameError);
+    if (fetchError || !invoice) {
+      throw new Error(`Invoice not found: ${fetchError?.message}`)
     }
-  }
 
-  // Update invoice with extracted data
-  const { error: updateError } = await supabaseClient
-    .from('invoices')
-    .update({
-      ...extractedData,
-      status: 'completed',
-      processed_at: new Date().toISOString(),
-      error_message: null
-    })
-    .eq('id', invoiceId)
+    // Update status to processing
+    await supabaseClient
+      .from('invoices')
+      .update({ status: 'processing' })
+      .eq('id', invoiceId)
 
-  if (updateError) {
-    throw new Error(`Failed to update invoice: ${updateError.message}`)
-  }
-
-  console.log('Single invoice processing completed successfully')
-
-  return new Response(
-    JSON.stringify({ success: true, message: 'Invoice processed successfully' }),
-    {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    },
-  )
-}
-
-async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[], documentType: string) {
-  console.log('Processing grouped invoices:', invoiceIds)
-
-  // Get all invoices from database
-  const { data: invoices, error: fetchError } = await supabaseClient
-    .from('invoices')
-    .select('*')
-    .in('id', invoiceIds)
-
-  if (fetchError || !invoices || invoices.length === 0) {
-    throw new Error(`Invoices not found: ${fetchError?.message}`)
-  }
-
-  // Update all statuses to processing
-  await supabaseClient
-    .from('invoices')
-    .update({ status: 'processing' })
-    .in('id', invoiceIds)
-
-  // Download all files and combine them for Mindee API
-  const fileDataArray = [];
-  for (const invoice of invoices) {
+    // Download file from storage
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from('invoices')
       .download(invoice.file_path)
 
     if (downloadError || !fileData) {
-      throw new Error(`Failed to download file ${invoice.file_path}: ${downloadError?.message}`)
+      throw new Error(`Failed to download file: ${downloadError?.message}`)
     }
 
-    fileDataArray.push({ fileData, invoice });
-  }
+    // Process with Mindee
+    const extractedData = await callMindeeAPI(fileData, documentType);
 
-  // For grouped processing, we'll process the first file with Mindee and apply results to all
-  const primaryFileData = fileDataArray[0];
-  const extractedData = await callMindeeAPI(primaryFileData.fileData, documentType);
-
-  // Apply extracted data to all invoices in the group
-  for (let i = 0; i < invoices.length; i++) {
-    const invoice = invoices[i];
-    const currentData = { ...extractedData };
-
-    // Generate new filename for each file
-    const originalExtension = invoice.original_filename.split('.').pop() || '.pdf';
+    // Generate new filename based on supplier and date
+    const originalExtension = invoice.original_filename.split('.').pop() || 'pdf';
     const supplierName = cleanUtf8Text(extractedData.supplier_name || '');
     const invoiceDate = extractedData.invoice_date;
 
-    if (supplierName) {
+    if (supplierName && supplierName !== 'Inconnu') {
       try {
-        const baseName = `${invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}_${supplierName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').substring(0, 30)}`;
+        const baseName = generateSafeFilename(supplierName, invoiceDate, '');
         const newFilename = await getNextAvailableFilename(supabaseClient, baseName, `.${originalExtension}`);
         
+        console.log(`Attempting to rename file from ${invoice.file_path} to ${newFilename}`);
+        
         // Copy file to new location with new name
-        const { data: copyData, error: copyError } = await supabaseClient.storage
+        const { error: copyError } = await supabaseClient.storage
           .from('invoices')
           .copy(invoice.file_path, newFilename);
         
@@ -284,88 +203,222 @@ async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[],
             .from('invoices')
             .remove([invoice.file_path]);
           
-          // Update file_path for this invoice
-          currentData.file_path = newFilename;
-          console.log(`File renamed from ${invoice.file_path} to ${newFilename}`);
+          // Update file_path in database
+          extractedData.file_path = newFilename;
+          console.log(`File successfully renamed to: ${newFilename}`);
+        } else {
+          console.warn('File copy failed, keeping original name:', copyError);
         }
       } catch (renameError) {
-        console.warn(`File renaming failed for ${invoice.file_path}, keeping original name:`, renameError);
+        console.warn('File renaming failed, keeping original name:', renameError);
       }
     }
 
-    // Update each invoice
+    // Update invoice with extracted data
     const { error: updateError } = await supabaseClient
       .from('invoices')
       .update({
-        ...currentData,
+        ...extractedData,
         status: 'completed',
         processed_at: new Date().toISOString(),
         error_message: null
       })
-      .eq('id', invoice.id)
+      .eq('id', invoiceId)
 
     if (updateError) {
-      console.error(`Failed to update invoice ${invoice.id}:`, updateError);
+      throw new Error(`Failed to update invoice: ${updateError.message}`)
     }
+
+    console.log('Single invoice processing completed successfully')
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Invoice processed successfully' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
+  } catch (error) {
+    console.error(`Error processing single invoice ${invoiceId}:`, error);
+    
+    // Update invoice status to error
+    await supabaseClient
+      .from('invoices')
+      .update({ 
+        status: 'error', 
+        error_message: error.message,
+        processed_at: new Date().toISOString()
+      })
+      .eq('id', invoiceId);
+
+    throw error;
   }
+}
 
-  console.log('Grouped invoice processing completed successfully')
+async function processGroupedInvoices(supabaseClient: any, invoiceIds: string[], documentType: string) {
+  console.log('Processing grouped invoices:', invoiceIds)
 
-  return new Response(
-    JSON.stringify({ success: true, message: 'Grouped invoices processed successfully' }),
-    {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    },
-  )
+  try {
+    // Get all invoices from database
+    const { data: invoices, error: fetchError } = await supabaseClient
+      .from('invoices')
+      .select('*')
+      .in('id', invoiceIds)
+
+    if (fetchError || !invoices || invoices.length === 0) {
+      throw new Error(`Invoices not found: ${fetchError?.message}`)
+    }
+
+    // Update all statuses to processing
+    await supabaseClient
+      .from('invoices')
+      .update({ status: 'processing' })
+      .in('id', invoiceIds)
+
+    // Process the first file with Mindee API to get shared data
+    const firstInvoice = invoices[0];
+    const { data: firstFileData, error: downloadError } = await supabaseClient.storage
+      .from('invoices')
+      .download(firstInvoice.file_path)
+
+    if (downloadError || !firstFileData) {
+      throw new Error(`Failed to download first file ${firstInvoice.file_path}: ${downloadError?.message}`)
+    }
+
+    // Get extracted data from the first file
+    const extractedData = await callMindeeAPI(firstFileData, documentType);
+
+    // Apply extracted data to all invoices in the group
+    for (let i = 0; i < invoices.length; i++) {
+      const invoice = invoices[i];
+      const currentData = { ...extractedData };
+
+      // Generate new filename for each file
+      const originalExtension = invoice.original_filename.split('.').pop() || 'pdf';
+      const supplierName = cleanUtf8Text(extractedData.supplier_name || '');
+      const invoiceDate = extractedData.invoice_date;
+
+      if (supplierName && supplierName !== 'Inconnu') {
+        try {
+          const baseName = generateSafeFilename(supplierName, invoiceDate, '');
+          const newFilename = await getNextAvailableFilename(supabaseClient, baseName, `.${originalExtension}`);
+          
+          // Copy file to new location with new name
+          const { error: copyError } = await supabaseClient.storage
+            .from('invoices')
+            .copy(invoice.file_path, newFilename);
+          
+          if (!copyError) {
+            // Delete old file
+            await supabaseClient.storage
+              .from('invoices')
+              .remove([invoice.file_path]);
+            
+            // Update file_path for this invoice
+            currentData.file_path = newFilename;
+            console.log(`File renamed from ${invoice.file_path} to ${newFilename}`);
+          }
+        } catch (renameError) {
+          console.warn(`File renaming failed for ${invoice.file_path}:`, renameError);
+        }
+      }
+
+      // Update each invoice
+      const { error: updateError } = await supabaseClient
+        .from('invoices')
+        .update({
+          ...currentData,
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+          error_message: null
+        })
+        .eq('id', invoice.id)
+
+      if (updateError) {
+        console.error(`Failed to update invoice ${invoice.id}:`, updateError);
+      }
+    }
+
+    console.log('Grouped invoice processing completed successfully')
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Grouped invoices processed successfully' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
+  } catch (error) {
+    console.error('Error processing grouped invoices:', error);
+    
+    // Update all invoices status to error
+    await supabaseClient
+      .from('invoices')
+      .update({ 
+        status: 'error', 
+        error_message: error.message,
+        processed_at: new Date().toISOString()
+      })
+      .in('id', invoiceIds);
+
+    throw error;
+  }
 }
 
 async function callMindeeAPI(fileData: Blob, documentType: string) {
-  // Convert file to base64 for Mindee API
-  const arrayBuffer = await fileData.arrayBuffer()
-  const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+  console.log(`Starting Mindee API call for document type: ${documentType}`);
+  
+  try {
+    // Convert file to base64 for Mindee API
+    const arrayBuffer = await fileData.arrayBuffer()
+    const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
 
-  const mindeeEndpoint = getMindeeEndpoint(documentType);
-  console.log(`Calling Mindee API: ${mindeeEndpoint} for document type: ${documentType}`);
+    const mindeeEndpoint = getMindeeEndpoint(documentType);
+    console.log(`Calling Mindee API: ${mindeeEndpoint}`);
 
-  // Call Mindee API
-  const mindeeResponse = await fetch(mindeeEndpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      document: base64Data
+    // Call Mindee API
+    const mindeeResponse = await fetch(mindeeEndpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        document: base64Data
+      })
     })
-  })
 
-  if (!mindeeResponse.ok) {
-    throw new Error(`Mindee API error: ${mindeeResponse.statusText}`)
+    if (!mindeeResponse.ok) {
+      const errorText = await mindeeResponse.text();
+      throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
+    }
+
+    const mindeeData = await mindeeResponse.json()
+    console.log('Mindee response received successfully');
+
+    // Extract and clean data from Mindee response
+    const prediction = mindeeData.document?.inference?.prediction
+    if (!prediction) {
+      throw new Error('No prediction data from Mindee')
+    }
+
+    // Extract data based on document type
+    let extractedData;
+    if (documentType === 'receipt') {
+      extractedData = extractReceiptData(prediction);
+    } else {
+      extractedData = extractInvoiceData(prediction);
+    }
+
+    // Add raw response and set default compte
+    extractedData.mindee_raw_response = mindeeData;
+    extractedData.compte = extractedData.compte || 'Commun';
+
+    return extractedData;
+  } catch (error) {
+    console.error('Error in callMindeeAPI:', error);
+    throw new Error(`Mindee API processing failed: ${error.message}`);
   }
-
-  const mindeeData = await mindeeResponse.json()
-  console.log('Mindee response received for document type:', documentType)
-
-  // Extract and clean data from Mindee response
-  const prediction = mindeeData.document?.inference?.prediction
-  if (!prediction) {
-    throw new Error('No prediction data from Mindee')
-  }
-
-  // Extract data based on document type
-  let extractedData;
-  if (documentType === 'receipt') {
-    extractedData = extractReceiptData(prediction);
-  } else {
-    extractedData = extractInvoiceData(prediction);
-  }
-
-  // Add raw response and set default compte
-  extractedData.mindee_raw_response = mindeeData;
-  extractedData.compte = extractedData.compte || 'Commun';
-
-  return extractedData;
 }
 
 function extractInvoiceData(prediction: any) {
