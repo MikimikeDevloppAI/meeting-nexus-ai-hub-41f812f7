@@ -75,7 +75,30 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
     <Card>
       <CardHeader>
         <CardTitle>{getModeTitle()}</CardTitle>
-        <div className="flex gap-2 justify-center">
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="h-[300px]">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              outerRadius={80}
+              innerRadius={40}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <ChartTooltip content={<ChartTooltipContent />} />
+          </PieChart>
+        </ChartContainer>
+        
+        <div className="flex gap-2 justify-center mt-4">
           <Button 
             variant={mode === 'compte' ? "default" : "outline"}
             size="sm"
@@ -98,29 +121,6 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
             Sous-catégorie
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px]">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              outerRadius={80}
-              innerRadius={40}
-              fill="#8884d8"
-              dataKey="value"
-              style={{ fill: "#000000" }}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <ChartTooltip content={<ChartTooltipContent />} />
-          </PieChart>
-        </ChartContainer>
       </CardContent>
     </Card>
   );

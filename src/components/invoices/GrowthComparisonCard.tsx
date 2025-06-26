@@ -22,7 +22,7 @@ export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthCompa
 
     const currentStart = new Date(dateFrom);
     const currentEnd = new Date(dateTo);
-    const periodDays = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
+    const periodDays = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Calculer la période précédente
     const previousEnd = new Date(currentStart);
@@ -30,7 +30,13 @@ export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthCompa
     const previousStart = new Date(previousEnd);
     previousStart.setDate(previousStart.getDate() - periodDays + 1);
 
-    // Calculer les montants pour chaque période
+    console.log('Growth calculation:', {
+      currentPeriod: { start: currentStart.toISOString(), end: currentEnd.toISOString() },
+      previousPeriod: { start: previousStart.toISOString(), end: previousEnd.toISOString() },
+      periodDays
+    });
+
+    // Calculer les montants pour chaque période en utilisant TOUTES les factures
     let currentAmount = 0;
     let previousAmount = 0;
 
@@ -50,7 +56,10 @@ export function GrowthComparisonCard({ invoices, dateFrom, dateTo }: GrowthCompa
       }
     });
 
-    const growth = previousAmount > 0 ? ((currentAmount - previousAmount) / previousAmount) * 100 : 0;
+    console.log('Growth amounts:', { currentAmount, previousAmount });
+
+    const growth = previousAmount > 0 ? ((currentAmount - previousAmount) / previousAmount) * 100 : 
+                   currentAmount > 0 ? 100 : 0;
 
     return { currentAmount, previousAmount, growth, periodDays };
   }, [invoices, dateFrom, dateTo]);
