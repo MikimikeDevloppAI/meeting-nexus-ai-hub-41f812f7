@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { InvoiceFilters } from "./InvoiceFilters";
 import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
 import { DonutCategoryChart } from "./DonutCategoryChart";
-import { ParetoSupplierChart } from "./ParetoSupplierChart";
+import { SupplierChart } from "./SupplierChart";
 import { FilteredInvoiceList } from "./FilteredInvoiceList";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
 import { formatDistanceToNow } from "date-fns";
@@ -87,6 +86,28 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
 
     setFilters(prev => ({ ...prev, dateFrom, dateTo }));
+  };
+
+  // Fonction pour vérifier si un bouton est actif
+  const isButtonActive = (type: 'all' | 'mtd' | 'ytd') => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    switch (type) {
+      case 'all':
+        return !filters.dateFrom && !filters.dateTo;
+      case 'mtd':
+        if (!filters.dateFrom || !filters.dateTo) return false;
+        const mtdStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+        return filters.dateFrom === mtdStart;
+      case 'ytd':
+        if (!filters.dateFrom || !filters.dateTo) return false;
+        const ytdStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
+        return filters.dateFrom === ytdStart && filters.dateFrom !== new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+      default:
+        return false;
+    }
   };
 
   const filteredInvoices = useMemo(() => {
@@ -244,19 +265,19 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           <CardContent>
             <div className="flex gap-2 mb-4">
               <Button 
-                variant={!filters.dateFrom && !filters.dateTo ? "default" : "outline"}
+                variant={isButtonActive('all') ? "default" : "outline"}
                 onClick={() => setDateFilter('all')}
               >
                 Toutes périodes
               </Button>
               <Button 
-                variant={filters.dateFrom && filters.dateFrom.includes(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')) && filters.dateTo ? "default" : "outline"}
+                variant={isButtonActive('mtd') ? "default" : "outline"}
                 onClick={() => setDateFilter('mtd')}
               >
                 Mois en cours
               </Button>
               <Button 
-                variant={filters.dateFrom && filters.dateFrom.startsWith(new Date().getFullYear().toString()) && !filters.dateFrom.includes(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')) ? "default" : "outline"}
+                variant={isButtonActive('ytd') ? "default" : "outline"}
                 onClick={() => setDateFilter('ytd')}
               >
                 Année en cours
@@ -268,8 +289,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Statistiques principales */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Statistiques principales - Seulement 2 cartes maintenant */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
@@ -291,39 +312,26 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             <CardContent>
               <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
               <p className="text-xs text-muted-foreground">
-                Dépenses communes
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
-              <p className="text-xs text-muted-foreground">
-                Dépenses personnelles
+                vs {formatAmount(stats.davidAmount)} David Tabibian
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Graphiques */}
+        {/* Graphique mensuel - Pleine largeur */}
+        <MonthlyExpenseChart 
+          invoices={filteredInvoices} 
+          dateFrom={filters.dateFrom}
+          dateTo={filters.dateTo}
+        />
+
+        {/* Graphiques côte à côte */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MonthlyExpenseChart 
-            invoices={filteredInvoices} 
-            dateFrom={filters.dateFrom}
-            dateTo={filters.dateTo}
-          />
           <DonutCategoryChart invoices={filteredInvoices} />
+          <SupplierChart invoices={filteredInvoices} />
         </div>
 
-        {/* Graphique des fournisseurs */}
-        <ParetoSupplierChart invoices={filteredInvoices} />
-
-        {/* Liste des factures filtrées */}
+        {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 
           invoices={filteredInvoices}
           onValidateInvoice={handleValidateInvoice}

@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
@@ -52,10 +52,29 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
     });
 
     return Array.from(supplierMap.entries())
-      .map(([name, amount]) => ({ name, amount }))
+      .map(([name, amount]) => ({ 
+        name: name.length > 15 ? name.substring(0, 15) + '...' : name, 
+        amount: Math.round(amount)
+      }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 10); // Top 10 fournisseurs
   }, [invoices]);
+
+  // Composant pour les labels au-dessus des barres
+  const CustomLabel = ({ x, y, width, value }: any) => {
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 5}
+        textAnchor="middle"
+        fontSize={12}
+        fill="#1e3a8a"
+        fontWeight="600"
+      >
+        {value.toLocaleString('fr-CH')}
+      </text>
+    );
+  };
 
   return (
     <Card>
@@ -64,11 +83,18 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[400px]">
-          <BarChart data={supplierData} layout="horizontal">
-            <XAxis type="number" />
-            <YAxis dataKey="name" type="category" width={150} />
+          <BarChart data={supplierData} margin={{ top: 40, right: 30, left: 20, bottom: 60 }}>
+            <XAxis 
+              dataKey="name" 
+              angle={-45} 
+              textAnchor="end" 
+              height={100}
+              interval={0}
+            />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="amount" fill="var(--color-amount)" name="Montant" />
+            <Bar dataKey="amount" fill="var(--color-amount)" name="Montant CHF">
+              <LabelList content={CustomLabel} />
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>

@@ -1,8 +1,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Edit, Trash2, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Download, Edit, Trash2, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -113,7 +114,6 @@ export function FilteredInvoiceList({
     return (
       <Card>
         <CardContent className="text-center py-8">
-          <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600">Aucune facture trouvée pour cette période</p>
         </CardContent>
       </Card>
@@ -126,101 +126,78 @@ export function FilteredInvoiceList({
         <CardTitle>Factures de la période ({invoices.length})</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {invoices.map((invoice) => (
-            <div key={invoice.id} className="border rounded-lg p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <div className="font-medium">
-                      {formatSupplierName(invoice.supplier_name)}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Créé {formatDistanceToNow(new Date(invoice.created_at), { 
-                        addSuffix: true, 
-                        locale: fr 
-                      })}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fournisseur</TableHead>
+              <TableHead>Compte</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Montant TTC</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {invoices.map((invoice) => (
+              <TableRow key={invoice.id}>
+                <TableCell className="font-medium">
+                  {formatSupplierName(invoice.supplier_name)}
+                </TableCell>
+                <TableCell>{invoice.compte || 'Commun'}</TableCell>
+                <TableCell>
+                  {invoice.invoice_date ? 
+                    new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 
+                    'N/A'
+                  }
+                </TableCell>
+                <TableCell className="font-semibold">
+                  {invoice.total_amount ? 
+                    `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
+                    'N/A'
+                  }
+                </TableCell>
+                <TableCell>
                   {getStatusBadge(invoice.status)}
-                </div>
-              </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {invoice.file_path && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onDownloadFile(invoice.file_path, invoice.original_filename)}
+                        className="flex items-center gap-1"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
+                    
+                    {(invoice.status === 'completed' || invoice.status === 'validated') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onValidateInvoice(invoice)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
 
-              {/* Informations essentielles */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
-                <div>
-                  <span className="font-medium text-gray-700">Compte:</span>
-                  <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Date facture:</span>
-                  <div className="text-gray-900">
-                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDeleteInvoice(invoice)}
+                      disabled={deletingInvoiceId === invoice.id}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Montant HT:</span>
-                  <div className="text-gray-900">
-                    {invoice.total_net ? 
-                      `${invoice.total_net.toFixed(2)} ${invoice.currency || 'EUR'}` : 
-                      'N/A'
-                    }
-                  </div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Montant TTC:</span>
-                  <div className="text-gray-900 font-semibold">
-                    {invoice.total_amount ? 
-                      `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
-                      'N/A'
-                    }
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-2 border-t">
-                {invoice.file_path && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onDownloadFile(invoice.file_path, invoice.original_filename)}
-                    className="flex items-center gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    Télécharger
-                  </Button>
-                )}
-                
-                {(invoice.status === 'completed' || invoice.status === 'validated') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onValidateInvoice(invoice)}
-                    className="flex items-center gap-1"
-                  >
-                    <Edit className="h-4 w-4" />
-                    {invoice.status === 'validated' ? 'Modifier' : 'Valider'}
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDeleteInvoice(invoice)}
-                  disabled={deletingInvoiceId === invoice.id}
-                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {deletingInvoiceId === invoice.id ? 'Suppression...' : 'Supprimer'}
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
