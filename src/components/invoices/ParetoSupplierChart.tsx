@@ -87,18 +87,20 @@ export function ParetoSupplierChart({ invoices }: ParetoSupplierChartProps) {
       <CardContent>
         <div className="space-y-4">
           <ChartContainer config={chartConfig} className="h-[400px]">
-            <ComposedChart data={chartData} layout="horizontal">
-              <XAxis type="number" />
-              <YAxis dataKey="name" type="category" width={150} />
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="amount" fill="var(--color-amount)" name="Montant" />
+              <Bar yAxisId="left" dataKey="amount" fill="var(--color-amount)" name="Montant" />
               <Line 
+                yAxisId="right"
                 type="monotone" 
                 dataKey="cumulativePercentage" 
                 stroke="var(--color-cumulative)" 
                 strokeWidth={2}
                 name="% Cumulé"
-                yAxisId="right"
+                dot={{ fill: "var(--color-cumulative)", strokeWidth: 2, r: 4 }}
               />
             </ComposedChart>
           </ChartContainer>
