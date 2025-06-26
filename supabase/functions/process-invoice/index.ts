@@ -58,6 +58,13 @@ serve(async (req) => {
   }
 
   try {
+    // Verify API key is available
+    const mindeeApiKey = Deno.env.get('MINDEE_API_KEY');
+    if (!mindeeApiKey) {
+      throw new Error('MINDEE_API_KEY is not configured in environment variables');
+    }
+    console.log('Mindee API key found and configured');
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -107,12 +114,13 @@ serve(async (req) => {
       ? 'https://api.mindee.net/v1/products/mindee/expense_receipts/v5/predict'
       : 'https://api.mindee.net/v1/products/mindee/invoices/v4/predict';
 
-    // Call Mindee API
-    console.log(`Calling Mindee API for ${documentType}...`);
+    // Call Mindee API with improved error handling
+    console.log(`Calling Mindee API for ${documentType} at endpoint: ${apiEndpoint}`);
+    
     const mindeeResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${Deno.env.get('MINDEE_API_KEY')}`,
+        'Authorization': `Token ${mindeeApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -120,8 +128,11 @@ serve(async (req) => {
       })
     });
 
+    console.log(`Mindee API response status: ${mindeeResponse.status} ${mindeeResponse.statusText}`);
+
     if (!mindeeResponse.ok) {
       const errorText = await mindeeResponse.text();
+      console.error(`Mindee API error details: ${errorText}`);
       throw new Error(`Mindee API error: ${mindeeResponse.status} ${mindeeResponse.statusText} - ${errorText}`)
     }
 
