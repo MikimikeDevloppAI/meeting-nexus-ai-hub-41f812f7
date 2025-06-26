@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
@@ -11,28 +12,42 @@ interface Invoice {
 
 interface MonthlyExpenseChartProps {
   invoices: Invoice[];
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 const chartConfig = {
   commun: {
     label: "Commun",
-    color: "#2563eb", // Bleu moderne
+    color: "#3b82f6", // Bleu standard
   },
   david: {
     label: "David Tabibian",
-    color: "#7c3aed", // Violet moderne
+    color: "#1d4ed8", // Bleu plus foncé
   },
   total: {
     label: "Tendance totale",
-    color: "#dc2626", // Rouge pour contraste
+    color: "#1e3a8a", // Bleu très foncé pour contraste
   },
 };
 
-export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
+export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpenseChartProps) {
   const monthlyData = useMemo(() => {
     const dataMap = new Map<string, { month: string; monthKey: string; commun: number; david: number }>();
 
-    invoices.forEach(invoice => {
+    // Filtrer les factures selon la période
+    const filteredInvoices = invoices.filter(invoice => {
+      if (!invoice.invoice_date) return false;
+      
+      const invoiceDate = new Date(invoice.invoice_date);
+      
+      if (dateFrom && invoiceDate < new Date(dateFrom)) return false;
+      if (dateTo && invoiceDate > new Date(dateTo)) return false;
+      
+      return true;
+    });
+
+    filteredInvoices.forEach(invoice => {
       if (!invoice.invoice_date || !invoice.total_amount) return;
 
       const date = new Date(invoice.invoice_date);
@@ -51,14 +66,16 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
       }
     });
 
-    // Créer une série complète de mois pour les 12 derniers mois
-    const now = new Date();
-    const completeData = [];
+    // Créer une série de mois pour la période sélectionnée
+    const startDate = dateFrom ? new Date(dateFrom) : new Date(Math.min(...filteredInvoices.map(inv => new Date(inv.invoice_date!).getTime())));
+    const endDate = dateTo ? new Date(dateTo) : new Date(Math.max(...filteredInvoices.map(inv => new Date(inv.invoice_date!).getTime())));
     
-    for (let i = 11; i >= 0; i--) {
-      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = targetDate.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
+    const completeData = [];
+    const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    
+    while (currentDate <= endDate) {
+      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = currentDate.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
       
       const existingData = dataMap.get(monthKey);
       if (existingData) {
@@ -75,10 +92,12 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
           total: 0
         });
       }
+      
+      currentDate.setMonth(currentDate.getMonth() + 1);
     }
 
     return completeData;
-  }, [invoices]);
+  }, [invoices, dateFrom, dateTo]);
 
   // Fonction pour formatter les montants en CHF avec séparateurs de milliers
   const formatAmount = (value: number): string => {
@@ -104,8 +123,8 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
           y={labelY - 8}
           width={textWidth}
           height={16}
-          fill="#f8fafc"
-          stroke="#e2e8f0"
+          fill="#eff6ff"
+          stroke="#bfdbfe"
           strokeWidth={1}
           rx={4}
           opacity={0.95}
@@ -115,7 +134,7 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
           y={labelY}
           textAnchor="middle"
           fontSize={10}
-          fill="#475569"
+          fill="#1e3a8a"
           fontWeight="600"
         >
           {formattedValue}

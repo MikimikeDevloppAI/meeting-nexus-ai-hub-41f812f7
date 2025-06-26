@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,10 +8,13 @@ import { CalendarIcon, DollarSign, FileText, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { InvoiceFilters } from "./InvoiceFilters";
 import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
-import { CategoryChart } from "./CategoryChart";
-import { SupplierChart } from "./SupplierChart";
+import { DonutCategoryChart } from "./DonutCategoryChart";
+import { ParetoSupplierChart } from "./ParetoSupplierChart";
+import { FilteredInvoiceList } from "./FilteredInvoiceList";
+import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface InvoiceDashboardProps {
   onClose: () => void;
@@ -28,6 +32,9 @@ interface Invoice {
   purchase_subcategory?: string;
   status: string;
   created_at: string;
+  original_filename: string;
+  file_path: string;
+  error_message?: string;
 }
 
 interface DashboardFilters {
@@ -39,8 +46,11 @@ interface DashboardFilters {
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const [filters, setFilters] = useState<DashboardFilters>({});
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
-  const { data: invoices, isLoading } = useQuery({
+  const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-invoices'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -132,37 +142,107 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     return `${Math.round(amount).toLocaleString('fr-CH')} CHF`;
   };
 
+  // Handlers for invoice actions
+  const handleValidateInvoice = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setValidationDialogOpen(true);
+  };
+
+  const handleValidationComplete = () => {
+    refetch();
+  };
+
+  const downloadFile = async (filePath: string, filename: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('invoices')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const deleteInvoice = async (invoice: Invoice) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la facture "${invoice.original_filename}" ?`)) {
+      return;
+    }
+
+    setDeletingInvoiceId(invoice.id);
+    
+    try {
+      const { error: dbError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoice.id);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      if (invoice.file_path) {
+        try {
+          const { error: storageError } = await supabase.storage
+            .from('invoices')
+            .remove([invoice.file_path]);
+
+          if (storageError) {
+            console.warn('Storage deletion warning (continuing anyway):', storageError);
+          }
+        } catch (storageError) {
+          console.warn('Storage deletion error (continuing anyway):', storageError);
+        }
+      }
+
+      toast.success(`Facture "${invoice.original_filename}" supprimée avec succès`);
+      await refetch();
+      
+    } catch (error) {
+      console.error('Error during deletion process:', error);
+      toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setDeletingInvoiceId(null);
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center py-8">Chargement du dashboard...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Dashboard Factures</h2>
-          <p className="text-muted-foreground">
-            Analyse et statistiques de vos factures
-          </p>
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Dashboard Factures</h2>
+            <p className="text-muted-foreground">
+              Analyse et statistiques de vos factures
+            </p>
+          </div>
+          <Button variant="outline" onClick={onClose} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Retour
+          </Button>
         </div>
-        <Button variant="outline" onClick={onClose} className="flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Retour
-        </Button>
-      </div>
 
-      {/* Filtres avec boutons de date */}
-      <div className="space-y-4">
-        <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
-        
         {/* Boutons de filtre de date */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-4">
               <Button 
                 variant={!filters.dateFrom && !filters.dateTo ? "default" : "outline"}
                 onClick={() => setDateFilter('all')}
@@ -170,72 +250,97 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
                 Toutes périodes
               </Button>
               <Button 
-                variant={filters.dateFrom && filters.dateFrom.includes(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')) ? "default" : "outline"}
+                variant={filters.dateFrom && filters.dateFrom.includes(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')) && filters.dateTo ? "default" : "outline"}
                 onClick={() => setDateFilter('mtd')}
               >
                 Mois en cours
               </Button>
               <Button 
-                variant={filters.dateFrom && filters.dateFrom.startsWith(new Date().getFullYear().toString()) ? "default" : "outline"}
+                variant={filters.dateFrom && filters.dateFrom.startsWith(new Date().getFullYear().toString()) && !filters.dateFrom.includes(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')) ? "default" : "outline"}
                 onClick={() => setDateFilter('ytd')}
               >
                 Année en cours
               </Button>
             </div>
+            
+            {/* Filtres existants */}
+            <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
           </CardContent>
         </Card>
+
+        {/* Statistiques principales */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatAmount(stats.totalAmount)}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.invoiceCount} facture{stats.invoiceCount > 1 ? 's' : ''}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Compte Commun</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
+              <p className="text-xs text-muted-foreground">
+                Dépenses communes
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
+              <p className="text-xs text-muted-foreground">
+                Dépenses personnelles
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Graphiques */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MonthlyExpenseChart 
+            invoices={filteredInvoices} 
+            dateFrom={filters.dateFrom}
+            dateTo={filters.dateTo}
+          />
+          <DonutCategoryChart invoices={filteredInvoices} />
+        </div>
+
+        {/* Graphique des fournisseurs */}
+        <ParetoSupplierChart invoices={filteredInvoices} />
+
+        {/* Liste des factures filtrées */}
+        <FilteredInvoiceList 
+          invoices={filteredInvoices}
+          onValidateInvoice={handleValidateInvoice}
+          onDeleteInvoice={deleteInvoice}
+          onDownloadFile={downloadFile}
+          deletingInvoiceId={deletingInvoiceId}
+        />
       </div>
 
-      {/* Statistiques principales - sans Total HT */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(stats.totalAmount)}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.invoiceCount} facture{stats.invoiceCount > 1 ? 's' : ''}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Compte Commun</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
-            <p className="text-xs text-muted-foreground">
-              Dépenses communes
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
-            <p className="text-xs text-muted-foreground">
-              Dépenses personnelles
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <MonthlyExpenseChart invoices={filteredInvoices} />
-        <CategoryChart invoices={filteredInvoices} />
-      </div>
-
-      {/* Graphique des fournisseurs */}
-      <SupplierChart invoices={filteredInvoices} />
-    </div>
+      {selectedInvoice && (
+        <InvoiceValidationDialog
+          invoice={selectedInvoice}
+          open={validationDialogOpen}
+          onOpenChange={setValidationDialogOpen}
+          onValidated={handleValidationComplete}
+        />
+      )}
+    </>
   );
 }
