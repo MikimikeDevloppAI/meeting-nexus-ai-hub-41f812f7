@@ -17,15 +17,15 @@ interface MonthlyExpenseChartProps {
 const chartConfig = {
   commun: {
     label: "Commun",
-    color: "#10b981",
+    color: "#3b82f6", // Bleu foncé
   },
   david: {
     label: "David Tabibian",
-    color: "#3b82f6",
+    color: "#60a5fa", // Bleu plus clair
   },
   total: {
     label: "Tendance totale",
-    color: "#8b5cf6", // Nouvelle couleur violette
+    color: "#1e40af", // Bleu très foncé pour la courbe
   },
 };
 
@@ -87,20 +87,23 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
     return `${Math.round(value).toLocaleString('fr-CH')} CHF`;
   };
 
-  // Composant personnalisé pour les labels de la courbe de tendance avec background
+  // Composant personnalisé pour les labels de la courbe de tendance avec background centré
   const TrendLineLabel = ({ x, y, value }: any) => {
     if (!value || value === 0) return null;
     
     const formattedValue = formatAmount(value);
     const labelX = x;
-    const labelY = y - 25; // Plus d'espace au-dessus de la courbe
+    const labelY = y - 25;
+    
+    // Calculer la largeur du texte plus précisément
+    const textWidth = formattedValue.length * 5.5;
     
     return (
       <g>
         <rect
-          x={labelX - formattedValue.length * 3}
+          x={labelX - textWidth / 2}
           y={labelY - 8}
-          width={formattedValue.length * 6}
+          width={textWidth}
           height={16}
           fill="#f8fafc"
           stroke="#e2e8f0"
@@ -122,6 +125,29 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
     );
   };
 
+  // Composant personnalisé pour les labels des barres (à l'intérieur)
+  const BarLabel = ({ x, y, width, height, value }: any) => {
+    if (!value || value === 0) return null;
+    
+    const formattedValue = formatAmount(value);
+    const labelX = x + width / 2;
+    const labelY = y + height / 2;
+    
+    return (
+      <text
+        x={labelX}
+        y={labelY}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={9}
+        fill="white"
+        fontWeight="600"
+      >
+        {formattedValue}
+      </text>
+    );
+  };
+
   return (
     <Card className="col-span-full">
       <CardHeader>
@@ -132,8 +158,12 @@ export function MonthlyExpenseChart({ invoices }: MonthlyExpenseChartProps) {
           <ComposedChart data={monthlyData} margin={{ top: 50, right: 30, left: 20, bottom: 5 }}>
             <XAxis dataKey="month" />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
-            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
+            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun">
+              <LabelList content={BarLabel} />
+            </Bar>
+            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian">
+              <LabelList content={BarLabel} />
+            </Bar>
             <Line 
               type="monotone" 
               dataKey="total" 
