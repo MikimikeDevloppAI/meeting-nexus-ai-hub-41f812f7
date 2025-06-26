@@ -1,9 +1,10 @@
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, DollarSign, FileText, ArrowLeft } from "lucide-react";
+import { CalendarIcon, DollarSign, FileText, ArrowLeft, Users, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { InvoiceFilters } from "./InvoiceFilters";
 import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
@@ -44,7 +45,7 @@ interface DashboardFilters {
 }
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
-  // Initialiser avec "année en cours" par défaut
+  // Initialiser avec "année en cours" par défaut - CORRIGÉ
   const getDefaultFilters = (): DashboardFilters => {
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1); // Premier jour de l'année
@@ -73,7 +74,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   });
 
-  // Fonctions pour les filtres de date - CORRIGÉES
+  // Fonctions pour les filtres de date - CORRIGÉES pour prendre le premier jour
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     let dateFrom: string | undefined;
@@ -269,7 +270,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </Button>
         </div>
 
-        {/* Boutons de filtre de date - ORDRE MODIFIÉ */}
+        {/* Boutons de filtre de date - ORDRE MODIFIÉ : Année en cours, Mois en cours, Toute période */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
@@ -301,8 +302,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Statistiques principales - Seulement 2 cartes maintenant */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Statistiques principales - 3 cartes maintenant */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
@@ -319,12 +320,25 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Compte Commun</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
               <p className="text-xs text-muted-foreground">
-                vs {formatAmount(stats.davidAmount)} David Tabibian
+                {Math.round((stats.communAmount / stats.totalAmount) * 100)}% du total
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
+              <UserCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
+              <p className="text-xs text-muted-foreground">
+                {Math.round((stats.davidAmount / stats.totalAmount) * 100)}% du total
               </p>
             </CardContent>
           </Card>

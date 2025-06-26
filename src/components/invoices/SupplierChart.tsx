@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
+import { BarChart, Bar, XAxis, ResponsiveContainer, LabelList } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
@@ -60,26 +60,44 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
       .slice(0, 10); // Top 10 fournisseurs
   }, [invoices]);
 
-  // Composant pour les labels au-dessus des barres
+  // Composant pour les labels au-dessus des barres avec style amélioré
   const CustomLabel = ({ x, y, width, value }: any) => {
+    const labelX = x + width / 2;
+    const labelY = y - 8;
+    const formattedValue = value.toLocaleString('fr-CH');
+    const textWidth = formattedValue.length * 6;
+    
     return (
-      <text
-        x={x + width / 2}
-        y={y - 5}
-        textAnchor="middle"
-        fontSize={11}
-        fill="#1e3a8a"
-        fontWeight="600"
-      >
-        {value.toLocaleString('fr-CH')}
-      </text>
+      <g>
+        <rect
+          x={labelX - textWidth / 2}
+          y={labelY - 12}
+          width={textWidth}
+          height={20}
+          fill="#f3f4f6"
+          stroke="#d1d5db"
+          strokeWidth={1}
+          rx={4}
+          opacity={0.95}
+        />
+        <text
+          x={labelX}
+          y={labelY}
+          textAnchor="middle"
+          fontSize={11}
+          fill="#1e40af"
+          fontWeight="600"
+        >
+          {formattedValue}
+        </text>
+      </g>
     );
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Top 10 Fournisseurs</CardTitle>
+        <CardTitle>Répartition des fournisseurs</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="w-full overflow-x-auto">

@@ -105,13 +105,13 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
     return `${Math.round(value).toLocaleString('fr-CH')} CHF`;
   };
 
-  // Composant personnalisé pour les labels de la courbe de tendance avec background centré
-  const TrendLineLabel = ({ x, y, value }: any) => {
+  // Composant personnalisé pour les labels de la courbe de tendance avec background centré et alignement corrigé
+  const TrendLineLabel = ({ x, y, value, viewBox }: any) => {
     if (!value || value === 0) return null;
     
     const formattedValue = formatAmount(value);
     const labelX = x;
-    const labelY = y - 25;
+    const labelY = y - 20; // Ajusté pour être mieux centré
     
     // Calculer la largeur du texte plus précisément
     const textWidth = formattedValue.length * 5.5;
@@ -120,11 +120,11 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
       <g>
         <rect
           x={labelX - textWidth / 2}
-          y={labelY - 8}
+          y={labelY - 10}
           width={textWidth}
-          height={16}
-          fill="#eff6ff"
-          stroke="#bfdbfe"
+          height={20}
+          fill="#f3f4f6"
+          stroke="#d1d5db"
           strokeWidth={1}
           rx={4}
           opacity={0.95}
@@ -134,7 +134,7 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
           y={labelY}
           textAnchor="middle"
           fontSize={10}
-          fill="#1e3a8a"
+          fill="#1e40af"
           fontWeight="600"
         >
           {formattedValue}
