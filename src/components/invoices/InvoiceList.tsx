@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -200,7 +199,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   <div>
                     <CardTitle className="text-base">{invoice.original_filename}</CardTitle>
                     <div className="text-sm text-gray-500 mt-1">
-                      Uploadé {formatDistanceToNow(new Date(invoice.created_at), { 
+                      Créé {formatDistanceToNow(new Date(invoice.created_at), { 
                         addSuffix: true, 
                         locale: fr 
                       })}
@@ -211,68 +210,37 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Allocation */}
-              <div className="flex items-center gap-4 text-sm">
-                <span className="font-medium">Répartition:</span>
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                  David: {invoice.david_percentage}%
-                </span>
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                  Cabinet: {invoice.cabinet_percentage}%
-                </span>
-              </div>
-
-              {/* Extracted Data */}
-              {(invoice.status === 'completed' || invoice.status === 'validated') && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm border-t pt-4">
-                  <div>
-                    <span className="font-medium">N° Facture:</span>
-                    <span className="ml-2">{invoice.invoice_number || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Date:</span>
-                    <span className="ml-2">
-                      {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Fournisseur:</span>
-                    <span className="ml-2">{invoice.supplier_name || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Montant:</span>
-                    <span className="ml-2">
-                      {invoice.total_amount ? 
-                        `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
-                        'N/A'
-                      }
-                    </span>
-                  </div>
-                  {invoice.supplier_iban && (
-                    <div>
-                      <span className="font-medium">IBAN:</span>
-                      <span className="ml-2">{invoice.supplier_iban}</span>
-                    </div>
-                  )}
-                  {invoice.line_items && Array.isArray(invoice.line_items) && invoice.line_items.length > 0 && (
-                    <div className="md:col-span-2">
-                      <span className="font-medium">Articles:</span>
-                      <div className="ml-2 mt-1 space-y-1">
-                        {invoice.line_items.slice(0, 2).map((item: any, index: number) => (
-                          <div key={index} className="text-xs bg-gray-50 p-2 rounded">
-                            {item.description} {item.total_amount && `- ${item.total_amount} ${invoice.currency || 'EUR'}`}
-                          </div>
-                        ))}
-                        {invoice.line_items.length > 2 && (
-                          <div className="text-xs text-gray-500">
-                            +{invoice.line_items.length - 2} article(s) supplémentaire(s)
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              {/* Informations essentielles */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Fournisseur:</span>
+                  <span className="ml-2">{invoice.supplier_name || 'N/A'}</span>
                 </div>
-              )}
+                <div>
+                  <span className="font-medium">Date facture:</span>
+                  <span className="ml-2">
+                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Montant HT:</span>
+                  <span className="ml-2">
+                    {invoice.total_net ? 
+                      `${invoice.total_net.toFixed(2)} ${invoice.currency || 'EUR'}` : 
+                      'N/A'
+                    }
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Montant TTC:</span>
+                  <span className="ml-2">
+                    {invoice.total_amount ? 
+                      `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
+                      'N/A'
+                    }
+                  </span>
+                </div>
+              </div>
 
               {/* Error Message */}
               {invoice.status === 'error' && invoice.error_message && (
@@ -287,15 +255,17 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-2 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadFile(invoice.file_path, invoice.original_filename)}
-                  className="flex items-center gap-1"
-                >
-                  <Download className="h-4 w-4" />
-                  Télécharger
-                </Button>
+                {invoice.file_path && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadFile(invoice.file_path, invoice.original_filename)}
+                    className="flex items-center gap-1"
+                  >
+                    <Download className="h-4 w-4" />
+                    Télécharger
+                  </Button>
+                )}
                 
                 {invoice.status === 'completed' && (
                   <Button
