@@ -42,6 +42,19 @@ interface InvoiceListProps {
   refreshKey: number;
 }
 
+// Helper function to properly decode and display supplier names
+const formatSupplierName = (supplierName?: string): string => {
+  if (!supplierName) return 'N/A';
+  
+  // Decode HTML entities if present
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = supplierName;
+  const decoded = textarea.value;
+  
+  // Return the properly formatted name
+  return decoded || supplierName;
+};
+
 export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -197,7 +210,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-blue-600" />
                   <div>
-                    <CardTitle className="text-base">{invoice.original_filename}</CardTitle>
+                    <CardTitle className="text-base">
+                      {formatSupplierName(invoice.supplier_name)}
+                    </CardTitle>
                     <div className="text-sm text-gray-500 mt-1">
                       Créé {formatDistanceToNow(new Date(invoice.created_at), { 
                         addSuffix: true, 
@@ -212,10 +227,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             <CardContent className="space-y-4">
               {/* Informations essentielles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Fournisseur:</span>
-                  <span className="ml-2">{invoice.supplier_name || 'N/A'}</span>
-                </div>
                 <div>
                   <span className="font-medium">Date facture:</span>
                   <span className="ml-2">
