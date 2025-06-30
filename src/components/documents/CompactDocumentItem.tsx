@@ -39,7 +39,6 @@ export const CompactDocumentItem = ({
   };
 
   const isMeeting = document.type === 'meeting';
-  // Utilisation directe de document.processed sans état local
   const isProcessing = !document.processed && !isMeeting;
 
   const handlePlayAudio = () => {
@@ -134,12 +133,6 @@ export const CompactDocumentItem = ({
               <span className="flex-shrink-0">
                 {new Date(document.created_at).toLocaleDateString('fr-FR')}
               </span>
-              {/* Debug info en dev mode */}
-              {process.env.NODE_ENV === 'development' && (
-                <span className="text-xs text-gray-400">
-                  (processed: {document.processed ? 'true' : 'false'})
-                </span>
-              )}
             </div>
           </div>
           
