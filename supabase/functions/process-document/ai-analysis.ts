@@ -43,9 +43,10 @@ export async function generateDocumentAnalysis(
 DÉTECTION DE LANGUE OBLIGATOIRE :
 - Tu DOIS d'abord identifier la langue principale du document
 - Si le document N'EST PAS en français, tu DOIS :
-  1. Inclure la langue détectée dans le nom suggéré : "[LANGUE] - Nom du document"
+  1. Inclure la langue détectée dans le nom suggéré au format : "Langue du document: Nom du document" (exemple: "Anglais: Medical Report" ou "Allemand: Technische Spezifikation")
   2. Mentionner la langue dans le résumé : "Document rédigé en [langue]. [reste du résumé]"
-- Langues possibles : français, anglais, allemand, italien, espagnol, portugais, néerlandais, etc.
+- Langues en toutes lettres : Français, Anglais, Allemand, Italien, Espagnol, Portugais, Néerlandais, etc.
+- Si le document EST en français, N'AJOUTE PAS de préfixe de langue au nom
 
 CATÉGORIES OBLIGATOIRES - Tu DOIS choisir parmi ces catégories uniquement :
 - "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs${isExcelFile ? ', budgets, plannings, rapports de gestion, données administratives en tableau' : ''}
@@ -82,17 +83,21 @@ IMPORTANT pour les mots-clés :
 - Maximum 4 mots-clés par document
 ${isExcelFile ? '- Pour Excel : utilise des mots-clés spécifiques au contenu (ex: "planning", "budget", "inventaire", "contacts")' : ''}
 
+RÈGLES DE NOMMAGE :
+- Si le document est en FRANÇAIS : nom simple et descriptif (ex: "Rapport médical janvier 2024")
+- Si le document N'EST PAS en français : "Langue: Nom du document" (ex: "Anglais: Medical Report January 2024", "Allemand: Technische Dokumentation")
+
 Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
-  "suggestedName": "nom descriptif et professionnel du document (avec préfixe langue si non-français)",
-  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal${isExcelFile ? ' et la structure des données' : ''} (avec mention de langue si non-français)",
+  "suggestedName": "nom descriptif et professionnel du document (avec préfixe langue SEULEMENT si non-français)",
+  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal${isExcelFile ? ' et la structure des données' : ''} (avec mention de langue SEULEMENT si non-français)",
   "taxonomy": {
     "category": "UNE DES 6 CATÉGORIES OBLIGATOIRES CI-DESSUS",
     "subcategory": "sous-catégorie spécifique",
     "keywords": ["mot-clé1", "mot-clé2", "mot-clé3", "mot-clé4"],
     "documentType": "type précis du document${isExcelFile ? ' (ex: tableau Excel, base de données, planning)' : ''}"
   },
-  "detectedLanguage": "langue détectée (français, anglais, allemand, etc.)"
+  "detectedLanguage": "langue détectée (Français, Anglais, Allemand, etc.)"
 }`
         },
         {
@@ -107,7 +112,11 @@ ${text.substring(0, 4000)}${text.length > 4000 ? '...' : ''}
 
 ${isExcelFile ? 'ATTENTION: Ce fichier Excel contient des données structurées en tableau. Analyse le contenu pour déterminer s\'il s\'agit de contacts, planning, budget, inventaire, etc.' : ''}
 
-IMPORTANT: Détecte d'abord la langue du document et adapte le nom et résumé en conséquence si ce n'est pas du français.
+IMPORTANT: 
+- Détecte d'abord la langue du document
+- Si c'est du français, n'ajoute PAS de préfixe de langue au nom
+- Si ce N'EST PAS du français, ajoute "Langue: " au début du nom (ex: "Anglais: Document Title")
+- Mentionne la langue dans le résumé SEULEMENT si ce n'est pas du français
 
 Retournez UNIQUEMENT le JSON de l'analyse.`
         }
@@ -209,6 +218,6 @@ export function createFallbackAnalysis(document: any): DocumentAnalysis {
       keywords: [isExcelFile ? "tableau" : "document"],
       documentType: isExcelFile ? "Fichier Excel" : "Fichier uploadé"
     },
-    detectedLanguage: "français"
+    detectedLanguage: "Français"
   };
 }

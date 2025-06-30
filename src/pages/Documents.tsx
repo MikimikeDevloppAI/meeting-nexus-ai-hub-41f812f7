@@ -16,6 +16,7 @@ import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { getDocumentDownloadUrl } from "@/lib/utils";
 import { ensureDocumentsBucket } from "@/lib/storage";
+import { cleanFileName } from "@/utils/fileUtils";
 
 interface SearchFilters {
   query: string;
@@ -51,36 +52,30 @@ const Documents = () => {
   const uploadSingleFile = async (file: File): Promise<string> => {
     const fileId = crypto.randomUUID();
     
-    // Nettoyer le nom de fichier
-    const cleanFileName = file.name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9.-]/g, '_')
-      .replace(/_{2,}/g, '_')
-      .toLowerCase();
+    // Utiliser un nom temporaire pendant l'upload initial
+    const tempFileName = cleanFileName(file.name);
+    const tempFilePath = `temp_${fileId}_${tempFileName}`;
     
-    const filePath = `${fileId}-${cleanFileName}`;
+    console.log('📤 Upload temporaire du fichier:', tempFilePath);
     
-    console.log('📤 Upload du fichier:', filePath);
-    
-    // Upload to storage
+    // Upload to storage avec nom temporaire
     const { error: uploadError } = await supabase.storage
       .from('documents')
-      .upload(filePath, file);
+      .upload(tempFilePath, file);
 
     if (uploadError) {
       console.error('❌ Erreur upload storage:', uploadError);
       throw uploadError;
     }
 
-    console.log('✅ Fichier uploadé, création de l\'enregistrement...');
+    console.log('✅ Fichier uploadé temporairement, création de l\'enregistrement...');
 
-    // Create document record
+    // Create document record avec le chemin temporaire
     const { data: document, error: dbError } = await supabase
       .from('uploaded_documents')
       .insert({
         original_name: file.name,
-        file_path: filePath,
+        file_path: tempFilePath,
         file_size: file.size,
         content_type: file.type,
       })
@@ -215,7 +210,7 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // Écouter les mises à jour pour détecter la fin de traitement
+  // Écouter les mises à jour pour détecter la fin de traitement ET renommer les fichiers
   useEffect(() => {
     if (uploadQueue.length === 0) return;
 
@@ -230,9 +225,43 @@ const Documents = () => {
           schema: 'public',
           table: 'uploaded_documents'
         },
-        (payload) => {
+        async (payload) => {
           const updatedDoc = payload.new;
           console.log('📄 Document uploaded_documents mis à jour:', updatedDoc);
+          
+          // Si le document a été traité et a un nom AI généré, renommer le fichier
+          if (updatedDoc.processed && updatedDoc.ai_generated_name && updatedDoc.file_path?.startsWith('temp_')) {
+            console.log('🔄 Renommage du fichier avec le titre AI...');
+            
+            try {
+              // Créer le nouveau nom de fichier basé sur le titre AI
+              const extension = updatedDoc.original_name.split('.').pop();
+              const newFileName = cleanFileName(`${updatedDoc.ai_generated_name}.${extension}`);
+              const newFilePath = newFileName;
+              
+              // Copier le fichier avec le nouveau nom
+              const { error: copyError } = await supabase.storage
+                .from('documents')
+                .copy(updatedDoc.file_path, newFilePath);
+              
+              if (!copyError) {
+                // Supprimer l'ancien fichier temporaire
+                await supabase.storage
+                  .from('documents')
+                  .remove([updatedDoc.file_path]);
+                
+                // Mettre à jour le chemin dans la base de données
+                await supabase
+                  .from('uploaded_documents')
+                  .update({ file_path: newFilePath })
+                  .eq('id', updatedDoc.id);
+                
+                console.log('✅ Fichier renommé:', newFilePath);
+              }
+            } catch (error) {
+              console.error('❌ Erreur lors du renommage:', error);
+            }
+          }
           
           // Trouver le document dans la queue par ID
           const queueIndex = uploadQueue.findIndex(item => item.documentId === updatedDoc.id);
