@@ -10,6 +10,7 @@ export interface DocumentAnalysis {
     keywords: string[];
     documentType: string;
   };
+  detectedLanguage?: string;
 }
 
 export async function generateDocumentAnalysis(
@@ -38,6 +39,13 @@ export async function generateDocumentAnalysis(
         {
           role: 'system',
           content: `Tu es un expert en analyse de documents médicaux et administratifs${isExcelFile ? ', avec une spécialisation dans l\'analyse de données Excel et tableaux' : ''}. 
+
+DÉTECTION DE LANGUE OBLIGATOIRE :
+- Tu DOIS d'abord identifier la langue principale du document
+- Si le document N'EST PAS en français, tu DOIS :
+  1. Inclure la langue détectée dans le nom suggéré : "[LANGUE] - Nom du document"
+  2. Mentionner la langue dans le résumé : "Document rédigé en [langue]. [reste du résumé]"
+- Langues possibles : français, anglais, allemand, italien, espagnol, portugais, néerlandais, etc.
 
 CATÉGORIES OBLIGATOIRES - Tu DOIS choisir parmi ces catégories uniquement :
 - "Administratif" : Documents officiels, formulaires, autorisations, courriers administratifs${isExcelFile ? ', budgets, plannings, rapports de gestion, données administratives en tableau' : ''}
@@ -76,19 +84,20 @@ ${isExcelFile ? '- Pour Excel : utilise des mots-clés spécifiques au contenu (
 
 Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
-  "suggestedName": "nom descriptif et professionnel du document",
-  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal${isExcelFile ? ' et la structure des données' : ''}",
+  "suggestedName": "nom descriptif et professionnel du document (avec préfixe langue si non-français)",
+  "summary": "résumé détaillé en 3-4 phrases décrivant le contenu principal${isExcelFile ? ' et la structure des données' : ''} (avec mention de langue si non-français)",
   "taxonomy": {
     "category": "UNE DES 6 CATÉGORIES OBLIGATOIRES CI-DESSUS",
     "subcategory": "sous-catégorie spécifique",
     "keywords": ["mot-clé1", "mot-clé2", "mot-clé3", "mot-clé4"],
     "documentType": "type précis du document${isExcelFile ? ' (ex: tableau Excel, base de données, planning)' : ''}"
-  }
+  },
+  "detectedLanguage": "langue détectée (français, anglais, allemand, etc.)"
 }`
         },
         {
           role: 'user',
-          content: `Analysez ce document:
+          content: `Analysez ce document en détectant d'abord sa langue principale:
 
 Nom du fichier: ${document.original_name}
 Type de fichier: ${document.content_type}${isExcelFile ? ' (Fichier Excel - données tabulaires)' : ''}
@@ -97,6 +106,8 @@ Contenu du document:
 ${text.substring(0, 4000)}${text.length > 4000 ? '...' : ''}
 
 ${isExcelFile ? 'ATTENTION: Ce fichier Excel contient des données structurées en tableau. Analyse le contenu pour déterminer s\'il s\'agit de contacts, planning, budget, inventaire, etc.' : ''}
+
+IMPORTANT: Détecte d'abord la langue du document et adapte le nom et résumé en conséquence si ce n'est pas du français.
 
 Retournez UNIQUEMENT le JSON de l'analyse.`
         }
@@ -140,6 +151,11 @@ Retournez UNIQUEMENT le JSON de l'analyse.`
     if (!validCategories.includes(parsed.taxonomy.category)) {
       console.warn(`Catégorie invalide détectée: ${parsed.taxonomy.category}, utilisation de "Administratif" par défaut`);
       parsed.taxonomy.category = "Administratif";
+    }
+    
+    // Log de la langue détectée
+    if (parsed.detectedLanguage && parsed.detectedLanguage.toLowerCase() !== 'français') {
+      console.log(`🌐 Document en ${parsed.detectedLanguage} détecté`);
     }
     
     console.log('✅ AI analysis completed successfully');
@@ -192,6 +208,7 @@ export function createFallbackAnalysis(document: any): DocumentAnalysis {
       subcategory: isExcelFile ? "Données tabulaires" : "Document général",
       keywords: [isExcelFile ? "tableau" : "document"],
       documentType: isExcelFile ? "Fichier Excel" : "Fichier uploadé"
-    }
+    },
+    detectedLanguage: "français"
   };
 }
