@@ -46,55 +46,6 @@ const Documents = () => {
 
   const { documents, isLoading, refetch, forceRefresh, refreshKey } = useUnifiedDocuments();
 
-  // Configuration du dropzone
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: useCallback((acceptedFiles: File[]) => {
-      if (!storageReady) {
-        toast({
-          title: "Storage non accessible",
-          description: "Le système de stockage n'est pas disponible.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (acceptedFiles.length > 0) {
-        processUploadQueue(acceptedFiles);
-      }
-    }, [storageReady, processUploadQueue, toast]),
-    accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
-    },
-    disabled: isProcessingQueue || !storageReady
-  });
-
-  // Vérifier le storage au chargement
-  useEffect(() => {
-    const checkStorage = async () => {
-      setIsCheckingStorage(true);
-      const ready = await ensureDocumentsBucket();
-      setStorageReady(ready);
-      setIsCheckingStorage(false);
-      
-      if (!ready) {
-        toast({
-          title: "Problème de storage",
-          description: "Le système de stockage n'est pas accessible. Vérifiez la console pour plus de détails.",
-          variant: "destructive",
-        });
-      }
-    };
-    
-    checkStorage();
-  }, [toast]);
-
   // Fonction pour traiter un seul fichier
   const uploadSingleFile = async (file: File): Promise<string> => {
     const fileId = crypto.randomUUID();
@@ -219,6 +170,55 @@ const Documents = () => {
     setPendingDocumentIds(uploadedDocumentIds);
     console.log(`📋 ${uploadedDocumentIds.size} documents en attente de traitement:`, Array.from(uploadedDocumentIds));
   };
+
+  // Configuration du dropzone
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: useCallback((acceptedFiles: File[]) => {
+      if (!storageReady) {
+        toast({
+          title: "Storage non accessible",
+          description: "Le système de stockage n'est pas disponible.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (acceptedFiles.length > 0) {
+        processUploadQueue(acceptedFiles);
+      }
+    }, [storageReady, processUploadQueue, toast]),
+    accept: {
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+    },
+    disabled: isProcessingQueue || !storageReady
+  });
+
+  // Vérifier le storage au chargement
+  useEffect(() => {
+    const checkStorage = async () => {
+      setIsCheckingStorage(true);
+      const ready = await ensureDocumentsBucket();
+      setStorageReady(ready);
+      setIsCheckingStorage(false);
+      
+      if (!ready) {
+        toast({
+          title: "Problème de storage",
+          description: "Le système de stockage n'est pas accessible. Vérifiez la console pour plus de détails.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    checkStorage();
+  }, [toast]);
 
   // Écouter les mises à jour des documents pour détecter la fin de traitement
   useEffect(() => {
