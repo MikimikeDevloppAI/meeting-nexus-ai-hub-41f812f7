@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { FileText, Upload, Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,35 @@ const Documents = () => {
   const navigate = useNavigate();
 
   const { documents, isLoading, refetch, forceRefresh, refreshKey } = useUnifiedDocuments();
+
+  // Configuration du dropzone
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: useCallback((acceptedFiles: File[]) => {
+      if (!storageReady) {
+        toast({
+          title: "Storage non accessible",
+          description: "Le système de stockage n'est pas disponible.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (acceptedFiles.length > 0) {
+        processUploadQueue(acceptedFiles);
+      }
+    }, [storageReady, processUploadQueue, toast]),
+    accept: {
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+    },
+    disabled: isProcessingQueue || !storageReady
+  });
 
   // Vérifier le storage au chargement
   useEffect(() => {
@@ -411,6 +440,14 @@ const Documents = () => {
     forceRefresh();
   };
 
+  const handleManualRefresh = () => {
+    forceRefresh();
+    toast({
+      title: "Actualisation",
+      description: "La liste des documents et meetings a été actualisée.",
+    });
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="mb-4">
@@ -465,14 +502,7 @@ const Documents = () => {
           {/* Affichage de la queue d'upload */}
           {uploadQueue.length > 0 && (
             <div className="mt-4 space-y-2">
-              <h4 className="font-medium text-sm">
-                Progression des uploads :
-                {pendingDocumentIds.size > 0 && (
-                  <span className="text-blue-600 ml-2">
-                    ({pendingDocumentIds.size} en cours de traitement)
-                  </span>
-                )}
-              </h4>
+              <h4 className="font-medium text-sm">Progression des uploads :</h4>
               {uploadQueue.map((item, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-shrink-0">
@@ -529,20 +559,31 @@ const Documents = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Documents & Meetings 
-            {filteredDocuments.length !== documents?.length && (
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({filteredDocuments.length} sur {documents?.length} éléments)
-              </span>
-            )}
-            <span className="text-xs text-gray-400 ml-2">
-              (refresh: {refreshKey})
-            </span>
-          </CardTitle>
-          <CardDescription>
-            Vue unifiée de vos documents uploadés et meetings transcrits. Traitement séquentiel des uploads multiples.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                Documents & Meetings 
+                {filteredDocuments.length !== documents?.length && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    ({filteredDocuments.length} sur {documents?.length} éléments)
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Vue unifiée de vos documents uploadés et meetings transcrits. Traitement séquentiel des uploads multiples.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
