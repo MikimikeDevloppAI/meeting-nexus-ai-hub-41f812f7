@@ -1,4 +1,3 @@
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
@@ -80,13 +79,7 @@ export const CompactDocumentItem = ({
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   En traitement...
                 </Badge>
-              ) : (
-                document.processed && (
-                  <Badge variant="default" className="bg-green-500 text-white text-xs">
-                    Traité
-                  </Badge>
-                )
-              )}
+              ) : null}
 
               {isMeeting && document.participants && document.participants.length > 0 && (
                 <Badge variant="outline" className="bg-orange-50 text-xs">
