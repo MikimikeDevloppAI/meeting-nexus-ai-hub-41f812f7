@@ -35,7 +35,7 @@ const Documents = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { documents, isLoading, refetch } = useUnifiedDocuments();
+  const { documents, isLoading, refetch, forceRefresh } = useUnifiedDocuments();
 
   // Vérifier le storage au chargement
   useEffect(() => {
@@ -125,7 +125,7 @@ const Documents = () => {
       return document;
     },
     onSuccess: () => {
-      refetch();
+      forceRefresh();
       toast({
         title: "Document uploadé",
         description: "Le traitement du document a démarré.",
@@ -186,8 +186,9 @@ const Documents = () => {
         (payload) => {
           console.log('Document updated via real-time:', payload);
           
-          // Forcer le refetch immédiatement
-          refetch();
+          // Forcer le refetch immédiatement avec invalidation du cache
+          queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+          forceRefresh();
           
           // Afficher les notifications appropriées
           if (payload.eventType === 'UPDATE') {
@@ -196,10 +197,13 @@ const Documents = () => {
             
             // Document vient d'être traité
             if (newDoc?.processed && !oldDoc?.processed) {
+              console.log('Document vient d\'être traité:', newDoc.original_name);
               toast({
                 title: "Document traité",
                 description: `${newDoc.ai_generated_name || newDoc.original_name} a été traité avec succès`,
               });
+              // Forcer un nouveau refresh pour être sûr
+              setTimeout(() => forceRefresh(), 1000);
             }
             
             // Erreur de traitement
@@ -227,8 +231,9 @@ const Documents = () => {
         (payload) => {
           console.log('Meeting updated via real-time:', payload);
           
-          // Forcer le refetch immédiatement
-          refetch();
+          // Forcer le refetch immédiatement avec invalidation du cache
+          queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+          forceRefresh();
           
           if (payload.eventType === 'UPDATE') {
             const newMeeting = payload.new;
@@ -240,6 +245,8 @@ const Documents = () => {
                 title: "Meeting traité",
                 description: `${newMeeting.title} a été traité avec succès`,
               });
+              // Forcer un nouveau refresh pour être sûr
+              setTimeout(() => forceRefresh(), 1000);
             }
           }
         }
@@ -251,7 +258,7 @@ const Documents = () => {
       supabase.removeChannel(documentsChannel);
       supabase.removeChannel(meetingsChannel);
     };
-  }, [refetch, toast]);
+  }, [forceRefresh, toast, queryClient]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -337,7 +344,7 @@ const Documents = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      refetch();
+      forceRefresh();
       toast({
         title: "Document supprimé",
         description: "Le document a été supprimé avec succès.",
@@ -370,7 +377,7 @@ const Documents = () => {
   };
 
   const handleDocumentUpdate = () => {
-    refetch();
+    forceRefresh();
   };
 
   return (

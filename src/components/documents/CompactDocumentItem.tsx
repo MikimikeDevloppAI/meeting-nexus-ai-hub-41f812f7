@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
 import { DocumentPreview } from "./DocumentPreview";
@@ -25,26 +25,6 @@ export const CompactDocumentItem = ({
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [localProcessed, setLocalProcessed] = useState(document.processed);
-  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
-
-  // Synchroniser l'état local avec le document reçu
-  useEffect(() => {
-    if (document.processed !== localProcessed) {
-      console.log(`[CompactDocumentItem] Status change detected for ${document.original_name}: ${localProcessed} -> ${document.processed}`);
-      setLocalProcessed(document.processed);
-      setLastUpdateTime(Date.now());
-    }
-  }, [document.processed, localProcessed, document.original_name]);
-
-  // Forcer une mise à jour immédiate si le document vient d'être traité
-  useEffect(() => {
-    if (document.processed && !localProcessed) {
-      console.log(`[CompactDocumentItem] Force updating processed status for ${document.original_name}`);
-      setLocalProcessed(true);
-      setLastUpdateTime(Date.now());
-    }
-  }, [document.processed, localProcessed, document.original_name]);
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return 'N/A';
@@ -59,7 +39,7 @@ export const CompactDocumentItem = ({
   };
 
   const isMeeting = document.type === 'meeting';
-  const isProcessing = !localProcessed && !isMeeting;
+  const isProcessing = !document.processed && !isMeeting;
 
   const handlePlayAudio = () => {
     if (document.audio_url) {
@@ -99,7 +79,7 @@ export const CompactDocumentItem = ({
                   En traitement...
                 </Badge>
               ) : (
-                localProcessed && (
+                document.processed && (
                   <Badge variant="default" className="bg-green-500 text-white text-xs">
                     Traité
                   </Badge>
@@ -154,7 +134,7 @@ export const CompactDocumentItem = ({
               {/* Debug info en dev mode */}
               {process.env.NODE_ENV === 'development' && (
                 <span className="text-xs text-gray-400">
-                  (processed: {localProcessed ? 'true' : 'false'}, last update: {new Date(lastUpdateTime).toLocaleTimeString()})
+                  (processed: {document.processed ? 'true' : 'false'})
                 </span>
               )}
             </div>
@@ -162,7 +142,7 @@ export const CompactDocumentItem = ({
           
           <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             {/* Bouton de prévisualisation pour les documents avec file_path */}
-            {!isMeeting && document.file_path && localProcessed && (
+            {!isMeeting && document.file_path && document.processed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -289,7 +269,7 @@ export const CompactDocumentItem = ({
                 )}
                 
                 {/* Éditeur de métadonnées - seulement pour les documents traités */}
-                {!isMeeting && localProcessed && (
+                {!isMeeting && document.processed && (
                   <div>
                     <h4 className="font-medium mb-2">Catégorisation</h4>
                     <DocumentMetadataEditor 
@@ -326,7 +306,7 @@ export const CompactDocumentItem = ({
                 )}
                 
                 {/* Texte extrait / Transcript - seulement si traité */}
-                {document.extracted_text && localProcessed && (
+                {document.extracted_text && document.processed && (
                   <div>
                     <h4 className="font-medium mb-2">
                       {isMeeting ? 'Transcript de la réunion' : 'Contenu du document'} ({document.extracted_text.length.toLocaleString()} caractères)
@@ -351,7 +331,7 @@ export const CompactDocumentItem = ({
             </div>
             
             {/* Partie droite - Chat avec le document/meeting - seulement si traité */}
-            {(isMeeting || localProcessed) && (
+            {(isMeeting || document.processed) && (
               <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l bg-gray-50 min-h-[300px] lg:min-h-0">
                 <CompactDocumentChat document={document} />
               </div>
