@@ -375,10 +375,6 @@ export const DocumentSearchAssistant = () => {
               )}
             </Button>
           </div>
-          
-          <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 p-2 rounded">
-            💡 <strong>Améliorations :</strong> Recherche plus flexible avec synonymes médicaux automatiques (yeux/paupières, chirurgie/laser), seuils assouplis, et interprétation contextuelle intelligente.
-          </div>
         </CardContent>
       </Card>
     </div>
