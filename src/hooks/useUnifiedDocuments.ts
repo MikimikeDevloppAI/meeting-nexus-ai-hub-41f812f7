@@ -9,13 +9,18 @@ export const useUnifiedDocuments = () => {
 
   const fetchUnifiedDocuments = async () => {
     try {
+      setIsLoading(true);
+      
       // Récupérer les documents uploadés
       const { data: uploadedDocs, error: docsError } = await supabase
         .from('uploaded_documents')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (docsError) throw docsError;
+      if (docsError) {
+        console.error('Erreur récupération documents:', docsError);
+        throw docsError;
+      }
 
       // Récupérer les meetings avec transcript
       const { data: meetings, error: meetingsError } = await supabase
@@ -32,7 +37,10 @@ export const useUnifiedDocuments = () => {
         .not('transcript', 'is', null)
         .order('created_at', { ascending: false });
 
-      if (meetingsError) throw meetingsError;
+      if (meetingsError) {
+        console.error('Erreur récupération meetings:', meetingsError);
+        throw meetingsError;
+      }
 
       // Transformer les documents uploadés
       const transformedDocs: UnifiedDocumentItem[] = (uploadedDocs || []).map(doc => ({
@@ -72,6 +80,7 @@ export const useUnifiedDocuments = () => {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
+      console.log('Documents unifiés récupérés:', combined.length);
       setDocuments(combined);
     } catch (error) {
       console.error('Error fetching unified documents:', error);

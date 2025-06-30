@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,7 @@ const Documents = () => {
     }
   });
 
-  // Écouter les mises à jour en temps réel pour les deux tables
+  // Écouter les mises à jour en temps réel pour les deux tables avec gestion améliorée
   useEffect(() => {
     console.log('Setting up real-time subscription for unified documents...');
     
@@ -184,13 +185,31 @@ const Documents = () => {
         },
         (payload) => {
           console.log('Document updated via real-time:', payload);
+          
+          // Forcer le refetch immédiatement
           refetch();
           
-          if (payload.eventType === 'UPDATE' && payload.new.processed && !payload.old?.processed) {
-            toast({
-              title: "Document traité",
-              description: `${payload.new.ai_generated_name || payload.new.original_name} a été traité avec succès`,
-            });
+          // Afficher les notifications appropriées
+          if (payload.eventType === 'UPDATE') {
+            const newDoc = payload.new;
+            const oldDoc = payload.old;
+            
+            // Document vient d'être traité
+            if (newDoc?.processed && !oldDoc?.processed) {
+              toast({
+                title: "Document traité",
+                description: `${newDoc.ai_generated_name || newDoc.original_name} a été traité avec succès`,
+              });
+            }
+            
+            // Erreur de traitement
+            if (newDoc?.processed && newDoc?.ai_summary?.includes('Erreur de traitement')) {
+              toast({
+                title: "Erreur de traitement",
+                description: `Problème lors du traitement de ${newDoc.original_name}`,
+                variant: "destructive",
+              });
+            }
           }
         }
       )
@@ -207,13 +226,21 @@ const Documents = () => {
         },
         (payload) => {
           console.log('Meeting updated via real-time:', payload);
+          
+          // Forcer le refetch immédiatement
           refetch();
           
-          if (payload.eventType === 'UPDATE' && payload.new.transcript && !payload.old?.transcript) {
-            toast({
-              title: "Meeting traité",
-              description: `${payload.new.title} a été traité avec succès`,
-            });
+          if (payload.eventType === 'UPDATE') {
+            const newMeeting = payload.new;
+            const oldMeeting = payload.old;
+            
+            // Meeting vient d'être transcrit
+            if (newMeeting?.transcript && !oldMeeting?.transcript) {
+              toast({
+                title: "Meeting traité",
+                description: `${newMeeting.title} a été traité avec succès`,
+              });
+            }
           }
         }
       )
