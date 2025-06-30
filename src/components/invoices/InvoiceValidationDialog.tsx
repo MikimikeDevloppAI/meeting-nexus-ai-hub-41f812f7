@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, Building, User, FileText, CreditCard, Tag } from "lucide-react";
+import { CheckCircle, Building, User, FileText, CreditCard, Tag, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Invoice {
   id: string;
@@ -69,6 +69,7 @@ export function InvoiceValidationDialog({
 }: InvoiceValidationDialogProps) {
   const [formData, setFormData] = useState<Partial<Invoice>>({});
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (invoice) {
@@ -102,9 +103,45 @@ export function InvoiceValidationDialog({
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear validation errors when user starts typing
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
+  };
+
+  const validateRequiredFields = (): boolean => {
+    const errors: string[] = [];
+
+    // Vérifier le nom du fournisseur
+    if (!formData.supplier_name || formData.supplier_name.trim() === '') {
+      errors.push('Le nom du fournisseur est obligatoire');
+    }
+
+    // Vérifier la date de facture
+    if (!formData.invoice_date || formData.invoice_date === '') {
+      errors.push('La date de facture est obligatoire');
+    }
+
+    // Vérifier le montant TTC
+    if (!formData.total_amount || formData.total_amount <= 0) {
+      errors.push('Le montant TTC doit être supérieur à 0');
+    }
+
+    // Vérifier la devise
+    if (!formData.currency || formData.currency.trim() === '') {
+      errors.push('La devise est obligatoire');
+    }
+
+    setValidationErrors(errors);
+    return errors.length === 0;
   };
 
   const handleSave = async () => {
+    if (!validateRequiredFields()) {
+      toast.error('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
     setSaving(true);
     try {
       const updateData = {
@@ -142,6 +179,20 @@ export function InvoiceValidationDialog({
             Validation de la facture - {invoice.original_filename}
           </DialogTitle>
         </DialogHeader>
+
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="font-medium mb-2">Champs obligatoires manquants :</div>
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="document" className="w-full">
           <TabsList className="grid w-full grid-cols-5">
@@ -182,22 +233,28 @@ export function InvoiceValidationDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currency">Devise</Label>
+                <Label htmlFor="currency">
+                  Devise <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="currency"
                   value={formData.currency || ''}
                   onChange={(e) => handleInputChange('currency', e.target.value)}
                   placeholder="EUR"
+                  className={validationErrors.some(e => e.includes('devise')) ? 'border-red-500' : ''}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="invoice_date">Date facture</Label>
+                <Label htmlFor="invoice_date">
+                  Date facture <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="invoice_date"
                   type="date"
                   value={formData.invoice_date || ''}
                   onChange={(e) => handleInputChange('invoice_date', e.target.value)}
+                  className={validationErrors.some(e => e.includes('date de facture')) ? 'border-red-500' : ''}
                 />
               </div>
 
@@ -234,13 +291,16 @@ export function InvoiceValidationDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_amount">Montant TTC</Label>
+                <Label htmlFor="total_amount">
+                  Montant TTC <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="total_amount"
                   type="number"
                   step="0.01"
                   value={formData.total_amount || ''}
                   onChange={(e) => handleInputChange('total_amount', parseFloat(e.target.value) || 0)}
+                  className={validationErrors.some(e => e.includes('montant TTC')) ? 'border-red-500' : ''}
                 />
               </div>
             </div>
@@ -310,12 +370,15 @@ export function InvoiceValidationDialog({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="supplier_name">Nom du fournisseur</Label>
+                <Label htmlFor="supplier_name">
+                  Nom du fournisseur <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="supplier_name"
                   value={formData.supplier_name || ''}
                   onChange={(e) => handleInputChange('supplier_name', e.target.value)}
                   placeholder="Nom du fournisseur"
+                  className={validationErrors.some(e => e.includes('fournisseur')) ? 'border-red-500' : ''}
                 />
               </div>
 
