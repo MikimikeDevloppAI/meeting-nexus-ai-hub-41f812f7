@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +39,7 @@ const Documents = () => {
   const [isCheckingStorage, setIsCheckingStorage] = useState(true);
   const [uploadQueue, setUploadQueue] = useState<UploadProgress[]>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [pendingDocumentIds, setPendingDocumentIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -67,7 +67,7 @@ const Documents = () => {
   }, [toast]);
 
   // Fonction pour traiter un seul fichier
-  const uploadSingleFile = async (file: File): Promise<void> => {
+  const uploadSingleFile = async (file: File): Promise<string> => {
     const fileId = crypto.randomUUID();
     
     // Nettoyer le nom de fichier
@@ -129,6 +129,8 @@ const Documents = () => {
         body: { documentId: document.id }
       });
     }
+
+    return document.id;
   };
 
   // Traitement séquentiel de la queue d'upload
@@ -143,6 +145,7 @@ const Documents = () => {
     }));
     
     setUploadQueue(initialQueue);
+    const uploadedDocumentIds = new Set<string>();
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -153,25 +156,15 @@ const Documents = () => {
           index === i ? { ...item, status: 'uploading', progress: 30 } : item
         ));
         
-        await uploadSingleFile(file);
+        const documentId = await uploadSingleFile(file);
+        uploadedDocumentIds.add(documentId);
         
         // Mettre à jour le statut à "processing"
         setUploadQueue(prev => prev.map((item, index) => 
           index === i ? { ...item, status: 'processing', progress: 70 } : item
         ));
         
-        // Attendre un peu pour laisser le temps au traitement de démarrer
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Marquer comme complété
-        setUploadQueue(prev => prev.map((item, index) => 
-          index === i ? { ...item, status: 'completed', progress: 100 } : item
-        ));
-        
-        toast({
-          title: "Fichier uploadé",
-          description: `${file.name} a été uploadé et le traitement a démarré.`,
-        });
+        console.log(`📋 Document ${documentId} ajouté à la liste d'attente de traitement`);
         
       } catch (error: any) {
         console.error('❌ Erreur upload:', error);
@@ -193,138 +186,110 @@ const Documents = () => {
       }
     }
     
-    // Nettoyer la queue après 3 secondes
-    setTimeout(() => {
-      setUploadQueue([]);
-      setIsProcessingQueue(false);
-    }, 3000);
+    // Ajouter tous les documents uploadés à la liste d'attente
+    setPendingDocumentIds(uploadedDocumentIds);
+    console.log(`📋 ${uploadedDocumentIds.size} documents en attente de traitement:`, Array.from(uploadedDocumentIds));
   };
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (!storageReady) {
-      toast({
-        title: "Storage non disponible",
-        description: "Le système de stockage n'est pas prêt. Veuillez réessayer plus tard.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (acceptedFiles.length > 0) {
-      processUploadQueue(acceptedFiles);
-    }
-  }, [storageReady, toast, isProcessingQueue]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
-    }
-  });
-
-  // Écouter les mises à jour en temps réel avec une gestion améliorée
+  // Écouter les mises à jour des documents pour détecter la fin de traitement
   useEffect(() => {
-    console.log('Setting up enhanced real-time subscriptions...');
-    
-    let refreshTimeout: NodeJS.Timeout;
-    
-    const scheduleRefresh = () => {
-      clearTimeout(refreshTimeout);
-      refreshTimeout = setTimeout(() => {
-        console.log('Executing scheduled refresh...');
-        forceRefresh();
-      }, 500);
-    };
+    if (pendingDocumentIds.size === 0) return;
 
+    console.log('🔄 Setting up document processing completion listener...');
+    
     const documentsChannel = supabase
-      .channel('documents-realtime-updates')
+      .channel('document-processing-completion')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'uploaded_documents'
         },
         (payload) => {
-          console.log('📄 Document real-time update:', payload);
+          const updatedDoc = payload.new;
+          console.log('📄 Document mis à jour:', updatedDoc);
           
-          if (payload.eventType === 'UPDATE') {
-            const newDoc = payload.new;
-            const oldDoc = payload.old;
-            
-            // Document vient d'être traité
-            if (newDoc?.processed && !oldDoc?.processed) {
-              console.log('✅ Document traité détecté:', newDoc.ai_generated_name || newDoc.original_name);
-              toast({
-                title: "Document traité",
-                description: `${newDoc.ai_generated_name || newDoc.original_name} a été traité avec succès`,
+          if (updatedDoc?.id && pendingDocumentIds.has(updatedDoc.id)) {
+            if (updatedDoc.processed) {
+              console.log(`✅ Document ${updatedDoc.id} traité avec succès`);
+              
+              // Mettre à jour la queue d'upload pour marquer le document comme complété
+              setUploadQueue(prev => prev.map(item => {
+                // Trouver le fichier correspondant par nom
+                if (item.file.name === updatedDoc.original_name) {
+                  return { ...item, status: 'completed', progress: 100 };
+                }
+                return item;
+              }));
+              
+              // Retirer le document de la liste d'attente
+              setPendingDocumentIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(updatedDoc.id);
+                console.log(`📋 Documents restants en attente: ${newSet.size}`);
+                
+                // Si tous les documents sont traités, déclencher le refresh global
+                if (newSet.size === 0) {
+                  console.log('🎉 Tous les documents ont été traités! Refresh global...');
+                  
+                  // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
+                  setTimeout(() => {
+                    setUploadQueue([]);
+                    setIsProcessingQueue(false);
+                    
+                    // Déclencher le refresh global des documents
+                    forceRefresh();
+                    
+                    toast({
+                      title: "Traitement terminé",
+                      description: "Tous les documents ont été traités avec succès",
+                    });
+                  }, 2000);
+                }
+                
+                return newSet;
               });
               
-              // Forcer un refresh immédiat
-              scheduleRefresh();
-            }
-            
-            // Erreur de traitement
-            if (newDoc?.ai_summary?.includes('Erreur de traitement')) {
+            } else if (updatedDoc.ai_summary?.includes('Erreur de traitement')) {
+              console.log(`❌ Erreur de traitement pour le document ${updatedDoc.id}`);
+              
+              // Marquer comme erreur dans la queue
+              setUploadQueue(prev => prev.map(item => {
+                if (item.file.name === updatedDoc.original_name) {
+                  return { 
+                    ...item, 
+                    status: 'error', 
+                    progress: 0, 
+                    error: 'Erreur de traitement AI' 
+                  };
+                }
+                return item;
+              }));
+              
+              // Retirer de la liste d'attente même en cas d'erreur
+              setPendingDocumentIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(updatedDoc.id);
+                return newSet;
+              });
+              
               toast({
                 title: "Erreur de traitement",
-                description: `Problème lors du traitement de ${newDoc.original_name}`,
+                description: `Problème lors du traitement de ${updatedDoc.original_name}`,
                 variant: "destructive",
               });
             }
           }
-          
-          // Toujours déclencher un refresh pour toute modification
-          scheduleRefresh();
-        }
-      )
-      .subscribe();
-
-    const meetingsChannel = supabase
-      .channel('meetings-realtime-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'meetings'
-        },
-        (payload) => {
-          console.log('🎤 Meeting real-time update:', payload);
-          
-          if (payload.eventType === 'UPDATE') {
-            const newMeeting = payload.new;
-            const oldMeeting = payload.old;
-            
-            // Meeting vient d'être transcrit
-            if (newMeeting?.transcript && !oldMeeting?.transcript) {
-              toast({
-                title: "Meeting traité",
-                description: `${newMeeting.title} a été traité avec succès`,
-              });
-            }
-          }
-          
-          // Toujours déclencher un refresh pour toute modification
-          scheduleRefresh();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up enhanced real-time subscriptions...');
-      clearTimeout(refreshTimeout);
+      console.log('🧹 Cleaning up document processing completion listener...');
       supabase.removeChannel(documentsChannel);
-      supabase.removeChannel(meetingsChannel);
     };
-  }, [forceRefresh, toast]);
+  }, [pendingDocumentIds, forceRefresh, toast]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -500,7 +465,14 @@ const Documents = () => {
           {/* Affichage de la queue d'upload */}
           {uploadQueue.length > 0 && (
             <div className="mt-4 space-y-2">
-              <h4 className="font-medium text-sm">Progression des uploads :</h4>
+              <h4 className="font-medium text-sm">
+                Progression des uploads :
+                {pendingDocumentIds.size > 0 && (
+                  <span className="text-blue-600 ml-2">
+                    ({pendingDocumentIds.size} en cours de traitement)
+                  </span>
+                )}
+              </h4>
               {uploadQueue.map((item, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-shrink-0">
@@ -523,7 +495,7 @@ const Documents = () => {
                       </div>
                       <span className="text-xs text-gray-600">
                         {item.status === 'uploading' && 'Upload...'}
-                        {item.status === 'processing' && 'Traitement...'}
+                        {item.status === 'processing' && 'Traitement AI...'}
                         {item.status === 'completed' && 'Terminé'}
                         {item.status === 'error' && 'Erreur'}
                       </span>
