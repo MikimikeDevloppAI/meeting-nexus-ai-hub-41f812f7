@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -240,14 +239,14 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // Écouter les mises à jour pour détecter la fin de traitement ET renommer les fichiers
+  // NOUVEAU: Logique simplifiée pour écouter les documents créés
   useEffect(() => {
     if (uploadQueue.length === 0) return;
 
-    console.log('🔄 Setting up document processing completion listener...');
+    console.log('🔄 Setting up simplified document completion listener...');
     
-    const processingChannel = supabase
-      .channel('document-processing-tracking')
+    const completionChannel = supabase
+      .channel('document-completion-tracking')
       .on(
         'postgres_changes',
         {
@@ -297,19 +296,6 @@ const Documents = () => {
               console.error('❌ Erreur lors du renommage:', error);
             }
           }
-          
-          // Trouver le document dans la queue par ID
-          const queueIndex = uploadQueue.findIndex(item => item.documentId === updatedDoc.id);
-          
-          if (queueIndex !== -1) {
-            // Mettre à jour les informations du document dans la queue
-            setUploadQueue(prev => prev.map((item, index) => 
-              index === queueIndex ? { 
-                ...item, 
-                vectorDocumentId: updatedDoc.metadata?.vectorDocumentId 
-              } : item
-            ));
-          }
         }
       )
       .on(
@@ -323,55 +309,61 @@ const Documents = () => {
           const newVectorDoc = payload.new;
           console.log('🗂️ Nouveau document vectoriel créé:', newVectorDoc);
           
-          // Trouver le document dans la queue par vectorDocumentId
-          const queueIndex = uploadQueue.findIndex(item => 
-            item.vectorDocumentId === newVectorDoc.id
-          );
-          
-          if (queueIndex !== -1) {
-            console.log(`✅ Document vectoriel ${newVectorDoc.id} détecté - marquage comme traité`);
+          // NOUVEAU: Utiliser uploaded_document_id pour faire la correspondance directe
+          if (newVectorDoc.uploaded_document_id) {
+            const queueIndex = uploadQueue.findIndex(item => 
+              item.documentId === newVectorDoc.uploaded_document_id
+            );
             
-            // Marquer le document comme traité
-            setUploadQueue(prev => prev.map((item, index) => 
-              index === queueIndex ? { ...item, status: 'completed', progress: 100 } : item
-            ));
-            
-            // Vérifier si tous les documents sont traités
-            setTimeout(() => {
-              setUploadQueue(currentQueue => {
-                const allCompleted = currentQueue.every(item => 
-                  item.status === 'completed' || item.status === 'error'
-                );
-                
-                if (allCompleted) {
-                  console.log('🎉 Tous les documents ont été traités! Refresh global...');
+            if (queueIndex !== -1) {
+              console.log(`✅ Correspondance trouvée avec uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
+              
+              // Marquer le document comme traité
+              setUploadQueue(prev => prev.map((item, index) => 
+                index === queueIndex ? { ...item, status: 'completed', progress: 100 } : item
+              ));
+              
+              // Vérifier si tous les documents sont traités
+              setTimeout(() => {
+                setUploadQueue(currentQueue => {
+                  const allCompleted = currentQueue.every(item => 
+                    item.status === 'completed' || item.status === 'error'
+                  );
                   
-                  // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
-                  setTimeout(() => {
-                    setUploadQueue([]);
-                    setIsProcessingQueue(false);
+                  if (allCompleted) {
+                    console.log('🎉 Tous les documents ont été traités! Refresh global...');
                     
-                    // Déclencher le refresh global des documents
-                    forceRefresh();
-                    
-                    toast({
-                      title: "Traitement terminé",
-                      description: "Tous les documents ont été traités avec succès",
-                    });
-                  }, 2000);
-                }
-                
-                return currentQueue;
-              });
-            }, 100);
+                    // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
+                    setTimeout(() => {
+                      setUploadQueue([]);
+                      setIsProcessingQueue(false);
+                      
+                      // Déclencher le refresh global des documents
+                      forceRefresh();
+                      
+                      toast({
+                        title: "Traitement terminé",
+                        description: "Tous les documents ont été traités avec succès",
+                      });
+                    }, 2000);
+                  }
+                  
+                  return currentQueue;
+                });
+              }, 100);
+            } else {
+              console.log(`⚠️ Aucune correspondance trouvée pour uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
+            }
+          } else {
+            console.log('⚠️ Document vectoriel créé sans uploaded_document_id');
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('🧹 Cleaning up document processing tracking listener...');
-      supabase.removeChannel(processingChannel);
+      console.log('🧹 Cleaning up simplified document completion listener...');
+      supabase.removeChannel(completionChannel);
     };
   }, [uploadQueue, forceRefresh, toast]);
 

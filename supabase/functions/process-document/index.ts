@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -202,7 +203,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
       chunksGenerated: allChunks.length,
       metadataChunks: metadataChunks.length,
       contentChunks: limitedRegularChunks.length,
-      processingVersion: '2.5-consolidated-metadata-chunks',
+      processingVersion: '2.6-with-uploaded-document-id',
       ...analysis.taxonomy
     };
 
@@ -222,7 +223,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
           console.log('🔧 Formatting embeddings for PostgreSQL...');
           const formattedEmbeddings = formatEmbeddingsForPostgres(embeddings);
           
-          // Store embeddings with proper format
+          // Store embeddings with proper format - NOUVEAU: Passer l'ID du document uploadé
           console.log('💾 Storing document with embeddings in vector database...');
           const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
             p_title: analysis.suggestedName,
@@ -230,7 +231,8 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
             p_content: text,
             p_chunks: allChunks,
             p_embeddings: formattedEmbeddings,
-            p_metadata: completeMetadata
+            p_metadata: completeMetadata,
+            p_uploaded_document_id: documentId // NOUVEAU: Passer l'ID du document uploadé
           });
 
           if (storeError) {
@@ -281,7 +283,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processing completed successfully with consolidated metadata chunk!`);
+    console.log(`🎉 Document ${documentId} processing completed successfully with uploaded_document_id link!`);
     console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks (1 consolidated metadata), ${text.length} chars`);
 
   } catch (error) {
@@ -299,7 +301,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.5-consolidated-metadata-chunks'
+            processingVersion: '2.6-with-uploaded-document-id'
           }
         })
         .eq('id', documentId);

@@ -70,6 +70,7 @@ export type Database = {
           title: string
           type: string
           updated_at: string | null
+          uploaded_document_id: string | null
         }
         Insert: {
           content?: string | null
@@ -80,6 +81,7 @@ export type Database = {
           title: string
           type: string
           updated_at?: string | null
+          uploaded_document_id?: string | null
         }
         Update: {
           content?: string | null
@@ -90,8 +92,17 @@ export type Database = {
           title?: string
           type?: string
           updated_at?: string | null
+          uploaded_document_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_uploaded_document_id_fkey"
+            columns: ["uploaded_document_id"]
+            isOneToOne: false
+            referencedRelation: "uploaded_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoices: {
         Row: {
@@ -817,16 +828,28 @@ export type Database = {
         Returns: number
       }
       store_document_with_embeddings: {
-        Args: {
-          p_title: string
-          p_type: string
-          p_content: string
-          p_chunks: string[]
-          p_embeddings: string[]
-          p_metadata?: Json
-          p_created_by?: string
-          p_meeting_id?: string
-        }
+        Args:
+          | {
+              p_title: string
+              p_type: string
+              p_content: string
+              p_chunks: string[]
+              p_embeddings: string[]
+              p_metadata?: Json
+              p_created_by?: string
+              p_meeting_id?: string
+            }
+          | {
+              p_title: string
+              p_type: string
+              p_content: string
+              p_chunks: string[]
+              p_embeddings: string[]
+              p_metadata?: Json
+              p_created_by?: string
+              p_meeting_id?: string
+              p_uploaded_document_id?: string
+            }
         Returns: string
       }
       vector_avg: {

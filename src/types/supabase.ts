@@ -299,6 +299,89 @@ export interface Database {
           updated_at?: string
         }
       }
+      // NOUVEAU: Ajout de la colonne uploaded_document_id
+      documents: {
+        Row: {
+          id: string
+          title: string
+          type: string
+          content: string | null
+          metadata: Json | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          uploaded_document_id: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          type: string
+          content?: string | null
+          metadata?: Json | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          uploaded_document_id?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          type?: string
+          content?: string | null
+          metadata?: Json | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          uploaded_document_id?: string | null
+        }
+      }
+      uploaded_documents: {
+        Row: {
+          id: string
+          original_name: string
+          file_path: string
+          file_size: number | null
+          content_type: string | null
+          extracted_text: string | null
+          ai_generated_name: string | null
+          ai_summary: string | null
+          taxonomy: Json | null
+          processed: boolean | null
+          metadata: Json | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          original_name: string
+          file_path: string
+          file_size?: number | null
+          content_type?: string | null
+          extracted_text?: string | null
+          ai_generated_name?: string | null
+          ai_summary?: string | null
+          taxonomy?: Json | null
+          processed?: boolean | null
+          metadata?: Json | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          original_name?: string
+          file_path?: string
+          file_size?: number | null
+          content_type?: string | null
+          extracted_text?: string | null
+          ai_generated_name?: string | null
+          ai_summary?: string | null
+          taxonomy?: Json | null
+          processed?: boolean | null
+          metadata?: Json | null
+          created_by?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
