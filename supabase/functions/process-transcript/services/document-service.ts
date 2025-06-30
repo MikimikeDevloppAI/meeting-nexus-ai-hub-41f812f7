@@ -37,41 +37,32 @@ export async function handleDocumentProcessing(
       };
     }
 
-    // NOUVEAU: Créer des chunks de métadonnées pour les meetings
+    // NOUVEAU: Créer UN SEUL chunk consolidé pour les métadonnées du meeting
     const metadataChunks = [];
     
-    // Chunk pour le titre et informations du meeting
-    const meetingInfoChunk = `RÉUNION: ${meetingName}
-DATE: ${meetingDate}
-TYPE: Réunion transcrite
-CATÉGORIE: Meeting
-DESCRIPTION: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDate}. Il s'agit d'une réunion du cabinet d'ophtalmologie avec transcript disponible.`;
-    
-    metadataChunks.push(meetingInfoChunk);
-
     // Extraire des informations contextuelles du transcript
     const keywords = extractKeywords(cleanedTranscript);
     const participantInfo = extractParticipantInfo(cleanedTranscript);
     const topicInfo = extractTopicInfo(cleanedTranscript);
     
-    // Chunk résumé contextuel
-    if (keywords.length > 0 || participantInfo || topicInfo) {
-      const contextChunk = `CONTENU DE LA RÉUNION: ${meetingName}
+    // UN SEUL chunk consolidé avec titre, date, type et résumé
+    const consolidatedMeetingChunk = `RÉUNION: ${meetingName}
+DATE: ${meetingDate}
+TYPE: Réunion transcrite - Cabinet d'ophtalmologie
 PARTICIPANTS: ${participantInfo || 'Équipe du cabinet'}
-SUJETS ABORDÉS: ${topicInfo || 'Sujets divers'}
+SUJETS: ${topicInfo || 'Sujets divers'}
 MOTS-CLÉS: ${keywords.join(', ') || 'Réunion, discussion'}
-UTILITÉ: Cette réunion contient des discussions sur ${topicInfo || 'l\'organisation du cabinet'} avec la participation de ${participantInfo || 'l\'équipe'}.`;
-      
-      metadataChunks.push(contextChunk);
-    }
+RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDate}. Elle implique ${participantInfo || 'l\'équipe du cabinet'} et traite de ${topicInfo || 'l\'organisation du cabinet'}. Mots-clés principaux: ${keywords.slice(0, 5).join(', ') || 'discussion, organisation'}. Cette réunion contient des discussions importantes pour le suivi et l'organisation du cabinet d'ophtalmologie.`;
     
-    // Limiter les chunks de contenu pour faire de la place aux métadonnées
+    metadataChunks.push(consolidatedMeetingChunk);
+    
+    // Limiter les chunks de contenu pour faire de la place au chunk consolidé
     const limitedContentChunks = cleanedChunks.slice(0, Math.max(1, cleanedChunks.length - metadataChunks.length));
     
     // Combiner métadonnées et contenu
     const allChunks = [...metadataChunks, ...limitedContentChunks];
     
-    console.log(`[DOCUMENT] Total chunks with metadata: ${allChunks.length} (${metadataChunks.length} metadata + ${limitedContentChunks.length} content)`);
+    console.log(`[DOCUMENT] Total chunks with consolidated metadata: ${allChunks.length} (1 consolidated metadata + ${limitedContentChunks.length} content)`);
 
     // Générer les embeddings via l'API dédiée
     console.log('[DOCUMENT] 🔄 Génération des embeddings...');
@@ -128,7 +119,7 @@ UTILITÉ: Cette réunion contient des discussions sur ${topicInfo || 'l\'organis
       participantInfo: participantInfo,
       topicInfo: topicInfo,
       processedAt: new Date().toISOString(),
-      processingVersion: '2.4-with-metadata-chunks'
+      processingVersion: '2.5-consolidated-metadata-chunks'
     };
 
     // Sauvegarder le document avec embeddings
@@ -150,7 +141,7 @@ UTILITÉ: Cette réunion contient des discussions sur ${topicInfo || 'l\'organis
       throw new Error(`Failed to store document: ${storeError.message}`);
     }
 
-    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès avec métadonnées');
+    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès avec chunk consolidé');
 
     return {
       id: documentResult || meetingId,

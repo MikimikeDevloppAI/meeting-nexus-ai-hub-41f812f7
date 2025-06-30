@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -168,35 +167,27 @@ async function processDocumentInBackground(
       analysis = createFallbackAnalysis(document);
     }
 
-    // STEP 3: Generate text chunks for embeddings + NOUVEAU: Ajouter nom et résumé
+    // STEP 3: Generate text chunks for embeddings + NOUVEAU: Un seul chunk consolidé
     const regularChunks = chunkText(text, CHUNK_SIZE);
-    const limitedRegularChunks = regularChunks.slice(0, MAX_CHUNKS - 2); // Réserver 2 places pour nom et résumé
+    const limitedRegularChunks = regularChunks.slice(0, MAX_CHUNKS - 1); // Réserver 1 place pour le chunk consolidé
     
-    // NOUVEAU: Créer des chunks spéciaux pour le nom et le résumé
+    // NOUVEAU: Créer UN SEUL chunk consolidé avec toutes les métadonnées
     const metadataChunks = [];
     
-    // Chunk pour le nom du document avec contexte
-    const documentNameChunk = `DOCUMENT: ${analysis.suggestedName || document.original_name}
+    // Chunk consolidé unique avec nom, type, catégorie, résumé et mots-clés
+    const consolidatedChunk = `DOCUMENT: ${analysis.suggestedName || document.original_name}
 TYPE: ${analysis.taxonomy?.documentType || 'Document'}
 CATÉGORIE: ${analysis.taxonomy?.category || 'Non classé'}
-DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.original_name}" et appartient à la catégorie ${analysis.taxonomy?.category || 'documents généraux'}.`;
-    
-    metadataChunks.push(documentNameChunk);
-    
-    // Chunk pour le résumé si disponible
-    if (analysis.summary && analysis.summary.length > 50) {
-      const summaryChunk = `RÉSUMÉ DU DOCUMENT: ${analysis.suggestedName || document.original_name}
-CONTENU PRINCIPAL: ${analysis.summary}
+RÉSUMÉ: ${analysis.summary || 'Résumé non disponible'}
 MOTS-CLÉS: ${analysis.taxonomy?.keywords?.join(', ') || 'Non définis'}
-UTILITÉ: Ce document contient des informations sur ${analysis.taxonomy?.keywords?.slice(0, 3).join(', ') || 'différents sujets'}.`;
-      
-      metadataChunks.push(summaryChunk);
-    }
+DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.original_name}" et appartient à la catégorie ${analysis.taxonomy?.category || 'documents généraux'}. ${analysis.summary ? 'Résumé: ' + analysis.summary : 'Aucun résumé disponible.'} Mots-clés principaux: ${analysis.taxonomy?.keywords?.slice(0, 5).join(', ') || 'Non définis'}.`;
     
-    // Combiner tous les chunks
+    metadataChunks.push(consolidatedChunk);
+    
+    // Combiner le chunk consolidé avec le contenu
     const allChunks = [...metadataChunks, ...limitedRegularChunks];
     
-    console.log(`🔢 Created ${allChunks.length} chunks for embeddings (${metadataChunks.length} metadata + ${limitedRegularChunks.length} content chunks)`);
+    console.log(`🔢 Created ${allChunks.length} chunks for embeddings (1 consolidated metadata + ${limitedRegularChunks.length} content chunks)`);
 
     // Prepare comprehensive metadata
     const completeMetadata = {
@@ -211,7 +202,7 @@ UTILITÉ: Ce document contient des informations sur ${analysis.taxonomy?.keyword
       chunksGenerated: allChunks.length,
       metadataChunks: metadataChunks.length,
       contentChunks: limitedRegularChunks.length,
-      processingVersion: '2.4-with-metadata-chunks',
+      processingVersion: '2.5-consolidated-metadata-chunks',
       ...analysis.taxonomy
     };
 
@@ -290,8 +281,8 @@ UTILITÉ: Ce document contient des informations sur ${analysis.taxonomy?.keyword
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processing completed successfully with metadata chunks!`);
-    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks (${metadataChunks.length} metadata), ${text.length} chars`);
+    console.log(`🎉 Document ${documentId} processing completed successfully with consolidated metadata chunk!`);
+    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks (1 consolidated metadata), ${text.length} chars`);
 
   } catch (error) {
     console.error('❌ Background processing failed:', error);
@@ -308,7 +299,7 @@ UTILITÉ: Ce document contient des informations sur ${analysis.taxonomy?.keyword
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.4-with-metadata-chunks'
+            processingVersion: '2.5-consolidated-metadata-chunks'
           }
         })
         .eq('id', documentId);
