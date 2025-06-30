@@ -1,8 +1,9 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Loader2, CheckCircle } from "lucide-react";
+import { FileText, Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,11 +26,20 @@ interface SearchFilters {
   keywords?: string[];
 }
 
+interface UploadProgress {
+  file: File;
+  status: 'uploading' | 'processing' | 'completed' | 'error';
+  progress: number;
+  error?: string;
+}
+
 const Documents = () => {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({ query: "" });
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [isCheckingStorage, setIsCheckingStorage] = useState(true);
+  const [uploadQueue, setUploadQueue] = useState<UploadProgress[]>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -56,89 +66,139 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // Upload mutation
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const fileId = crypto.randomUUID();
-      
-      // Nettoyer le nom de fichier pour éviter les caractères spéciaux
-      const cleanFileName = file.name
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
-        .replace(/[^a-zA-Z0-9.-]/g, '_') // Remplacer les caractères spéciaux par _
-        .replace(/_{2,}/g, '_') // Éviter les underscores multiples
-        .toLowerCase();
-      
-      const filePath = `${fileId}-${cleanFileName}`;
-      
-      console.log('Upload du fichier:', filePath);
-      
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
+  // Fonction pour traiter un seul fichier
+  const uploadSingleFile = async (file: File): Promise<void> => {
+    const fileId = crypto.randomUUID();
+    
+    // Nettoyer le nom de fichier
+    const cleanFileName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.-]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .toLowerCase();
+    
+    const filePath = `${fileId}-${cleanFileName}`;
+    
+    console.log('📤 Upload du fichier:', filePath);
+    
+    // Upload to storage
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(filePath, file);
 
-      if (uploadError) {
-        console.error('Erreur upload storage:', uploadError);
-        throw uploadError;
-      }
+    if (uploadError) {
+      console.error('❌ Erreur upload storage:', uploadError);
+      throw uploadError;
+    }
 
-      console.log('Fichier uploadé, création de l\'enregistrement...');
+    console.log('✅ Fichier uploadé, création de l\'enregistrement...');
 
-      // Create document record
-      const { data: document, error: dbError } = await supabase
-        .from('uploaded_documents')
-        .insert({
-          original_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          content_type: file.type,
-        })
-        .select()
-        .single();
+    // Create document record
+    const { data: document, error: dbError } = await supabase
+      .from('uploaded_documents')
+      .insert({
+        original_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        content_type: file.type,
+      })
+      .select()
+      .single();
 
-      if (dbError) {
-        console.error('Erreur création document:', dbError);
-        throw dbError;
-      }
+    if (dbError) {
+      console.error('❌ Erreur création document:', dbError);
+      throw dbError;
+    }
 
-      console.log('Document créé:', document);
+    console.log('📄 Document créé:', document);
 
-      // Process with AI if it's a supported file type
-      if ([
-        'application/pdf', 
-        'text/plain', 
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      ].includes(file.type)) {
-        console.log('Lancement du traitement AI...');
-        await supabase.functions.invoke('process-document', {
-          body: { documentId: document.id }
-        });
-      }
-
-      return document;
-    },
-    onSuccess: () => {
-      forceRefresh();
-      toast({
-        title: "Document uploadé",
-        description: "Le traitement du document a démarré.",
-      });
-    },
-    onError: (error: any) => {
-      console.error('Erreur upload:', error);
-      toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors de l'upload",
-        variant: "destructive",
+    // Process with AI if it's a supported file type
+    if ([
+      'application/pdf', 
+      'text/plain', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ].includes(file.type)) {
+      console.log('🤖 Lancement du traitement AI...');
+      await supabase.functions.invoke('process-document', {
+        body: { documentId: document.id }
       });
     }
-  });
+  };
+
+  // Traitement séquentiel de la queue d'upload
+  const processUploadQueue = async (files: File[]) => {
+    if (isProcessingQueue) return;
+    
+    setIsProcessingQueue(true);
+    const initialQueue = files.map(file => ({
+      file,
+      status: 'uploading' as const,
+      progress: 0
+    }));
+    
+    setUploadQueue(initialQueue);
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        // Mettre à jour le statut à "uploading"
+        setUploadQueue(prev => prev.map((item, index) => 
+          index === i ? { ...item, status: 'uploading', progress: 30 } : item
+        ));
+        
+        await uploadSingleFile(file);
+        
+        // Mettre à jour le statut à "processing"
+        setUploadQueue(prev => prev.map((item, index) => 
+          index === i ? { ...item, status: 'processing', progress: 70 } : item
+        ));
+        
+        // Attendre un peu pour laisser le temps au traitement de démarrer
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Marquer comme complété
+        setUploadQueue(prev => prev.map((item, index) => 
+          index === i ? { ...item, status: 'completed', progress: 100 } : item
+        ));
+        
+        toast({
+          title: "Fichier uploadé",
+          description: `${file.name} a été uploadé et le traitement a démarré.`,
+        });
+        
+      } catch (error: any) {
+        console.error('❌ Erreur upload:', error);
+        
+        setUploadQueue(prev => prev.map((item, index) => 
+          index === i ? { 
+            ...item, 
+            status: 'error', 
+            progress: 0, 
+            error: error.message 
+          } : item
+        ));
+        
+        toast({
+          title: "Erreur",
+          description: `Erreur lors de l'upload de ${file.name}: ${error.message}`,
+          variant: "destructive",
+        });
+      }
+    }
+    
+    // Nettoyer la queue après 3 secondes
+    setTimeout(() => {
+      setUploadQueue([]);
+      setIsProcessingQueue(false);
+    }, 3000);
+  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (!storageReady) {
@@ -150,10 +210,10 @@ const Documents = () => {
       return;
     }
     
-    acceptedFiles.forEach(file => {
-      uploadMutation.mutate(file);
-    });
-  }, [uploadMutation, storageReady, toast]);
+    if (acceptedFiles.length > 0) {
+      processUploadQueue(acceptedFiles);
+    }
+  }, [storageReady, toast, isProcessingQueue]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -403,7 +463,7 @@ const Documents = () => {
             Télécharger des Documents
           </CardTitle>
           <CardDescription className="text-sm">
-            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX, PPT, PPTX, XLS, XLSX) pour un traitement automatique.
+            Glissez-déposez vos fichiers (PDF, TXT, DOC, DOCX, PPT, PPTX, XLS, XLSX) - traitement séquentiel automatique.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -411,7 +471,7 @@ const Documents = () => {
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
               ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
-              ${uploadMutation.isPending || !storageReady ? 'pointer-events-none opacity-50' : ''}
+              ${isProcessingQueue || !storageReady ? 'pointer-events-none opacity-50' : ''}
             `}
           >
             <input {...getInputProps()} />
@@ -436,12 +496,44 @@ const Documents = () => {
               </div>
             )}
           </div>
-          {uploadMutation.isPending && (
-            <div className="mt-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Upload en cours...</span>
-              </div>
+          
+          {/* Affichage de la queue d'upload */}
+          {uploadQueue.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h4 className="font-medium text-sm">Progression des uploads :</h4>
+              {uploadQueue.map((item, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-shrink-0">
+                    {item.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
+                    {item.status === 'processing' && <Loader2 className="h-4 w-4 animate-spin text-orange-600" />}
+                    {item.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                    {item.status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.file.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            item.status === 'error' ? 'bg-red-500' : 
+                            item.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600">
+                        {item.status === 'uploading' && 'Upload...'}
+                        {item.status === 'processing' && 'Traitement...'}
+                        {item.status === 'completed' && 'Terminé'}
+                        {item.status === 'error' && 'Erreur'}
+                      </span>
+                    </div>
+                    {item.error && (
+                      <p className="text-xs text-red-600 mt-1">{item.error}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -477,7 +569,7 @@ const Documents = () => {
             </span>
           </CardTitle>
           <CardDescription>
-            Vue unifiée de vos documents uploadés et meetings transcrits. Cliquez sur un élément pour voir le détail.
+            Vue unifiée de vos documents uploadés et meetings transcrits. Traitement séquentiel des uploads multiples.
           </CardDescription>
         </CardHeader>
         <CardContent>

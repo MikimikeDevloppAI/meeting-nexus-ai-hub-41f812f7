@@ -100,6 +100,82 @@ export const useUnifiedDocuments = () => {
     fetchUnifiedDocuments();
   }, [refreshKey]);
 
+  // Configuration des subscriptions temps réel améliorées
+  useEffect(() => {
+    console.log('🔄 Setting up comprehensive real-time subscriptions...');
+    
+    let refreshTimeout: NodeJS.Timeout;
+    
+    const scheduleRefresh = () => {
+      clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('⚡ Executing scheduled refresh...');
+        forceRefresh();
+      }, 300); // Délai réduit pour une meilleure réactivité
+    };
+
+    // Subscription pour uploaded_documents (création, mise à jour)
+    const documentsChannel = supabase
+      .channel('unified-documents-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'uploaded_documents'
+        },
+        (payload) => {
+          console.log('📄 Document upload/update:', payload);
+          scheduleRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meetings'
+        },
+        (payload) => {
+          console.log('🎤 Meeting update:', payload);
+          scheduleRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'documents'
+        },
+        (payload) => {
+          console.log('🗂️ Vector document update:', payload);
+          // La création d'un document dans la table documents signifie que le traitement est terminé
+          scheduleRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_embeddings'
+        },
+        (payload) => {
+          console.log('🔗 Document embeddings update:', payload);
+          // Les embeddings sont créés = document complètement traité
+          scheduleRefresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🧹 Cleaning up real-time subscriptions...');
+      clearTimeout(refreshTimeout);
+      supabase.removeChannel(documentsChannel);
+    };
+  }, []);
+
   return { 
     documents, 
     isLoading, 
