@@ -168,10 +168,35 @@ async function processDocumentInBackground(
       analysis = createFallbackAnalysis(document);
     }
 
-    // STEP 3: Generate text chunks for embeddings
-    const chunks = chunkText(text, CHUNK_SIZE);
-    const limitedChunks = chunks.slice(0, MAX_CHUNKS);
-    console.log(`🔢 Created ${limitedChunks.length} chunks for embeddings (limited from ${chunks.length})`);
+    // STEP 3: Generate text chunks for embeddings + NOUVEAU: Ajouter nom et résumé
+    const regularChunks = chunkText(text, CHUNK_SIZE);
+    const limitedRegularChunks = regularChunks.slice(0, MAX_CHUNKS - 2); // Réserver 2 places pour nom et résumé
+    
+    // NOUVEAU: Créer des chunks spéciaux pour le nom et le résumé
+    const metadataChunks = [];
+    
+    // Chunk pour le nom du document avec contexte
+    const documentNameChunk = `DOCUMENT: ${analysis.suggestedName || document.original_name}
+TYPE: ${analysis.taxonomy?.documentType || 'Document'}
+CATÉGORIE: ${analysis.taxonomy?.category || 'Non classé'}
+DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.original_name}" et appartient à la catégorie ${analysis.taxonomy?.category || 'documents généraux'}.`;
+    
+    metadataChunks.push(documentNameChunk);
+    
+    // Chunk pour le résumé si disponible
+    if (analysis.summary && analysis.summary.length > 50) {
+      const summaryChunk = `RÉSUMÉ DU DOCUMENT: ${analysis.suggestedName || document.original_name}
+CONTENU PRINCIPAL: ${analysis.summary}
+MOTS-CLÉS: ${analysis.taxonomy?.keywords?.join(', ') || 'Non définis'}
+UTILITÉ: Ce document contient des informations sur ${analysis.taxonomy?.keywords?.slice(0, 3).join(', ') || 'différents sujets'}.`;
+      
+      metadataChunks.push(summaryChunk);
+    }
+    
+    // Combiner tous les chunks
+    const allChunks = [...metadataChunks, ...limitedRegularChunks];
+    
+    console.log(`🔢 Created ${allChunks.length} chunks for embeddings (${metadataChunks.length} metadata + ${limitedRegularChunks.length} content chunks)`);
 
     // Prepare comprehensive metadata
     const completeMetadata = {
@@ -183,8 +208,10 @@ async function processDocumentInBackground(
       fileSize: document.file_size,
       processedAt: new Date().toISOString(),
       textLength: text.length,
-      chunksGenerated: limitedChunks.length,
-      processingVersion: '2.3-convertapi',
+      chunksGenerated: allChunks.length,
+      metadataChunks: metadataChunks.length,
+      contentChunks: limitedRegularChunks.length,
+      processingVersion: '2.4-with-metadata-chunks',
       ...analysis.taxonomy
     };
 
@@ -192,12 +219,12 @@ async function processDocumentInBackground(
     let embeddingsSuccess = false;
     let vectorDocumentId = null;
 
-    if (limitedChunks.length > 0) {
+    if (allChunks.length > 0) {
       try {
         console.log('🔄 Starting embeddings generation...');
-        const embeddings = await generateEmbeddings(limitedChunks, openaiApiKey);
+        const embeddings = await generateEmbeddings(allChunks, openaiApiKey);
         
-        if (embeddings.length === limitedChunks.length) {
+        if (embeddings.length === allChunks.length) {
           console.log(`✅ Generated ${embeddings.length} embeddings successfully`);
           
           // Format embeddings for PostgreSQL
@@ -210,7 +237,7 @@ async function processDocumentInBackground(
             p_title: analysis.suggestedName,
             p_type: 'uploaded_document',
             p_content: text,
-            p_chunks: limitedChunks,
+            p_chunks: allChunks,
             p_embeddings: formattedEmbeddings,
             p_metadata: completeMetadata
           });
@@ -226,7 +253,7 @@ async function processDocumentInBackground(
           embeddingsSuccess = true;
           
         } else {
-          console.error('⚠️ Embeddings count mismatch:', embeddings.length, 'vs', limitedChunks.length);
+          console.error('⚠️ Embeddings count mismatch:', embeddings.length, 'vs', allChunks.length);
           completeMetadata.embeddingsMismatch = true;
         }
         
@@ -241,7 +268,7 @@ async function processDocumentInBackground(
     }
 
     // Add final status to metadata
-    completeMetadata.embeddingsGenerated = embeddingsSuccess ? limitedChunks.length : 0;
+    completeMetadata.embeddingsGenerated = embeddingsSuccess ? allChunks.length : 0;
     completeMetadata.embeddingsSuccess = embeddingsSuccess;
     completeMetadata.vectorDocumentId = vectorDocumentId;
 
@@ -263,8 +290,8 @@ async function processDocumentInBackground(
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processing completed successfully with ConvertAPI!`);
-    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${chunks.length} chunks, ${text.length} chars`);
+    console.log(`🎉 Document ${documentId} processing completed successfully with metadata chunks!`);
+    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks (${metadataChunks.length} metadata), ${text.length} chars`);
 
   } catch (error) {
     console.error('❌ Background processing failed:', error);
@@ -281,7 +308,7 @@ async function processDocumentInBackground(
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.3-convertapi'
+            processingVersion: '2.4-with-metadata-chunks'
           }
         })
         .eq('id', documentId);

@@ -1,4 +1,3 @@
-
 import { createSupabaseClient } from './database-service.ts'
 
 export async function handleDocumentProcessing(
@@ -38,6 +37,42 @@ export async function handleDocumentProcessing(
       };
     }
 
+    // NOUVEAU: Créer des chunks de métadonnées pour les meetings
+    const metadataChunks = [];
+    
+    // Chunk pour le titre et informations du meeting
+    const meetingInfoChunk = `RÉUNION: ${meetingName}
+DATE: ${meetingDate}
+TYPE: Réunion transcrite
+CATÉGORIE: Meeting
+DESCRIPTION: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDate}. Il s'agit d'une réunion du cabinet d'ophtalmologie avec transcript disponible.`;
+    
+    metadataChunks.push(meetingInfoChunk);
+
+    // Extraire des informations contextuelles du transcript
+    const keywords = extractKeywords(cleanedTranscript);
+    const participantInfo = extractParticipantInfo(cleanedTranscript);
+    const topicInfo = extractTopicInfo(cleanedTranscript);
+    
+    // Chunk résumé contextuel
+    if (keywords.length > 0 || participantInfo || topicInfo) {
+      const contextChunk = `CONTENU DE LA RÉUNION: ${meetingName}
+PARTICIPANTS: ${participantInfo || 'Équipe du cabinet'}
+SUJETS ABORDÉS: ${topicInfo || 'Sujets divers'}
+MOTS-CLÉS: ${keywords.join(', ') || 'Réunion, discussion'}
+UTILITÉ: Cette réunion contient des discussions sur ${topicInfo || 'l\'organisation du cabinet'} avec la participation de ${participantInfo || 'l\'équipe'}.`;
+      
+      metadataChunks.push(contextChunk);
+    }
+    
+    // Limiter les chunks de contenu pour faire de la place aux métadonnées
+    const limitedContentChunks = cleanedChunks.slice(0, Math.max(1, cleanedChunks.length - metadataChunks.length));
+    
+    // Combiner métadonnées et contenu
+    const allChunks = [...metadataChunks, ...limitedContentChunks];
+    
+    console.log(`[DOCUMENT] Total chunks with metadata: ${allChunks.length} (${metadataChunks.length} metadata + ${limitedContentChunks.length} content)`);
+
     // Générer les embeddings via l'API dédiée
     console.log('[DOCUMENT] 🔄 Génération des embeddings...');
     const embeddingResponse = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/generate-embeddings', {
@@ -47,7 +82,7 @@ export async function handleDocumentProcessing(
         'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
       },
       body: JSON.stringify({
-        texts: cleanedChunks
+        texts: allChunks
       }),
     });
 
@@ -63,11 +98,6 @@ export async function handleDocumentProcessing(
     console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés`);
 
     // NOUVEAU: Améliorer le nommage du document avec plus de contexte significatif
-    const keywords = extractKeywords(cleanedTranscript);
-    const participantInfo = extractParticipantInfo(cleanedTranscript);
-    const topicInfo = extractTopicInfo(cleanedTranscript);
-    
-    // Construire un titre enrichi avec contexte métier
     let enhancedTitle = `${meetingName} - ${meetingDate}`;
     
     // Ajouter les informations de participants si disponibles
@@ -85,6 +115,22 @@ export async function handleDocumentProcessing(
       enhancedTitle += ` [${keywords.slice(0, 3).join(', ')}]`;
     }
 
+    // Métadonnées enrichies
+    const enhancedMetadata = {
+      meetingId: meetingId,
+      meetingName: meetingName,
+      meetingDate: meetingDate,
+      chunkCount: allChunks.length,
+      metadataChunks: metadataChunks.length,
+      contentChunks: limitedContentChunks.length,
+      originalChunkCount: chunks.length,
+      keywords: keywords,
+      participantInfo: participantInfo,
+      topicInfo: topicInfo,
+      processedAt: new Date().toISOString(),
+      processingVersion: '2.4-with-metadata-chunks'
+    };
+
     // Sauvegarder le document avec embeddings
     const { data: documentResult, error: storeError } = await supabaseClient.rpc(
       'store_document_with_embeddings',
@@ -92,19 +138,9 @@ export async function handleDocumentProcessing(
         p_title: enhancedTitle,
         p_type: 'meeting_transcript',
         p_content: cleanedTranscript,
-        p_chunks: cleanedChunks,
+        p_chunks: allChunks,
         p_embeddings: embeddings.map((emb: number[]) => `[${emb.join(',')}]`),
-        p_metadata: {
-          meetingId: meetingId,
-          meetingName: meetingName,
-          meetingDate: meetingDate,
-          chunkCount: cleanedChunks.length,
-          originalChunkCount: chunks.length,
-          keywords: keywords,
-          participantInfo: participantInfo,
-          topicInfo: topicInfo,
-          processedAt: new Date().toISOString()
-        },
+        p_metadata: enhancedMetadata,
         p_meeting_id: meetingId
       }
     );
@@ -114,11 +150,11 @@ export async function handleDocumentProcessing(
       throw new Error(`Failed to store document: ${storeError.message}`);
     }
 
-    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès');
+    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès avec métadonnées');
 
     return {
       id: documentResult || meetingId,
-      chunksCount: cleanedChunks.length
+      chunksCount: allChunks.length
     };
 
   } catch (error) {
