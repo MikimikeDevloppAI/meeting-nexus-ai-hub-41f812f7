@@ -31,6 +31,7 @@ interface UploadProgress {
   progress: number;
   error?: string;
   documentId?: string;
+  vectorDocumentId?: string;
 }
 
 const Documents = () => {
@@ -214,14 +215,14 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // Écouter les mises à jour des documents pour détecter la fin de traitement
+  // Écouter les mises à jour pour détecter la fin de traitement
   useEffect(() => {
     if (uploadQueue.length === 0) return;
 
     console.log('🔄 Setting up document processing completion listener...');
     
-    const documentsChannel = supabase
-      .channel('document-processing-completion')
+    const processingChannel = supabase
+      .channel('document-processing-tracking')
       .on(
         'postgres_changes',
         {
@@ -231,76 +232,82 @@ const Documents = () => {
         },
         (payload) => {
           const updatedDoc = payload.new;
-          console.log('📄 Document mis à jour:', updatedDoc);
+          console.log('📄 Document uploaded_documents mis à jour:', updatedDoc);
           
           // Trouver le document dans la queue par ID
           const queueIndex = uploadQueue.findIndex(item => item.documentId === updatedDoc.id);
           
           if (queueIndex !== -1) {
-            if (updatedDoc.processed) {
-              console.log(`✅ Document ${updatedDoc.id} traité avec succès`);
-              
-              // Mettre à jour la queue d'upload pour marquer le document comme complété
-              setUploadQueue(prev => prev.map((item, index) => 
-                index === queueIndex ? { ...item, status: 'completed', progress: 100 } : item
-              ));
-              
-              // Vérifier si tous les documents sont traités
-              setTimeout(() => {
-                setUploadQueue(currentQueue => {
-                  const allCompleted = currentQueue.every(item => 
-                    item.status === 'completed' || item.status === 'error'
-                  );
+            // Mettre à jour les informations du document dans la queue
+            setUploadQueue(prev => prev.map((item, index) => 
+              index === queueIndex ? { 
+                ...item, 
+                vectorDocumentId: updatedDoc.metadata?.vectorDocumentId 
+              } : item
+            ));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'documents'
+        },
+        (payload) => {
+          const newVectorDoc = payload.new;
+          console.log('🗂️ Nouveau document vectoriel créé:', newVectorDoc);
+          
+          // Trouver le document dans la queue par vectorDocumentId
+          const queueIndex = uploadQueue.findIndex(item => 
+            item.vectorDocumentId === newVectorDoc.id
+          );
+          
+          if (queueIndex !== -1) {
+            console.log(`✅ Document vectoriel ${newVectorDoc.id} détecté - marquage comme traité`);
+            
+            // Marquer le document comme traité
+            setUploadQueue(prev => prev.map((item, index) => 
+              index === queueIndex ? { ...item, status: 'completed', progress: 100 } : item
+            ));
+            
+            // Vérifier si tous les documents sont traités
+            setTimeout(() => {
+              setUploadQueue(currentQueue => {
+                const allCompleted = currentQueue.every(item => 
+                  item.status === 'completed' || item.status === 'error'
+                );
+                
+                if (allCompleted) {
+                  console.log('🎉 Tous les documents ont été traités! Refresh global...');
                   
-                  if (allCompleted) {
-                    console.log('🎉 Tous les documents ont été traités! Refresh global...');
+                  // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
+                  setTimeout(() => {
+                    setUploadQueue([]);
+                    setIsProcessingQueue(false);
                     
-                    // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
-                    setTimeout(() => {
-                      setUploadQueue([]);
-                      setIsProcessingQueue(false);
-                      
-                      // Déclencher le refresh global des documents
-                      forceRefresh();
-                      
-                      toast({
-                        title: "Traitement terminé",
-                        description: "Tous les documents ont été traités avec succès",
-                      });
-                    }, 2000);
-                  }
-                  
-                  return currentQueue;
-                });
-              }, 100);
-              
-            } else if (updatedDoc.ai_summary?.includes('Erreur de traitement')) {
-              console.log(`❌ Erreur de traitement pour le document ${updatedDoc.id}`);
-              
-              // Marquer comme erreur dans la queue
-              setUploadQueue(prev => prev.map((item, index) => 
-                index === queueIndex ? { 
-                  ...item, 
-                  status: 'error', 
-                  progress: 0, 
-                  error: 'Erreur de traitement AI' 
-                } : item
-              ));
-              
-              toast({
-                title: "Erreur de traitement",
-                description: `Problème lors du traitement de ${updatedDoc.original_name}`,
-                variant: "destructive",
+                    // Déclencher le refresh global des documents
+                    forceRefresh();
+                    
+                    toast({
+                      title: "Traitement terminé",
+                      description: "Tous les documents ont été traités avec succès",
+                    });
+                  }, 2000);
+                }
+                
+                return currentQueue;
               });
-            }
+            }, 100);
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('🧹 Cleaning up document processing completion listener...');
-      supabase.removeChannel(documentsChannel);
+      console.log('🧹 Cleaning up document processing tracking listener...');
+      supabase.removeChannel(processingChannel);
     };
   }, [uploadQueue, forceRefresh, toast]);
 
