@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,35 @@ const Documents = () => {
   const navigate = useNavigate();
 
   const { documents, isLoading, refetch, forceRefresh, refreshKey } = useUnifiedDocuments();
+
+  // Fonction pour générer un nom de fichier unique
+  const generateUniqueFileName = async (baseName: string, extension: string): Promise<string> => {
+    let counter = 0;
+    let fileName = `${baseName}.${extension}`;
+    
+    while (true) {
+      // Vérifier si le fichier existe déjà dans le storage
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .list('', { search: fileName });
+      
+      if (error) {
+        console.error('Erreur lors de la vérification du fichier:', error);
+        break;
+      }
+      
+      // Si aucun fichier trouvé avec ce nom, on peut l'utiliser
+      if (!data || data.length === 0) {
+        break;
+      }
+      
+      // Si le fichier existe, ajouter un numéro
+      counter++;
+      fileName = `${baseName}-${counter}.${extension}`;
+    }
+    
+    return fileName;
+  };
 
   // Fonction pour traiter un seul fichier
   const uploadSingleFile = async (file: File): Promise<string> => {
@@ -234,15 +264,20 @@ const Documents = () => {
             console.log('🔄 Renommage du fichier avec le titre AI...');
             
             try {
-              // Créer le nouveau nom de fichier basé sur le titre AI
+              // Extraire l'extension du fichier original
               const extension = updatedDoc.original_name.split('.').pop();
-              const newFileName = cleanFileName(`${updatedDoc.ai_generated_name}.${extension}`);
-              const newFilePath = newFileName;
               
-              // Copier le fichier avec le nouveau nom
+              // Nettoyer le nom AI généré et générer un nom de fichier unique
+              const cleanedAiName = cleanFileName(updatedDoc.ai_generated_name);
+              const baseNameWithoutExtension = cleanedAiName.replace(/\.[^/.]+$/, '');
+              const uniqueFileName = await generateUniqueFileName(baseNameWithoutExtension, extension);
+              
+              console.log('🎯 Nom de fichier unique généré:', uniqueFileName);
+              
+              // Copier le fichier avec le nouveau nom unique
               const { error: copyError } = await supabase.storage
                 .from('documents')
-                .copy(updatedDoc.file_path, newFilePath);
+                .copy(updatedDoc.file_path, uniqueFileName);
               
               if (!copyError) {
                 // Supprimer l'ancien fichier temporaire
@@ -253,10 +288,10 @@ const Documents = () => {
                 // Mettre à jour le chemin dans la base de données
                 await supabase
                   .from('uploaded_documents')
-                  .update({ file_path: newFilePath })
+                  .update({ file_path: uniqueFileName })
                   .eq('id', updatedDoc.id);
                 
-                console.log('✅ Fichier renommé:', newFilePath);
+                console.log('✅ Fichier renommé avec nom unique:', uniqueFileName);
               }
             } catch (error) {
               console.error('❌ Erreur lors du renommage:', error);
