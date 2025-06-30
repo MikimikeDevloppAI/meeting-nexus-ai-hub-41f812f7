@@ -39,6 +39,7 @@ export const CompactDocumentItem = ({
   };
 
   const isMeeting = document.type === 'meeting';
+  // Utilisation directe de document.processed sans état local
   const isProcessing = !document.processed && !isMeeting;
 
   const handlePlayAudio = () => {
@@ -47,6 +48,8 @@ export const CompactDocumentItem = ({
       audio.play();
     }
   };
+
+  console.log(`🔍 Rendering document ${document.id}: processed=${document.processed}, isProcessing=${isProcessing}`);
 
   return (
     <>

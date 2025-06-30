@@ -6,7 +6,7 @@ import { UnifiedDocumentItem } from "@/types/unified-document";
 export const useUnifiedDocuments = () => {
   const [documents, setDocuments] = useState<UnifiedDocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchUnifiedDocuments = async () => {
     try {
@@ -83,7 +83,6 @@ export const useUnifiedDocuments = () => {
 
       console.log('Documents unifiés récupérés:', combined.length);
       setDocuments(combined);
-      setLastUpdate(Date.now());
     } catch (error) {
       console.error('Error fetching unified documents:', error);
       setDocuments([]);
@@ -93,20 +92,19 @@ export const useUnifiedDocuments = () => {
   };
 
   const forceRefresh = () => {
-    console.log('Force refresh triggered');
-    setLastUpdate(Date.now());
-    fetchUnifiedDocuments();
+    console.log('Force refresh triggered with key:', refreshKey + 1);
+    setRefreshKey(prev => prev + 1);
   };
 
   useEffect(() => {
     fetchUnifiedDocuments();
-  }, []);
+  }, [refreshKey]);
 
   return { 
     documents, 
     isLoading, 
     refetch: fetchUnifiedDocuments,
     forceRefresh,
-    lastUpdate
+    refreshKey
   };
 };

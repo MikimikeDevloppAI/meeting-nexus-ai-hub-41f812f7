@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ const Documents = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { documents, isLoading, refetch, forceRefresh } = useUnifiedDocuments();
+  const { documents, isLoading, refetch, forceRefresh, refreshKey } = useUnifiedDocuments();
 
   // Vérifier le storage au chargement
   useEffect(() => {
@@ -170,12 +169,22 @@ const Documents = () => {
     }
   });
 
-  // Écouter les mises à jour en temps réel pour les deux tables avec gestion améliorée
+  // Écouter les mises à jour en temps réel avec une gestion améliorée
   useEffect(() => {
-    console.log('Setting up real-time subscription for unified documents...');
+    console.log('Setting up enhanced real-time subscriptions...');
     
+    let refreshTimeout: NodeJS.Timeout;
+    
+    const scheduleRefresh = () => {
+      clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('Executing scheduled refresh...');
+        forceRefresh();
+      }, 500);
+    };
+
     const documentsChannel = supabase
-      .channel('documents-updates')
+      .channel('documents-realtime-updates')
       .on(
         'postgres_changes',
         {
@@ -184,30 +193,26 @@ const Documents = () => {
           table: 'uploaded_documents'
         },
         (payload) => {
-          console.log('Document updated via real-time:', payload);
+          console.log('📄 Document real-time update:', payload);
           
-          // Forcer le refetch immédiatement avec invalidation du cache
-          queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
-          forceRefresh();
-          
-          // Afficher les notifications appropriées
           if (payload.eventType === 'UPDATE') {
             const newDoc = payload.new;
             const oldDoc = payload.old;
             
             // Document vient d'être traité
             if (newDoc?.processed && !oldDoc?.processed) {
-              console.log('Document vient d\'être traité:', newDoc.original_name);
+              console.log('✅ Document traité détecté:', newDoc.ai_generated_name || newDoc.original_name);
               toast({
                 title: "Document traité",
                 description: `${newDoc.ai_generated_name || newDoc.original_name} a été traité avec succès`,
               });
-              // Forcer un nouveau refresh pour être sûr
-              setTimeout(() => forceRefresh(), 1000);
+              
+              // Forcer un refresh immédiat
+              scheduleRefresh();
             }
             
             // Erreur de traitement
-            if (newDoc?.processed && newDoc?.ai_summary?.includes('Erreur de traitement')) {
+            if (newDoc?.ai_summary?.includes('Erreur de traitement')) {
               toast({
                 title: "Erreur de traitement",
                 description: `Problème lors du traitement de ${newDoc.original_name}`,
@@ -215,12 +220,15 @@ const Documents = () => {
               });
             }
           }
+          
+          // Toujours déclencher un refresh pour toute modification
+          scheduleRefresh();
         }
       )
       .subscribe();
 
     const meetingsChannel = supabase
-      .channel('meetings-updates')
+      .channel('meetings-realtime-updates')
       .on(
         'postgres_changes',
         {
@@ -229,11 +237,7 @@ const Documents = () => {
           table: 'meetings'
         },
         (payload) => {
-          console.log('Meeting updated via real-time:', payload);
-          
-          // Forcer le refetch immédiatement avec invalidation du cache
-          queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
-          forceRefresh();
+          console.log('🎤 Meeting real-time update:', payload);
           
           if (payload.eventType === 'UPDATE') {
             const newMeeting = payload.new;
@@ -245,20 +249,22 @@ const Documents = () => {
                 title: "Meeting traité",
                 description: `${newMeeting.title} a été traité avec succès`,
               });
-              // Forcer un nouveau refresh pour être sûr
-              setTimeout(() => forceRefresh(), 1000);
             }
           }
+          
+          // Toujours déclencher un refresh pour toute modification
+          scheduleRefresh();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up real-time subscriptions...');
+      console.log('Cleaning up enhanced real-time subscriptions...');
+      clearTimeout(refreshTimeout);
       supabase.removeChannel(documentsChannel);
       supabase.removeChannel(meetingsChannel);
     };
-  }, [forceRefresh, toast, queryClient]);
+  }, [forceRefresh, toast]);
 
   // Filtrer les documents selon les critères de recherche
   const filteredDocuments = useMemo(() => {
@@ -466,6 +472,9 @@ const Documents = () => {
                 ({filteredDocuments.length} sur {documents?.length} éléments)
               </span>
             )}
+            <span className="text-xs text-gray-400 ml-2">
+              (refresh: {refreshKey})
+            </span>
           </CardTitle>
           <CardDescription>
             Vue unifiée de vos documents uploadés et meetings transcrits. Cliquez sur un élément pour voir le détail.
@@ -490,7 +499,7 @@ const Documents = () => {
               <div className="space-y-3">
                 {filteredDocuments.map((document) => (
                   <CompactDocumentItem
-                    key={`${document.type}-${document.id}`}
+                    key={`${document.type}-${document.id}-${refreshKey}-${document.processed ? 'processed' : 'processing'}`}
                     document={document}
                     onDownload={() => handleDownload(document)}
                     onDelete={() => deleteMutation.mutate(document)}
