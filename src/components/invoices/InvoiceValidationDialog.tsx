@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CheckCircle, Building, User, FileText, CreditCard, Tag, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 interface Invoice {
   id: string;
@@ -178,6 +179,27 @@ export function InvoiceValidationDialog({
             <CheckCircle className="h-5 w-5 text-green-600" />
             Validation de la facture - {invoice.original_filename}
           </DialogTitle>
+          
+          {/* Informations principales affichées en haut */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {invoice.supplier_name && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Building className="h-3 w-3" />
+                {invoice.supplier_name}
+              </Badge>
+            )}
+            {invoice.purchase_category && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Tag className="h-3 w-3" />
+                {invoice.purchase_category}
+              </Badge>
+            )}
+            {invoice.total_amount && (
+              <Badge variant="outline">
+                {invoice.total_amount} {invoice.currency || 'EUR'}
+              </Badge>
+            )}
+          </div>
         </DialogHeader>
 
         {validationErrors.length > 0 && (
