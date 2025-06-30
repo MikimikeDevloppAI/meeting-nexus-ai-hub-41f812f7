@@ -284,8 +284,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Informations essentielles en format texte */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+              {/* Informations essentielles en format texte - SANS le montant HT */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Compte:</span>
                   <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
@@ -294,15 +294,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   <span className="font-medium text-gray-700">Date facture:</span>
                   <div className="text-gray-900">
                     {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Montant HT:</span>
-                  <div className="text-gray-900">
-                    {invoice.total_net ? 
-                      `${invoice.total_net.toFixed(2)} ${invoice.currency || 'EUR'}` : 
-                      'N/A'
-                    }
                   </div>
                 </div>
                 <div>
