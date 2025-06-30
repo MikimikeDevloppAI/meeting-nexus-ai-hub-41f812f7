@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -239,14 +240,14 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // NOUVEAU: Logique simplifiée pour écouter les documents créés
+  // NOUVEAU: Logique améliorée pour suivre le traitement des documents
   useEffect(() => {
     if (uploadQueue.length === 0) return;
 
-    console.log('🔄 Setting up simplified document completion listener...');
+    console.log('🔄 Setting up enhanced document processing listener...');
     
-    const completionChannel = supabase
-      .channel('document-completion-tracking')
+    const processingChannel = supabase
+      .channel('document-processing-tracking')
       .on(
         'postgres_changes',
         {
@@ -309,16 +310,19 @@ const Documents = () => {
           const newVectorDoc = payload.new;
           console.log('🗂️ Nouveau document vectoriel créé:', newVectorDoc);
           
-          // NOUVEAU: Utiliser uploaded_document_id pour faire la correspondance directe
+          // NOUVEAU: Vérifier si ce document correspond à un upload en cours
           if (newVectorDoc.uploaded_document_id) {
+            console.log(`🎯 Document vectoriel créé pour uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
+            
+            // Chercher dans la queue d'upload
             const queueIndex = uploadQueue.findIndex(item => 
               item.documentId === newVectorDoc.uploaded_document_id
             );
             
             if (queueIndex !== -1) {
-              console.log(`✅ Correspondance trouvée avec uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
+              console.log(`✅ Correspondance trouvée dans la queue! Index: ${queueIndex}`);
               
-              // Marquer le document comme traité
+              // Marquer comme traité
               setUploadQueue(prev => prev.map((item, index) => 
                 index === queueIndex ? { ...item, status: 'completed', progress: 100 } : item
               ));
@@ -331,14 +335,12 @@ const Documents = () => {
                   );
                   
                   if (allCompleted) {
-                    console.log('🎉 Tous les documents ont été traités! Refresh global...');
+                    console.log('🎉 Tous les documents traités! Nettoyage et refresh...');
                     
-                    // Nettoyer la queue après un délai pour permettre de voir le statut "completed"
+                    // Nettoyer la queue et refresher
                     setTimeout(() => {
                       setUploadQueue([]);
                       setIsProcessingQueue(false);
-                      
-                      // Déclencher le refresh global des documents
                       forceRefresh();
                       
                       toast({
@@ -355,15 +357,15 @@ const Documents = () => {
               console.log(`⚠️ Aucune correspondance trouvée pour uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
             }
           } else {
-            console.log('⚠️ Document vectoriel créé sans uploaded_document_id');
+            console.log('⚠️ Document vectoriel créé sans uploaded_document_id (probablement un meeting)');
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('🧹 Cleaning up simplified document completion listener...');
-      supabase.removeChannel(completionChannel);
+      console.log('🧹 Cleaning up enhanced document processing listener...');
+      supabase.removeChannel(processingChannel);
     };
   }, [uploadQueue, forceRefresh, toast]);
 
