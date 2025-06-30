@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -245,6 +246,29 @@ export function InvoiceValidationDialog({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="supplier_name_doc">
+                  Nom du fournisseur <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="supplier_name_doc"
+                  value={formData.supplier_name || ''}
+                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
+                  placeholder="Nom du fournisseur"
+                  className={validationErrors.some(e => e.includes('fournisseur')) ? 'border-red-500' : ''}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="purchase_category_doc">Catégorie d'achat</Label>
+                <Input
+                  id="purchase_category_doc"
+                  value={formData.purchase_category || ''}
+                  onChange={(e) => handleInputChange('purchase_category', e.target.value)}
+                  placeholder="Ex: Matériel informatique, Fournitures bureau..."
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="invoice_number">Numéro de facture</Label>
                 <Input
                   id="invoice_number"
@@ -365,16 +389,6 @@ export function InvoiceValidationDialog({
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="purchase_category">Catégorie d'achat</Label>
-                <Input
-                  id="purchase_category"
-                  value={formData.purchase_category || ''}
-                  onChange={(e) => handleInputChange('purchase_category', e.target.value)}
-                  placeholder="Ex: Matériel informatique, Fournitures bureau..."
-                />
-              </div>
-
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="purchase_subcategory">Sous-catégorie d'achat</Label>
                 <Input
@@ -391,19 +405,6 @@ export function InvoiceValidationDialog({
             <h3 className="font-semibold text-lg border-b pb-2">Informations fournisseur</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="supplier_name">
-                  Nom du fournisseur <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="supplier_name"
-                  value={formData.supplier_name || ''}
-                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
-                  placeholder="Nom du fournisseur"
-                  className={validationErrors.some(e => e.includes('fournisseur')) ? 'border-red-500' : ''}
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="supplier_email">Email</Label>
                 <Input
