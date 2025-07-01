@@ -38,11 +38,11 @@ Participants disponibles dans le système : ${participantNames}
 - Privilégie les macro-tâches sur les micro-actions
 
 **RÈGLES DE DESCRIPTION CONCISE:**
-- Maximum 100 caractères par description
+- description concise mais qui donne le contexte nécessaire pour la compréhension
 - Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
-- Inclus seulement les détails ESSENTIELS
-- Format: "Action + Objet + Contexte minimal"
-- Exemples: "Contacter Fischer pour intervention du 3 avril", "Organiser planning congés cabinet été"
+- Inclus seulement les détails importants
+- Format: "Action + Objet + Contexte "
+
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
