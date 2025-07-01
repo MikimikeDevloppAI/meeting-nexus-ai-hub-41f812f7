@@ -26,21 +26,29 @@ serve(async (req) => {
       throw new Error('Aucun fichier audio fourni');
     }
 
-    // Préparer les données pour l'API Infomaniak Whisper v2
-    const whisperFormData = new FormData();
-    whisperFormData.append('file', audioFile);
-    whisperFormData.append('model', 'whisperV2');
-    whisperFormData.append('language', 'fr');
-    whisperFormData.append('response_format', 'json');
+    console.log('Fichier audio reçu:', audioFile.name, audioFile.type, audioFile.size);
+
+    // Convertir le fichier en base64 pour l'API Infomaniak
+    const arrayBuffer = await audioFile.arrayBuffer();
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
     console.log('Envoi de la transcription à Infomaniak Whisper v2...');
+
+    // Préparer les données selon la documentation Infomaniak
+    const requestBody = {
+      file: base64Audio,
+      model: 'whisperV2',
+      language: 'fr',
+      response_format: 'json'
+    };
 
     const response = await fetch('https://api.infomaniak.com/1/ai/105139/openai/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${infomaniakApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: whisperFormData,
+      body: JSON.stringify(requestBody),
     });
 
     console.log('Réponse de l\'API Infomaniak:', response.status);
