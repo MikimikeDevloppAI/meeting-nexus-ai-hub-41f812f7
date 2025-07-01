@@ -85,12 +85,12 @@ export default function Todos() {
 
   const fetchTodos = async () => {
     try {
+      // Requête corrigée : utiliser todo_participants au lieu de participants directement
       const { data, error } = await supabase
         .from("todos")
         .select(`
           *,
           meetings(title),
-          participants(name),
           todo_participants(
             participant_id,
             participants(id, name, email)
