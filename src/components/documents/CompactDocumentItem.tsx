@@ -1,3 +1,4 @@
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
@@ -40,11 +41,27 @@ export const CompactDocumentItem = ({
   const isMeeting = document.type === 'meeting';
   const isProcessing = !document.processed && !isMeeting;
 
-  const handlePlayAudio = () => {
+  const handlePlayAudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (document.audio_url) {
       const audio = new Audio(document.audio_url);
       audio.play();
     }
+  };
+
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowPreview(true);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDownload();
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete();
   };
 
   console.log(`🔍 Rendering document ${document.id}: processed=${document.processed}, isProcessing=${isProcessing}`);
@@ -129,13 +146,13 @@ export const CompactDocumentItem = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
             {/* Bouton de prévisualisation pour les documents avec file_path */}
             {!isMeeting && document.file_path && document.processed && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowPreview(true)}
+                onClick={handlePreview}
                 title="Prévisualiser le document"
                 className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
@@ -156,7 +173,7 @@ export const CompactDocumentItem = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={onDownload}
+              onClick={handleDownload}
               title={isMeeting ? "Voir la page du meeting" : "Télécharger"}
               className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
             >
@@ -166,7 +183,7 @@ export const CompactDocumentItem = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onDelete}
+                onClick={handleDelete}
                 disabled={isDeleting}
                 className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
