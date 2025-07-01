@@ -27,7 +27,7 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         </div>
         {transcript ? (
           <div className="prose prose-sm max-w-none">
-            <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap text-sm">
+            <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap text-sm break-words overflow-wrap-anywhere">
               {transcript}
             </div>
           </div>
@@ -52,7 +52,7 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         {summary ? (
           <div className="prose prose-sm max-w-none">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm whitespace-pre-wrap">{summary}</div>
+              <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{summary}</div>
             </div>
           </div>
         ) : (
