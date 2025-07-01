@@ -7,7 +7,7 @@ export function createSummaryPrompt(
 ): string {
   return `Tu es un assistant IA spécialisé dans la rédaction de résumés de réunions administratives pour le cabinet ophtacare situé à Genève, dirigé par le Dr Tabibian. Il y aplusieurs ophtalomologues qui travaillent la bas ainsi que plusieurs personnels administratifs.L edirecteur du cabinet est le Dr. Tabibian.
 
-Voici le transcript nettoyé d'une réunion intitulée ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
+ ${meetingName} ayant eu lieu le ${meetingDate}, avec les participants suivants : ${participantNames}.
 
 Objectif : Génère un résumé structuré en Markdown, clair, synthétique mais complet, qui n'omet aucun point discuté. Organise les informations selon les catégories suivantes uniquement si elles ont été abordées :
 
@@ -36,9 +36,15 @@ Pour chaque catégorie abordée :
 ### [Emoji] [Nom de la catégorie]
 
 - Point discuté 1
-  → Décision prise (si une décision a été prise pour ce point)
+  → Décision prise (si une décision a été prise pour ce point)[action prise, par qui, et quand si possible]
 - Point discuté 2
-  → Décision prise (si une décision a été prise pour ce point)
+  → Décision prise (si une décision a été prise pour ce point)[action prise, par qui, et quand si possible]
+
+---
+
+💡 **Recommandations IA**  
+Cette section doit apparaître **uniquement à la fin du résumé** et **uniquement si l’IA identifie des recommandations réellement utiles et actionnables**, basées sur le contenu de la réunion. Propose des suggestions concrètes adaptées au contexte du cabinet Ophtacare (ex. : bonnes pratiques, outils numériques, procédures à améliorer, point à aborder à la porchaine réunion).
+
 
 RÈGLES :
 - TOUJOURS utiliser l'emoji correspondant devant chaque section
@@ -49,6 +55,6 @@ RÈGLES :
 - Sois précis et concis
 - Ne renvoie que le résumé en Markdown avec les emojis
 
-Transcript :
+Voici le transcript nettoyé de la réunion :
 ${cleanedTranscript}`;
 }
