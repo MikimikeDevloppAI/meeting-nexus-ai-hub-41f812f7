@@ -23,6 +23,7 @@ import NotApproved from "./pages/NotApproved";
 import NotFound from "./pages/NotFound";
 import Invoices from "./pages/Invoices";
 import UserManagement from "./pages/UserManagement";
+import PatientLetters from "./pages/PatientLetters";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="documents" element={<Documents />} />
               <Route path="invoices" element={<Invoices />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="patient-letters" element={<PatientLetters />} />
               <Route path="profile" element={<Profile />} />
             </Route>
             <Route path="*" element={<NotFound />} />
