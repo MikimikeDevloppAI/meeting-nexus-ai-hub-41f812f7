@@ -615,7 +615,6 @@ export type Database = {
       todos: {
         Row: {
           ai_recommendation_generated: boolean | null
-          assigned_to: string | null
           created_at: string
           description: string
           due_date: string | null
@@ -626,7 +625,6 @@ export type Database = {
         }
         Insert: {
           ai_recommendation_generated?: boolean | null
-          assigned_to?: string | null
           created_at?: string
           description: string
           due_date?: string | null
@@ -637,7 +635,6 @@ export type Database = {
         }
         Update: {
           ai_recommendation_generated?: boolean | null
-          assigned_to?: string | null
           created_at?: string
           description?: string
           due_date?: string | null
@@ -647,13 +644,6 @@ export type Database = {
           status?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "todos_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "participants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "todos_meeting_id_fkey"
             columns: ["meeting_id"]

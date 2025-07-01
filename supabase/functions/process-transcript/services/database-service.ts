@@ -185,15 +185,14 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
     console.log('📝 Description originale:', task.description);
     console.log('📝 Description concise:', conciseDescription);
     
-    // Créer la tâche avec le statut "confirmed" (en cours)
+    // Créer la tâche sans assigned_to puisque cette colonne n'existe plus
     const { data: savedTask, error } = await supabaseClient
       .from('todos')
       .insert([{
         meeting_id: meetingId,
         description: conciseDescription,
         status: 'confirmed',
-        due_date: task.due_date || null,
-        assigned_to: null // On va le mettre à jour après
+        due_date: task.due_date || null
       }])
       .select()
       .single()
@@ -206,8 +205,6 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
     console.log('✅ Task saved with ID:', savedTask.id)
 
     // Traiter les assignations si spécifiées
-    let firstAssignedParticipantId = null;
-    
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
       console.log('👥 Assignation participants:', task.assigned_to);
       
@@ -230,11 +227,6 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
             console.error('❌ Error assigning participant:', assignError)
           } else {
             console.log('✅ Participant assigné:', participant.name, 'to task:', savedTask.id)
-            
-            // Garder le premier participant assigné pour la colonne assigned_to
-            if (!firstAssignedParticipantId) {
-              firstAssignedParticipantId = participant.id;
-            }
           }
         } else {
           console.warn('⚠️ Participant non trouvé pour assignation:', participantName)
@@ -243,21 +235,6 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
       }
     } else {
       console.log('ℹ️ Pas de participants à assigner pour cette tâche')
-    }
-
-    // Mettre à jour la colonne assigned_to avec le premier participant assigné
-    if (firstAssignedParticipantId) {
-      const { error: updateError } = await supabaseClient
-        .from('todos')
-        .update({ assigned_to: firstAssignedParticipantId })
-        .eq('id', savedTask.id);
-        
-      if (updateError) {
-        console.error('❌ Error updating assigned_to column:', updateError);
-      } else {
-        console.log('✅ Updated assigned_to column with participant ID:', firstAssignedParticipantId);
-        savedTask.assigned_to = firstAssignedParticipantId;
-      }
     }
 
     return savedTask

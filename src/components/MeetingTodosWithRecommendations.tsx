@@ -47,7 +47,6 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         .from("todos")
         .select(`
           *,
-          participants(name),
           todo_participants(
             participant_id,
             participants(id, name, email)
