@@ -828,28 +828,17 @@ export type Database = {
         Returns: number
       }
       store_document_with_embeddings: {
-        Args:
-          | {
-              p_title: string
-              p_type: string
-              p_content: string
-              p_chunks: string[]
-              p_embeddings: string[]
-              p_metadata?: Json
-              p_created_by?: string
-              p_meeting_id?: string
-            }
-          | {
-              p_title: string
-              p_type: string
-              p_content: string
-              p_chunks: string[]
-              p_embeddings: string[]
-              p_metadata?: Json
-              p_created_by?: string
-              p_meeting_id?: string
-              p_uploaded_document_id?: string
-            }
+        Args: {
+          p_title: string
+          p_type: string
+          p_content: string
+          p_chunks: string[]
+          p_embeddings: string[]
+          p_metadata?: Json
+          p_created_by?: string
+          p_meeting_id?: string
+          p_uploaded_document_id?: string
+        }
         Returns: string
       }
       vector_avg: {

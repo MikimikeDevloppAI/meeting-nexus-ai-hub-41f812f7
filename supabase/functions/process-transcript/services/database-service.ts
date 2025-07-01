@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 export const createSupabaseClient = () => {
@@ -50,7 +51,7 @@ export const saveSummary = async (supabaseClient: any, meetingId: string, summar
 export const getMeetingData = async (supabaseClient: any, meetingId: string) => {
   const { data, error } = await supabaseClient
     .from('meetings')
-    .select('title, created_at')
+    .select('id, title, created_at')
     .eq('id', meetingId)
     .single()
 
