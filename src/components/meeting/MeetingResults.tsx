@@ -19,6 +19,9 @@ const cleanSummaryMarkdown = (summary: string): string => {
   // Supprimer les titres markdown au début (# ## ### etc.)
   let cleaned = summary.replace(/^#+\s+.*$/gm, '');
   
+  // Supprimer le mot "markdown" au début (case insensitive)
+  cleaned = cleaned.replace(/^\s*markdown\s*/i, '');
+  
   // Supprimer les lignes vides au début
   cleaned = cleaned.replace(/^\s*\n+/, '');
   
