@@ -58,6 +58,60 @@ serve(async (req) => {
     const result = await response.json();
     console.log('Résultat de la transcription:', result);
 
+    // Vérifier si la réponse contient un batch_id (traitement asynchrone)
+    if (result.batch_id) {
+      console.log('Traitement asynchrone détecté, batch_id:', result.batch_id);
+      
+      // Attendre et récupérer le résultat du batch
+      let attempts = 0;
+      const maxAttempts = 30; // Maximum 30 tentatives (30 secondes)
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1 seconde
+        attempts++;
+        
+        console.log(`Tentative ${attempts}: Vérification du statut du batch`);
+        
+        // Récupérer le statut du batch
+        const batchResponse = await fetch(`https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${infomaniakApiKey}`,
+          },
+        });
+        
+        if (batchResponse.ok) {
+          const batchResult = await batchResponse.json();
+          console.log('Statut du batch:', batchResult);
+          
+          // Si le batch est terminé et contient le texte
+          if (batchResult.status === 'completed' && batchResult.output) {
+            console.log('Transcription terminée:', batchResult.output);
+            return new Response(
+              JSON.stringify({ 
+                text: batchResult.output.text || batchResult.output,
+                success: true 
+              }),
+              { 
+                headers: { 
+                  ...corsHeaders, 
+                  'Content-Type': 'application/json' 
+                } 
+              }
+            );
+          }
+          
+          // Si le batch a échoué
+          if (batchResult.status === 'failed') {
+            throw new Error('La transcription a échoué');
+          }
+        }
+      }
+      
+      throw new Error('Timeout: La transcription a pris trop de temps');
+    }
+
+    // Si la réponse contient directement le texte (traitement synchrone)
     return new Response(
       JSON.stringify({ 
         text: result.text || '',
