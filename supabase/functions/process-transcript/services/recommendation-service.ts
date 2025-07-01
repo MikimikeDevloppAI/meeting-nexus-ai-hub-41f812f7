@@ -1,4 +1,4 @@
-
+étaill
 import { createSupabaseClient } from './database-service.ts'
 
 export async function processTaskRecommendations(
@@ -49,7 +49,7 @@ ${task.index}. [ID: ${task.id}] ${task.description}
 INSTRUCTIONS:
 Pour chaque tâche, génère:
 1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils, ou challenge les décisions si pertinent.
-2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte).
+2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte et très détaillés).
 3. Si la tâche est simple/évidente, marque hasRecommendation: false avec "Aucune recommandation nécessaire."
 
 Critères qualité:
