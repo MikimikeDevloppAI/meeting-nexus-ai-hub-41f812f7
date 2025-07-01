@@ -28,9 +28,12 @@ serve(async (req) => {
 
     console.log('Fichier audio reçu:', audioFile.name, audioFile.type, audioFile.size);
 
+    // Créer un nouveau blob avec le bon type MIME pour l'API Infomaniak
+    const audioBlob = new Blob([await audioFile.arrayBuffer()], { type: 'audio/wav' });
+
     // Préparer FormData pour l'API Infomaniak Whisper v2
     const whisperFormData = new FormData();
-    whisperFormData.append('file', audioFile);
+    whisperFormData.append('file', audioBlob, 'recording.wav');
     whisperFormData.append('model', 'whisperV2');
     whisperFormData.append('language', 'fr');
     whisperFormData.append('response_format', 'json');

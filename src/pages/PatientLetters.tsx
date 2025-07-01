@@ -20,7 +20,18 @@ const PatientLetters = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Utiliser des options spécifiques pour le MediaRecorder
+      const options = {
+        mimeType: 'audio/webm;codecs=opus'
+      };
+      
+      // Fallback si le type MIME n'est pas supporté
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'audio/webm';
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
