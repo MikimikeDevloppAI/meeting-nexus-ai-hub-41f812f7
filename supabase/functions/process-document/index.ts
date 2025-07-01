@@ -53,6 +53,16 @@ serve(async (req) => {
 
     console.log(`📄 Processing: ${document.original_name} (${document.content_type})`);
 
+    // Vérifier si le fichier existe dans le storage
+    const { data: fileExists } = await supabase.storage
+      .from('documents')
+      .list('', { search: document.file_path });
+
+    if (!fileExists || fileExists.length === 0) {
+      console.error(`❌ File not found in storage: ${document.file_path}`);
+      throw new Error('File not found in storage');
+    }
+
     // Download file
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('documents')
@@ -131,6 +141,43 @@ serve(async (req) => {
   }
 });
 
+// Fonction pour nettoyer et générer un nom de fichier unique
+async function generateUniqueFileName(baseName: string, extension: string, supabase: any): Promise<string> {
+  // Nettoyer le nom de base
+  const cleanedName = baseName
+    .replace(/[^\w\s\-_.]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 100);
+
+  let counter = 0;
+  let fileName = `${cleanedName}.${extension}`;
+  
+  while (true) {
+    // Vérifier si le fichier existe déjà dans le storage
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .list('', { search: fileName });
+    
+    if (error) {
+      console.error('Erreur lors de la vérification du fichier:', error);
+      break;
+    }
+    
+    // Si aucun fichier trouvé avec ce nom, on peut l'utiliser
+    if (!data || data.length === 0) {
+      break;
+    }
+    
+    // Si le fichier existe, ajouter un numéro
+    counter++;
+    fileName = `${cleanedName}-${counter}.${extension}`;
+  }
+  
+  return fileName;
+}
+
 async function processDocumentInBackground(
   documentId: string,
   document: any,
@@ -168,14 +215,68 @@ async function processDocumentInBackground(
       analysis = createFallbackAnalysis(document);
     }
 
-    // STEP 3: Generate text chunks for embeddings + NOUVEAU: Un seul chunk consolidé
+    // STEP 3: Renommer le fichier temporaire vers un nom permanent
+    let finalFilePath = document.file_path;
+    
+    if (document.file_path.startsWith('temp_')) {
+      console.log('🔄 Renaming temporary file to permanent name...');
+      
+      try {
+        // Extraire l'extension du fichier original
+        const extension = document.original_name.split('.').pop() || 'txt';
+        
+        // Générer un nom unique basé sur le nom AI ou le nom original
+        const baseNameForFile = analysis.suggestedName || document.original_name.replace(/\.[^/.]+$/, '');
+        const uniqueFileName = await generateUniqueFileName(baseNameForFile, extension, supabase);
+        
+        console.log(`🎯 Generated unique filename: ${uniqueFileName}`);
+        
+        // Copier le fichier temporaire vers le nom permanent
+        const { error: copyError } = await supabase.storage
+          .from('documents')
+          .copy(document.file_path, uniqueFileName);
+        
+        if (copyError) {
+          console.error('❌ Failed to copy file to permanent name:', copyError);
+          throw copyError;
+        }
+        
+        // Supprimer l'ancien fichier temporaire
+        const { error: deleteError } = await supabase.storage
+          .from('documents')
+          .remove([document.file_path]);
+        
+        if (deleteError) {
+          console.warn('⚠️ Failed to delete temporary file:', deleteError);
+          // Ne pas échouer pour cette erreur, le fichier principal est sauvé
+        }
+        
+        // Mettre à jour le chemin dans la base de données
+        const { error: pathUpdateError } = await supabase
+          .from('uploaded_documents')
+          .update({ file_path: uniqueFileName })
+          .eq('id', documentId);
+        
+        if (pathUpdateError) {
+          console.error('❌ Failed to update file path:', pathUpdateError);
+          throw pathUpdateError;
+        }
+        
+        finalFilePath = uniqueFileName;
+        console.log(`✅ File renamed successfully: ${document.file_path} -> ${uniqueFileName}`);
+        
+      } catch (renameError) {
+        console.error('❌ File renaming failed:', renameError);
+        // Continuer avec le nom temporaire si le renommage échoue
+        console.log('⚠️ Continuing with temporary filename');
+      }
+    }
+
+    // STEP 4: Generate text chunks for embeddings + UN seul chunk consolidé
     const regularChunks = chunkText(text, CHUNK_SIZE);
-    const limitedRegularChunks = regularChunks.slice(0, MAX_CHUNKS - 1); // Réserver 1 place pour le chunk consolidé
+    const limitedRegularChunks = regularChunks.slice(0, MAX_CHUNKS - 1);
     
-    // NOUVEAU: Créer UN SEUL chunk consolidé avec toutes les métadonnées
-    const metadataChunks = [];
-    
-    // Chunk consolidé unique avec nom, type, catégorie, résumé et mots-clés
+    // Créer UN SEUL chunk consolidé avec toutes les métadonnées
     const consolidatedChunk = `DOCUMENT: ${analysis.suggestedName || document.original_name}
 TYPE: ${analysis.taxonomy?.documentType || 'Document'}
 CATÉGORIE: ${analysis.taxonomy?.category || 'Non classé'}
@@ -183,10 +284,7 @@ RÉSUMÉ: ${analysis.summary || 'Résumé non disponible'}
 MOTS-CLÉS: ${analysis.taxonomy?.keywords?.join(', ') || 'Non définis'}
 DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.original_name}" et appartient à la catégorie ${analysis.taxonomy?.category || 'documents généraux'}. ${analysis.summary ? 'Résumé: ' + analysis.summary : 'Aucun résumé disponible.'} Mots-clés principaux: ${analysis.taxonomy?.keywords?.slice(0, 5).join(', ') || 'Non définis'}.`;
     
-    metadataChunks.push(consolidatedChunk);
-    
-    // Combiner le chunk consolidé avec le contenu
-    const allChunks = [...metadataChunks, ...limitedRegularChunks];
+    const allChunks = [consolidatedChunk, ...limitedRegularChunks];
     
     console.log(`🔢 Created ${allChunks.length} chunks for embeddings (1 consolidated metadata + ${limitedRegularChunks.length} content chunks)`);
 
@@ -201,13 +299,14 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
       processedAt: new Date().toISOString(),
       textLength: text.length,
       chunksGenerated: allChunks.length,
-      metadataChunks: metadataChunks.length,
+      metadataChunks: 1,
       contentChunks: limitedRegularChunks.length,
-      processingVersion: '2.6-with-uploaded-document-id',
+      processingVersion: '2.7-with-file-rename',
+      finalFilePath: finalFilePath,
       ...analysis.taxonomy
     };
 
-    // STEP 4: Generate and store embeddings
+    // STEP 5: Generate and store embeddings
     let embeddingsSuccess = false;
     let vectorDocumentId = null;
 
@@ -223,7 +322,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
           console.log('🔧 Formatting embeddings for PostgreSQL...');
           const formattedEmbeddings = formatEmbeddingsForPostgres(embeddings);
           
-          // Store embeddings with proper format - NOUVEAU: Passer l'ID du document uploadé
+          // Store embeddings with proper format
           console.log('💾 Storing document with embeddings in vector database...');
           const { data: storedDocId, error: storeError } = await supabase.rpc('store_document_with_embeddings', {
             p_title: analysis.suggestedName,
@@ -232,12 +331,11 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
             p_chunks: allChunks,
             p_embeddings: formattedEmbeddings,
             p_metadata: completeMetadata,
-            p_uploaded_document_id: documentId // NOUVEAU: Passer l'ID du document uploadé
+            p_uploaded_document_id: documentId
           });
 
           if (storeError) {
             console.error('❌ Vector storage failed:', storeError);
-            console.error('Error details:', JSON.stringify(storeError, null, 2));
             throw storeError;
           }
           
@@ -252,12 +350,8 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
         
       } catch (error) {
         console.error('❌ Embeddings generation/storage failed:', error);
-        console.error('Error stack:', error.stack);
         completeMetadata.embeddingsError = error.message;
       }
-    } else {
-      console.log('⚠️ No chunks available for embedding generation');
-      completeMetadata.noChunksAvailable = true;
     }
 
     // Add final status to metadata
@@ -265,7 +359,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
     completeMetadata.embeddingsSuccess = embeddingsSuccess;
     completeMetadata.vectorDocumentId = vectorDocumentId;
 
-    // STEP 5: Update uploaded_documents table with ALL metadata
+    // STEP 6: Update uploaded_documents table with ALL metadata
     console.log('📝 Updating uploaded_documents table with complete processing results...');
     const { error: updateError } = await supabase
       .from('uploaded_documents')
@@ -283,8 +377,8 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
       throw updateError;
     }
 
-    console.log(`🎉 Document ${documentId} processing completed successfully with uploaded_document_id link!`);
-    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks (1 consolidated metadata), ${text.length} chars`);
+    console.log(`🎉 Document ${documentId} processing completed successfully!`);
+    console.log(`📊 Summary: ${embeddingsSuccess ? 'WITH' : 'WITHOUT'} embeddings, ${allChunks.length} total chunks, ${text.length} chars, final path: ${finalFilePath}`);
 
   } catch (error) {
     console.error('❌ Background processing failed:', error);
@@ -301,7 +395,7 @@ DESCRIPTION: Ce document s'intitule "${analysis.suggestedName || document.origin
             errorDetails: error.toString(),
             processedAt: new Date().toISOString(),
             processingFailed: true,
-            processingVersion: '2.6-with-uploaded-document-id'
+            processingVersion: '2.7-with-file-rename'
           }
         })
         .eq('id', documentId);

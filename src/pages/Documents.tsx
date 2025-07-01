@@ -12,6 +12,7 @@ import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { CompactDocumentItem } from "@/components/documents/CompactDocumentItem";
 import { DocumentSearchAssistant } from "@/components/documents/DocumentSearchAssistant";
 import { KeywordsDisplay } from "@/components/documents/KeywordsDisplay";
+import { DocumentCleanupDialog } from "@/components/documents/DocumentCleanupDialog";
 import { useUnifiedDocuments } from "@/hooks/useUnifiedDocuments";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { getDocumentDownloadUrl } from "@/lib/utils";
@@ -524,33 +525,78 @@ const Documents = () => {
     });
   }, [documents, searchFilters, selectedCategory]);
 
-  // Delete mutation - seulement pour les documents
+  // Delete mutation - améliorer la gestion d'erreur
   const deleteMutation = useMutation({
     mutationFn: async (document: UnifiedDocumentItem) => {
       if (document.type === 'meeting') {
         throw new Error('Impossible de supprimer un meeting depuis cette page');
       }
 
-      // Delete from storage
+      console.log(`🗑️ Attempting to delete document: ${document.id}`);
+      console.log(`📁 File path: ${document.file_path}`);
+
+      // Vérifier d'abord si le fichier existe dans le storage
+      let fileExists = false;
       if (document.file_path) {
-        await supabase.storage
-          .from('documents')
-          .remove([document.file_path]);
+        try {
+          const { data: fileList } = await supabase.storage
+            .from('documents')
+            .list('', { search: document.file_path });
+          
+          fileExists = fileList && fileList.length > 0;
+          console.log(`📋 File exists in storage: ${fileExists}`);
+        } catch (error) {
+          console.warn('⚠️ Could not check file existence:', error);
+        }
       }
 
-      // Delete from database
-      const { error } = await supabase
+      // Supprimer le fichier du storage seulement s'il existe
+      if (document.file_path && fileExists) {
+        console.log('🗑️ Deleting file from storage...');
+        const { error: storageError } = await supabase.storage
+          .from('documents')
+          .remove([document.file_path]);
+
+        if (storageError) {
+          console.error('❌ Storage deletion failed:', storageError);
+          // Ne pas échouer si le fichier n'existe pas (404)
+          if (!storageError.message.includes('not found') && !storageError.message.includes('404')) {
+            throw new Error(`Erreur lors de la suppression du fichier: ${storageError.message}`);
+          }
+        } else {
+          console.log('✅ File deleted from storage');
+        }
+      } else {
+        console.log('⚠️ File not found in storage, skipping storage deletion');
+      }
+
+      // Supprimer l'enregistrement de la base de données
+      console.log('🗑️ Deleting database record...');
+      const { error: dbError } = await supabase
         .from('uploaded_documents')
         .delete()
         .eq('id', document.id);
 
-      if (error) throw error;
+      if (dbError) {
+        console.error('❌ Database deletion failed:', dbError);
+        throw new Error(`Erreur lors de la suppression de l'enregistrement: ${dbError.message}`);
+      }
+
+      console.log('✅ Document deleted successfully');
     },
     onSuccess: () => {
       forceRefresh();
       toast({
         title: "Document supprimé",
         description: "Le document a été supprimé avec succès.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('❌ Delete mutation failed:', error);
+      toast({
+        title: "Erreur de suppression",
+        description: error.message || "Une erreur est survenue lors de la suppression",
+        variant: "destructive",
       });
     }
   });
@@ -562,18 +608,46 @@ const Documents = () => {
     }
 
     try {
-      console.log('Téléchargement du document:', document.file_path);
-      const downloadUrl = getDocumentDownloadUrl(document.file_path!);
+      console.log('📥 Attempting to download document:', document.file_path);
+      
+      if (!document.file_path) {
+        throw new Error('Chemin du fichier non disponible');
+      }
+
+      // Vérifier si le fichier existe avant de tenter le téléchargement
+      const { data: fileList, error: listError } = await supabase.storage
+        .from('documents')
+        .list('', { search: document.file_path });
+
+      if (listError) {
+        console.error('❌ Error checking file existence:', listError);
+        throw new Error('Erreur lors de la vérification du fichier');
+      }
+
+      if (!fileList || fileList.length === 0) {
+        console.error('❌ File not found in storage:', document.file_path);
+        toast({
+          title: "Fichier introuvable",
+          description: "Le fichier n'existe plus dans le stockage. Vous pouvez supprimer cet enregistrement.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ File found, generating download URL...');
+      const downloadUrl = getDocumentDownloadUrl(document.file_path);
       
       const a = window.document.createElement('a');
       a.href = downloadUrl;
       a.download = document.ai_generated_name || document.original_name;
       a.click();
+      
+      console.log('✅ Download initiated successfully');
     } catch (error: any) {
-      console.error('Erreur téléchargement:', error);
+      console.error('❌ Download error:', error);
       toast({
-        title: "Erreur",
-        description: "Impossible de télécharger le document",
+        title: "Erreur de téléchargement",
+        description: error.message || "Impossible de télécharger le document",
         variant: "destructive",
       });
     }
@@ -716,16 +790,24 @@ const Documents = () => {
                 Vue unifiée de vos documents uploadés et meetings transcrits. Traitement séquentiel des uploads multiples.
               </CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleManualRefresh}
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Actualiser
-            </Button>
+            <div className="flex items-center gap-2">
+              {documents && documents.length > 0 && (
+                <DocumentCleanupDialog 
+                  documents={documents}
+                  onCleanupComplete={handleDocumentUpdate}
+                />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Actualiser
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
