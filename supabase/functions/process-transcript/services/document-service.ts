@@ -1,3 +1,4 @@
+
 import { createSupabaseClient } from './database-service.ts'
 
 export async function handleDocumentProcessing(
@@ -64,13 +65,24 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
     
     console.log(`[DOCUMENT] Total chunks with consolidated metadata: ${allChunks.length} (1 consolidated metadata + ${limitedContentChunks.length} content)`);
 
-    // Générer les embeddings via l'API dédiée
+    // CORRECTION: Utiliser les variables d'environnement Supabase au lieu des valeurs hardcodées
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[DOCUMENT] ❌ Erreur: Variables d\'environnement Supabase manquantes');
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    // Générer les embeddings via l'API dédiée avec les bonnes variables
     console.log('[DOCUMENT] 🔄 Génération des embeddings...');
-    const embeddingResponse = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/generate-embeddings', {
+    console.log(`[DOCUMENT] 🔗 Calling: ${supabaseUrl}/functions/v1/generate-embeddings`);
+    
+    const embeddingResponse = await fetch(`${supabaseUrl}/functions/v1/generate-embeddings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({
         texts: allChunks
@@ -79,14 +91,24 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
 
     if (!embeddingResponse.ok) {
       const errorText = await embeddingResponse.text();
-      console.error('[DOCUMENT] ❌ Erreur génération embeddings:', errorText);
-      throw new Error(`Failed to generate embeddings: ${errorText}`);
+      console.error('[DOCUMENT] ❌ Erreur génération embeddings:', {
+        status: embeddingResponse.status,
+        statusText: embeddingResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to generate embeddings: ${embeddingResponse.status} - ${errorText}`);
     }
 
     const embeddingData = await embeddingResponse.json();
+    
+    if (!embeddingData.embeddings || !Array.isArray(embeddingData.embeddings)) {
+      console.error('[DOCUMENT] ❌ Réponse embedding invalide:', embeddingData);
+      throw new Error('Invalid embedding response format');
+    }
+    
     const embeddings = embeddingData.embeddings;
     
-    console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés`);
+    console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés avec succès`);
 
     // NOUVEAU: Améliorer le nommage du document avec plus de contexte significatif
     let enhancedTitle = `${meetingName} - ${meetingDate}`;
@@ -119,10 +141,11 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
       participantInfo: participantInfo,
       topicInfo: topicInfo,
       processedAt: new Date().toISOString(),
-      processingVersion: '2.5-consolidated-metadata-chunks'
+      processingVersion: '2.6-fixed-embedding-api'
     };
 
     // Sauvegarder le document avec embeddings
+    console.log('[DOCUMENT] 💾 Sauvegarde du document avec embeddings...');
     const { data: documentResult, error: storeError } = await supabaseClient.rpc(
       'store_document_with_embeddings',
       {
@@ -141,7 +164,8 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
       throw new Error(`Failed to store document: ${storeError.message}`);
     }
 
-    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès avec chunk consolidé');
+    console.log('[DOCUMENT] ✅ Document et embeddings sauvegardés avec succès');
+    console.log(`[DOCUMENT] 📄 Document ID: ${documentResult}, Chunks: ${allChunks.length}`);
 
     return {
       id: documentResult || meetingId,
@@ -150,6 +174,8 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
 
   } catch (error) {
     console.error('[DOCUMENT] ❌ Erreur processing document:', error);
+    console.error('[DOCUMENT] ❌ Stack trace:', error.stack);
+    
     // Return default values to not break the main flow
     return {
       id: meetingId,
