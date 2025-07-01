@@ -12,7 +12,28 @@ interface MeetingResultsProps {
   meetingId?: string;
 }
 
+// Fonction pour nettoyer le markdown superflu au début du résumé
+const cleanSummaryMarkdown = (summary: string): string => {
+  if (!summary) return summary;
+  
+  // Supprimer les titres markdown au début (# ## ### etc.)
+  let cleaned = summary.replace(/^#+\s+.*$/gm, '');
+  
+  // Supprimer les lignes vides au début
+  cleaned = cleaned.replace(/^\s*\n+/, '');
+  
+  // Supprimer les marqueurs de liste au début s'ils sont isolés
+  cleaned = cleaned.replace(/^[-*+]\s*$/gm, '');
+  
+  // Nettoyer les espaces multiples
+  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+  
+  return cleaned.trim();
+};
+
 export const MeetingResults = ({ transcript, summary, tasks, meetingId }: MeetingResultsProps) => {
+  const cleanedSummary = summary ? cleanSummaryMarkdown(summary) : summary;
+  
   return (
     <div className="space-y-6">
       {/* Transcript Section */}
@@ -66,7 +87,7 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
                   em: ({ children }) => <em className="italic break-words overflow-wrap-anywhere">{children}</em>,
                 }}
               >
-                {summary}
+                {cleanedSummary}
               </ReactMarkdown>
             </div>
           </div>
