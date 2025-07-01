@@ -67,13 +67,21 @@ const PatientLetters = () => {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.wav');
 
-      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/transcribe-audio`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'apikey': supabase.supabaseKey,
+        },
         body: formData,
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
+
+      const data = await response.json();
 
       if (data?.success && data?.text) {
         const transcription = data.text;
