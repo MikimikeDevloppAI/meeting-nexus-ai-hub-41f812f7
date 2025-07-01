@@ -6,27 +6,26 @@ Participants disponibles dans le système : ${participantNames}
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
 - Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
-- Une tâche = un sujet principal avec un peu de contexte mais concis. deux phrases maximum
+- Une tâche = un sujet principal avec un contexte CONCIS et ACTIONNABLE
 - Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
 - Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
 - Privilégie les macro-tâches sur les micro-actions
 
-**RÈGLES DE CONTEXTE ENRICHI:**
-- Mentionne les détails techniques, budgétaires ou logistiques discutés
-- Inclus les raisons/motivations derrière chaque action
-- Spécifie les délais, échéances ou priorités mentionnées
-- Sois concis mais avec tout le contexte nécessaire pour être autonome
-- ne pas mentionner le nom de la personne qui doit executer la tache mais plutot ce qui doit etre fait
+**RÈGLES DE DESCRIPTION CONCISE:**
+- Maximum 100 caractères par description
+- Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
+- Inclus seulement les détails ESSENTIELS
+- Format: "Action + Objet + Contexte minimal"
+- Exemples: "Contacter Fischer pour intervention du 3 avril", "Organiser planning congés cabinet été"
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
 - Variantes acceptées pour correspondance :
   • Leïla / leila / Leila
   • Émilie / emilie / Emilie  
-  • David / david / David Tabibian
+  • David / david / David Tabibian / Tabibian
   • Parmice / parmice / Parmis
   • Sybil / sybil
-  • Tabibian / tabibian
 - Si une personne dit "je vais faire X" → assigne à cette personne
 - Si plusieurs personnes impliquées → assigne à la personne principale
 - Si aucune assignation claire, laisse "assigned_to" à null
@@ -39,7 +38,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Action principale + contexte complet concis mais détaillé",
+      "description": "Action concise et claire avec contexte minimal",
       "assigned_to": ["Nom exact du participant tel qu'il apparaît dans la liste"] ou null
     }
   ]

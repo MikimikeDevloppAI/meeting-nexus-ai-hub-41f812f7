@@ -24,35 +24,33 @@ export async function processTasksWithRecommendations(
   try {
     const participantNames = participants?.map(p => p.name).join(', ') || '';
 
-    // Prompt unifié qui combine la création de todos et les recommandations
+    // Prompt unifié avec descriptions plus concises
     const unifiedPrompt = `Basé sur ce transcript de réunion, identifie et REGROUPE INTELLIGEMMENT toutes les tâches, actions et suivis par SUJETS COHÉRENTS pour éviter les doublons. Privilégie le regroupement pour minimiser le nombre de tâches.
 
 Participants disponibles dans le système : ${participantNames}
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
 - Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
-- Une tâche = un sujet principal avec TOUT le contexte nécessaire
+- Une tâche = un sujet principal avec un contexte CONCIS et ACTIONNABLE
 - Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
 - Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
 - Privilégie les macro-tâches sur les micro-actions
 
-**RÈGLES DE CONTEXTE ENRICHI:**
-- Inclus TOUT le contexte nécessaire pour comprendre et exécuter la tâche
-- Mentionne les détails techniques, budgétaires ou logistiques discutés
-- Inclus les raisons/motivations derrière chaque action
-- Spécifie les délais, échéances ou priorités mentionnées
-- Sois concis mais avec tout le contexte nécessaire pour être autonome
-- ne pas mentionner le nom de la personne qui doit executer la tache mais plutot ce qui doit etre fait
+**RÈGLES DE DESCRIPTION CONCISE:**
+- Maximum 100 caractères par description
+- Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
+- Inclus seulement les détails ESSENTIELS
+- Format: "Action + Objet + Contexte minimal"
+- Exemples: "Contacter Fischer pour intervention du 3 avril", "Organiser planning congés cabinet été"
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
 - Variantes acceptées pour correspondance :
   • Leïla / leila / Leila
   • Émilie / emilie / Emilie  
-  • David / david / David Tabibian
+  • David / david / David Tabibian / Tabibian
   • Parmice / parmice / Parmis
   • Sybil / sybil
-  • Tabibian / tabibian
 - Si une personne dit "je vais faire X" → assigne à cette personne
 - Si plusieurs personnes impliquées → assigne à la personne principale
 - Si aucune assignation claire, laisse "assigned_to" à null
@@ -81,7 +79,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Action principale + contexte complet concis mais détaillé",
+      "description": "Action concise et claire avec contexte minimal (max 100 caractères)",
       "assigned_to": ["Nom exact du participant tel qu'il apparaît dans la liste"] ou null,
       "hasRecommendation": true/false,
       "recommendation": "Recommandation détaillée ou 'Aucune recommandation nécessaire.'",
@@ -130,7 +128,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       try {
         console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description?.substring(0, 50)}...`);
         
-        // 1. Créer la tâche d'abord
+        // 1. Créer la tâche d'abord avec assignation améliorée
         const savedTask = await saveTaskUnified(supabaseClient, taskData, meetingData.id, participants);
         
         if (savedTask) {
@@ -194,28 +192,110 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   }
 }
 
-// Fonction pour sauvegarder une tâche (réutilise la logique existante)
-async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) {
+// Fonction pour sauvegarder une tâche avec assignation améliorée
+async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, allParticipants: any[]) {
   console.log('💾 Saving unified task:', task.description?.substring(0, 50) + '...');
   
   try {
-    // Récupérer TOUS les participants de la base de données
-    const { data: allParticipants, error: participantsError } = await supabaseClient
-      .from('participants')
-      .select('id, name, email')
-      .order('name');
+    // Fonction pour rendre les descriptions plus concises
+    const makeDescriptionConcise = (description: string): string => {
+      if (!description) return '';
+      
+      // Nettoyer la description
+      let cleaned = description.trim();
+      
+      // Supprimer les répétitions et les phrases trop longues
+      const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      
+      // Prendre seulement les 2 premières phrases les plus importantes
+      const importantSentences = sentences.slice(0, 2);
+      
+      // Rejoindre et limiter à 100 caractères
+      let result = importantSentences.join('. ').trim();
+      if (result.length > 100) {
+        result = result.substring(0, 97) + '...';
+      }
+      
+      // S'assurer qu'il y a un point à la fin
+      if (result && !result.endsWith('.') && !result.endsWith('...')) {
+        result += '.';
+      }
+      
+      return result;
+    };
 
-    if (participantsError) {
-      console.error('❌ Error fetching all participants:', participantsError);
-      throw participantsError;
-    }
+    // Fonction pour trouver le participant
+    const findBestParticipantMatch = (searchName: string, participants: any[]): any | null => {
+      if (!searchName || !participants?.length) return null;
+
+      const normalizeParticipantName = (name: string): string => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+      };
+
+      const getNameVariants = (searchName: string): string[] => {
+        const normalized = normalizeParticipantName(searchName);
+        
+        const nameMapping: Record<string, string[]> = {
+          'leila': ['leïla', 'leila'],
+          'emilie': ['émilie', 'emilie'],
+          'david': ['david', 'david tabibian', 'tabibian'],
+          'parmice': ['parmice', 'parmis'],
+          'sybil': ['sybil'],
+          'tabibian': ['tabibian', 'dr tabibian', 'docteur tabibian', 'david tabibian']
+        };
+        
+        for (const [key, variants] of Object.entries(nameMapping)) {
+          if (variants.some(variant => normalizeParticipantName(variant) === normalized)) {
+            return variants;
+          }
+        }
+        
+        return [searchName];
+      };
+
+      const variants = getNameVariants(searchName);
+      
+      for (const variant of variants) {
+        const normalizedVariant = normalizeParticipantName(variant);
+        
+        for (const participant of participants) {
+          const normalizedParticipantName = normalizeParticipantName(participant.name);
+          const normalizedEmail = normalizeParticipantName(participant.email?.split('@')[0] || '');
+          
+          if (normalizedParticipantName === normalizedVariant || 
+              normalizedEmail === normalizedVariant ||
+              normalizedParticipantName.includes(normalizedVariant) ||
+              normalizedVariant.includes(normalizedParticipantName)) {
+            return participant;
+          }
+        }
+      }
+      
+      const firstName = normalizeParticipantName(searchName.split(' ')[0]);
+      for (const participant of participants) {
+        const participantFirstName = normalizeParticipantName(participant.name.split(' ')[0]);
+        if (participantFirstName === firstName) {
+          return participant;
+        }
+      }
+      
+      return null;
+    };
+
+    // Rendre la description plus concise
+    const conciseDescription = makeDescriptionConcise(task.description);
+    console.log('📝 Description concise:', conciseDescription);
 
     // Créer la tâche
     const { data: savedTask, error } = await supabaseClient
       .from('todos')
       .insert([{
         meeting_id: meetingId,
-        description: task.description,
+        description: conciseDescription,
         status: 'confirmed',
         due_date: task.due_date || null,
         assigned_to: null
@@ -256,6 +336,8 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
               firstAssignedParticipantId = participant.id;
             }
           }
+        } else {
+          console.warn('⚠️ Participant non trouvé:', participantName)
         }
       }
     }
@@ -271,6 +353,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
         console.error('❌ Error updating assigned_to column:', updateError);
       } else {
         savedTask.assigned_to = firstAssignedParticipantId;
+        console.log('✅ Assigned_to updated:', firstAssignedParticipantId);
       }
     }
 
@@ -279,66 +362,4 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
     console.error('❌ Error in saveTaskUnified:', error)
     throw error
   }
-}
-
-// Fonction helper pour trouver le participant (reprise de database-service.ts)
-function findBestParticipantMatch(searchName: string, allParticipants: any[]): any | null {
-  if (!searchName || !allParticipants?.length) return null;
-
-  const normalizeParticipantName = (name: string): string => {
-    return name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim();
-  };
-
-  const getNameVariants = (searchName: string): string[] => {
-    const normalized = normalizeParticipantName(searchName);
-    
-    const nameMapping: Record<string, string[]> = {
-      'leila': ['leïla', 'leila'],
-      'emilie': ['émilie', 'emilie'],
-      'david': ['david', 'david tabibian'],
-      'parmice': ['parmice', 'parmis'],
-      'sybil': ['sybil'],
-      'tabibian': ['tabibian', 'dr tabibian', 'docteur tabibian']
-    };
-    
-    for (const [key, variants] of Object.entries(nameMapping)) {
-      if (variants.some(variant => normalizeParticipantName(variant) === normalized)) {
-        return variants;
-      }
-    }
-    
-    return [searchName];
-  };
-
-  const variants = getNameVariants(searchName);
-  
-  for (const variant of variants) {
-    const normalizedVariant = normalizeParticipantName(variant);
-    
-    for (const participant of allParticipants) {
-      const normalizedParticipantName = normalizeParticipantName(participant.name);
-      const normalizedEmail = normalizeParticipantName(participant.email?.split('@')[0] || '');
-      
-      if (normalizedParticipantName === normalizedVariant || 
-          normalizedEmail === normalizedVariant ||
-          normalizedParticipantName.includes(normalizedVariant) ||
-          normalizedVariant.includes(normalizedParticipantName)) {
-        return participant;
-      }
-    }
-  }
-  
-  const firstName = normalizeParticipantName(searchName.split(' ')[0]);
-  for (const participant of allParticipants) {
-    const participantFirstName = normalizeParticipantName(participant.name.split(' ')[0]);
-    if (participantFirstName === firstName) {
-      return participant;
-    }
-  }
-  
-  return null;
 }
