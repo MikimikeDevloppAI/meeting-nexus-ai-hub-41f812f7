@@ -484,27 +484,27 @@ export default function Todos() {
                       </div>
                     </div>
 
-                    {/* AI Tools */}
+                    {/* AI Tools - Style professionnel sans background coloré */}
                     <div className="space-y-3">
-                      <div className="flex gap-2">
+                      <div className="flex gap-3 border-t pt-4">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-blue-100 border border-blue-200 ${
+                          className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
                             activeTool === 'recommendation' 
-                              ? 'ring-2 ring-blue-300' 
-                              : 'hover:bg-blue-200'
+                              ? 'border-blue-400 bg-blue-50/50 shadow-sm' 
+                              : 'hover:border-gray-300 hover:bg-gray-50/50'
                           }`}
                         >
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-3">
                             <Mail className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-black">Communication</span>
+                            <span className="text-sm font-medium text-gray-900">Communication</span>
                           </div>
                           {activeTool === 'recommendation' ? (
-                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                            <ChevronUp className="h-4 w-4 text-gray-500" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                            <ChevronDown className="h-4 w-4 text-gray-500" />
                           )}
                         </Button>
 
@@ -512,27 +512,27 @@ export default function Todos() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAIToolToggle(todo.id, 'assistant')}
-                          className={`flex-1 h-12 flex items-center justify-between px-3 bg-green-100 border border-green-200 ${
+                          className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
                             activeTool === 'assistant' 
-                              ? 'ring-2 ring-green-300' 
-                              : 'hover:bg-green-200'
+                              ? 'border-green-400 bg-green-50/50 shadow-sm' 
+                              : 'hover:border-gray-300 hover:bg-gray-50/50'
                           }`}
                         >
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-3">
                             <Bot className="h-4 w-4 text-green-600" />
-                            <span className="text-sm font-medium text-black">Assistant IA</span>
+                            <span className="text-sm font-medium text-gray-900">Assistant IA</span>
                           </div>
                           {activeTool === 'assistant' ? (
-                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                            <ChevronUp className="h-4 w-4 text-gray-500" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                            <ChevronDown className="h-4 w-4 text-gray-500" />
                           )}
                         </Button>
                       </div>
 
                       {/* AI Tool Content */}
                       {activeTool !== 'none' && (
-                        <div className="w-full">
+                        <div className="w-full bg-gray-50/30 rounded-lg p-4 border border-gray-100">
                           {activeTool === 'recommendation' && (
                             <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
                           )}
