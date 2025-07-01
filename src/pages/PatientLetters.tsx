@@ -1,13 +1,10 @@
 
 import React, { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Mic, Square, Download, Save, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
+import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
+import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
+import { LetterActionsCard } from "@/components/patient-letters/LetterActionsCard";
 
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
@@ -232,106 +229,30 @@ const PatientLetters = () => {
       </div>
 
       <div className="grid gap-6">
-        {/* Informations du patient */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informations du Patient</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>
-              <Label htmlFor="patient-name">Nom du Patient</Label>
-              <Input
-                id="patient-name"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="Nom et prénom du patient"
-                className="mt-1"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Enregistrement vocal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dictée Vocale</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <Button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isProcessing}
-                  variant={isRecording ? "destructive" : "default"}
-                  className="flex-1"
-                >
-                  {isRecording ? (
-                    <>
-                      <Square className="h-4 w-4 mr-2" />
-                      Arrêter l'enregistrement
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="h-4 w-4 mr-2" />
-                      Commencer la dictée
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {isProcessing && (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Transcription en cours...
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contenu de la lettre */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Contenu de la Lettre</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>
-              <Label htmlFor="letter-content">Texte de la lettre</Label>
-              <Textarea
-                id="letter-content"
-                value={letterContent}
-                onChange={(e) => setLetterContent(e.target.value)}
-                placeholder="Le contenu dicté apparaîtra ici, ou vous pouvez saisir directement..."
-                rows={15}
-                className="mt-1"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={saveLetterLocally} className="flex items-center gap-2">
-                <Save className="h-4 w-4" />
-                Sauvegarder (JSON)
-              </Button>
-              <Button onClick={exportAsText} variant="outline" className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Exporter (TXT)
-              </Button>
-              <Button onClick={clearForm} variant="outline">
-                Nouvelle lettre
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <PatientInfoCard 
+          patientName={patientName} 
+          setPatientName={setPatientName} 
+        />
+        
+        <VoiceRecordingCard 
+          isRecording={isRecording}
+          isProcessing={isProcessing}
+          startRecording={startRecording}
+          stopRecording={stopRecording}
+        />
+        
+        <LetterContentCard 
+          letterContent={letterContent}
+          setLetterContent={setLetterContent}
+        />
+        
+        <LetterActionsCard 
+          patientName={patientName}
+          letterContent={letterContent}
+          saveLetterLocally={saveLetterLocally}
+          exportAsText={exportAsText}
+          clearForm={clearForm}
+        />
       </div>
     </div>
   );
