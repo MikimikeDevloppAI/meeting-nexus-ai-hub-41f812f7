@@ -1,5 +1,4 @@
 
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -29,23 +28,21 @@ serve(async (req) => {
 
     console.log('Fichier audio reçu:', audioFile.name, audioFile.type, audioFile.size);
 
-    // Préparer FormData pour l'API Infomaniak Whisper v2
+    // Préparer FormData pour l'API Infomaniak avec le modèle "whisper"
     const whisperFormData = new FormData();
     
-    // Garder le fichier tel quel sans modification du type MIME
     whisperFormData.append('file', audioFile, audioFile.name);
-    whisperFormData.append('model', 'whisperV2');
+    whisperFormData.append('model', 'whisper');
     whisperFormData.append('language', 'fr');
     whisperFormData.append('response_format', 'json');
 
-    console.log('Envoi de la transcription à Infomaniak Whisper v2...');
+    console.log('Envoi de la transcription à Infomaniak avec le modèle whisper...');
     console.log('Type du fichier envoyé:', audioFile.type);
 
     const response = await fetch('https://api.infomaniak.com/1/ai/105139/openai/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${infomaniakApiKey}`,
-        // Ne pas définir Content-Type pour FormData - le navigateur le fera automatiquement
       },
       body: whisperFormData,
     });
@@ -92,4 +89,3 @@ serve(async (req) => {
     );
   }
 });
-
