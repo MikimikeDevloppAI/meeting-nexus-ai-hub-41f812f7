@@ -109,13 +109,8 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
     
     console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés avec succès`);
 
-    // SIMPLIFIÉ: Titre simplifié avec format de base + participants si identifiés
-    let enhancedTitle = `${meetingName} - ${meetingDate}`;
-    
-    // Ajouter les informations de participants si disponibles
-    if (participantInfo) {
-      enhancedTitle += ` (${participantInfo})`;
-    }
+    // SIMPLIFIÉ: Titre simplifié avec seulement nom du meeting + date
+    const simplifiedTitle = `${meetingName} - ${meetingDate}`;
 
     // Métadonnées enrichies
     const enhancedMetadata = {
@@ -130,7 +125,7 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
       participantInfo: participantInfo,
       topicInfo: topicInfo,
       processedAt: new Date().toISOString(),
-      processingVersion: '2.7-simplified-title'
+      processingVersion: '2.8-simplified-title-only'
     };
 
     // Sauvegarder le document avec embeddings
@@ -138,7 +133,7 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
     const { data: documentResult, error: storeError } = await supabaseClient.rpc(
       'store_document_with_embeddings',
       {
-        p_title: enhancedTitle,
+        p_title: simplifiedTitle,
         p_type: 'meeting_transcript',
         p_content: cleanedTranscript,
         p_chunks: allChunks,
