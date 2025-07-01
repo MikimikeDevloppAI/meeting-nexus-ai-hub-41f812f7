@@ -64,7 +64,7 @@ serve(async (req) => {
       
       // Attendre et récupérer le résultat du batch avec polling optimisé
       let attempts = 0;
-      const maxAttempts = 40; // Maximum 40 tentatives
+      const maxAttempts = 30; // Réduire le nombre de tentatives
       
       while (attempts < maxAttempts) {
         // Délai progressif : commence à 500ms, puis 1s après quelques tentatives
@@ -75,9 +75,9 @@ serve(async (req) => {
         console.log(`Tentative ${attempts}: Vérification du statut du batch avec délai de ${delay}ms`);
         
         try {
-          // Récupérer le statut du batch
-          const batchUrl = `https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`;
-          console.log('URL de vérification du batch:', batchUrl);
+          // Utiliser le bon endpoint /results/ selon la documentation Infomaniak
+          const batchUrl = `https://api.infomaniak.com/1/ai/105139/results/${result.batch_id}`;
+          console.log('URL correcte de vérification des résultats:', batchUrl);
           
           const batchResponse = await fetch(batchUrl, {
             method: 'GET',
@@ -87,88 +87,136 @@ serve(async (req) => {
             },
           });
           
-          console.log(`Réponse batch (tentative ${attempts}):`, batchResponse.status);
+          console.log(`Réponse résultats (tentative ${attempts}):`, batchResponse.status);
           
           if (batchResponse.ok) {
             const batchResult = await batchResponse.json();
-            console.log(`Statut complet du batch (tentative ${attempts}):`, JSON.stringify(batchResult, null, 2));
+            console.log(`Résultat complet (tentative ${attempts}):`, JSON.stringify(batchResult, null, 2));
             
-            // Si le batch est terminé avec succès
-            if (batchResult.status === 'completed') {
-              console.log('Batch terminé avec succès!');
+            // Vérifier si le résultat est prêt
+            // Selon la doc Infomaniak, on devrait avoir un résultat directement
+            if (batchResult.text || batchResult.transcript || batchResult.transcription) {
+              console.log('Résultat de transcription trouvé!');
               
-              // Essayer différentes structures de réponse possibles
               let transcriptionText = '';
-              
-              if (batchResult.output) {
-                if (typeof batchResult.output === 'string') {
-                  transcriptionText = batchResult.output;
-                } else if (batchResult.output.text) {
-                  transcriptionText = batchResult.output.text;
-                } else if (batchResult.output.transcript) {
-                  transcriptionText = batchResult.output.transcript;
-                }
-              } else if (batchResult.text) {
+              if (batchResult.text) {
                 transcriptionText = batchResult.text;
               } else if (batchResult.transcript) {
                 transcriptionText = batchResult.transcript;
+              } else if (batchResult.transcription) {
+                transcriptionText = batchResult.transcription;
               }
               
               console.log('Texte de transcription extrait:', transcriptionText);
               
-              if (transcriptionText) {
-                return new Response(
-                  JSON.stringify({ 
-                    text: transcriptionText,
-                    success: true 
-                  }),
-                  { 
-                    headers: { 
-                      ...corsHeaders, 
-                      'Content-Type': 'application/json' 
-                    } 
+              return new Response(
+                JSON.stringify({ 
+                  text: transcriptionText,
+                  success: true 
+                }),
+                { 
+                  headers: { 
+                    ...corsHeaders, 
+                    'Content-Type': 'application/json' 
+                  } 
+                }
+              );
+            }
+            
+            // Si le résultat contient un statut
+            if (batchResult.status) {
+              if (batchResult.status === 'completed') {
+                console.log('Batch terminé avec succès!');
+                
+                // Essayer différentes structures de réponse possibles
+                let transcriptionText = '';
+                
+                if (batchResult.output) {
+                  if (typeof batchResult.output === 'string') {
+                    transcriptionText = batchResult.output;
+                  } else if (batchResult.output.text) {
+                    transcriptionText = batchResult.output.text;
+                  } else if (batchResult.output.transcript) {
+                    transcriptionText = batchResult.output.transcript;
                   }
-                );
-              } else {
-                console.error('Aucun texte trouvé dans la réponse completed:', batchResult);
-                throw new Error('Transcription terminée mais aucun texte trouvé');
+                } else if (batchResult.result) {
+                  if (typeof batchResult.result === 'string') {
+                    transcriptionText = batchResult.result;
+                  } else if (batchResult.result.text) {
+                    transcriptionText = batchResult.result.text;
+                  }
+                }
+                
+                console.log('Texte de transcription extrait:', transcriptionText);
+                
+                if (transcriptionText) {
+                  return new Response(
+                    JSON.stringify({ 
+                      text: transcriptionText,
+                      success: true 
+                    }),
+                    { 
+                      headers: { 
+                        ...corsHeaders, 
+                        'Content-Type': 'application/json' 
+                      } 
+                    }
+                  );
+                } else {
+                  console.error('Aucun texte trouvé dans la réponse completed:', batchResult);
+                  throw new Error('Transcription terminée mais aucun texte trouvé');
+                }
               }
-            }
-            
-            // Si le batch a échoué
-            if (batchResult.status === 'failed') {
-              console.error('Batch échoué:', batchResult);
-              throw new Error(`La transcription a échoué: ${batchResult.error || batchResult.message || 'Erreur inconnue'}`);
-            }
-            
-            // Si le batch est encore en cours de traitement
-            if (batchResult.status === 'processing' || batchResult.status === 'pending' || batchResult.status === 'queued') {
-              console.log(`Batch encore en traitement (statut: ${batchResult.status}), attente...`);
+              
+              // Si le batch a échoué
+              if (batchResult.status === 'failed' || batchResult.status === 'error') {
+                console.error('Batch échoué:', batchResult);
+                throw new Error(`La transcription a échoué: ${batchResult.error || batchResult.message || 'Erreur inconnue'}`);
+              }
+              
+              // Si le batch est encore en cours de traitement
+              if (batchResult.status === 'processing' || batchResult.status === 'pending' || batchResult.status === 'queued' || batchResult.status === 'in_progress') {
+                console.log(`Batch encore en traitement (statut: ${batchResult.status}), attente...`);
+                continue;
+              }
+              
+              // Statut inconnu
+              console.warn('Statut de batch inconnu:', batchResult.status);
+            } else {
+              // Pas de statut, peut-être que le résultat est déjà prêt
+              console.log('Pas de statut trouvé, résultat peut-être déjà prêt');
               continue;
             }
             
-            // Statut inconnu
-            console.warn('Statut de batch inconnu:', batchResult.status);
-            
           } else {
             const errorText = await batchResponse.text();
-            console.warn(`Erreur HTTP lors de la vérification du batch (tentative ${attempts}):`, batchResponse.status, errorText);
+            console.warn(`Erreur HTTP lors de la vérification des résultats (tentative ${attempts}):`, batchResponse.status, errorText);
             
-            // Si c'est une erreur 404, le batch n'existe peut-être pas
+            // Si c'est une erreur 404, le batch n'existe peut-être pas encore
             if (batchResponse.status === 404) {
-              throw new Error('Batch non trouvé - ID de batch invalide');
+              console.log('Résultat pas encore disponible (404), attente...');
+              continue;
+            }
+            
+            // Pour d'autres erreurs, on continue à essayer quelques fois
+            if (attempts < 5) {
+              continue;
+            } else {
+              throw new Error(`Erreur persistante lors de la récupération des résultats: ${batchResponse.status}`);
             }
           }
         } catch (batchError) {
-          console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchError.message);
+          console.warn(`Erreur lors de la vérification des résultats (tentative ${attempts}):`, batchError.message);
           
           // Si c'est une erreur de réseau, on continue à essayer
           if (batchError.name === 'TypeError' || batchError.message.includes('network')) {
             continue;
           }
           
-          // Pour d'autres erreurs, on les remonte
-          throw batchError;
+          // Pour d'autres erreurs, on les remonte après quelques tentatives
+          if (attempts >= 5) {
+            throw batchError;
+          }
         }
       }
       
