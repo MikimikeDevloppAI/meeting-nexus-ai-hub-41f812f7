@@ -13,6 +13,7 @@ export async function processTasksWithRecommendations(
   }
 
   console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-4.1`);
+  console.log(`👥 [UNIFIED-TODO-SERVICE] Participants fournis pour assignation:`, participants?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   const supabaseClient = createSupabaseClient();
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -54,6 +55,7 @@ Participants disponibles dans le système : ${participantNames}
 - Si une personne dit "je vais faire X" → assigne à cette personne
 - Si plusieurs personnes impliquées → assigne à la personne principale
 - Si aucune assignation claire, laisse "assigned_to" à null
+- IMPORTANT: Tu ne peux assigner qu'aux participants PRÉSENTS dans cette réunion
 
 **RÈGLES POUR LES RECOMMANDATIONS IA:**
 Pour chaque tâche, génère:
@@ -70,7 +72,7 @@ Critères qualité pour les recommandations:
 CONTEXTE RÉUNION:
 - Titre: ${meetingData.title || 'Réunion'}
 - Date: ${meetingData.created_at || new Date().toISOString()}
-- Participants: ${participantNames}
+- Participants PRÉSENTS: ${participantNames}
 
 Transcript :
 ${cleanedTranscript}
@@ -128,7 +130,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       try {
         console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description?.substring(0, 50)}...`);
         
-        // 1. Créer la tâche d'abord avec assignation améliorée
+        // 1. Créer la tâche d'abord avec assignation limitée aux participants de la réunion
         const savedTask = await saveTaskUnified(supabaseClient, taskData, meetingData.id, participants);
         
         if (savedTask) {
@@ -192,9 +194,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   }
 }
 
-// Fonction pour sauvegarder une tâche avec assignation améliorée
-async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, allParticipants: any[]) {
+// Fonction pour sauvegarder une tâche avec assignation limitée aux participants de la réunion
+async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) {
   console.log('💾 Saving unified task:', task.description?.substring(0, 50) + '...');
+  console.log('👥 Participants de la réunion disponibles pour assignation:', meetingParticipants?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   try {
     // Fonction pour rendre les descriptions plus concises
@@ -224,9 +227,11 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       return result;
     };
 
-    // Fonction pour trouver le participant
+    // Fonction pour trouver le participant UNIQUEMENT parmi les participants de la réunion
     const findBestParticipantMatch = (searchName: string, participants: any[]): any | null => {
       if (!searchName || !participants?.length) return null;
+
+      console.log(`🔍 [UNIFIED-TODO-SERVICE] Recherche "${searchName}" parmi les participants de la réunion UNIQUEMENT`);
 
       const normalizeParticipantName = (name: string): string => {
         return name
@@ -258,6 +263,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       };
 
       const variants = getNameVariants(searchName);
+      console.log(`🔄 [UNIFIED-TODO-SERVICE] Variantes testées:`, variants);
       
       for (const variant of variants) {
         const normalizedVariant = normalizeParticipantName(variant);
@@ -270,6 +276,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
               normalizedEmail === normalizedVariant ||
               normalizedParticipantName.includes(normalizedVariant) ||
               normalizedVariant.includes(normalizedParticipantName)) {
+            console.log(`✅ [UNIFIED-TODO-SERVICE] Correspondance trouvée: ${participant.name} (présent à la réunion)`);
             return participant;
           }
         }
@@ -279,10 +286,12 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       for (const participant of participants) {
         const participantFirstName = normalizeParticipantName(participant.name.split(' ')[0]);
         if (participantFirstName === firstName) {
+          console.log(`✅ [UNIFIED-TODO-SERVICE] Correspondance par prénom: ${participant.name} (présent à la réunion)`);
           return participant;
         }
       }
       
+      console.log(`⚠️ [UNIFIED-TODO-SERVICE] Aucune correspondance trouvée pour "${searchName}" parmi les participants de la réunion`);
       return null;
     };
 
@@ -310,14 +319,17 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
 
     console.log('✅ Unified task saved with ID:', savedTask.id)
 
-    // Traiter les assignations
+    // Traiter les assignations UNIQUEMENT avec les participants de la réunion
     let firstAssignedParticipantId = null;
     
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
+      console.log('👥 [UNIFIED-TODO-SERVICE] Assignation demandée pour:', task.assigned_to);
+      
       for (const participantName of task.assigned_to) {
         if (!participantName || typeof participantName !== 'string') continue;
         
-        const participant = findBestParticipantMatch(participantName.toString(), allParticipants || []);
+        // Chercher UNIQUEMENT parmi les participants de la réunion
+        const participant = findBestParticipantMatch(participantName.toString(), meetingParticipants || []);
         
         if (participant) {
           const { error: assignError } = await supabaseClient
@@ -328,18 +340,21 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
             }])
           
           if (assignError) {
-            console.error('❌ Error assigning participant:', assignError)
+            console.error('❌ [UNIFIED-TODO-SERVICE] Error assigning participant:', assignError)
           } else {
-            console.log('✅ Participant assigné:', participant.name, 'to unified task:', savedTask.id)
+            console.log('✅ [UNIFIED-TODO-SERVICE] Participant assigné:', participant.name, 'to unified task:', savedTask.id)
             
             if (!firstAssignedParticipantId) {
               firstAssignedParticipantId = participant.id;
             }
           }
         } else {
-          console.warn('⚠️ Participant non trouvé:', participantName)
+          console.warn(`⚠️ [UNIFIED-TODO-SERVICE] Participant "${participantName}" non trouvé parmi les participants de la réunion`);
+          console.log('👥 [UNIFIED-TODO-SERVICE] Participants disponibles:', meetingParticipants?.map(p => p.name));
         }
       }
+    } else {
+      console.log('ℹ️ [UNIFIED-TODO-SERVICE] Pas de participants à assigner pour cette tâche');
     }
 
     // Mettre à jour la colonne assigned_to
@@ -350,16 +365,16 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
         .eq('id', savedTask.id);
         
       if (updateError) {
-        console.error('❌ Error updating assigned_to column:', updateError);
+        console.error('❌ [UNIFIED-TODO-SERVICE] Error updating assigned_to column:', updateError);
       } else {
         savedTask.assigned_to = firstAssignedParticipantId;
-        console.log('✅ Assigned_to updated:', firstAssignedParticipantId);
+        console.log('✅ [UNIFIED-TODO-SERVICE] Assigned_to updated:', firstAssignedParticipantId);
       }
     }
 
     return savedTask
   } catch (error) {
-    console.error('❌ Error in saveTaskUnified:', error)
+    console.error('❌ [UNIFIED-TODO-SERVICE] Error in saveTaskUnified:', error)
     throw error
   }
 }
