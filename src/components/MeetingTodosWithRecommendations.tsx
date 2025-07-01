@@ -328,7 +328,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           }`}>
             <CardContent className="p-6">
               <div className="space-y-4">
-                {/* Task header with priority, edit, complete and delete buttons */}
+                {/* Task header with priority, complete and delete buttons */}
                 <div className="flex justify-between items-start">
                   <div className="text-lg flex-grow mr-2">
                     <EditableContent
@@ -348,14 +348,6 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                       onPriorityUpdate={fetchTodos}
                       compact={true}
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingTodoId(todo.id)}
-                      className="h-8 px-3 hover:bg-blue-100 hover:text-blue-800"
-                    >
-                      <Pen className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
