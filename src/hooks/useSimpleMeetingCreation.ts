@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -5,22 +6,21 @@ import { useToast } from "@/hooks/use-toast";
 import { MeetingService } from "@/services/meetingService";
 import { AudioProcessingService } from "@/services/audioProcessingService";
 import { MeetingCreationData } from "@/types/meeting";
-import { useAutoRedirectOnRecommendations } from "./useAutoRedirectOnRecommendations";
+import { useSimpleRedirectOnTodos } from "./useSimpleRedirectOnTodos";
 
 export const useSimpleMeetingCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const isMountedRef = useRef(true);
-  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Réactiver la redirection automatique UNIQUEMENT pour les réunions avec audio
-  const { cleanup: cleanupAutoRedirect } = useAutoRedirectOnRecommendations(
+  // Utiliser le nouveau hook de redirection simple
+  const { cleanup: cleanupRedirect } = useSimpleRedirectOnTodos(
     currentMeetingId,
-    isSubmitting && currentMeetingId !== null // Actif seulement pendant le traitement d'une réunion
+    isSubmitting && currentMeetingId !== null
   );
 
   console.log('[useSimpleMeetingCreation] Hook initialized, current user:', user);
@@ -106,10 +106,9 @@ export const useSimpleMeetingCreation = () => {
           );
 
           console.log('[PROCESS] Starting AI processing in background...');
-          console.log('[PROCESS] 🎯 Redirection automatique activée - sera déclenchée quand le traitement sera terminé');
+          console.log('[PROCESS] 🎯 Redirection automatique simple activée - vérifiera les todos créés');
           
           // Start AI processing without waiting (let it run in background)
-          // La redirection sera automatique quand les recommendations seront créées
           AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedParticipants,
@@ -122,11 +121,11 @@ export const useSimpleMeetingCreation = () => {
 
           toast({
             title: "Traitement en cours",
-            description: "Votre réunion est créée. L'analyse IA continue en arrière-plan. Vous serez redirigé automatiquement.",
+            description: "Votre réunion est créée. L'analyse IA continue en arrière-plan. Vous serez redirigé automatiquement quand les tâches seront créées.",
           });
 
-          // Ne pas réinitialiser isSubmitting tout de suite - laisser la redirection automatique se faire
-          console.log('[REDIRECT] ✅ Réunion créée avec audio, redirection automatique activée');
+          // Laisser la redirection automatique simple se faire via le hook
+          console.log('[REDIRECT] ✅ Réunion créée avec audio, redirection automatique simple activée');
           
         } catch (audioError) {
           console.error('[AUDIO] Audio processing failed:', audioError);
@@ -134,13 +133,13 @@ export const useSimpleMeetingCreation = () => {
             title: "Réunion créée",
             description: "La réunion a été créée mais le traitement audio a échoué",
           });
-          // Réinitialiser l'état car pas de redirection automatique
+          // Réinitialiser l'état
           setIsSubmitting(false);
           setCurrentMeetingId(null);
         }
       } else {
-        // No audio to process - pas de redirection automatique
-        console.log('[NO_AUDIO] No audio to process - pas de redirection automatique');
+        // No audio to process
+        console.log('[NO_AUDIO] No audio to process');
         toast({
           title: "Réunion créée",
           description: "Votre réunion a été créée avec succès",
@@ -154,14 +153,12 @@ export const useSimpleMeetingCreation = () => {
       console.error("[ERROR] Meeting creation error:", error);
       
       if (meetingId) {
-        // Meeting was created, show success
         console.log('[ERROR] Meeting created, showing success despite errors');
         toast({
           title: "Réunion créée",
           description: "La réunion a été créée avec succès",
         });
       } else {
-        // Complete failure
         console.error('[ERROR] Complete failure - meeting not created');
         toast({
           title: "Erreur de création",
@@ -176,26 +173,16 @@ export const useSimpleMeetingCreation = () => {
   };
 
   const resetMeetingCreation = () => {
-    console.log('[useSimpleMeetingCreation] resetMeetingCreation called, isSubmitting:', isSubmitting);
+    console.log('[useSimpleMeetingCreation] resetMeetingCreation called');
     setIsSubmitting(false);
     setCurrentMeetingId(null);
-    cleanupAutoRedirect();
-    
-    if (redirectTimeoutRef.current) {
-      clearTimeout(redirectTimeoutRef.current);
-      redirectTimeoutRef.current = null;
-    }
+    cleanupRedirect();
   };
 
   const cleanupOnUnmount = () => {
     console.log('[useSimpleMeetingCreation] cleanupOnUnmount called');
     isMountedRef.current = false;
-    cleanupAutoRedirect();
-    
-    if (redirectTimeoutRef.current) {
-      clearTimeout(redirectTimeoutRef.current);
-      redirectTimeoutRef.current = null;
-    }
+    cleanupRedirect();
   };
 
   return {

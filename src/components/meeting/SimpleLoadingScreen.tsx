@@ -1,14 +1,9 @@
-
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Clock, Loader2 } from "lucide-react";
-import { MeetingStatus } from "@/hooks/useMeetingStatus";
 
 interface SimpleLoadingScreenProps {
   isComplete: boolean;
-  meetingStatus?: MeetingStatus;
+  meetingStatus?: any;
   onViewMeeting?: () => void;
 }
 
@@ -18,114 +13,84 @@ export const SimpleLoadingScreen = ({
   onViewMeeting 
 }: SimpleLoadingScreenProps) => {
   const [dots, setDots] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setDots(prev => prev.length >= 3 ? "" : prev + ".");
-    }, 500);
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const getStepStatus = (stepName: string) => {
-    if (!meetingStatus) return 'pending';
-    
-    switch (stepName) {
-      case 'summary':
-        return meetingStatus.hasSummary ? 'complete' : 'pending';
-      case 'transcript':
-        return meetingStatus.hasCleanedTranscript ? 'complete' : 'pending';
-      case 'tasks':
-        return meetingStatus.taskCount > 0 ? 'complete' : 'pending';
-      case 'recommendations':
-        return meetingStatus.recommendationCount >= meetingStatus.taskCount && meetingStatus.taskCount > 0 ? 'complete' : 'pending';
-      default:
-        return 'pending';
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getProgressMessage = () => {
+    if (elapsedSeconds < 30) {
+      return "Création de la réunion et upload de l'audio...";
+    } else if (elapsedSeconds < 120) {
+      return "Transcription de l'audio en cours...";
+    } else if (elapsedSeconds < 300) {
+      return "Analyse IA et création des tâches...";
+    } else {
+      return "Finalisation du traitement...";
     }
   };
 
-  const StepIndicator = ({ label, status }: { label: string; status: 'complete' | 'pending' | 'current' }) => (
-    <div className="flex items-center space-x-3 py-2">
-      {status === 'complete' ? (
-        <CheckCircle className="h-5 w-5 text-green-500" />
-      ) : status === 'current' ? (
-        <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-      ) : (
-        <Clock className="h-5 w-5 text-gray-400" />
-      )}
-      <span className={`text-sm ${
-        status === 'complete' ? 'text-green-700' : 
-        status === 'current' ? 'text-blue-700' : 
-        'text-gray-500'
-      }`}>
-        {label}
-      </span>
-    </div>
-  );
-
   return (
-    <div className="flex items-center justify-center min-h-[60vh] p-4">
-      <Card className="w-full max-w-md p-6 text-center space-y-6">
+    <Card className="p-8">
+      <div className="text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+        
         <div className="space-y-2">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <h2 className="text-xl font-semibold">
-            {isComplete ? "Traitement terminé !" : "Traitement en cours"}
-          </h2>
+          <h3 className="text-xl font-semibold">
+            Traitement de votre réunion en cours{dots}
+          </h3>
           <p className="text-muted-foreground">
-            {meetingStatus?.currentStep || `Traitement de votre réunion${dots}`}
+            {getProgressMessage()}
           </p>
+          <div className="text-sm text-muted-foreground">
+            Temps écoulé: {formatTime(elapsedSeconds)}
+          </div>
         </div>
 
-        {meetingStatus && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progression</span>
-                <span>{meetingStatus.progressPercentage}%</span>
-              </div>
-              <Progress value={meetingStatus.progressPercentage} className="w-full" />
+        <div className="space-y-4">
+          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              Réunion créée
             </div>
-
-            <div className="space-y-1 text-left">
-              <StepIndicator 
-                label="Analyse et résumé" 
-                status={getStepStatus('summary')} 
-              />
-              <StepIndicator 
-                label="Nettoyage du transcript" 
-                status={getStepStatus('transcript')} 
-              />
-              <StepIndicator 
-                label={`Création des tâches ${meetingStatus.taskCount > 0 ? `(${meetingStatus.taskCount})` : ''}`}
-                status={getStepStatus('tasks')} 
-              />
-              <StepIndicator 
-                label={`Génération des recommandations ${meetingStatus.recommendationCount > 0 ? `(${meetingStatus.recommendationCount}/${meetingStatus.taskCount})` : ''}`}
-                status={getStepStatus('recommendations')} 
-              />
+            <div className="flex items-center gap-2 text-sm">
+              <div className={`w-2 h-2 rounded-full ${elapsedSeconds > 30 ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}></div>
+              Transcription audio
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className={`w-2 h-2 rounded-full ${elapsedSeconds > 120 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              Analyse IA et création des tâches
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              Redirection automatique
             </div>
           </div>
-        )}
 
-        <div className="space-y-2">
-          {meetingStatus?.progressPercentage && meetingStatus.progressPercentage > 25 && onViewMeeting && (
-            <Button 
-              variant="outline" 
-              onClick={onViewMeeting}
-              className="w-full"
-            >
-              Voir la réunion (traitement en cours)
-            </Button>
-          )}
-          
-          <p className="text-xs text-muted-foreground">
-            {isComplete 
-              ? "Redirection automatique..." 
-              : "Ce processus peut prendre quelques minutes. Vous pouvez fermer cette page en toute sécurité."
-            }
-          </p>
+          <div className="text-xs text-muted-foreground">
+            Vous serez automatiquement redirigé vers votre réunion dès que les tâches seront créées.
+            {elapsedSeconds > 300 && (
+              <div className="mt-2 text-amber-600">
+                Le traitement prend plus de temps que prévu. Cela peut arriver avec de longs enregistrements.
+              </div>
+            )}
+          </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 };
