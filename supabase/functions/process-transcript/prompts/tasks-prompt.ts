@@ -6,18 +6,17 @@ Participants disponibles dans le système : ${participantNames}
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
 - Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
-- Une tâche = un sujet principal avec TOUT le contexte nécessaire
+- Une tâche = un sujet principal avec un peu de contexte mais concis. deux phrases maximum
 - Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
 - Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
 - Privilégie les macro-tâches sur les micro-actions
 
 **RÈGLES DE CONTEXTE ENRICHI:**
-- Inclus TOUT le contexte nécessaire pour comprendre et exécuter la tâche
 - Mentionne les détails techniques, budgétaires ou logistiques discutés
 - Inclus les raisons/motivations derrière chaque action
 - Spécifie les délais, échéances ou priorités mentionnées
 - Sois concis mais avec tout le contexte nécessaire pour être autonome
-- ne pas mentionner le nom de la personne qui doit executer la tache masi plutot ce qui doit etre fait
+- ne pas mentionner le nom de la personne qui doit executer la tache mais plutot ce qui doit etre fait
 
 **RÈGLES D'ASSIGNATION STRICTES:**
 - Utilise SEULEMENT les noms EXACTS de cette liste : ${participantNames}
