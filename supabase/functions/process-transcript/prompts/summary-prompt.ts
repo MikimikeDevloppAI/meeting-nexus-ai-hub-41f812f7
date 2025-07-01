@@ -49,7 +49,7 @@ Cette section doit apparaître **uniquement à la fin du résumé** et **uniquem
 RÈGLES :
 - TOUJOURS utiliser l'emoji correspondant devant chaque section
 - Si une catégorie n'a pas été abordée, ne l'affiche pas
-- Pour chaque point discuté, ajoute immédiatement en dessous la décision prise (avec → ) si il y en a eu une
+- Pour chaque point discuté, ajoute immédiatement à la ligne suivante la décision prise (avec → ) si il y en a eu une
 - Si aucune décision n'a été prise pour un point, ne mets pas de ligne avec →
 - Utilise les noms des participants dans les décisions/actions
 - Sois précis et concis
