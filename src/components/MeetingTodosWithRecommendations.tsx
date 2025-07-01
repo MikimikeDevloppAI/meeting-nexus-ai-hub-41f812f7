@@ -11,6 +11,7 @@ import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationCo
 import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
 import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
 import { EditableContent } from "@/components/EditableContent";
+import { TodoPriorityButton } from "@/components/TodoPriorityButton";
 import { Todo } from "@/types/meeting";
 import {
   Dialog,
@@ -25,8 +26,13 @@ interface MeetingTodosWithRecommendationsProps {
 
 type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 
+// Étendre l'interface Todo pour inclure la priorité
+interface TodoWithPriority extends Todo {
+  priority?: 'high' | 'normal' | 'low';
+}
+
 export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithRecommendationsProps) => {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todos, setTodos] = useState<TodoWithPriority[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
@@ -53,7 +59,8 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           )
         `)
         .eq("meeting_id", meetingId)
-        .order("created_at", { ascending: false });
+        .order("priority", { ascending: false }) // Tri par priorité d'abord
+        .order("created_at", { ascending: false }); // Puis par date
 
       if (error) {
         console.error("❌ Error fetching todos:", error);
@@ -88,10 +95,11 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         id: t.id,
         description: t.description.substring(0, 50) + '...',
         status: t.status,
+        priority: t.priority,
         participants: t.todo_participants?.length || 0
       })));
       
-      setTodos(allTodos as Todo[]);
+      setTodos(allTodos as TodoWithPriority[]);
       
       // Check for existing deep search results
       checkDeepSearchResults(allTodos.map(todo => todo.id));
@@ -282,6 +290,21 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
     );
   }
 
+  // Tri des tâches avec priorité en premier
+  const sortedTodos = todos.sort((a, b) => {
+    // Tri par priorité d'abord (high > normal > low)
+    const priorityOrder = { high: 3, normal: 2, low: 1 };
+    const aPriority = priorityOrder[a.priority || 'normal'];
+    const bPriority = priorityOrder[b.priority || 'normal'];
+    
+    if (aPriority !== bPriority) {
+      return bPriority - aPriority;
+    }
+    
+    // Puis par date de création (plus récent en premier)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   return (
     <div className="space-y-6">
       <div className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
@@ -295,15 +318,17 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         </Button>
       </div>
       
-      {todos.map((todo) => {
+      {sortedTodos.map((todo) => {
         const activeTool = activeAITools[todo.id] || 'none';
         const hasDeepSearchResults = deepSearchResults[todo.id] || false;
         
         return (
-          <Card key={todo.id} className="hover:shadow-sm transition-shadow">
+          <Card key={todo.id} className={`hover:shadow-sm transition-shadow ${
+            todo.priority === 'high' ? 'ring-2 ring-orange-200 bg-orange-50/30' : ''
+          }`}>
             <CardContent className="p-6">
               <div className="space-y-4">
-                {/* Task header with edit, complete and delete buttons */}
+                {/* Task header with priority, edit, complete and delete buttons */}
                 <div className="flex justify-between items-start">
                   <div className="text-lg flex-grow mr-2">
                     <EditableContent
@@ -317,6 +342,12 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <TodoPriorityButton
+                      todoId={todo.id}
+                      currentPriority={todo.priority || 'normal'}
+                      onPriorityUpdate={fetchTodos}
+                      compact={true}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
