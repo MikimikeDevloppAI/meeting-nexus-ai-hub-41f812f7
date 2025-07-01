@@ -1,4 +1,3 @@
-
 import { createSupabaseClient } from './database-service.ts'
 
 export async function handleDocumentProcessing(
@@ -110,22 +109,12 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
     
     console.log(`[DOCUMENT] ✅ ${embeddings.length} embeddings générés avec succès`);
 
-    // NOUVEAU: Améliorer le nommage du document avec plus de contexte significatif
+    // SIMPLIFIÉ: Titre simplifié avec format de base + participants si identifiés
     let enhancedTitle = `${meetingName} - ${meetingDate}`;
     
     // Ajouter les informations de participants si disponibles
     if (participantInfo) {
       enhancedTitle += ` (${participantInfo})`;
-    }
-    
-    // Ajouter les sujets principaux si identifiés
-    if (topicInfo) {
-      enhancedTitle += ` - ${topicInfo}`;
-    }
-    
-    // Ajouter des mots-clés pour différencier
-    if (keywords.length > 0) {
-      enhancedTitle += ` [${keywords.slice(0, 3).join(', ')}]`;
     }
 
     // Métadonnées enrichies
@@ -141,7 +130,7 @@ RÉSUMÉ: Cette réunion intitulée "${meetingName}" s'est tenue le ${meetingDat
       participantInfo: participantInfo,
       topicInfo: topicInfo,
       processedAt: new Date().toISOString(),
-      processingVersion: '2.6-fixed-embedding-api'
+      processingVersion: '2.7-simplified-title'
     };
 
     // Sauvegarder le document avec embeddings
