@@ -162,31 +162,31 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
               <CardContent className="p-4">
                 <div className="space-y-3">
                   {hasRecommendation && (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground break-words overflow-wrap-anywhere">
                       {recommendation.recommendation_text.split('\n').map((line, index) => {
                         if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
                           return (
-                            <div key={index} className="font-medium text-foreground mt-2 mb-1">
+                            <div key={index} className="font-medium text-foreground mt-2 mb-1 break-words">
                               {line.replace(/\*\*/g, '')}
                             </div>
                           );
                         }
                         if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
                           return (
-                            <div key={index} className="ml-3 mb-1">
+                            <div key={index} className="ml-3 mb-1 break-words overflow-wrap-anywhere">
                               {line.trim().substring(2)}
                             </div>
                           );
                         }
                         return line.trim() ? (
-                          <div key={index} className="mb-1">{line}</div>
+                          <div key={index} className="mb-1 break-words overflow-wrap-anywhere">{line}</div>
                         ) : (
                           <div key={index} className="h-1" />
                         );
                       })}
                       
                       {recommendation.estimated_cost && (
-                        <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                        <div className="mt-3 p-2 bg-muted/50 rounded text-sm break-words">
                           <strong>Coût estimé :</strong> {recommendation.estimated_cost}
                         </div>
                       )}
@@ -219,12 +219,12 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                           <div className="mt-2 space-y-2">
                             {recommendation.contacts.map((contact, index) => (
                               <div key={index} className="bg-muted/50 rounded p-2">
-                                <div className="font-medium text-sm">{contact.name}</div>
+                                <div className="font-medium text-sm break-words">{contact.name}</div>
                                 <div className="text-xs text-muted-foreground space-y-1 mt-1">
                                   {contact.phone && (
                                     <div className="flex items-center gap-1">
                                       <Phone className="h-3 w-3" />
-                                      <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline">
+                                      <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="hover:underline break-all">
                                         {contact.phone}
                                       </a>
                                     </div>
@@ -257,7 +257,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
                                         href={`https://maps.google.com/?q=${encodeURIComponent(contact.address)}`}
                                         target="_blank" 
                                         rel="noopener noreferrer" 
-                                        className="hover:underline"
+                                        className="hover:underline break-words"
                                       >
                                         {contact.address}
                                       </a>
@@ -296,7 +296,7 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
                         <CollapsibleContent>
                           <div className="mt-2 bg-muted/50 rounded p-3">
-                            <pre className="text-xs whitespace-pre-wrap font-sans">
+                            <pre className="text-xs whitespace-pre-wrap font-sans break-words overflow-wrap-anywhere">
                               {recommendation.email_draft}
                             </pre>
                             <Button
