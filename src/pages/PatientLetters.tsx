@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,14 +22,26 @@ const PatientLetters = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Utiliser des options spécifiques pour le MediaRecorder
-      const options = {
-        mimeType: 'audio/webm;codecs=opus'
-      };
+      // Essayer différents formats supportés par Infomaniak
+      let options = { mimeType: '' };
       
-      // Fallback si le type MIME n'est pas supporté
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'audio/webm';
+      // Liste des formats supportés par Infomaniak dans l'ordre de préférence
+      const supportedFormats = [
+        'audio/wav',
+        'audio/mp4',
+        'audio/mp3',
+        'audio/ogg',
+        'audio/webm;codecs=opus',
+        'audio/webm'
+      ];
+      
+      // Trouver le premier format supporté
+      for (const format of supportedFormats) {
+        if (MediaRecorder.isTypeSupported(format)) {
+          options.mimeType = format;
+          console.log('Format sélectionné:', format);
+          break;
+        }
       }
       
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -42,7 +55,8 @@ const PatientLetters = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        // Utiliser le type MIME détecté au lieu de forcer audio/wav
+        const audioBlob = new Blob(audioChunksRef.current, { type: options.mimeType });
         await processAudioWithWhisper(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -76,7 +90,17 @@ const PatientLetters = () => {
 
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
+      
+      // Déterminer l'extension en fonction du type MIME
+      let fileName = 'recording.wav';
+      if (audioBlob.type.includes('mp4')) fileName = 'recording.mp4';
+      else if (audioBlob.type.includes('mp3')) fileName = 'recording.mp3';
+      else if (audioBlob.type.includes('ogg')) fileName = 'recording.ogg';
+      else if (audioBlob.type.includes('webm')) fileName = 'recording.webm';
+      
+      console.log('Envoi du fichier:', fileName, 'Type:', audioBlob.type, 'Taille:', audioBlob.size);
+      
+      formData.append('audio', audioBlob, fileName);
 
       const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/transcribe-audio', {
         method: 'POST',
