@@ -62,9 +62,9 @@ serve(async (req) => {
     if (result.batch_id) {
       console.log('Traitement asynchrone détecté, batch_id:', result.batch_id);
       
-      // Attendre et récupérer le résultat du batch
+      // Attendre et récupérer le résultat du batch avec timeout augmenté
       let attempts = 0;
-      const maxAttempts = 30; // Maximum 30 tentatives (30 secondes)
+      const maxAttempts = 60; // Maximum 60 tentatives (60 secondes)
       
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1 seconde
@@ -72,43 +72,57 @@ serve(async (req) => {
         
         console.log(`Tentative ${attempts}: Vérification du statut du batch`);
         
-        // Récupérer le statut du batch
-        const batchResponse = await fetch(`https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${infomaniakApiKey}`,
-          },
-        });
-        
-        if (batchResponse.ok) {
-          const batchResult = await batchResponse.json();
-          console.log('Statut du batch:', batchResult);
+        try {
+          // Récupérer le statut du batch
+          const batchResponse = await fetch(`https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${infomaniakApiKey}`,
+            },
+          });
           
-          // Si le batch est terminé et contient le texte
-          if (batchResult.status === 'completed' && batchResult.output) {
-            console.log('Transcription terminée:', batchResult.output);
-            return new Response(
-              JSON.stringify({ 
-                text: batchResult.output.text || batchResult.output,
-                success: true 
-              }),
-              { 
-                headers: { 
-                  ...corsHeaders, 
-                  'Content-Type': 'application/json' 
-                } 
-              }
-            );
+          if (batchResponse.ok) {
+            const batchResult = await batchResponse.json();
+            console.log('Statut du batch:', batchResult);
+            
+            // Si le batch est terminé et contient le texte
+            if (batchResult.status === 'completed' && batchResult.output) {
+              console.log('Transcription terminée:', batchResult.output);
+              return new Response(
+                JSON.stringify({ 
+                  text: batchResult.output.text || batchResult.output,
+                  success: true 
+                }),
+                { 
+                  headers: { 
+                    ...corsHeaders, 
+                    'Content-Type': 'application/json' 
+                  } 
+                }
+              );
+            }
+            
+            // Si le batch a échoué
+            if (batchResult.status === 'failed') {
+              console.error('Batch échoué:', batchResult);
+              throw new Error(`La transcription a échoué: ${batchResult.error || 'Erreur inconnue'}`);
+            }
+            
+            // Si le batch est encore en cours, continuer à attendre
+            if (batchResult.status === 'processing' || batchResult.status === 'pending') {
+              console.log('Batch encore en cours de traitement...');
+              continue;
+            }
+          } else {
+            console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchResponse.status);
           }
-          
-          // Si le batch a échoué
-          if (batchResult.status === 'failed') {
-            throw new Error('La transcription a échoué');
-          }
+        } catch (batchError) {
+          console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchError);
+          // Continuer les tentatives même en cas d'erreur temporaire
         }
       }
       
-      throw new Error('Timeout: La transcription a pris trop de temps');
+      throw new Error('Timeout: La transcription a pris trop de temps (plus de 60 secondes)');
     }
 
     // Si la réponse contient directement le texte (traitement synchrone)
