@@ -42,9 +42,10 @@ interface EmailChatMessage {
 
 export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: TodoAIRecommendationContentProps) => {
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
-  const [isOpen, setIsOpen] = useState(true); // Auto-open by default
+  const [isOpen, setIsOpen] = useState(true);
   const [showContacts, setShowContacts] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentEmailDraft, setCurrentEmailDraft] = useState<string>("");
   
   // États pour le chat de modification d'email
   const [emailChatMessages, setEmailChatMessages] = useState<EmailChatMessage[]>([]);
@@ -121,9 +122,10 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
         } catch (parseError) {
           console.error("Error parsing contacts:", parseError);
         }
+        
+        setRecommendation(data);
+        setCurrentEmailDraft(data.email_draft || "");
       }
-      
-      setRecommendation(data);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -132,7 +134,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   };
 
   const sendEmailChatMessage = async () => {
-    if (!emailChatInput.trim() || isEmailChatLoading || !recommendation) return;
+    if (!emailChatInput.trim() || isEmailChatLoading) return;
 
     const userMessage: EmailChatMessage = {
       role: 'user',
@@ -170,10 +172,10 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
         body: {
           todoId,
           todoDescription: todoData.description,
-          currentEmail: recommendation.email_draft,
+          currentEmail: currentEmailDraft,
           userRequest: currentInput,
           conversationHistory: emailChatMessages,
-          recommendation: recommendation.recommendation_text
+          recommendation: recommendation?.recommendation_text || null
         }
       });
 
@@ -195,24 +197,40 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
         }];
       });
 
-      // Mettre à jour l'email dans l'état local ET en base de données
+      // Mettre à jour l'email dans l'état local
       if (data.modifiedEmail) {
-        setRecommendation(prev => prev ? {
-          ...prev,
-          email_draft: data.modifiedEmail
-        } : null);
+        setCurrentEmailDraft(data.modifiedEmail);
 
         // Sauvegarder en base de données
-        const { error: updateError } = await supabase
-          .from('todo_ai_recommendations')
-          .update({ 
-            email_draft: data.modifiedEmail,
-            updated_at: new Date().toISOString()
-          })
-          .eq('todo_id', todoId);
+        if (recommendation) {
+          const { error: updateError } = await supabase
+            .from('todo_ai_recommendations')
+            .update({ 
+              email_draft: data.modifiedEmail,
+              updated_at: new Date().toISOString()
+            })
+            .eq('todo_id', todoId);
 
-        if (updateError) {
-          console.error('Erreur sauvegarde email:', updateError);
+          if (updateError) {
+            console.error('Erreur sauvegarde email:', updateError);
+          }
+        } else {
+          // Créer une nouvelle recommandation avec l'email
+          const { error: insertError } = await supabase
+            .from('todo_ai_recommendations')
+            .insert({
+              todo_id: todoId,
+              recommendation_text: "Email généré par l'assistant IA",
+              email_draft: data.modifiedEmail,
+              created_at: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Erreur création recommandation:', insertError);
+          } else {
+            // Recharger la recommandation
+            fetchRecommendation();
+          }
         }
 
         toast({
@@ -262,46 +280,56 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
     );
   }
 
-  if (!recommendation || !recommendation.email_draft) {
-    return null;
-  }
-
-  const hasContactInfo = recommendation.contacts && recommendation.contacts.length > 0;
+  const hasContactInfo = recommendation?.contacts && recommendation.contacts.length > 0;
 
   return (
     <Card className="border-muted/50">
       <CardContent className="p-4">
         <div className="space-y-4">
           {/* Email content first */}
-          <div className="bg-muted/50 rounded p-3">
-            <div className="flex items-center gap-2 mb-3">
-              <Mail className="h-4 w-4 text-blue-500" />
-              <span className="font-medium text-sm">Email de communication</span>
+          {currentEmailDraft ? (
+            <div className="bg-muted/50 rounded p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="h-4 w-4 text-blue-500" />
+                <span className="font-medium text-sm">Email de communication</span>
+              </div>
+              <pre className="text-xs whitespace-pre-wrap font-sans mb-3">
+                {currentEmailDraft}
+              </pre>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(currentEmailDraft);
+                  toast({
+                    title: "Email copié",
+                    description: "L'email a été copié dans le presse-papiers",
+                  });
+                }}
+                className="w-full"
+              >
+                Copier l'email
+              </Button>
             </div>
-            <pre className="text-xs whitespace-pre-wrap font-sans mb-3">
-              {recommendation.email_draft}
-            </pre>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                navigator.clipboard.writeText(recommendation.email_draft || '');
-                toast({
-                  title: "Email copié",
-                  description: "L'email a été copié dans le presse-papiers",
-                });
-              }}
-              className="w-full"
-            >
-              Copier l'email
-            </Button>
-          </div>
+          ) : (
+            <div className="bg-muted/50 rounded p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="h-4 w-4 text-blue-500" />
+                <span className="font-medium text-sm">Email de communication</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Aucun email généré pour cette tâche. Utilisez l'assistant ci-dessous pour créer un email.
+              </p>
+            </div>
+          )}
 
-          {/* Chat de modification d'email second */}
+          {/* Chat de modification d'email */}
           <div className="border rounded-lg p-3 bg-blue-50/50">
             <div className="flex items-center gap-2 mb-3">
               <MessageSquare className="h-4 w-4 text-blue-500" />
-              <span className="font-medium text-sm">Modifier l'email</span>
+              <span className="font-medium text-sm">
+                {currentEmailDraft ? "Modifier l'email" : "Créer un email"}
+              </span>
               {isTyping && (
                 <div className="flex items-center gap-1 ml-2">
                   <Bot className="h-3 w-3 text-blue-500 animate-pulse" />
@@ -320,7 +348,10 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                   {emailChatMessages.length === 0 && (
                     <div className="text-center py-2 text-muted-foreground">
                       <p className="text-xs">
-                        Demandez des modifications à l'email (ton, contenu, structure...)
+                        {currentEmailDraft 
+                          ? "Demandez des modifications à l'email (ton, contenu, structure...)"
+                          : "Demandez la création d'un email (ex: 'Créer un email pour demander un devis', 'Rédiger un email de présentation...')"
+                        }
                       </p>
                     </div>
                   )}
@@ -368,7 +399,7 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
                   value={emailChatInput}
                   onChange={(e) => setEmailChatInput(e.target.value)}
                   onKeyPress={handleEmailChatKeyPress}
-                  placeholder={isEmailChatLoading ? "Modification en cours..." : "Modifier l'email (ex: rendre plus formel, ajouter des détails...)"}
+                  placeholder={isEmailChatLoading ? "Modification en cours..." : currentEmailDraft ? "Modifier l'email (ex: rendre plus formel, ajouter des détails...)" : "Créer un email (ex: demander un devis, présenter l'entreprise...)"}
                   disabled={isEmailChatLoading}
                   className="flex-1 text-xs h-7"
                 />
@@ -467,14 +498,16 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
             </div>
           )}
 
-          <div className="text-xs text-muted-foreground text-right">
-            {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </div>
+          {recommendation && (
+            <div className="text-xs text-muted-foreground text-right">
+              {new Date(recommendation.created_at).toLocaleDateString('fr-FR', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
