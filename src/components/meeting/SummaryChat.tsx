@@ -40,10 +40,10 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
     setIsTyping(true);
     setMessages(prev => [...prev, userMessage]);
 
-    // Animation de typing
+    // Animation de typing avec message plus informatif
     const typingMessage: Message = {
       role: 'assistant',
-      content: "L'assistant réfléchit...",
+      content: "L'IA analyse le résumé et le transcript... peut prendre 15-20s",
       timestamp: new Date()
     };
     setMessages(prev => [...prev, typingMessage]);
@@ -51,9 +51,9 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
     try {
       console.log('📤 Envoi demande résumé:', inputValue);
       
-      // Timeout côté client de 12s
+      // Timeout côté client de 20s (au lieu de 12s)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout client (12s)')), 12000)
+        setTimeout(() => reject(new Error('Timeout client (20s)')), 20000)
       );
 
       const requestPromise = supabase.functions.invoke('summary-chat', {
@@ -169,7 +169,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
                 <div className={`rounded-lg p-2 max-w-[80%] text-xs ${
                   message.role === 'user' 
                     ? 'bg-blue-600 text-white' 
-                    : message.content.includes('réfléchit') 
+                    : message.content.includes('analyse le résumé') 
                       ? 'bg-yellow-100 text-yellow-800 animate-pulse'
                       : 'bg-gray-100 text-gray-900'
                 }`}>
@@ -191,7 +191,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isLoading ? "Modification en cours..." : "Modifie le résumé..."}
+            placeholder={isLoading ? "Analyse en cours (15-20s)..." : "Modifie le résumé..."}
             disabled={isLoading}
             className="flex-1 text-xs"
           />
