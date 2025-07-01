@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock } from "lucide-react";
 import { MeetingTodos } from "@/components/MeetingTodos";
+import ReactMarkdown from "react-markdown";
 
 interface MeetingResultsProps {
   transcript?: string;
@@ -52,7 +53,9 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         {summary ? (
           <div className="prose prose-sm max-w-none">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{summary}</div>
+              <ReactMarkdown className="text-sm break-words overflow-wrap-anywhere max-w-full prose prose-sm prose-blue max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                {summary}
+              </ReactMarkdown>
             </div>
           </div>
         ) : (
