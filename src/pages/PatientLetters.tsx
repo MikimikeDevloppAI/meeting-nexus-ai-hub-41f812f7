@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,13 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Mic, Square, Download, Save, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [infomaniakApiKey, setInfomaniakApiKey] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
@@ -62,49 +61,36 @@ const PatientLetters = () => {
   };
 
   const processAudioWithWhisper = async (audioBlob: Blob) => {
-    if (!infomaniakApiKey) {
-      toast({
-        title: "Clé API manquante",
-        description: "Veuillez saisir votre clé API Infomaniak",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsProcessing(true);
 
     try {
       const formData = new FormData();
-      formData.append('file', audioBlob, 'recording.wav');
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'fr');
+      formData.append('audio', audioBlob, 'recording.wav');
 
-      const response = await fetch('https://api.infomaniak.com/v1/ai/whisper/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${infomaniakApiKey}`,
-        },
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+      if (error) {
+        throw error;
       }
 
-      const result = await response.json();
-      const transcription = result.text || "";
+      if (data?.success && data?.text) {
+        const transcription = data.text;
+        setLetterContent(prev => prev + (prev ? "\n\n" : "") + transcription);
 
-      setLetterContent(prev => prev + (prev ? "\n\n" : "") + transcription);
-
-      toast({
-        title: "Transcription réussie",
-        description: "Le texte a été ajouté à votre lettre",
-      });
+        toast({
+          title: "Transcription réussie",
+          description: "Le texte a été ajouté à votre lettre",
+        });
+      } else {
+        throw new Error(data?.error || "Erreur de transcription");
+      }
     } catch (error) {
       console.error("Error processing audio:", error);
       toast({
         title: "Erreur de transcription",
-        description: "Impossible de traiter l'enregistrement audio",
+        description: error.message || "Impossible de traiter l'enregistrement audio",
         variant: "destructive",
       });
     } finally {
@@ -203,31 +189,6 @@ const PatientLetters = () => {
       </div>
 
       <div className="grid gap-6">
-        {/* Configuration API */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Configuration API
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="api-key">Clé API Infomaniak Whisper</Label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  value={infomaniakApiKey}
-                  onChange={(e) => setInfomaniakApiKey(e.target.value)}
-                  placeholder="Saisissez votre clé API"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Informations du patient */}
         <Card>
           <CardHeader>
@@ -257,7 +218,7 @@ const PatientLetters = () => {
               <div className="flex gap-3">
                 <Button
                   onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isProcessing || !infomaniakApiKey}
+                  disabled={isProcessing}
                   variant={isRecording ? "destructive" : "default"}
                   className="flex-1"
                 >
