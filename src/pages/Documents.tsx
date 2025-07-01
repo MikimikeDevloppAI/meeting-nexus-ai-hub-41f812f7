@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +47,93 @@ const Documents = () => {
   const navigate = useNavigate();
 
   const { documents, isLoading, refetch, forceRefresh, refreshKey } = useUnifiedDocuments();
+
+  // NOUVEAU: Fonction pour vérifier si des documents ont déjà été traités
+  const checkAlreadyProcessedDocuments = useCallback(async (currentQueue: UploadProgress[]) => {
+    if (currentQueue.length === 0) return;
+    
+    console.log('🔍 Vérification des documents déjà traités...');
+    
+    const processingDocuments = currentQueue.filter(item => 
+      item.status === 'processing' && item.documentId
+    );
+    
+    if (processingDocuments.length === 0) return;
+    
+    // Récupérer les documents déjà créés dans la table documents
+    const documentIds = processingDocuments.map(item => item.documentId).filter(Boolean);
+    
+    const { data: existingDocs, error } = await supabase
+      .from('documents')
+      .select('uploaded_document_id')
+      .in('uploaded_document_id', documentIds);
+    
+    if (error) {
+      console.error('❌ Erreur vérification documents existants:', error);
+      return;
+    }
+    
+    if (existingDocs && existingDocs.length > 0) {
+      console.log(`✅ Trouvé ${existingDocs.length} documents déjà traités:`, existingDocs);
+      
+      // Marquer les documents trouvés comme completed
+      const processedIds = existingDocs.map(doc => doc.uploaded_document_id);
+      
+      setUploadQueue(prev => prev.map(item => {
+        if (item.documentId && processedIds.includes(item.documentId)) {
+          console.log(`🎉 Marquage du document ${item.documentId} comme traité`);
+          return { ...item, status: 'completed' as const, progress: 100 };
+        }
+        return item;
+      }));
+      
+      // Vérifier si tous sont maintenant terminés
+      setTimeout(() => {
+        setUploadQueue(currentQueue => {
+          const allCompleted = currentQueue.every(item => 
+            item.status === 'completed' || item.status === 'error'
+          );
+          
+          if (allCompleted && currentQueue.length > 0) {
+            console.log('🎉 Tous les documents traités après vérification initiale!');
+            
+            setTimeout(() => {
+              setUploadQueue([]);
+              setIsProcessingQueue(false);
+              forceRefresh();
+              
+              toast({
+                title: "Traitement terminé",
+                description: "Tous les documents ont été traités avec succès",
+              });
+            }, 2000);
+          }
+          
+          return currentQueue;
+        });
+      }, 100);
+    }
+  }, [forceRefresh, toast]);
+
+  // NOUVEAU: Polling de récupération pour les documents coincés
+  useEffect(() => {
+    if (uploadQueue.length === 0) return;
+    
+    const processingDocs = uploadQueue.filter(item => item.status === 'processing');
+    if (processingDocs.length === 0) return;
+    
+    console.log(`🔄 Démarrage du polling de récupération pour ${processingDocs.length} documents`);
+    
+    const recoveryInterval = setInterval(async () => {
+      console.log('🔍 Vérification de récupération des documents...');
+      await checkAlreadyProcessedDocuments(uploadQueue);
+    }, 10000); // Vérification toutes les 10 secondes
+    
+    return () => {
+      clearInterval(recoveryInterval);
+      console.log('🧹 Arrêt du polling de récupération');
+    };
+  }, [uploadQueue, checkAlreadyProcessedDocuments]);
 
   // Fonction pour générer un nom de fichier unique
   const generateUniqueFileName = async (baseName: string, extension: string): Promise<string> => {
@@ -189,6 +275,14 @@ const Documents = () => {
         });
       }
     }
+    
+    // NOUVEAU: Vérifier immédiatement après l'upload si certains sont déjà traités
+    setTimeout(() => {
+      setUploadQueue(currentQueue => {
+        checkAlreadyProcessedDocuments(currentQueue);
+        return currentQueue;
+      });
+    }, 2000);
   };
 
   // Configuration du dropzone
@@ -240,7 +334,7 @@ const Documents = () => {
     checkStorage();
   }, [toast]);
 
-  // NOUVEAU: Logique améliorée pour suivre le traitement des documents
+  // Logique améliorée pour suivre le traitement des documents
   useEffect(() => {
     if (uploadQueue.length === 0) return;
 
@@ -310,7 +404,7 @@ const Documents = () => {
           const newVectorDoc = payload.new;
           console.log('🗂️ Nouveau document vectoriel créé:', newVectorDoc);
           
-          // NOUVEAU: Vérifier si ce document correspond à un upload en cours
+          // Vérifier si ce document correspond à un upload en cours
           if (newVectorDoc.uploaded_document_id) {
             console.log(`🎯 Document vectoriel créé pour uploaded_document_id: ${newVectorDoc.uploaded_document_id}`);
             
