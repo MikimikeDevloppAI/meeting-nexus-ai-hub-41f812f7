@@ -56,79 +56,141 @@ serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log('Résultat de la transcription:', result);
+    console.log('Résultat complet de l\'API Infomaniak:', JSON.stringify(result, null, 2));
 
     // Vérifier si la réponse contient un batch_id (traitement asynchrone)
     if (result.batch_id) {
       console.log('Traitement asynchrone détecté, batch_id:', result.batch_id);
       
-      // Attendre et récupérer le résultat du batch avec timeout augmenté
+      // Attendre et récupérer le résultat du batch avec polling optimisé
       let attempts = 0;
-      const maxAttempts = 60; // Maximum 60 tentatives (60 secondes)
+      const maxAttempts = 40; // Maximum 40 tentatives
       
       while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1 seconde
+        // Délai progressif : commence à 500ms, puis 1s après quelques tentatives
+        const delay = attempts < 5 ? 500 : 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
         attempts++;
         
-        console.log(`Tentative ${attempts}: Vérification du statut du batch`);
+        console.log(`Tentative ${attempts}: Vérification du statut du batch avec délai de ${delay}ms`);
         
         try {
           // Récupérer le statut du batch
-          const batchResponse = await fetch(`https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`, {
+          const batchUrl = `https://api.infomaniak.com/1/ai/105139/openai/batches/${result.batch_id}`;
+          console.log('URL de vérification du batch:', batchUrl);
+          
+          const batchResponse = await fetch(batchUrl, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${infomaniakApiKey}`,
+              'Content-Type': 'application/json',
             },
           });
           
+          console.log(`Réponse batch (tentative ${attempts}):`, batchResponse.status);
+          
           if (batchResponse.ok) {
             const batchResult = await batchResponse.json();
-            console.log('Statut du batch:', batchResult);
+            console.log(`Statut complet du batch (tentative ${attempts}):`, JSON.stringify(batchResult, null, 2));
             
-            // Si le batch est terminé et contient le texte
-            if (batchResult.status === 'completed' && batchResult.output) {
-              console.log('Transcription terminée:', batchResult.output);
-              return new Response(
-                JSON.stringify({ 
-                  text: batchResult.output.text || batchResult.output,
-                  success: true 
-                }),
-                { 
-                  headers: { 
-                    ...corsHeaders, 
-                    'Content-Type': 'application/json' 
-                  } 
+            // Si le batch est terminé avec succès
+            if (batchResult.status === 'completed') {
+              console.log('Batch terminé avec succès!');
+              
+              // Essayer différentes structures de réponse possibles
+              let transcriptionText = '';
+              
+              if (batchResult.output) {
+                if (typeof batchResult.output === 'string') {
+                  transcriptionText = batchResult.output;
+                } else if (batchResult.output.text) {
+                  transcriptionText = batchResult.output.text;
+                } else if (batchResult.output.transcript) {
+                  transcriptionText = batchResult.output.transcript;
                 }
-              );
+              } else if (batchResult.text) {
+                transcriptionText = batchResult.text;
+              } else if (batchResult.transcript) {
+                transcriptionText = batchResult.transcript;
+              }
+              
+              console.log('Texte de transcription extrait:', transcriptionText);
+              
+              if (transcriptionText) {
+                return new Response(
+                  JSON.stringify({ 
+                    text: transcriptionText,
+                    success: true 
+                  }),
+                  { 
+                    headers: { 
+                      ...corsHeaders, 
+                      'Content-Type': 'application/json' 
+                    } 
+                  }
+                );
+              } else {
+                console.error('Aucun texte trouvé dans la réponse completed:', batchResult);
+                throw new Error('Transcription terminée mais aucun texte trouvé');
+              }
             }
             
             // Si le batch a échoué
             if (batchResult.status === 'failed') {
               console.error('Batch échoué:', batchResult);
-              throw new Error(`La transcription a échoué: ${batchResult.error || 'Erreur inconnue'}`);
+              throw new Error(`La transcription a échoué: ${batchResult.error || batchResult.message || 'Erreur inconnue'}`);
             }
             
-            // Si le batch est encore en cours, continuer à attendre
-            if (batchResult.status === 'processing' || batchResult.status === 'pending') {
-              console.log('Batch encore en cours de traitement...');
+            // Si le batch est encore en cours de traitement
+            if (batchResult.status === 'processing' || batchResult.status === 'pending' || batchResult.status === 'queued') {
+              console.log(`Batch encore en traitement (statut: ${batchResult.status}), attente...`);
               continue;
             }
+            
+            // Statut inconnu
+            console.warn('Statut de batch inconnu:', batchResult.status);
+            
           } else {
-            console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchResponse.status);
+            const errorText = await batchResponse.text();
+            console.warn(`Erreur HTTP lors de la vérification du batch (tentative ${attempts}):`, batchResponse.status, errorText);
+            
+            // Si c'est une erreur 404, le batch n'existe peut-être pas
+            if (batchResponse.status === 404) {
+              throw new Error('Batch non trouvé - ID de batch invalide');
+            }
           }
         } catch (batchError) {
-          console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchError);
-          // Continuer les tentatives même en cas d'erreur temporaire
+          console.warn(`Erreur lors de la vérification du batch (tentative ${attempts}):`, batchError.message);
+          
+          // Si c'est une erreur de réseau, on continue à essayer
+          if (batchError.name === 'TypeError' || batchError.message.includes('network')) {
+            continue;
+          }
+          
+          // Pour d'autres erreurs, on les remonte
+          throw batchError;
         }
       }
       
-      throw new Error('Timeout: La transcription a pris trop de temps (plus de 60 secondes)');
+      throw new Error(`Timeout: La transcription a pris trop de temps (plus de ${maxAttempts} tentatives)`);
     }
 
     // Si la réponse contient directement le texte (traitement synchrone)
+    console.log('Traitement synchrone détecté');
+    
+    let transcriptionText = '';
+    if (result.text) {
+      transcriptionText = result.text;
+    } else if (result.transcript) {
+      transcriptionText = result.transcript;
+    } else {
+      console.warn('Structure de réponse synchrone inattendue:', result);
+      transcriptionText = result.toString();
+    }
+    
     return new Response(
       JSON.stringify({ 
-        text: result.text || '',
+        text: transcriptionText,
         success: true 
       }),
       { 
