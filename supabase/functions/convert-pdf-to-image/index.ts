@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const pdfcoApiKey = Deno.env.get('PDFCO_API_KEY');
+const convertApiSecret = Deno.env.get('CONVERTAPI_SECRET');
 
 serve(async (req) => {
   console.log('🚀 PDF to Image conversion function called');
@@ -24,35 +24,45 @@ serve(async (req) => {
     
     console.log('📄 Converting PDF:', pdfUrl);
 
-    if (!pdfcoApiKey) {
-      throw new Error('PDFCO_API_KEY not configured');
+    if (!convertApiSecret) {
+      throw new Error('CONVERTAPI_SECRET not configured');
     }
 
-    // Step 1: Convert PDF to PNG using PDF.co API
-    console.log('🔄 Calling PDF.co API for conversion...');
-    const conversionResponse = await fetch('https://api.pdf.co/v1/pdf/convert/to/png', {
+    // Step 1: Convert PDF to PNG using ConvertAPI
+    console.log('🔄 Calling ConvertAPI for conversion...');
+    const conversionResponse = await fetch(`https://v2.convertapi.com/convert/pdf/to/png?Secret=${convertApiSecret}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': pdfcoApiKey,
       },
       body: JSON.stringify({
-        url: pdfUrl,
-        pages: "0", // Convert only first page
-        name: `converted_${Date.now()}.png`
+        Parameters: [
+          {
+            Name: 'File',
+            FileValue: {
+              Url: pdfUrl
+            }
+          },
+          {
+            Name: 'PageRange',
+            Value: '1'
+          }
+        ]
       }),
     });
 
     const conversionResult = await conversionResponse.json();
-    console.log('📄 PDF.co conversion result:', conversionResult);
+    console.log('📄 ConvertAPI conversion result:', conversionResult);
 
-    if (!conversionResult.url) {
-      throw new Error(`PDF conversion failed: ${conversionResult.message || 'Unknown error'}`);
+    if (!conversionResult.Files || conversionResult.Files.length === 0) {
+      throw new Error(`PDF conversion failed: ${conversionResult.Error || 'Unknown error'}`);
     }
 
+    const imageUrl = conversionResult.Files[0].Url;
+
     // Step 2: Download the converted image
-    console.log('📥 Downloading converted image from:', conversionResult.url);
-    const imageResponse = await fetch(conversionResult.url);
+    console.log('📥 Downloading converted image from:', imageUrl);
+    const imageResponse = await fetch(imageUrl);
     
     if (!imageResponse.ok) {
       throw new Error(`Failed to download converted image: ${imageResponse.statusText}`);
