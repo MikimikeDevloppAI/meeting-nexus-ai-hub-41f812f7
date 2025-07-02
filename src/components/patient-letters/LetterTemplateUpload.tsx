@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Trash2, Eye, Check } from "lucide-react";
@@ -22,6 +22,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   const [isUploading, setIsUploading] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<LetterTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Charger les templates sauvegardés au montage du composant
@@ -281,17 +282,17 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
               Uploadez un nouveau papier à en-tête au format PDF
             </p>
             <input
+              ref={fileInputRef}
               type="file"
               accept=".pdf,application/pdf"
               onChange={handleFileUpload}
               className="hidden"
-              id="template-upload"
               disabled={isUploading}
             />
             <Button
               onClick={() => {
                 console.log('🖱️ Button clicked, triggering file input');
-                document.getElementById('template-upload')?.click();
+                fileInputRef.current?.click();
               }}
               disabled={isUploading}
               className="cursor-pointer"
