@@ -31,29 +31,7 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>("");
-
-  // Convertir le PDF en image pour l'affichage
-  useEffect(() => {
-    const convertPdfToPreview = async () => {
-      if (!templateUrl) {
-        setPdfPreviewUrl("");
-        return;
-      }
-
-      try {
-        // Pour l'instant, on utilise un placeholder ou on affiche le PDF dans un iframe
-        // En production, vous pourriez utiliser pdf.js pour convertir en image
-        console.log("Template URL:", templateUrl);
-        setPdfPreviewUrl(templateUrl);
-      } catch (error) {
-        console.error("Erreur lors du chargement du template:", error);
-        setPdfPreviewUrl("");
-      }
-    };
-
-    convertPdfToPreview();
-  }, [templateUrl]);
+  const [pdfError, setPdfError] = useState<string>("");
 
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -131,33 +109,48 @@ export const LetterDesigner = ({
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              {/* PDF Background */}
-              {templateUrl && (
-                <iframe
-                  src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+              {/* PDF Background avec object */}
+              {templateUrl ? (
+                <object
+                  data={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                  type="application/pdf"
                   className="absolute inset-0 w-full h-full pointer-events-none"
                   style={{ 
                     border: 'none',
-                    transform: 'scale(1)',
-                    transformOrigin: 'top left'
+                    zIndex: 1
                   }}
-                  title="Template PDF"
-                />
+                >
+                  {/* Fallback si object ne fonctionne pas */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                    <div className="text-center">
+                      <p className="mb-2">Aperçu PDF non disponible</p>
+                      <p className="text-sm">Le template sera utilisé lors de l'export</p>
+                    </div>
+                  </div>
+                </object>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
+                  <div className="text-center">
+                    <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Uploadez un template pour voir l'aperçu</p>
+                  </div>
+                </div>
               )}
               
               {/* Overlay pour interaction */}
-              <div className="absolute inset-0 bg-transparent" />
+              <div className="absolute inset-0 bg-transparent" style={{ zIndex: 2 }} />
 
               {/* Text Overlay */}
               <div
-                className="absolute p-2 border border-dashed border-blue-500 bg-blue-50 bg-opacity-75 rounded cursor-move z-10"
+                className="absolute p-2 border border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm"
                 style={{
                   left: `${textPosition.x}%`,
                   top: `${textPosition.y}%`,
                   fontSize: `${Math.max(8, textPosition.fontSize * 0.7)}px`,
                   color: textPosition.color,
                   maxWidth: '80%',
-                  minWidth: '200px'
+                  minWidth: '200px',
+                  zIndex: 3
                 }}
                 onMouseDown={handleMouseDown}
               >
@@ -175,6 +168,9 @@ export const LetterDesigner = ({
             <p>🎨 Ajustez la taille et la couleur du texte avec les contrôles ci-dessus</p>
             {!templateUrl && (
               <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
+            )}
+            {templateUrl && (
+              <p className="text-blue-600">ℹ️ Le PDF complet sera visible lors de l'export final</p>
             )}
           </div>
         </div>
