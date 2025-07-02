@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Trash2 } from "lucide-react";
+import { Upload, FileText, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -60,6 +60,15 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     }
   };
 
+  const useTemplate = () => {
+    if (currentTemplate) {
+      toast({
+        title: "Template sélectionné",
+        description: "Le papier à en-tête est maintenant actif",
+      });
+    }
+  };
+
   const removeTemplate = () => {
     onTemplateUploaded("");
     toast({
@@ -79,19 +88,33 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       <CardContent>
         <div className="space-y-4">
           {currentTemplate ? (
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-green-600" />
-                <span className="text-sm">Template PDF chargé</span>
-              </div>
-              <Button
-                onClick={removeTemplate}
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700"
+            <div className="border rounded-lg overflow-hidden">
+              <div 
+                className="flex items-center justify-between p-3 bg-green-50 border-b cursor-pointer hover:bg-green-100 transition-colors"
+                onClick={useTemplate}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium">Template PDF chargé</span>
+                  <Eye className="h-4 w-4 text-green-600" />
+                </div>
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTemplate();
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="p-3 bg-gray-50">
+                <p className="text-xs text-gray-600">
+                  💡 Cliquez sur le template ci-dessus pour l'utiliser dans votre lettre
+                </p>
+              </div>
             </div>
           ) : (
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
