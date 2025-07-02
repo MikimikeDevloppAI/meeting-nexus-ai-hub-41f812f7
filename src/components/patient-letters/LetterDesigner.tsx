@@ -66,14 +66,14 @@ export const LetterDesigner = ({
       console.log('✅ Setting new background image directly:', templateUrl);
       setBackgroundImage(templateUrl);
       setConversionError(false);
-    } else if (!templateUrl) {
+    } else if (!templateUrl && backgroundImage) {
       console.log('🗑️ No template, clearing background');
       setBackgroundImage("");
       setConversionError(false);
     } else {
       console.log('⏭️ Template same as background, skipping');
     }
-  }, [templateUrl, backgroundImage]);
+  }, [templateUrl]); // Retirer backgroundImage des dépendances pour éviter la boucle
 
   return (
     <Card>
