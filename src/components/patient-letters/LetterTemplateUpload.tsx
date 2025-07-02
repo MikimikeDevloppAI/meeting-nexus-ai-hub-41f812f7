@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Trash2, Eye, Check } from "lucide-react";
+import { FileText, Trash2, Eye, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ModernFileUpload } from "./ModernFileUpload";
 
 interface LetterTemplate {
   id: string;
@@ -75,22 +76,10 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('📁 handleFileUpload triggered');
-    const file = event.target.files?.[0];
+  const handleFileSelect = async (file: File) => {
+    console.log('📁 handleFileSelect triggered');
     console.log('📄 File selected:', file);
     
-    if (!file) {
-      console.log('❌ No file selected');
-      return;
-    }
-
-    console.log('📄 File details:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    });
-
     if (file.type !== 'application/pdf') {
       console.log('❌ Wrong file type:', file.type);
       toast({
@@ -125,13 +114,9 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
         .getPublicUrl(fileName);
 
       console.log('🔗 Public URL data:', urlData);
-      console.log('🔗 Public URL:', urlData.publicUrl);
-
-      console.log('📞 Calling onTemplateUploaded with URL:', urlData.publicUrl);
       
       // Appeler l'edge function pour convertir le PDF en image
       console.log('🔄 About to call convert-pdf-to-image edge function...');
-      console.log('🔄 PDF URL to convert:', urlData.publicUrl);
       
       try {
         const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-pdf-to-image', {
@@ -143,23 +128,16 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
 
         if (conversionError) {
           console.error('❌ Conversion error:', conversionError);
-          // Utiliser le PDF original si la conversion échoue
-          console.log('🔄 Using original PDF URL as fallback');
           onTemplateUploaded(urlData.publicUrl);
         } else if (conversionData?.success) {
           console.log('✅ PDF converted to image successfully:', conversionData.imageUrl);
-          // Utiliser l'image convertie
           onTemplateUploaded(conversionData.imageUrl);
         } else {
           console.error('❌ Conversion failed:', conversionData?.error);
-          // Utiliser le PDF original si la conversion échoue
-          console.log('🔄 Using original PDF URL as fallback');
           onTemplateUploaded(urlData.publicUrl);
         }
       } catch (error) {
         console.error('❌ Exception during conversion:', error);
-        // Utiliser le PDF original si la conversion échoue
-        console.log('🔄 Using original PDF URL as fallback due to exception');
         onTemplateUploaded(urlData.publicUrl);
       }
 
@@ -307,46 +285,13 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             </div>
           )}
 
-          {/* Zone d'upload */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-sm text-gray-600 mb-4">
-              Uploadez un nouveau papier à en-tête au format PDF
-            </p>
-            
-            {/* Input file visible pour test */}
-            <div className="mb-4">
-              <p className="text-xs text-red-600 mb-2">TEST - Sélectionnez un PDF ici :</p>
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={(e) => {
-                  console.log('🟢 FILE INPUT TRIGGERED!');
-                  console.log('🟢 Files:', e.target.files);
-                  console.log('🟢 First file:', e.target.files?.[0]);
-                  if (e.target.files?.[0]) {
-                    console.log('🟢 Calling handleFileUpload...');
-                    handleFileUpload(e);
-                  } else {
-                    console.log('🔴 No files selected');
-                  }
-                }}
-                disabled={isUploading}
-                className="mb-2 border p-2"
-                style={{ fontSize: '14px' }}
-              />
-              <button 
-                onClick={() => console.log('🟢 Test button clicked!')}
-                className="bg-blue-500 text-white p-2 rounded ml-2"
-              >
-                Test
-              </button>
-            </div>
-            
-            {isUploading && (
-              <p className="text-blue-600">Upload en cours...</p>
-            )}
-          </div>
+          {/* Modern File Upload */}
+          <ModernFileUpload
+            onFileSelect={handleFileSelect}
+            isUploading={isUploading}
+            uploadProgress={isUploading ? 50 : 0}
+            className="w-full"
+          />
 
           {savedTemplates.length > 0 && (
             <div className="text-xs text-gray-500">
