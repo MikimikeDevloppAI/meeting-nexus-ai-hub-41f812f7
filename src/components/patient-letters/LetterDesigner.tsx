@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
-import { convertPdfToImageCached } from "@/utils/pdfToImage";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TextPosition {
   x: number;
@@ -86,15 +86,25 @@ export const LetterDesigner = ({
     setConversionError(false);
     
     try {
-      console.log('🔄 Converting PDF to image locally with PDF.js...');
+      console.log('🔄 Converting PDF to image using Supabase edge function...');
       
-      const imageDataUrl = await convertPdfToImageCached(pdfUrl, {
-        scale: 1.2,
-        quality: 0.8
+      const { data, error } = await supabase.functions.invoke('convert-pdf-to-image', {
+        body: { pdfUrl }
       });
 
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
+      }
+
+      if (!data.success) {
+        console.error('❌ Conversion failed:', data.error);
+        throw new Error(data.error);
+      }
+
       console.log('✅ PDF converted successfully, setting background image');
-      setBackgroundImage(imageDataUrl);
+      console.log('🖼️ Image URL:', data.imageUrl);
+      setBackgroundImage(data.imageUrl);
     } catch (error) {
       console.error('❌ Exception during PDF conversion:', error);
       setConversionError(true);
