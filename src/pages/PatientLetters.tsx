@@ -254,7 +254,10 @@ const PatientLetters = () => {
         />
         
         <LetterTemplateUpload 
-          onTemplateUploaded={setTemplateUrl}
+          onTemplateUploaded={(url) => {
+            console.log('🚀 Template uploaded callback with URL:', url);
+            setTemplateUrl(url);
+          }}
           currentTemplate={templateUrl}
         />
         

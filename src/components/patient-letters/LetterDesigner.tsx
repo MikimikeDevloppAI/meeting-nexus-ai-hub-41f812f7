@@ -30,6 +30,8 @@ export const LetterDesigner = ({
   onPositionChange, 
   textPosition 
 }: LetterDesignerProps) => {
+  console.log('🎯 LetterDesigner rendered with templateUrl:', templateUrl);
+  
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [backgroundImage, setBackgroundImage] = useState<string>("");
