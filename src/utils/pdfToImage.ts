@@ -1,17 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker - use a more compatible approach
-try {
-  // Try to use local worker first
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url
-  ).toString();
-} catch (error) {
-  console.log('Local worker failed, disabling worker for compatibility');
-  // Fallback: disable worker for compatibility (slower but works)
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-}
+// Disable worker entirely to avoid loading issues
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = null;
+(pdfjsLib as any).disableWorker = true;
 
 interface PdfToImageOptions {
   scale?: number;
@@ -29,11 +20,13 @@ export const convertPdfToImage = async (
     console.log('📄 PDF URL:', pdfUrl);
     console.log('⚙️ Options:', { scale, quality });
 
-    // Load the PDF document with simplified options
-    console.log('📥 Loading PDF document...');
+    // Load the PDF document without worker
+    console.log('📥 Loading PDF document without worker...');
     const loadingTask = pdfjsLib.getDocument({
       url: pdfUrl,
-      verbosity: 0, // Reduce logging
+      verbosity: 0,
+      isEvalSupported: false,
+      useWorkerFetch: false,
     });
     
     const pdf = await loadingTask.promise;
