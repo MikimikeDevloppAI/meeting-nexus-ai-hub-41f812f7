@@ -20,10 +20,35 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     let pdfDoc: PDFDocument;
 
     if (letterData.templateUrl) {
-      // Load the template PDF
-      const templateResponse = await fetch(letterData.templateUrl);
-      const templateBytes = await templateResponse.arrayBuffer();
-      pdfDoc = await PDFDocument.load(templateBytes);
+      // Check if the templateUrl is a PNG (converted) and try to find the original PDF
+      let pdfUrl = letterData.templateUrl;
+      
+      if (letterData.templateUrl.includes('pdf_conversion_') && letterData.templateUrl.endsWith('.png')) {
+        // This is a converted PNG, we need to find the original PDF
+        // The PNG is named like: pdf_conversion_1751446597584.png
+        // We need to find the corresponding template PDF in storage
+        console.log('🔍 Detected PNG template, searching for original PDF...');
+        
+        // For now, try to create a PDF without template since we can't easily get the original
+        // TODO: We should store both URLs (PNG for display, PDF for generation) in the database
+        console.log('⚠️ Using blank template since PNG cannot be used for PDF generation');
+        pdfDoc = await PDFDocument.create();
+        pdfDoc.addPage([595.28, 841.89]); // A4 size in points
+      } else if (letterData.templateUrl.endsWith('.pdf')) {
+        // Load the template PDF
+        console.log('📄 Loading PDF template:', letterData.templateUrl);
+        const templateResponse = await fetch(letterData.templateUrl);
+        if (!templateResponse.ok) {
+          throw new Error(`Failed to fetch PDF template: ${templateResponse.status}`);
+        }
+        const templateBytes = await templateResponse.arrayBuffer();
+        pdfDoc = await PDFDocument.load(templateBytes);
+      } else {
+        // Unknown format, create blank PDF
+        console.log('❓ Unknown template format, creating blank PDF');
+        pdfDoc = await PDFDocument.create();
+        pdfDoc.addPage([595.28, 841.89]); // A4 size in points
+      }
     } else {
       // Create a new PDF if no template
       pdfDoc = await PDFDocument.create();
