@@ -73,6 +73,15 @@ serve(async (req) => {
       }),
     });
 
+    console.log('📊 ConvertAPI response status:', conversionResponse.status);
+    console.log('📊 ConvertAPI response headers:', Object.fromEntries(conversionResponse.headers.entries()));
+
+    if (!conversionResponse.ok) {
+      const errorText = await conversionResponse.text();
+      console.error('❌ ConvertAPI HTTP error:', conversionResponse.status, errorText);
+      throw new Error(`ConvertAPI HTTP ${conversionResponse.status}: ${errorText}`);
+    }
+
     const conversionResult = await conversionResponse.json();
     console.log('📄 ConvertAPI conversion result:', conversionResult);
 
@@ -133,10 +142,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error in PDF to image conversion:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    
+    // Log detailed error information
+    if (error instanceof Error) {
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'Unknown conversion error',
+        details: error instanceof Error ? {
+          name: error.name,
+          message: error.message
+        } : error
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
