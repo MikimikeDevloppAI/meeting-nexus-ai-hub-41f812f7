@@ -154,52 +154,38 @@ export const LetterDesigner = ({
 
           {/* Preview Canvas */}
           <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
-            <div
-              ref={canvasRef}
-              className="relative w-full aspect-[210/297] bg-white cursor-move"
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
-              {/* PDF Background */}
-              {/* Background Image du PDF */}
-              {templateUrl ? (
-                <div className="absolute inset-0" style={{ zIndex: 1 }}>
+            <div className="pdf-container relative w-full max-w-[794px] mx-auto bg-white">
+              {/* PDF Background Image */}
+              {backgroundImage ? (
+                <img 
+                  src={backgroundImage} 
+                  alt="PDF Template"
+                  className="pdf-background w-full block"
+                  style={{ maxHeight: '1123px' }} // A4 height at 96dpi
+                />
+              ) : templateUrl ? (
+                <div className="w-full aspect-[210/297] flex items-center justify-center bg-gray-50">
                   {isConverting ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-blue-50">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                        <p className="text-blue-600 font-medium">Conversion du PDF en cours...</p>
-                        <p className="text-sm text-blue-500">Veuillez patienter</p>
-                      </div>
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-blue-600 font-medium">Conversion du PDF en cours...</p>
+                      <p className="text-sm text-blue-500">Veuillez patienter</p>
                     </div>
                   ) : conversionError ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-orange-50 border border-orange-200">
-                      <div className="text-center text-orange-600">
-                        <Type className="h-12 w-12 mx-auto mb-2" />
-                        <p className="font-medium">Conversion impossible</p>
-                        <p className="text-sm">Le template sera utilisé lors de l'export</p>
-                      </div>
+                    <div className="text-center text-orange-600">
+                      <Type className="h-12 w-12 mx-auto mb-2" />
+                      <p className="font-medium">Conversion impossible</p>
+                      <p className="text-sm">Le template sera utilisé lors de l'export</p>
                     </div>
-                  ) : backgroundImage ? (
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                      style={{ 
-                        backgroundImage: `url(${backgroundImage})`,
-                        backgroundSize: 'contain'
-                      }}
-                    />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                      <div className="text-center text-gray-500">
-                        <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Préparation du template...</p>
-                      </div>
+                    <div className="text-center text-gray-500">
+                      <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Préparation du template...</p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
+                <div className="w-full aspect-[210/297] flex items-center justify-center bg-gray-50 text-gray-400">
                   <div className="text-center">
                     <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>Uploadez un template pour voir l'aperçu</p>
@@ -207,29 +193,31 @@ export const LetterDesigner = ({
                 </div>
               )}
               
-              {/* Overlay pour interaction */}
-              <div className="absolute inset-0 bg-transparent" style={{ zIndex: 2 }} />
-
               {/* Text Overlay */}
-              <div
-                className="absolute p-2 border border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm"
-                style={{
-                  left: `${textPosition.x}%`,
-                  top: `${textPosition.y}%`,
-                  fontSize: `${Math.max(8, textPosition.fontSize * 0.7)}px`,
-                  color: textPosition.color,
-                  maxWidth: '80%',
-                  minWidth: '200px',
-                  zIndex: 3
-                }}
-                onMouseDown={handleMouseDown}
-              >
-                <div className="font-bold mb-2">Patient: {patientName}</div>
-                <div className="whitespace-pre-wrap">
-                  {letterContent.substring(0, 200)}
-                  {letterContent.length > 200 && "..."}
+              {(backgroundImage || templateUrl) && (
+                <div
+                  className="text-overlay absolute p-4 border-2 border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm"
+                  style={{
+                    top: `${textPosition.y}%`,
+                    left: `${textPosition.x}%`,
+                    fontSize: `${textPosition.fontSize}px`,
+                    color: textPosition.color,
+                    maxWidth: '80%',
+                    minWidth: '200px',
+                    fontFamily: "'Times New Roman', serif",
+                  }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  <div className="font-bold mb-2">Patient: {patientName}</div>
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {letterContent.substring(0, 200)}
+                    {letterContent.length > 200 && "..."}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
