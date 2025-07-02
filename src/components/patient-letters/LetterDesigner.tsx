@@ -6,10 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// Configuration de pdf.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface TextPosition {
   x: number;
@@ -35,10 +31,6 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pdfError, setPdfError] = useState<string>("");
-
   const handleMouseDown = () => {
     setIsDragging(true);
   };
@@ -55,16 +47,6 @@ export const LetterDesigner = ({
 
   const handleMouseUp = () => {
     setIsDragging(false);
-  };
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setPdfError("");
-  };
-
-  const onDocumentLoadError = (error: Error) => {
-    console.error('Error loading PDF:', error);
-    setPdfError("Erreur lors du chargement du PDF");
   };
 
   return (
@@ -128,31 +110,17 @@ export const LetterDesigner = ({
               {/* PDF Background */}
               {templateUrl ? (
                 <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                  <Document
-                    file={templateUrl}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    onLoadError={onDocumentLoadError}
-                    loading={
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                        <p className="text-gray-500">Chargement du PDF...</p>
-                      </div>
-                    }
-                    error={
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                        <div className="text-center">
-                          <p className="mb-2">Aperçu PDF non disponible</p>
-                          <p className="text-sm">Le template sera utilisé lors de l'export</p>
-                        </div>
-                      </div>
-                    }
-                  >
-                    <Page
-                      pageNumber={pageNumber}
-                      width={canvasRef.current?.clientWidth || 400}
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                    />
-                  </Document>
+                  <iframe
+                    src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&zoom=page-width`}
+                    className="w-full h-full border-0 pointer-events-none"
+                    style={{ 
+                      backgroundColor: 'white',
+                      minHeight: '100%'
+                    }}
+                    onError={() => {
+                      console.log('PDF iframe failed to load');
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
