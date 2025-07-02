@@ -56,24 +56,35 @@ export const LetterDesigner = ({
 
   // Convertir le PDF en image quand le template change
   React.useEffect(() => {
+    console.log('🔍 LetterDesigner useEffect triggered');
+    console.log('📄 templateUrl:', templateUrl);
+    console.log('🖼️ current backgroundImage:', backgroundImage);
+    
     if (templateUrl && templateUrl !== backgroundImage) {
+      console.log('✅ Starting conversion for new template');
       convertPdfToImageLocal(templateUrl);
     } else if (!templateUrl) {
+      console.log('🗑️ No template, clearing background');
       setBackgroundImage("");
       setConversionError(false);
+    } else {
+      console.log('⏭️ Template same as background, skipping conversion');
     }
-  }, [templateUrl]);
+  }, [templateUrl, backgroundImage]);
 
   const convertPdfToImageLocal = async (pdfUrl: string) => {
+    console.log('🚀 convertPdfToImageLocal called with:', pdfUrl);
     setIsConverting(true);
     setConversionError(false);
     
     try {
-      console.log('🔄 Converting PDF to image with Edge Function:', pdfUrl);
+      console.log('🔄 Invoking convert-pdf-to-image edge function...');
       
       const { data, error } = await supabase.functions.invoke('convert-pdf-to-image', {
         body: { pdfUrl }
       });
+
+      console.log('📥 Edge function response:', { data, error });
 
       if (error) {
         console.error('❌ Conversion error:', error);
@@ -82,14 +93,14 @@ export const LetterDesigner = ({
       }
 
       if (data?.success && data?.imageUrl) {
-        console.log('✅ PDF converted successfully');
+        console.log('✅ PDF converted successfully, setting background image');
         setBackgroundImage(data.imageUrl);
       } else {
-        console.error('❌ Conversion failed:', data);
+        console.error('❌ Conversion failed, no image URL returned:', data);
         setConversionError(true);
       }
     } catch (error) {
-      console.error('❌ Error converting PDF:', error);
+      console.error('❌ Exception during PDF conversion:', error);
       setConversionError(true);
     } finally {
       setIsConverting(false);
