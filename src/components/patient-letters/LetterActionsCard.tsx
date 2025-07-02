@@ -56,43 +56,18 @@ export const LetterActionsCard = ({
 
       const filename = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
       
-      // Essayer d'utiliser l'API File System Access si disponible
-      if ('showSaveFilePicker' in window) {
-        try {
-          const fileHandle = await (window as any).showSaveFilePicker({
-            suggestedName: filename,
-            types: [{
-              description: 'PDF files',
-              accept: { 'application/pdf': ['.pdf'] }
-            }]
-          });
-          
-          const writable = await fileHandle.createWritable();
-          await writable.write(pdfBytes);
-          await writable.close();
-          
-          toast({
-            title: "PDF sauvegardé",
-            description: "La lettre a été sauvegardée avec succès",
-          });
-        } catch (error) {
-          if (error.name !== 'AbortError') {
-            throw error;
-          }
-        }
-      } else {
-        // Fallback vers téléchargement normal
-        downloadPDF(pdfBytes, filename);
-        toast({
-          title: "PDF téléchargé",
-          description: "La lettre a été téléchargée en PDF",
-        });
-      }
+      // Utiliser le téléchargement direct qui fonctionne partout
+      downloadPDF(pdfBytes, filename);
+      
+      toast({
+        title: "PDF téléchargé",
+        description: "La lettre a été téléchargée en PDF dans votre dossier de téléchargements",
+      });
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({
         title: "Erreur PDF",
-        description: "Impossible de générer le PDF",
+        description: "Impossible de générer le PDF. Vérifiez le contenu de la lettre.",
         variant: "destructive",
       });
     } finally {
