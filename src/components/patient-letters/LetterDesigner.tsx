@@ -31,6 +31,7 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   const handleMouseDown = () => {
     setIsDragging(true);
   };
@@ -110,17 +111,30 @@ export const LetterDesigner = ({
               {/* PDF Background */}
               {templateUrl ? (
                 <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                  <iframe
-                    src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&zoom=page-width`}
-                    className="w-full h-full border-0 pointer-events-none"
-                    style={{ 
-                      backgroundColor: 'white',
-                      minHeight: '100%'
-                    }}
-                    onError={() => {
-                      console.log('PDF iframe failed to load');
-                    }}
-                  />
+                  {!pdfLoadError ? (
+                    <embed
+                      src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                      type="application/pdf"
+                      className="w-full h-full"
+                      style={{ 
+                        border: 'none',
+                        backgroundColor: 'white',
+                        pointerEvents: 'none'
+                      }}
+                      onError={() => {
+                        console.log('PDF embed failed, trying iframe...');
+                        setPdfLoadError(true);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p className="mb-1">Template PDF chargé</p>
+                        <p className="text-sm">Sera visible dans l'export final</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
