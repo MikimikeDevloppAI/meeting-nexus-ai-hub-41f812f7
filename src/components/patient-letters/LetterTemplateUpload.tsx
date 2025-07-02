@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -167,6 +166,13 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     });
   };
 
+  // Trouver le nom du fichier du template actuel
+  const getCurrentTemplateName = () => {
+    if (!currentTemplate) return null;
+    const currentTemplateData = savedTemplates.find(template => template.file_url === currentTemplate);
+    return currentTemplateData?.filename || "Template PDF actif";
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -183,7 +189,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
               <div className="flex items-center justify-between p-3 bg-green-50 border-b">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">Template PDF actif</span>
+                  <span className="text-sm font-medium">{getCurrentTemplateName()}</span>
                   <Eye className="h-4 w-4 text-green-600" />
                 </div>
                 <Button
