@@ -129,7 +129,32 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       console.log('🔗 Public URL:', urlData.publicUrl);
 
       console.log('📞 Calling onTemplateUploaded with URL:', urlData.publicUrl);
-      onTemplateUploaded(urlData.publicUrl);
+      
+      // Appeler l'edge function pour convertir le PDF en image
+      console.log('🔄 Converting PDF to image via edge function...');
+      try {
+        const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-pdf-to-image', {
+          body: { pdfUrl: urlData.publicUrl }
+        });
+
+        if (conversionError) {
+          console.error('❌ Conversion error:', conversionError);
+          // Utiliser le PDF original si la conversion échoue
+          onTemplateUploaded(urlData.publicUrl);
+        } else if (conversionData?.success) {
+          console.log('✅ PDF converted to image successfully:', conversionData.imageUrl);
+          // Utiliser l'image convertie
+          onTemplateUploaded(conversionData.imageUrl);
+        } else {
+          console.error('❌ Conversion failed:', conversionData?.error);
+          // Utiliser le PDF original si la conversion échoue
+          onTemplateUploaded(urlData.publicUrl);
+        }
+      } catch (error) {
+        console.error('❌ Exception during conversion:', error);
+        // Utiliser le PDF original si la conversion échoue
+        onTemplateUploaded(urlData.publicUrl);
+      }
 
       // Sauvegarder en base de données
       console.log('💾 Saving to database...');

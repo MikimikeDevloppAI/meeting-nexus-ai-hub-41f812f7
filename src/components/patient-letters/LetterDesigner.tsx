@@ -56,62 +56,24 @@ export const LetterDesigner = ({
     setIsDragging(false);
   };
 
-  // Convertir le PDF en image quand le template change
+  // Utilisé directement l'URL du template comme background
   React.useEffect(() => {
     console.log('🔍 LetterDesigner useEffect triggered');
     console.log('📄 templateUrl:', templateUrl);
-    console.log('📄 templateUrl type:', typeof templateUrl);
-    console.log('📄 templateUrl length:', templateUrl?.length);
     console.log('🖼️ current backgroundImage:', backgroundImage);
-    console.log('🖼️ backgroundImage type:', typeof backgroundImage);
-    console.log('🖼️ backgroundImage length:', backgroundImage?.length);
-    console.log('🔄 Comparison templateUrl !== backgroundImage:', templateUrl !== backgroundImage);
-    console.log('✅ Condition templateUrl && templateUrl !== backgroundImage:', templateUrl && templateUrl !== backgroundImage);
     
     if (templateUrl && templateUrl !== backgroundImage) {
-      console.log('✅ Starting conversion for new template');
-      convertPdfToImageLocal(templateUrl);
+      console.log('✅ Setting new background image directly:', templateUrl);
+      setBackgroundImage(templateUrl);
+      setConversionError(false);
     } else if (!templateUrl) {
       console.log('🗑️ No template, clearing background');
       setBackgroundImage("");
       setConversionError(false);
     } else {
-      console.log('⏭️ Template same as background, skipping conversion');
+      console.log('⏭️ Template same as background, skipping');
     }
   }, [templateUrl, backgroundImage]);
-
-  const convertPdfToImageLocal = async (pdfUrl: string) => {
-    console.log('🚀 convertPdfToImageLocal called with:', pdfUrl);
-    setIsConverting(true);
-    setConversionError(false);
-    
-    try {
-      console.log('🔄 Converting PDF to image using Supabase edge function...');
-      
-      const { data, error } = await supabase.functions.invoke('convert-pdf-to-image', {
-        body: { pdfUrl }
-      });
-
-      if (error) {
-        console.error('❌ Edge function error:', error);
-        throw error;
-      }
-
-      if (!data.success) {
-        console.error('❌ Conversion failed:', data.error);
-        throw new Error(data.error);
-      }
-
-      console.log('✅ PDF converted successfully, setting background image');
-      console.log('🖼️ Image URL:', data.imageUrl);
-      setBackgroundImage(data.imageUrl);
-    } catch (error) {
-      console.error('❌ Exception during PDF conversion:', error);
-      setConversionError(true);
-    } finally {
-      setIsConverting(false);
-    }
-  };
 
   return (
     <Card>
