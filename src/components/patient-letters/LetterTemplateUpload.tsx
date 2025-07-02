@@ -45,6 +45,8 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
 
   const saveTemplateToDatabase = async (filename: string, fileUrl: string) => {
     try {
+      console.log('💾 Saving template to database:', { filename, fileUrl });
+      
       const { error } = await supabase
         .from('letter_templates')
         .insert({
@@ -53,12 +55,18 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
           user_id: null // Publique pour tous
         });
 
-      if (error) throw error;
+      console.log('💾 Database save result:', { error });
+
+      if (error) {
+        console.error('❌ Database save error:', error);
+        throw error;
+      }
       
+      console.log('✅ Template saved to database successfully');
       // Recharger la liste des templates
       await loadSavedTemplates();
     } catch (error) {
-      console.error("Error saving template to database:", error);
+      console.error("❌ Error saving template to database:", error);
       toast({
         title: "Erreur de sauvegarde",
         description: "Impossible de sauvegarder le template en base",
@@ -68,10 +76,23 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 handleFileUpload triggered');
     const file = event.target.files?.[0];
-    if (!file) return;
+    console.log('📄 File selected:', file);
+    
+    if (!file) {
+      console.log('❌ No file selected');
+      return;
+    }
+
+    console.log('📄 File details:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
 
     if (file.type !== 'application/pdf') {
+      console.log('❌ Wrong file type:', file.type);
       toast({
         title: "Erreur",
         description: "Seuls les fichiers PDF sont acceptés",
@@ -80,23 +101,37 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       return;
     }
 
+    console.log('✅ File type valid, starting upload...');
     setIsUploading(true);
 
     try {
       const fileName = `template_${Date.now()}.pdf`;
+      console.log('📤 Uploading to bucket with filename:', fileName);
+      
       const { data, error } = await supabase.storage
         .from('letter-templates')
         .upload(fileName, file);
 
-      if (error) throw error;
+      console.log('📤 Upload result:', { data, error });
 
+      if (error) {
+        console.error('❌ Upload error:', error);
+        throw error;
+      }
+
+      console.log('✅ File uploaded successfully, getting public URL...');
       const { data: urlData } = supabase.storage
         .from('letter-templates')
         .getPublicUrl(fileName);
 
+      console.log('🔗 Public URL data:', urlData);
+      console.log('🔗 Public URL:', urlData.publicUrl);
+
+      console.log('📞 Calling onTemplateUploaded with URL:', urlData.publicUrl);
       onTemplateUploaded(urlData.publicUrl);
 
       // Sauvegarder en base de données
+      console.log('💾 Saving to database...');
       await saveTemplateToDatabase(file.name, urlData.publicUrl);
 
       toast({
@@ -104,10 +139,10 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
         description: "Votre papier à en-tête a été uploadé et sauvegardé avec succès",
       });
     } catch (error) {
-      console.error("Error uploading template:", error);
+      console.error("❌ Error uploading template:", error);
       toast({
         title: "Erreur d'upload",
-        description: "Impossible d'uploader le template",
+        description: `Impossible d'uploader le template: ${error.message}`,
         variant: "destructive",
       });
     } finally {
