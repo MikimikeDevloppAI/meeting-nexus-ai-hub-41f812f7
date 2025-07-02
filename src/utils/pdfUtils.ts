@@ -131,19 +131,20 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
   }
 };
 
-// Helper function to wrap text
+// Helper function to wrap text exactly like whitespace-pre-wrap
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  // Préserver exactement les retours à la ligne du texte original
+  // Diviser le texte exactement comme whitespace-pre-wrap : chaque \n = nouvelle ligne
   const lines = text.split('\n');
   const allLines: string[] = [];
 
   lines.forEach(line => {
-    if (line.trim() === '') {
-      allLines.push(''); // Ligne vide pour espacement
+    // Ligne vide : ajouter une ligne vide (comme whitespace-pre-wrap)
+    if (line === '') {
+      allLines.push('');
       return;
     }
 
-    // Si la ligne est courte, l'ajouter directement
+    // Vérifier si la ligne entière tient sur la largeur
     try {
       const lineWidth = font.widthOfTextAtSize(line, fontSize);
       if (lineWidth <= maxWidth) {
@@ -154,7 +155,7 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
       // En cas d'erreur, continuer avec le wrapping
     }
 
-    // Sinon, découper la ligne en mots et faire le wrapping
+    // La ligne est trop longue : découper en mots
     const words = line.split(' ');
     let currentLine = '';
 
@@ -171,7 +172,7 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
           currentLine = testLine;
         }
       } catch (error) {
-        // Si erreur d'encodage, juste ajouter le mot
+        // En cas d'erreur d'encodage
         if (currentLine) {
           allLines.push(currentLine);
           currentLine = word;
