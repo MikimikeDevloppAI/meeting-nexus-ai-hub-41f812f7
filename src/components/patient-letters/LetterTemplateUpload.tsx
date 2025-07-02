@@ -281,29 +281,26 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             <p className="text-sm text-gray-600 mb-4">
               Uploadez un nouveau papier à en-tête au format PDF
             </p>
-            <input
-              id="file-upload-input"
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={(e) => {
-                console.log('🔄 File input onChange triggered', e.target.files);
-                handleFileUpload(e);
-              }}
-              className="hidden"
-              disabled={isUploading}
-            />
-            <label htmlFor="file-upload-input" className="cursor-pointer">
-              <Button
-                type="button"
+            
+            {/* Input file visible pour test */}
+            <div className="mb-4">
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  console.log('🔄 DIRECT File input onChange triggered', e.target.files);
+                  console.log('🔄 Event target:', e.target);
+                  console.log('🔄 Event:', e);
+                  handleFileUpload(e);
+                }}
                 disabled={isUploading}
-                className="cursor-pointer"
-                asChild
-              >
-                <span>
-                  {isUploading ? "Upload en cours..." : "Choisir un fichier PDF"}
-                </span>
-              </Button>
-            </label>
+                className="mb-2"
+              />
+            </div>
+            
+            {isUploading && (
+              <p className="text-blue-600">Upload en cours...</p>
+            )}
           </div>
 
           {savedTemplates.length > 0 && (
