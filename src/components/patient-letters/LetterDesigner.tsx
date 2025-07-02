@@ -6,10 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// Configuration de pdf.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+import { supabase } from "@/integrations/supabase/client";
 
 interface TextPosition {
   x: number;
@@ -35,9 +32,9 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pdfLoadError, setPdfLoadError] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState<string>("");
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionError, setConversionError] = useState(false);
   
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -57,15 +54,46 @@ export const LetterDesigner = ({
     setIsDragging(false);
   };
 
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setPdfLoadError(false);
-    console.log('PDF chargé avec succès, nombre de pages:', numPages);
-  };
+  // Convertir le PDF en image quand le template change
+  React.useEffect(() => {
+    if (templateUrl && templateUrl !== backgroundImage) {
+      convertPdfToImage(templateUrl);
+    } else if (!templateUrl) {
+      setBackgroundImage("");
+      setConversionError(false);
+    }
+  }, [templateUrl]);
 
-  const onDocumentLoadError = (error: Error) => {
-    console.error('Erreur de chargement PDF:', error);
-    setPdfLoadError(true);
+  const convertPdfToImage = async (pdfUrl: string) => {
+    setIsConverting(true);
+    setConversionError(false);
+    
+    try {
+      console.log('Converting PDF to image:', pdfUrl);
+      
+      const { data, error } = await supabase.functions.invoke('pdf-to-image', {
+        body: { pdfUrl }
+      });
+
+      if (error) {
+        console.error('Conversion error:', error);
+        setConversionError(true);
+        return;
+      }
+
+      if (data?.success && data?.imageUrl) {
+        console.log('PDF converted successfully:', data.imageUrl);
+        setBackgroundImage(data.imageUrl);
+      } else {
+        console.error('Conversion failed:', data);
+        setConversionError(true);
+      }
+    } catch (error) {
+      console.error('Error converting PDF:', error);
+      setConversionError(true);
+    } finally {
+      setIsConverting(false);
+    }
   };
 
   return (
@@ -127,40 +155,41 @@ export const LetterDesigner = ({
               onMouseLeave={handleMouseUp}
             >
               {/* PDF Background */}
+              {/* Background Image du PDF */}
               {templateUrl ? (
                 <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                  <Document
-                    file={templateUrl}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    onLoadError={onDocumentLoadError}
-                    className="w-full h-full"
-                    loading={
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                        <div className="text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                          <p className="text-gray-600">Chargement du PDF...</p>
-                        </div>
+                  {isConverting ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-blue-50">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                        <p className="text-blue-600 font-medium">Conversion du PDF en cours...</p>
+                        <p className="text-sm text-blue-500">Veuillez patienter</p>
                       </div>
-                    }
-                    error={
-                      <div className="absolute inset-0 flex items-center justify-center bg-red-50 border border-red-200">
-                        <div className="text-center text-red-600">
-                          <Type className="h-12 w-12 mx-auto mb-2" />
-                          <p className="font-medium">Impossible d'afficher le PDF</p>
-                          <p className="text-sm">Le template sera utilisé lors de l'export</p>
-                        </div>
+                    </div>
+                  ) : conversionError ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-orange-50 border border-orange-200">
+                      <div className="text-center text-orange-600">
+                        <Type className="h-12 w-12 mx-auto mb-2" />
+                        <p className="font-medium">Conversion impossible</p>
+                        <p className="text-sm">Le template sera utilisé lors de l'export</p>
                       </div>
-                    }
-                  >
-                    <Page
-                      pageNumber={pageNumber}
-                      width={canvasRef.current?.clientWidth || 600}
-                      height={canvasRef.current?.clientHeight || 850}
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                      className="pointer-events-none"
+                    </div>
+                  ) : backgroundImage ? (
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                      style={{ 
+                        backgroundImage: `url(${backgroundImage})`,
+                        backgroundSize: 'contain'
+                      }}
                     />
-                  </Document>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                      <div className="text-center text-gray-500">
+                        <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Préparation du template...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
@@ -203,8 +232,14 @@ export const LetterDesigner = ({
             {!templateUrl && (
               <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
             )}
-            {templateUrl && (
-              <p className="text-blue-600">✅ Template chargé - Le PDF sera appliqué lors de l'export final</p>
+            {templateUrl && backgroundImage && (
+              <p className="text-green-600">✅ PDF converti et affiché en arrière-plan</p>
+            )}
+            {templateUrl && isConverting && (
+              <p className="text-blue-600">🔄 Conversion du PDF en cours...</p>
+            )}
+            {templateUrl && conversionError && (
+              <p className="text-orange-600">⚠️ Conversion échouée - Template utilisé à l'export</p>
             )}
           </div>
         </div>
