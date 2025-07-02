@@ -126,7 +126,7 @@ export const LetterDesigner = ({
 
           {/* Preview Canvas */}
           <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
-            <div className="pdf-container relative w-full bg-white">{/* Retirer max-w pour prendre toute la largeur */}
+            <div className="pdf-container relative w-full aspect-[210/297] mx-auto bg-white max-w-4xl">{/* Respecter le ratio A4 avec une largeur max plus grande */}
               {/* PDF Background Image */}
               {backgroundImage ? (
                 <img 
