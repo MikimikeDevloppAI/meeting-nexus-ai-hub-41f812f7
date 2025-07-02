@@ -126,7 +126,7 @@ export const LetterDesigner = ({
 
           {/* Preview Canvas */}
           <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
-            <div className="pdf-container relative w-full max-w-[794px] mx-auto bg-white">
+            <div className="pdf-container relative w-full bg-white">{/* Retirer max-w pour prendre toute la largeur */}
               {/* PDF Background Image */}
               {backgroundImage ? (
                 <img 
@@ -174,8 +174,10 @@ export const LetterDesigner = ({
                     left: `${textPosition.x}%`,
                     fontSize: `${textPosition.fontSize}px`,
                     color: textPosition.color,
-                    maxWidth: '80%',
-                    minWidth: '200px',
+                    maxWidth: '90%', // Augmenter la largeur max du texte
+                    minWidth: '300px', // Augmenter la largeur min
+                    maxHeight: '70%', // Limiter la hauteur pour éviter le débordement
+                    overflow: 'auto', // Permettre le scroll si nécessaire
                     fontFamily: "'Times New Roman', serif",
                   }}
                   onMouseDown={handleMouseDown}
@@ -185,8 +187,7 @@ export const LetterDesigner = ({
                 >
                   <div className="font-bold mb-2">Patient: {patientName}</div>
                   <div className="whitespace-pre-wrap leading-relaxed">
-                    {letterContent.substring(0, 200)}
-                    {letterContent.length > 200 && "..."}
+                    {letterContent} {/* Afficher tout le contenu sans limitation */}
                   </div>
                 </div>
               )}
