@@ -25,8 +25,12 @@ serve(async (req) => {
     console.log('📄 Converting PDF:', pdfUrl);
 
     if (!convertApiSecret) {
+      console.error('❌ CONVERTAPI_SECRET not configured');
       throw new Error('CONVERTAPI_SECRET not configured');
     }
+
+    console.log('✅ ConvertAPI secret is configured');
+    console.log('🔑 ConvertAPI secret length:', convertApiSecret.length);
 
     // Step 1: Download the PDF file to get Base64 data
     console.log('📥 Downloading PDF file from:', pdfUrl);
