@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,13 +85,13 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     try {
       const fileName = `template_${Date.now()}.pdf`;
       const { data, error } = await supabase.storage
-        .from('documents')
+        .from('letter-templates')
         .upload(fileName, file);
 
       if (error) throw error;
 
       const { data: urlData } = supabase.storage
-        .from('documents')
+        .from('letter-templates')
         .getPublicUrl(fileName);
 
       onTemplateUploaded(urlData.publicUrl);
