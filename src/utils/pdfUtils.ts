@@ -133,18 +133,29 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 
 // Helper function to wrap text
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  // Nettoyer le texte et séparer par lignes d'abord
-  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const paragraphs = cleanText.split('\n');
+  // Préserver exactement les retours à la ligne du texte original
+  const lines = text.split('\n');
   const allLines: string[] = [];
 
-  paragraphs.forEach(paragraph => {
-    if (paragraph.trim() === '') {
-      allLines.push(''); // Ligne vide
+  lines.forEach(line => {
+    if (line.trim() === '') {
+      allLines.push(''); // Ligne vide pour espacement
       return;
     }
 
-    const words = paragraph.split(' ');
+    // Si la ligne est courte, l'ajouter directement
+    try {
+      const lineWidth = font.widthOfTextAtSize(line, fontSize);
+      if (lineWidth <= maxWidth) {
+        allLines.push(line);
+        return;
+      }
+    } catch (error) {
+      // En cas d'erreur, continuer avec le wrapping
+    }
+
+    // Sinon, découper la ligne en mots et faire le wrapping
+    const words = line.split(' ');
     let currentLine = '';
 
     words.forEach(word => {
