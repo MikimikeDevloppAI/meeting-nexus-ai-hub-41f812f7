@@ -28,11 +28,24 @@ serve(async (req) => {
       throw new Error('CONVERTAPI_SECRET not configured');
     }
 
-    // Step 1: Convert PDF to PNG using ConvertAPI
-    console.log('🔄 Calling ConvertAPI for conversion...');
-    const conversionResponse = await fetch(`https://v2.convertapi.com/convert/pdf/to/png?Secret=${convertApiSecret}`, {
+    // Step 1: Download the PDF file to get Base64 data
+    console.log('📥 Downloading PDF file from:', pdfUrl);
+    const pdfResponse = await fetch(pdfUrl);
+    
+    if (!pdfResponse.ok) {
+      throw new Error(`Failed to download PDF: ${pdfResponse.statusText}`);
+    }
+
+    const pdfArrayBuffer = await pdfResponse.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfArrayBuffer)));
+    console.log('📄 PDF converted to Base64, size:', pdfBase64.length);
+
+    // Step 2: Convert PDF to PNG using ConvertAPI v2
+    console.log('🔄 Calling ConvertAPI v2 for conversion...');
+    const conversionResponse = await fetch('https://v2.convertapi.com/convert/pdf/to/png', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${convertApiSecret}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -40,12 +53,17 @@ serve(async (req) => {
           {
             Name: 'File',
             FileValue: {
-              Url: pdfUrl
+              Name: 'document.pdf',
+              Data: pdfBase64
             }
           },
           {
             Name: 'PageRange',
             Value: '1'
+          },
+          {
+            Name: 'StoreFile',
+            Value: true
           }
         ]
       }),
