@@ -6,6 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
+import { Document, Page, pdfjs } from 'react-pdf';
+
+// Configuration de pdf.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface TextPosition {
   x: number;
@@ -31,6 +35,9 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -48,6 +55,17 @@ export const LetterDesigner = ({
 
   const handleMouseUp = () => {
     setIsDragging(false);
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPdfLoadError(false);
+    console.log('PDF chargé avec succès, nombre de pages:', numPages);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('Erreur de chargement PDF:', error);
+    setPdfLoadError(true);
   };
 
   return (
@@ -110,34 +128,39 @@ export const LetterDesigner = ({
             >
               {/* PDF Background */}
               {templateUrl ? (
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-gray-50" style={{ zIndex: 1 }}>
-                  {/* Top letterhead area */}
-                  <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-blue-100 to-blue-50 border-b-2 border-blue-200 flex items-center justify-center">
-                    <span className="text-blue-700 font-medium">📄 Template PDF - Zone d'en-tête</span>
-                  </div>
-                  
-                  {/* Center content area */}
-                  <div className="absolute inset-x-0 top-20 bottom-20 flex items-center justify-center">
-                    <div className="text-center text-blue-600 bg-white bg-opacity-50 p-6 rounded-lg border border-blue-200">
-                      <Type className="h-12 w-12 mx-auto mb-3 opacity-70" />
-                      <h3 className="font-semibold">Template chargé</h3>
-                      <p className="text-sm opacity-80">Positionnez votre texte</p>
-                    </div>
-                  </div>
-                  
-                  {/* Bottom area */}
-                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-blue-200 flex items-center justify-center">
-                    <span className="text-blue-600 text-xs">Zone de pied de page du template</span>
-                  </div>
-                  
-                  {/* Decorative pattern */}
-                  <div className="absolute inset-0 opacity-5 pointer-events-none">
-                    <div className="grid grid-cols-12 gap-1 h-full p-4">
-                      {Array.from({ length: 48 }, (_, i) => (
-                        <div key={i} className="bg-blue-300 rounded-sm h-1"></div>
-                      ))}
-                    </div>
-                  </div>
+                <div className="absolute inset-0" style={{ zIndex: 1 }}>
+                  <Document
+                    file={templateUrl}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    onLoadError={onDocumentLoadError}
+                    className="w-full h-full"
+                    loading={
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-gray-600">Chargement du PDF...</p>
+                        </div>
+                      </div>
+                    }
+                    error={
+                      <div className="absolute inset-0 flex items-center justify-center bg-red-50 border border-red-200">
+                        <div className="text-center text-red-600">
+                          <Type className="h-12 w-12 mx-auto mb-2" />
+                          <p className="font-medium">Impossible d'afficher le PDF</p>
+                          <p className="text-sm">Le template sera utilisé lors de l'export</p>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <Page
+                      pageNumber={pageNumber}
+                      width={canvasRef.current?.clientWidth || 600}
+                      height={canvasRef.current?.clientHeight || 850}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                      className="pointer-events-none"
+                    />
+                  </Document>
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
