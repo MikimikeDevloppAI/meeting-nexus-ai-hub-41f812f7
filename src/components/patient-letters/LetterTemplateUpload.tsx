@@ -118,6 +118,9 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       // Appeler l'edge function pour convertir le PDF en image
       console.log('🔄 About to call convert-pdf-to-image edge function...');
       
+      let finalImageUrl = urlData.publicUrl;
+      let finalFilename = file.name;
+      
       try {
         const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-pdf-to-image', {
           body: { pdfUrl: urlData.publicUrl }
@@ -129,21 +132,26 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
         if (conversionError) {
           console.error('❌ Conversion error:', conversionError);
           onTemplateUploaded(urlData.publicUrl);
+          finalImageUrl = urlData.publicUrl;
         } else if (conversionData?.success) {
           console.log('✅ PDF converted to image successfully:', conversionData.imageUrl);
           onTemplateUploaded(conversionData.imageUrl);
+          finalImageUrl = conversionData.imageUrl;
+          finalFilename = file.name.replace('.pdf', ' (PNG)');
         } else {
           console.error('❌ Conversion failed:', conversionData?.error);
           onTemplateUploaded(urlData.publicUrl);
+          finalImageUrl = urlData.publicUrl;
         }
       } catch (error) {
         console.error('❌ Exception during conversion:', error);
         onTemplateUploaded(urlData.publicUrl);
+        finalImageUrl = urlData.publicUrl;
       }
 
-      // Sauvegarder en base de données
+      // Sauvegarder en base de données avec l'URL du PNG converti
       console.log('💾 Saving to database...');
-      await saveTemplateToDatabase(file.name, urlData.publicUrl);
+      await saveTemplateToDatabase(finalFilename, finalImageUrl);
 
       toast({
         title: "Template uploadé",
