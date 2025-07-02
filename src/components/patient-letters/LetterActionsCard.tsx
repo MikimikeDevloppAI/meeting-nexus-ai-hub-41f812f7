@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { generateLetterPDF, downloadPDF, printPDF } from "@/utils/pdfUtils";
 
 interface TextPosition {
   x: number;
@@ -30,10 +31,10 @@ export const LetterActionsCard = ({
   clearForm,
   saveLetterLocally 
 }: LetterActionsCardProps) => {
-  const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const handleLocalSave = () => {
+  const handleSavePDF = async () => {
     if (!patientName.trim() || !letterContent.trim()) {
       toast({
         title: "Données incomplètes",
@@ -43,51 +44,63 @@ export const LetterActionsCard = ({
       return;
     }
 
-    setIsSaving(true);
+    setIsGenerating(true);
 
     try {
-      // Créer le contenu de la lettre formaté
-      const formattedContent = `LETTRE PATIENT
-
-Patient: ${patientName}
-Date: ${new Date().toLocaleDateString('fr-FR')}
-Position du texte: X: ${textPosition.x}%, Y: ${textPosition.y}%
-Taille de police: ${textPosition.fontSize}px
-Couleur: ${textPosition.color}
-Template utilisé: ${templateUrl ? 'Oui' : 'Non'}
-
-CONTENU:
-${letterContent}`;
-
-      // Créer et télécharger le fichier
-      const blob = new Blob([formattedContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Lettre sauvegardée",
-        description: "La lettre a été sauvegardée en local avec succès",
+      const pdfBytes = await generateLetterPDF({
+        patientName,
+        letterContent,
+        templateUrl,
+        textPosition
       });
+
+      const filename = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Essayer d'utiliser l'API File System Access si disponible
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'PDF files',
+              accept: { 'application/pdf': ['.pdf'] }
+            }]
+          });
+          
+          const writable = await fileHandle.createWritable();
+          await writable.write(pdfBytes);
+          await writable.close();
+          
+          toast({
+            title: "PDF sauvegardé",
+            description: "La lettre a été sauvegardée avec succès",
+          });
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            throw error;
+          }
+        }
+      } else {
+        // Fallback vers téléchargement normal
+        downloadPDF(pdfBytes, filename);
+        toast({
+          title: "PDF téléchargé",
+          description: "La lettre a été téléchargée en PDF",
+        });
+      }
     } catch (error) {
-      console.error("Error saving letter:", error);
+      console.error("Error generating PDF:", error);
       toast({
-        title: "Erreur de sauvegarde",
-        description: "Impossible de sauvegarder la lettre",
+        title: "Erreur PDF",
+        description: "Impossible de générer le PDF",
         variant: "destructive",
       });
     } finally {
-      setIsSaving(false);
+      setIsGenerating(false);
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!patientName.trim() || !letterContent.trim()) {
       toast({
         title: "Données incomplètes",
@@ -97,40 +110,32 @@ ${letterContent}`;
       return;
     }
 
-    // Créer une version imprimable simple
-    const printContent = `
-      <html>
-        <head>
-          <title>Lettre Patient - ${patientName}</title>
-          <style>
-            body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
-            .header { font-weight: bold; margin-bottom: 20px; }
-            .date { margin-bottom: 20px; }
-            .content { white-space: pre-wrap; }
-          </style>
-        </head>
-        <body>
-          <div class="header">Patient: ${patientName}</div>
-          <div class="date">Date: ${new Date().toLocaleDateString('fr-FR')}</div>
-          <div class="content">${letterContent}</div>
-        </body>
-      </html>
-    `;
+    setIsGenerating(true);
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        printWindow.print();
-        printWindow.close();
-      };
+    try {
+      const pdfBytes = await generateLetterPDF({
+        patientName,
+        letterContent,
+        templateUrl,
+        textPosition
+      });
+
+      printPDF(pdfBytes);
+
+      toast({
+        title: "Impression lancée",
+        description: "Le PDF a été envoyé à l'imprimante",
+      });
+    } catch (error) {
+      console.error("Error printing PDF:", error);
+      toast({
+        title: "Erreur d'impression",
+        description: "Impossible d'imprimer le PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
     }
-
-    toast({
-      title: "Impression lancée",
-      description: "La fenêtre d'impression a été ouverte",
-    });
   };
 
   return (
@@ -141,25 +146,30 @@ ${letterContent}`;
       <CardContent>
         <div className="flex flex-wrap gap-3">
           <Button 
-            onClick={handleLocalSave} 
+            onClick={handleSavePDF} 
             className="flex items-center gap-2"
-            disabled={isSaving}
+            disabled={isGenerating}
           >
-            {isSaving ? (
+            {isGenerating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Sauvegarder localement
+            Sauvegarder PDF
           </Button>
           
           <Button 
             onClick={handlePrint} 
             variant="outline" 
             className="flex items-center gap-2"
+            disabled={isGenerating}
           >
-            <Printer className="h-4 w-4" />
-            Imprimer
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            Imprimer PDF
           </Button>
           
           <Button onClick={clearForm} variant="outline">

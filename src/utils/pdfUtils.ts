@@ -128,27 +128,49 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 
 // Helper function to wrap text
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
+  // Nettoyer le texte et séparer par lignes d'abord
+  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const paragraphs = cleanText.split('\n');
+  const allLines: string[] = [];
 
-  words.forEach(word => {
-    const testLine = currentLine + (currentLine ? ' ' : '') + word;
-    const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+  paragraphs.forEach(paragraph => {
+    if (paragraph.trim() === '') {
+      allLines.push(''); // Ligne vide
+      return;
+    }
+
+    const words = paragraph.split(' ');
+    let currentLine = '';
+
+    words.forEach(word => {
+      const testLine = currentLine + (currentLine ? ' ' : '') + word;
+      
+      try {
+        const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+        
+        if (textWidth > maxWidth && currentLine) {
+          allLines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      } catch (error) {
+        // Si erreur d'encodage, juste ajouter le mot
+        if (currentLine) {
+          allLines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+    });
     
-    if (textWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
+    if (currentLine) {
+      allLines.push(currentLine);
     }
   });
   
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  
-  return lines;
+  return allLines;
 }
 
 export const downloadPDF = (pdfBytes: Uint8Array, filename: string) => {
