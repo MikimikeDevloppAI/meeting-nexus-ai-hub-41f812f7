@@ -46,8 +46,7 @@ const App = () => (
                 <AppLayout />
               </ProtectedRoute>
             }>
-              <Route index element={<Assistant />} />
-              <Route path="assistant" element={<Assistant />} />
+              <Route index element={<Todos />} />
               <Route path="new-meeting" element={<NewMeeting />} />
               <Route path="meetings/new" element={<NewMeeting />} />
               <Route path="meetings" element={<Meetings />} />

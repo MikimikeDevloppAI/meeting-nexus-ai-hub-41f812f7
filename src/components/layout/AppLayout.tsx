@@ -26,19 +26,14 @@ export const AppLayout: React.FC = () => {
 
   const menuItems = [
     {
-      title: "Assistant IA",
-      url: "/assistant",
-      icon: MessageSquare,
+      title: "À faire",
+      url: "/todos",
+      icon: CheckSquare,
     },
     {
       title: "Réunions",
       url: "/meetings",
       icon: Calendar,
-    },
-    {
-      title: "À faire",
-      url: "/todos",
-      icon: CheckSquare,
     },
     {
       title: "Documents",
