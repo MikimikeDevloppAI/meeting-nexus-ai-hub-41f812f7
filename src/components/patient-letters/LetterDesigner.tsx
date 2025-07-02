@@ -58,7 +58,13 @@ export const LetterDesigner = ({
   React.useEffect(() => {
     console.log('🔍 LetterDesigner useEffect triggered');
     console.log('📄 templateUrl:', templateUrl);
+    console.log('📄 templateUrl type:', typeof templateUrl);
+    console.log('📄 templateUrl length:', templateUrl?.length);
     console.log('🖼️ current backgroundImage:', backgroundImage);
+    console.log('🖼️ backgroundImage type:', typeof backgroundImage);
+    console.log('🖼️ backgroundImage length:', backgroundImage?.length);
+    console.log('🔄 Comparison templateUrl !== backgroundImage:', templateUrl !== backgroundImage);
+    console.log('✅ Condition templateUrl && templateUrl !== backgroundImage:', templateUrl && templateUrl !== backgroundImage);
     
     if (templateUrl && templateUrl !== backgroundImage) {
       console.log('✅ Starting conversion for new template');
