@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,29 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>("");
+
+  // Convertir le PDF en image pour l'affichage
+  useEffect(() => {
+    const convertPdfToPreview = async () => {
+      if (!templateUrl) {
+        setPdfPreviewUrl("");
+        return;
+      }
+
+      try {
+        // Pour l'instant, on utilise un placeholder ou on affiche le PDF dans un iframe
+        // En production, vous pourriez utiliser pdf.js pour convertir en image
+        console.log("Template URL:", templateUrl);
+        setPdfPreviewUrl(templateUrl);
+      } catch (error) {
+        console.error("Erreur lors du chargement du template:", error);
+        setPdfPreviewUrl("");
+      }
+    };
+
+    convertPdfToPreview();
+  }, [templateUrl]);
 
   const handleMouseDown = () => {
     setIsDragging(true);
@@ -107,16 +130,27 @@ export const LetterDesigner = ({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              style={{
-                backgroundImage: `url(${templateUrl})`,
-                backgroundSize: 'contain',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center'
-              }}
             >
+              {/* PDF Background */}
+              {templateUrl && (
+                <iframe
+                  src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ 
+                    border: 'none',
+                    transform: 'scale(1)',
+                    transformOrigin: 'top left'
+                  }}
+                  title="Template PDF"
+                />
+              )}
+              
+              {/* Overlay pour interaction */}
+              <div className="absolute inset-0 bg-transparent" />
+
               {/* Text Overlay */}
               <div
-                className="absolute p-2 border border-dashed border-blue-500 bg-blue-50 bg-opacity-75 rounded cursor-move"
+                className="absolute p-2 border border-dashed border-blue-500 bg-blue-50 bg-opacity-75 rounded cursor-move z-10"
                 style={{
                   left: `${textPosition.x}%`,
                   top: `${textPosition.y}%`,
@@ -136,9 +170,12 @@ export const LetterDesigner = ({
             </div>
           </div>
 
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 space-y-1">
             <p>📝 Cliquez et glissez la zone de texte pour la repositionner</p>
             <p>🎨 Ajustez la taille et la couleur du texte avec les contrôles ci-dessus</p>
+            {!templateUrl && (
+              <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
+            )}
           </div>
         </div>
       </CardContent>
