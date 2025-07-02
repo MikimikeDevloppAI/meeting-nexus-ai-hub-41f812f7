@@ -1,8 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Disable worker entirely to avoid loading issues
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = null;
-(pdfjsLib as any).disableWorker = true;
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 interface PdfToImageOptions {
   scale?: number;
