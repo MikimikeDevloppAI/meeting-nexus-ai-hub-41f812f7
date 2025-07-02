@@ -18,31 +18,45 @@ export const convertPdfToImage = async (
   const { scale = 1.5, quality = 0.8 } = options;
   
   try {
-    console.log('Loading PDF from URL:', pdfUrl);
+    console.log('🔄 Starting PDF conversion...');
+    console.log('📄 PDF URL:', pdfUrl);
+    console.log('⚙️ Options:', { scale, quality });
     
     // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    console.log('📥 Loading PDF document...');
+    const loadingTask = pdfjsLib.getDocument({
+      url: pdfUrl,
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+    });
     const pdf = await loadingTask.promise;
     
-    console.log('PDF loaded, pages:', pdf.numPages);
+    console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
     
     // Get the first page
+    console.log('📖 Getting first page...');
     const page = await pdf.getPage(1);
+    console.log('✅ Page retrieved successfully');
     
     // Get page viewport
     const viewport = page.getViewport({ scale });
+    console.log('📐 Viewport dimensions:', viewport.width, 'x', viewport.height);
     
     // Create canvas element
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     
     if (!context) {
+      console.error('❌ Could not get canvas context');
       throw new Error('Could not get canvas context');
     }
+    
+    console.log('🎨 Canvas context created successfully');
     
     // Set canvas dimensions
     canvas.width = viewport.width;
     canvas.height = viewport.height;
+    console.log('📏 Canvas dimensions set:', canvas.width, 'x', canvas.height);
     
     // Render the page to canvas
     const renderContext = {
@@ -50,17 +64,23 @@ export const convertPdfToImage = async (
       viewport: viewport,
     };
     
-    console.log('Rendering PDF page to canvas...');
+    console.log('🖼️ Starting page render...');
     await page.render(renderContext).promise;
+    console.log('✅ Page rendered successfully to canvas');
     
     // Convert canvas to image data URL
+    console.log('🔄 Converting canvas to image data URL...');
     const imageDataUrl = canvas.toDataURL('image/png', quality);
+    console.log('✅ Canvas converted to image, data URL length:', imageDataUrl.length);
     
-    console.log('PDF successfully converted to image');
+    console.log('🎉 PDF conversion completed successfully!');
     return imageDataUrl;
     
   } catch (error) {
-    console.error('Error converting PDF to image:', error);
+    console.error('❌ Error converting PDF to image:');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
     throw error;
   }
 };
