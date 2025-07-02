@@ -1,14 +1,29 @@
-
 import React, { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
 import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
 import { LetterActionsCard } from "@/components/patient-letters/LetterActionsCard";
+import { LetterTemplateUpload } from "@/components/patient-letters/LetterTemplateUpload";
+import { LetterDesigner } from "@/components/patient-letters/LetterDesigner";
+
+interface TextPosition {
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+}
 
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [letterContent, setLetterContent] = useState("");
+  const [templateUrl, setTemplateUrl] = useState("");
+  const [textPosition, setTextPosition] = useState<TextPosition>({
+    x: 10,
+    y: 20,
+    fontSize: 12,
+    color: "#000000"
+  });
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -160,6 +175,8 @@ const PatientLetters = () => {
     const letterData = {
       patientName,
       letterContent,
+      templateUrl,
+      textPosition,
       createdAt: new Date().toISOString(),
     };
 
@@ -213,6 +230,8 @@ const PatientLetters = () => {
   const clearForm = () => {
     setPatientName("");
     setLetterContent("");
+    setTemplateUrl("");
+    setTextPosition({ x: 10, y: 20, fontSize: 12, color: "#000000" });
     toast({
       title: "Formulaire vidé",
       description: "Une nouvelle lettre peut être créée",
@@ -220,11 +239,11 @@ const PatientLetters = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
+    <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres pour vos patients en dictant le contenu ou en le saisissant manuellement
+          Créez des lettres professionnelles avec papier à en-tête, dictée vocale et export PDF
         </p>
       </div>
 
@@ -232,6 +251,11 @@ const PatientLetters = () => {
         <PatientInfoCard 
           patientName={patientName} 
           setPatientName={setPatientName} 
+        />
+        
+        <LetterTemplateUpload 
+          onTemplateUploaded={setTemplateUrl}
+          currentTemplate={templateUrl}
         />
         
         <VoiceRecordingCard 
@@ -245,10 +269,22 @@ const PatientLetters = () => {
           letterContent={letterContent}
           setLetterContent={setLetterContent}
         />
+
+        {templateUrl && (
+          <LetterDesigner
+            templateUrl={templateUrl}
+            letterContent={letterContent}
+            patientName={patientName}
+            onPositionChange={setTextPosition}
+            textPosition={textPosition}
+          />
+        )}
         
         <LetterActionsCard 
           patientName={patientName}
           letterContent={letterContent}
+          templateUrl={templateUrl}
+          textPosition={textPosition}
           saveLetterLocally={saveLetterLocally}
           exportAsText={exportAsText}
           clearForm={clearForm}
