@@ -18,6 +18,7 @@ const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [templateUrl, setTemplateUrl] = useState("");
+  const [originalPdfUrl, setOriginalPdfUrl] = useState(""); // URL du PDF original pour la génération
   const [textPosition, setTextPosition] = useState<TextPosition>({
     x: 10,
     y: 20,
@@ -231,6 +232,7 @@ const PatientLetters = () => {
     setPatientName("");
     setLetterContent("");
     setTemplateUrl("");
+    setOriginalPdfUrl("");
     setTextPosition({ x: 10, y: 20, fontSize: 12, color: "#000000" });
     toast({
       title: "Formulaire vidé",
@@ -254,9 +256,10 @@ const PatientLetters = () => {
         />
         
         <LetterTemplateUpload 
-          onTemplateUploaded={(url) => {
-            console.log('🚀 Template uploaded callback with URL:', url);
+          onTemplateUploaded={(url, pdfUrl) => {
+            console.log('🚀 Template uploaded callback with URL:', url, 'PDF URL:', pdfUrl);
             setTemplateUrl(url);
+            setOriginalPdfUrl(pdfUrl || url);
           }}
           currentTemplate={templateUrl}
         />
@@ -284,7 +287,7 @@ const PatientLetters = () => {
         <LetterActionsCard 
           patientName={patientName}
           letterContent={letterContent}
-          templateUrl={templateUrl}
+          templateUrl={originalPdfUrl || templateUrl} // Utiliser le PDF original pour la génération
           textPosition={textPosition}
           saveLetterLocally={saveLetterLocally}
           exportAsText={exportAsText}

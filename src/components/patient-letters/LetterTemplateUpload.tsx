@@ -11,11 +11,12 @@ interface LetterTemplate {
   id: string;
   filename: string;
   file_url: string;
+  original_pdf_url?: string;
   created_at: string;
 }
 
 interface LetterTemplateUploadProps {
-  onTemplateUploaded: (templateUrl: string) => void;
+  onTemplateUploaded: (templateUrl: string, originalPdfUrl?: string) => void;
   currentTemplate?: string;
 }
 
@@ -44,15 +45,16 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     }
   };
 
-  const saveTemplateToDatabase = async (filename: string, fileUrl: string) => {
+  const saveTemplateToDatabase = async (filename: string, fileUrl: string, originalPdfUrl?: string) => {
     try {
-      console.log('💾 Saving template to database:', { filename, fileUrl });
+      console.log('💾 Saving template to database:', { filename, fileUrl, originalPdfUrl });
       
       const { error } = await supabase
         .from('letter_templates')
         .insert({
           filename,
           file_url: fileUrl,
+          original_pdf_url: originalPdfUrl || fileUrl,
           user_id: null // Publique pour tous
         });
 
@@ -131,27 +133,27 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
 
         if (conversionError) {
           console.error('❌ Conversion error:', conversionError);
-          onTemplateUploaded(urlData.publicUrl);
+          onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
           finalImageUrl = urlData.publicUrl;
         } else if (conversionData?.success) {
           console.log('✅ PDF converted to image successfully:', conversionData.imageUrl);
-          onTemplateUploaded(conversionData.imageUrl);
+          onTemplateUploaded(conversionData.imageUrl, urlData.publicUrl);
           finalImageUrl = conversionData.imageUrl;
           finalFilename = file.name.replace('.pdf', ' (PNG)');
         } else {
           console.error('❌ Conversion failed:', conversionData?.error);
-          onTemplateUploaded(urlData.publicUrl);
+          onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
           finalImageUrl = urlData.publicUrl;
         }
       } catch (error) {
         console.error('❌ Exception during conversion:', error);
-        onTemplateUploaded(urlData.publicUrl);
+        onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
         finalImageUrl = urlData.publicUrl;
       }
 
       // Sauvegarder en base de données avec l'URL du PNG converti
       console.log('💾 Saving to database...');
-      await saveTemplateToDatabase(finalFilename, finalImageUrl);
+      await saveTemplateToDatabase(finalFilename, finalImageUrl, urlData.publicUrl);
 
       toast({
         title: "Template uploadé",
@@ -170,7 +172,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   };
 
   const selectTemplate = (template: LetterTemplate) => {
-    onTemplateUploaded(template.file_url);
+    onTemplateUploaded(template.file_url, template.original_pdf_url || template.file_url);
     setSelectedTemplateId(template.id);
     toast({
       title: "Template sélectionné",
@@ -195,7 +197,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       // Si le template supprimé était sélectionné, le désélectionner
       if (selectedTemplateId === templateId) {
         setSelectedTemplateId(null);
-        onTemplateUploaded("");
+        onTemplateUploaded("", "");
       }
 
       toast({
@@ -213,7 +215,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   };
 
   const removeCurrentTemplate = () => {
-    onTemplateUploaded("");
+    onTemplateUploaded("", "");
     setSelectedTemplateId(null);
     toast({
       title: "Template supprimé",

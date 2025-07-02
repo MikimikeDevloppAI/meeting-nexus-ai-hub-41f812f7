@@ -227,6 +227,7 @@ export type Database = {
           file_url: string
           filename: string
           id: string
+          original_pdf_url: string | null
           user_id: string | null
         }
         Insert: {
@@ -234,6 +235,7 @@ export type Database = {
           file_url: string
           filename: string
           id?: string
+          original_pdf_url?: string | null
           user_id?: string | null
         }
         Update: {
@@ -241,6 +243,7 @@ export type Database = {
           file_url?: string
           filename?: string
           id?: string
+          original_pdf_url?: string | null
           user_id?: string | null
         }
         Relationships: []
