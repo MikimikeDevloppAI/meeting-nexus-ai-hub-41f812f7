@@ -221,6 +221,30 @@ export type Database = {
         }
         Relationships: []
       }
+      letter_templates: {
+        Row: {
+          created_at: string
+          file_url: string
+          filename: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          filename: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          filename?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       meeting_participants: {
         Row: {
           meeting_id: string
