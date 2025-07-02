@@ -12,11 +12,20 @@ const convertApiSecret = Deno.env.get('CONVERTAPI_SECRET');
 
 serve(async (req) => {
   console.log('🚀 PDF to Image conversion function called');
+  console.log('📧 Request method:', req.method);
+  console.log('🌍 Request URL:', req.url);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
+
+  console.log('🔍 Environment check:');
+  console.log('- SUPABASE_URL exists:', !!supabaseUrl);
+  console.log('- SUPABASE_SERVICE_ROLE_KEY exists:', !!supabaseServiceKey);
+  console.log('- CONVERTAPI_SECRET exists:', !!convertApiSecret);
+  console.log('- CONVERTAPI_SECRET length:', convertApiSecret?.length || 0);
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
