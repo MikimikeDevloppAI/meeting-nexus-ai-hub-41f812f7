@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { convertPdfToImageCached } from "@/utils/pdfToImage";
 
 interface TextPosition {
   x: number;
@@ -57,37 +57,27 @@ export const LetterDesigner = ({
   // Convertir le PDF en image quand le template change
   React.useEffect(() => {
     if (templateUrl && templateUrl !== backgroundImage) {
-      convertPdfToImage(templateUrl);
+      convertPdfToImageLocal(templateUrl);
     } else if (!templateUrl) {
       setBackgroundImage("");
       setConversionError(false);
     }
   }, [templateUrl]);
 
-  const convertPdfToImage = async (pdfUrl: string) => {
+  const convertPdfToImageLocal = async (pdfUrl: string) => {
     setIsConverting(true);
     setConversionError(false);
     
     try {
-      console.log('Converting PDF to image:', pdfUrl);
+      console.log('Converting PDF to image locally:', pdfUrl);
       
-      const { data, error } = await supabase.functions.invoke('pdf-to-image', {
-        body: { pdfUrl }
+      const imageDataUrl = await convertPdfToImageCached(pdfUrl, {
+        scale: 1.2,
+        quality: 0.8
       });
 
-      if (error) {
-        console.error('Conversion error:', error);
-        setConversionError(true);
-        return;
-      }
-
-      if (data?.success && data?.imageUrl) {
-        console.log('PDF converted successfully:', data.imageUrl);
-        setBackgroundImage(data.imageUrl);
-      } else {
-        console.error('Conversion failed:', data);
-        setConversionError(true);
-      }
+      console.log('PDF converted successfully to image');
+      setBackgroundImage(imageDataUrl);
     } catch (error) {
       console.error('Error converting PDF:', error);
       setConversionError(true);
