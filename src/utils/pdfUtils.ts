@@ -99,7 +99,7 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
       color: rgb(textColor.r, textColor.g, textColor.b),
     });
 
-    // Add letter content (with basic line wrapping)
+    // Add letter content (with proper line breaks and paragraph spacing)
     const maxWidth = width - actualX - 50; // Leave some margin
     const lines = wrapText(letterData.letterContent, font, letterData.textPosition.fontSize, maxWidth);
     
@@ -107,14 +107,19 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     
     lines.forEach((line, index) => {
       if (currentY > 50) { // Don't go below page margin
-        firstPage.drawText(line, {
-          x: actualX,
-          y: currentY,
-          size: letterData.textPosition.fontSize,
-          font: font,
-          color: rgb(textColor.r, textColor.g, textColor.b),
-        });
-        currentY -= letterData.textPosition.fontSize + 4; // Line spacing
+        if (line.trim() === '') {
+          // Ligne vide = espacement de paragraphe
+          currentY -= letterData.textPosition.fontSize + 8; // Plus d'espace pour les paragraphes
+        } else {
+          firstPage.drawText(line, {
+            x: actualX,
+            y: currentY,
+            size: letterData.textPosition.fontSize,
+            font: font,
+            color: rgb(textColor.r, textColor.g, textColor.b),
+          });
+          currentY -= letterData.textPosition.fontSize + 4; // Espacement normal entre les lignes
+        }
       }
     });
 
