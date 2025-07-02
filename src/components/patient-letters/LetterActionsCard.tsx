@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Save, Download, FileText, Printer, Loader2 } from "lucide-react";
+import { FileText, Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateLetterPDF, downloadPDF, printPDF } from "@/utils/pdfUtils";
 
@@ -28,8 +28,6 @@ export const LetterActionsCard = ({
   letterContent, 
   templateUrl,
   textPosition,
-  saveLetterLocally, 
-  exportAsText, 
   clearForm 
 }: LetterActionsCardProps) => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -144,16 +142,6 @@ export const LetterActionsCard = ({
               <Printer className="h-4 w-4" />
             )}
             Imprimer
-          </Button>
-          
-          <Button onClick={saveLetterLocally} variant="outline" className="flex items-center gap-2">
-            <Save className="h-4 w-4" />
-            Sauvegarder (JSON)
-          </Button>
-          
-          <Button onClick={exportAsText} variant="outline" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Exporter (TXT)
           </Button>
           
           <Button onClick={clearForm} variant="outline">
