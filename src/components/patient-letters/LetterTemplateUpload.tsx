@@ -285,7 +285,10 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
               ref={fileInputRef}
               type="file"
               accept=".pdf,application/pdf"
-              onChange={handleFileUpload}
+              onChange={(e) => {
+                console.log('🔄 File input onChange triggered', e.target.files);
+                handleFileUpload(e);
+              }}
               className="hidden"
               disabled={isUploading}
             />
