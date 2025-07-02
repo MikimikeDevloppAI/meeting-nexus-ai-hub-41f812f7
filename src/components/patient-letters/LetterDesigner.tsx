@@ -110,27 +110,32 @@ export const LetterDesigner = ({
             >
               {/* PDF Background */}
               {templateUrl ? (
-                <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                  <div className="w-full h-full bg-gradient-to-br from-blue-50 to-gray-50 border-2 border-dashed border-blue-300 flex flex-col items-center justify-center relative">
-                    {/* Template indicator */}
-                    <div className="text-center text-blue-600 mb-4">
-                      <Type className="h-16 w-16 mx-auto mb-3 opacity-70" />
-                      <h3 className="font-semibold text-lg">Template PDF chargé</h3>
-                      <p className="text-sm opacity-80">Papier à en-tête prêt pour l'export</p>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-gray-50" style={{ zIndex: 1 }}>
+                  {/* Top letterhead area */}
+                  <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-blue-100 to-blue-50 border-b-2 border-blue-200 flex items-center justify-center">
+                    <span className="text-blue-700 font-medium">📄 Template PDF - Zone d'en-tête</span>
+                  </div>
+                  
+                  {/* Center content area */}
+                  <div className="absolute inset-x-0 top-20 bottom-20 flex items-center justify-center">
+                    <div className="text-center text-blue-600 bg-white bg-opacity-50 p-6 rounded-lg border border-blue-200">
+                      <Type className="h-12 w-12 mx-auto mb-3 opacity-70" />
+                      <h3 className="font-semibold">Template chargé</h3>
+                      <p className="text-sm opacity-80">Positionnez votre texte</p>
                     </div>
-                    
-                    {/* Grid pattern to simulate letterhead */}
-                    <div className="absolute inset-0 opacity-10">
-                      <div className="grid grid-cols-8 gap-2 h-full p-4">
-                        {Array.from({ length: 32 }, (_, i) => (
-                          <div key={i} className="bg-blue-200 rounded h-2"></div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Top letterhead simulation */}
-                    <div className="absolute top-4 left-4 right-4 h-16 bg-blue-100 rounded opacity-30 flex items-center justify-center">
-                      <span className="text-blue-600 text-xs font-medium">Zone d'en-tête du template</span>
+                  </div>
+                  
+                  {/* Bottom area */}
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-blue-200 flex items-center justify-center">
+                    <span className="text-blue-600 text-xs">Zone de pied de page du template</span>
+                  </div>
+                  
+                  {/* Decorative pattern */}
+                  <div className="absolute inset-0 opacity-5 pointer-events-none">
+                    <div className="grid grid-cols-12 gap-1 h-full p-4">
+                      {Array.from({ length: 48 }, (_, i) => (
+                        <div key={i} className="bg-blue-300 rounded-sm h-1"></div>
+                      ))}
                     </div>
                   </div>
                 </div>
