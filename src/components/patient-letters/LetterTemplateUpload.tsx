@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Trash2, Eye, Check } from "lucide-react";
@@ -22,7 +22,6 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   const [isUploading, setIsUploading] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<LetterTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Charger les templates sauvegardés au montage du composant
@@ -317,18 +316,31 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             
             {/* Input file visible pour test */}
             <div className="mb-4">
+              <p className="text-xs text-red-600 mb-2">TEST - Sélectionnez un PDF ici :</p>
               <input
                 type="file"
                 accept=".pdf,application/pdf"
                 onChange={(e) => {
-                  console.log('🔄 DIRECT File input onChange triggered', e.target.files);
-                  console.log('🔄 Event target:', e.target);
-                  console.log('🔄 Event:', e);
-                  handleFileUpload(e);
+                  console.log('🟢 FILE INPUT TRIGGERED!');
+                  console.log('🟢 Files:', e.target.files);
+                  console.log('🟢 First file:', e.target.files?.[0]);
+                  if (e.target.files?.[0]) {
+                    console.log('🟢 Calling handleFileUpload...');
+                    handleFileUpload(e);
+                  } else {
+                    console.log('🔴 No files selected');
+                  }
                 }}
                 disabled={isUploading}
-                className="mb-2"
+                className="mb-2 border p-2"
+                style={{ fontSize: '14px' }}
               />
+              <button 
+                onClick={() => console.log('🟢 Test button clicked!')}
+                className="bg-blue-500 text-white p-2 rounded ml-2"
+              >
+                Test
+              </button>
             </div>
             
             {isUploading && (
