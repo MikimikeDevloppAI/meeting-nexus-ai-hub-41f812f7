@@ -282,17 +282,23 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             </p>
             <input
               type="file"
-              accept=".pdf"
+              accept=".pdf,application/pdf"
               onChange={handleFileUpload}
               className="hidden"
               id="template-upload"
               disabled={isUploading}
+              onClick={(e) => {
+                console.log('📁 File input clicked');
+                // Reset value pour permettre de sélectionner le même fichier
+                e.currentTarget.value = '';
+              }}
             />
             <label htmlFor="template-upload">
               <Button
                 asChild
                 disabled={isUploading}
                 className="cursor-pointer"
+                onClick={() => console.log('🖱️ Button clicked')}
               >
                 <span>
                   {isUploading ? "Upload en cours..." : "Choisir un fichier PDF"}
