@@ -27,8 +27,8 @@ const Login = () => {
   // Rediriger si l'utilisateur est déjà connecté
   useEffect(() => {
     if (user && !authLoading) {
-      console.log("Utilisateur déjà connecté, redirection vers /assistant");
-      navigate("/assistant", { replace: true });
+      console.log("Utilisateur déjà connecté, redirection vers /todos");
+      navigate("/todos", { replace: true });
     }
   }, [user, authLoading, navigate]);
 

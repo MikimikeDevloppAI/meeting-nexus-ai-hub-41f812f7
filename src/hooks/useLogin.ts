@@ -39,11 +39,11 @@ export const useLogin = () => {
         
         toast({
           title: "Connexion réussie !",
-          description: "Redirection vers l'assistant...",
+          description: "Redirection vers les tâches...",
         });
         
         // Redirection immédiate sans délai
-        navigate("/assistant", { replace: true });
+        navigate("/todos", { replace: true });
       }
     } catch (error: any) {
       console.error("Erreur de connexion:", error);
