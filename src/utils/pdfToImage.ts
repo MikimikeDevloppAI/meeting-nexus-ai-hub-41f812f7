@@ -1,7 +1,17 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - use a more compatible approach
+try {
+  // Try to use local worker first
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url
+  ).toString();
+} catch (error) {
+  console.log('Local worker failed, disabling worker for compatibility');
+  // Fallback: disable worker for compatibility (slower but works)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+}
 
 interface PdfToImageOptions {
   scale?: number;
@@ -19,12 +29,11 @@ export const convertPdfToImage = async (
     console.log('📄 PDF URL:', pdfUrl);
     console.log('⚙️ Options:', { scale, quality });
 
-    // Load the PDF document
+    // Load the PDF document with simplified options
     console.log('📥 Loading PDF document...');
     const loadingTask = pdfjsLib.getDocument({
       url: pdfUrl,
-      cMapUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
-      cMapPacked: true,
+      verbosity: 0, // Reduce logging
     });
     
     const pdf = await loadingTask.promise;
