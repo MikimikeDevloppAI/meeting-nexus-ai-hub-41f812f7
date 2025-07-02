@@ -31,7 +31,7 @@ export const LetterDesigner = ({
 }: LetterDesignerProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [pdfLoadError, setPdfLoadError] = useState(false);
+  
   const handleMouseDown = () => {
     setIsDragging(true);
   };
@@ -111,30 +111,28 @@ export const LetterDesigner = ({
               {/* PDF Background */}
               {templateUrl ? (
                 <div className="absolute inset-0" style={{ zIndex: 1 }}>
-                  {!pdfLoadError ? (
-                    <embed
-                      src={`${templateUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                      type="application/pdf"
-                      className="w-full h-full"
-                      style={{ 
-                        border: 'none',
-                        backgroundColor: 'white',
-                        pointerEvents: 'none'
-                      }}
-                      onError={() => {
-                        console.log('PDF embed failed, trying iframe...');
-                        setPdfLoadError(true);
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p className="mb-1">Template PDF chargé</p>
-                        <p className="text-sm">Sera visible dans l'export final</p>
+                  <div className="w-full h-full bg-gradient-to-br from-blue-50 to-gray-50 border-2 border-dashed border-blue-300 flex flex-col items-center justify-center relative">
+                    {/* Template indicator */}
+                    <div className="text-center text-blue-600 mb-4">
+                      <Type className="h-16 w-16 mx-auto mb-3 opacity-70" />
+                      <h3 className="font-semibold text-lg">Template PDF chargé</h3>
+                      <p className="text-sm opacity-80">Papier à en-tête prêt pour l'export</p>
+                    </div>
+                    
+                    {/* Grid pattern to simulate letterhead */}
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="grid grid-cols-8 gap-2 h-full p-4">
+                        {Array.from({ length: 32 }, (_, i) => (
+                          <div key={i} className="bg-blue-200 rounded h-2"></div>
+                        ))}
                       </div>
                     </div>
-                  )}
+                    
+                    {/* Top letterhead simulation */}
+                    <div className="absolute top-4 left-4 right-4 h-16 bg-blue-100 rounded opacity-30 flex items-center justify-center">
+                      <span className="text-blue-600 text-xs font-medium">Zone d'en-tête du template</span>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
@@ -178,7 +176,7 @@ export const LetterDesigner = ({
               <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
             )}
             {templateUrl && (
-              <p className="text-blue-600">ℹ️ L'aperçu PDF est maintenant visible</p>
+              <p className="text-blue-600">✅ Template chargé - Le PDF sera appliqué lors de l'export final</p>
             )}
           </div>
         </div>
