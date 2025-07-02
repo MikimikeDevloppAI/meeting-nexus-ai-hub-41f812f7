@@ -26,94 +26,34 @@ serve(async (req) => {
 
     console.log('Converting PDF to image:', pdfUrl);
 
-    // Télécharger le PDF
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
-    }
-
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    console.log('PDF downloaded, size:', pdfBuffer.byteLength);
-
-    // Utiliser l'API Canvas du navigateur côté serveur avec Deno
-    // Créer un document HTML temporaire avec canvas
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-      </head>
-      <body>
-        <canvas id="pdfCanvas"></canvas>
-        <script>
-          // Configuration PDF.js
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          
-          async function convertPdfToImage() {
-            try {
-              const pdfData = new Uint8Array(${JSON.stringify(Array.from(new Uint8Array(pdfBuffer)))});
-              const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
-              const page = await pdf.getPage(1);
-              
-              const viewport = page.getViewport({scale: 1.5});
-              const canvas = document.getElementById('pdfCanvas');
-              const context = canvas.getContext('2d');
-              
-              canvas.width = viewport.width;
-              canvas.height = viewport.height;
-              
-              await page.render({
-                canvasContext: context,
-                viewport: viewport
-              }).promise;
-              
-              const imageDataUrl = canvas.toDataURL('image/png', 0.8);
-              console.log('RESULT:', imageDataUrl);
-            } catch (error) {
-              console.log('ERROR:', error.message);
-            }
-          }
-          
-          convertPdfToImage();
-        </script>
-      </body>
-      </html>
+    // Pour l'instant, retourner une image de placeholder simple
+    // En SVG encodé en base64
+    const placeholderSvg = `
+      <svg width="600" height="800" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="800" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+        <text x="300" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#6b7280">
+          PDF Template
+        </text>
+        <text x="300" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#9ca3af">
+          Preview Available in Export
+        </text>
+        <text x="300" y="480" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#d1d5db">
+          ${new URL(pdfUrl).pathname.split('/').pop()}
+        </text>
+      </svg>
     `;
 
-    // Alternative plus simple : utiliser puppeteer ou similaire
-    // Pour l'instant, on va retourner une image générée avec Canvas2D directement
-    
-    // Créer une image de placeholder en attendant une vraie conversion
-    const canvas = new OffscreenCanvas(600, 800);
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) {
-      throw new Error('Could not get canvas context');
-    }
-    
-    // Dessiner un fond blanc
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 600, 800);
-    
-    // Ajouter un texte indiquant que c'est un placeholder
-    ctx.fillStyle = '#666666';
-    ctx.font = '20px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('PDF Template', 300, 400);
-    ctx.fillText('Preview will be available', 300, 430);
-    ctx.fillText('in final export', 300, 460);
-    
-    // Convertir en blob puis en base64
-    const blob = await canvas.convertToBlob({ type: 'image/png', quality: 0.8 });
-    const arrayBuffer = await blob.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    const imageDataUrl = `data:image/png;base64,${base64}`;
+    // Convertir le SVG en base64
+    const base64Svg = btoa(unescape(encodeURIComponent(placeholderSvg)));
+    const imageDataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+
+    console.log('Generated placeholder image for PDF preview');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         imageUrl: imageDataUrl,
-        message: "PDF preview generated (placeholder)" 
+        message: "PDF placeholder generated successfully" 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -122,7 +62,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error converting PDF to image:', error);
+    console.error('Error in convert-pdf-to-image function:', error);
     return new Response(
       JSON.stringify({ 
         error: "Internal server error during PDF conversion",
