@@ -270,15 +270,13 @@ const PatientLetters = () => {
           setLetterContent={setLetterContent}
         />
 
-        {templateUrl && (
-          <LetterDesigner
-            templateUrl={templateUrl}
-            letterContent={letterContent}
-            patientName={patientName}
-            onPositionChange={setTextPosition}
-            textPosition={textPosition}
-          />
-        )}
+        <LetterDesigner
+          templateUrl={templateUrl}
+          letterContent={letterContent}
+          patientName={patientName}
+          onPositionChange={setTextPosition}
+          textPosition={textPosition}
+        />
         
         <LetterActionsCard 
           patientName={patientName}
