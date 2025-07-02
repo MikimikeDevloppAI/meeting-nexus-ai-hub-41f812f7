@@ -126,17 +126,22 @@ export const LetterDesigner = ({
 
           {/* Preview Canvas */}
           <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
-            <div className="pdf-container relative w-full aspect-[210/297] mx-auto bg-white max-w-4xl">{/* Respecter le ratio A4 avec une largeur max plus grande */}
+            <div 
+              ref={canvasRef}
+              className="pdf-container relative w-full aspect-[210/297] mx-auto bg-white max-w-4xl"
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
               {/* PDF Background Image */}
               {backgroundImage ? (
                 <img 
                   src={backgroundImage} 
                   alt="PDF Template"
-                  className="pdf-background w-full block"
-                  style={{ maxHeight: '1123px' }} // A4 height at 96dpi
+                  className="pdf-background w-full h-full object-contain block"
                 />
               ) : templateUrl ? (
-                <div className="w-full aspect-[210/297] flex items-center justify-center bg-gray-50">
+                <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   {isConverting ? (
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -157,10 +162,11 @@ export const LetterDesigner = ({
                   )}
                 </div>
               ) : (
-                <div className="w-full aspect-[210/297] flex items-center justify-center bg-gray-50 text-gray-400">
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
                   <div className="text-center">
                     <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>Uploadez un template pour voir l'aperçu</p>
+                    <p className="text-xs mt-2">Format A4 - 210 x 297 mm</p>
                   </div>
                 </div>
               )}
@@ -168,26 +174,26 @@ export const LetterDesigner = ({
               {/* Text Overlay */}
               {(backgroundImage || templateUrl) && (
                 <div
-                  className="text-overlay absolute p-4 border-2 border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm"
+                  className="text-overlay absolute p-3 border-2 border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm select-none"
                   style={{
                     top: `${textPosition.y}%`,
                     left: `${textPosition.x}%`,
-                    fontSize: `${textPosition.fontSize}px`,
+                    fontSize: `${Math.max(textPosition.fontSize * 0.8, 8)}px`, // Adapter la taille à l'écran
                     color: textPosition.color,
-                    maxWidth: '90%', // Augmenter la largeur max du texte
-                    minWidth: '300px', // Augmenter la largeur min
-                    maxHeight: '70%', // Limiter la hauteur pour éviter le débordement
-                    overflow: 'auto', // Permettre le scroll si nécessaire
+                    width: `${85 - textPosition.x}%`, // Largeur dynamique basée sur la position
+                    minWidth: '200px',
+                    maxHeight: `${90 - textPosition.y}%`, // Hauteur dynamique basée sur la position
                     fontFamily: "'Times New Roman', serif",
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    lineHeight: '1.4',
+                    margin: '8px', // Marge pour éviter les bords
                   }}
                   onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
                 >
                   <div className="font-bold mb-2">Patient: {patientName}</div>
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {letterContent} {/* Afficher tout le contenu sans limitation */}
+                  <div className="whitespace-pre-wrap leading-relaxed break-words">
+                    {letterContent || "Saisissez ou dictez le contenu de votre lettre..."}
                   </div>
                 </div>
               )}
