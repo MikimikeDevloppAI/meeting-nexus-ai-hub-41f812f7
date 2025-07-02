@@ -287,24 +287,17 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
               className="hidden"
               id="template-upload"
               disabled={isUploading}
-              onClick={(e) => {
-                console.log('📁 File input clicked');
-                // Reset value pour permettre de sélectionner le même fichier
-                e.currentTarget.value = '';
-              }}
             />
-            <label htmlFor="template-upload">
-              <Button
-                asChild
-                disabled={isUploading}
-                className="cursor-pointer"
-                onClick={() => console.log('🖱️ Button clicked')}
-              >
-                <span>
-                  {isUploading ? "Upload en cours..." : "Choisir un fichier PDF"}
-                </span>
-              </Button>
-            </label>
+            <Button
+              onClick={() => {
+                console.log('🖱️ Button clicked, triggering file input');
+                document.getElementById('template-upload')?.click();
+              }}
+              disabled={isUploading}
+              className="cursor-pointer"
+            >
+              {isUploading ? "Upload en cours..." : "Choisir un fichier PDF"}
+            </Button>
           </div>
 
           {savedTemplates.length > 0 && (
