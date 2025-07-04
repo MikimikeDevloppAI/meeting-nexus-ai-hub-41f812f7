@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +5,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { formatTextForPreview, LETTER_CONSTANTS } from "@/utils/letterLayout";
+
+// Constantes pour le formatage
+const LETTER_CONSTANTS = {
+  MARGIN_LEFT_PERCENT: 8,
+  MARGIN_TOP_PERCENT: 25,
+  MARGIN_RIGHT_PERCENT: 8,
+  FONT_SIZE: 12,
+  DEFAULT_TEXT_COLOR: "#000000",
+  FONT_FAMILY: "Arial, sans-serif",
+  LINE_HEIGHT_MULTIPLIER: 1.4,
+  PARAGRAPH_SPACING_MULTIPLIER: 1.2,
+  PARAGRAPH_INDENT_PERCENT: 8,
+  CHARS_PER_LINE: 80 // Estimation pour le calcul des lignes
+};
 
 interface TextPosition {
   x: number;
@@ -23,6 +34,71 @@ interface LetterDesignerProps {
   onPositionChange: (position: TextPosition) => void;
   textPosition: TextPosition;
 }
+
+// Fonction améliorée pour formater le texte avec justification
+const formatTextForBetterDisplay = (text: string) => {
+  if (!text || text.trim() === '') return [];
+  
+  // Diviser en paragraphes
+  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  
+  const formattedLines = [];
+  
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const cleanParagraph = paragraph.replace(/\s+/g, ' ').trim();
+    
+    if (cleanParagraph.length === 0) return;
+    
+    // Diviser le paragraphe en mots
+    const words = cleanParagraph.split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    words.forEach(word => {
+      // Estimation de la largeur en caractères (approximatif)
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      
+      if (testLine.length <= LETTER_CONSTANTS.CHARS_PER_LINE) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          lines.push(word);
+        }
+      }
+    });
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    // Ajouter les lignes formatées
+    lines.forEach((line, lineIndex) => {
+      formattedLines.push({
+        text: line,
+        isFirstLineOfParagraph: lineIndex === 0,
+        isLastLineOfParagraph: lineIndex === lines.length - 1,
+        isEmpty: false,
+        shouldJustify: lineIndex < lines.length - 1 // Justifier toutes les lignes sauf la dernière
+      });
+    });
+    
+    // Ajouter un espace entre les paragraphes (sauf pour le dernier)
+    if (paragraphIndex < paragraphs.length - 1) {
+      formattedLines.push({
+        text: '',
+        isFirstLineOfParagraph: false,
+        isLastLineOfParagraph: false,
+        isEmpty: true,
+        shouldJustify: false
+      });
+    }
+  });
+  
+  return formattedLines;
+};
 
 export const LetterDesigner = ({ 
   templateUrl, 
@@ -46,11 +122,11 @@ export const LetterDesigner = ({
     color: LETTER_CONSTANTS.DEFAULT_TEXT_COLOR
   };
 
-  // Formatage du texte avec les mêmes règles que le PDF
-  const { lines: formattedLines, pages } = formatTextForPreview(letterContent, fixedPosition.fontSize);
+  // Formatage du texte avec les nouvelles règles
+  const formattedLines = formatTextForBetterDisplay(letterContent);
 
-  // Utilisé directement l'URL du template comme background
-  React.useEffect(() => {
+  // Gestion de l'image de fond
+  useEffect(() => {
     console.log('🔍 LetterDesigner useEffect triggered');
     console.log('📄 templateUrl:', templateUrl);
     console.log('🖼️ current backgroundImage:', backgroundImage);
@@ -66,7 +142,7 @@ export const LetterDesigner = ({
     } else {
       console.log('⏭️ Template same as background, skipping');
     }
-  }, [templateUrl]); // Retirer backgroundImage des dépendances pour éviter la boucle
+  }, [templateUrl]);
 
   return (
     <Card>
@@ -122,7 +198,7 @@ export const LetterDesigner = ({
                 </div>
               )}
               
-              {/* Text Overlay */}
+              {/* Text Overlay avec formatage amélioré */}
               {(backgroundImage || templateUrl) && (
                 <div
                   className="text-overlay absolute p-3 border-2 border-dashed border-gray-300 bg-white bg-opacity-90 rounded shadow-sm select-none"
@@ -131,27 +207,48 @@ export const LetterDesigner = ({
                     left: `${fixedPosition.x}%`,
                     fontSize: `${Math.max(fixedPosition.fontSize * 0.8, 8)}px`,
                     color: fixedPosition.color,
-                    width: `${100 - fixedPosition.x - LETTER_CONSTANTS.MARGIN_RIGHT_PERCENT}%`, // Largeur exacte calculée
+                    width: `${100 - fixedPosition.x - LETTER_CONSTANTS.MARGIN_RIGHT_PERCENT}%`,
                     fontFamily: LETTER_CONSTANTS.FONT_FAMILY,
                     lineHeight: `${LETTER_CONSTANTS.LINE_HEIGHT_MULTIPLIER}`,
                     overflow: 'hidden'
                   }}
                 >
+                  {/* En-tête */}
                   <div className="font-bold mb-2">Patient: {patientName}</div>
                   <div className="mb-1">Date: {new Date().toLocaleDateString('fr-FR')}</div>
-                  <div style={{ marginTop: '1em', textAlign: 'justify' }}>
+                  
+                  {/* Contenu principal avec formatage avancé */}
+                  <div style={{ marginTop: '1em' }}>
                     {formattedLines.length > 0 ? (
                       formattedLines.map((line, index) => (
-                        <div key={index} style={{ 
-                          marginBottom: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
-                          minHeight: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto',
-                          textIndent: line.isFirstLineOfParagraph ? `${LETTER_CONSTANTS.PARAGRAPH_INDENT_PERCENT}%` : '0'
-                        }}>
-                          {!line.isEmpty && line.text}
+                        <div 
+                          key={index} 
+                          style={{ 
+                            marginBottom: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
+                            minHeight: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto',
+                            textIndent: line.isFirstLineOfParagraph ? `${LETTER_CONSTANTS.PARAGRAPH_INDENT_PERCENT}%` : '0',
+                            textAlign: line.shouldJustify ? 'justify' : 'left',
+                            wordSpacing: line.shouldJustify ? '0.1em' : 'normal',
+                            hyphens: 'auto',
+                            WebkitHyphens: 'auto',
+                            MozHyphens: 'auto'
+                          }}
+                        >
+                          {!line.isEmpty && (
+                            <span style={{
+                              display: 'inline-block',
+                              width: '100%',
+                              letterSpacing: line.shouldJustify ? '0.02em' : 'normal'
+                            }}>
+                              {line.text}
+                            </span>
+                          )}
                         </div>
                       ))
                     ) : (
-                      <div className="text-gray-400">Saisissez ou dictez le contenu de votre lettre...</div>
+                      <div className="text-gray-400 italic">
+                        Saisissez ou dictez le contenu de votre lettre...
+                      </div>
                     )}
                   </div>
                 </div>
@@ -159,9 +256,21 @@ export const LetterDesigner = ({
             </div>
           </div>
 
+          {/* Informations et statistiques */}
           <div className="text-sm text-gray-600 space-y-1">
-            <p>📝 Prévisualisation de la lettre avec formatage automatique</p>
-            <p>✏️ Le formatage du contenu se fait dans la section "Contenu de la Lettre"</p>
+            <p>📝 Prévisualisation avec formatage automatique et justification</p>
+            <p>✏️ Indentation automatique des paragraphes</p>
+            <p>📐 Largeur optimisée: {100 - LETTER_CONSTANTS.MARGIN_LEFT_PERCENT - LETTER_CONSTANTS.MARGIN_RIGHT_PERCENT}% de la page</p>
+            
+            {formattedLines.length > 0 && (
+              <div className="bg-blue-50 p-2 rounded text-xs">
+                <p className="font-medium text-blue-800">Statistiques du texte:</p>
+                <p>• {formattedLines.filter(l => !l.isEmpty).length} lignes de texte</p>
+                <p>• {formattedLines.filter(l => l.isFirstLineOfParagraph).length} paragraphes</p>
+                <p>• {letterContent.split(' ').filter(w => w.length > 0).length} mots</p>
+              </div>
+            )}
+            
             {!templateUrl && (
               <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
             )}
