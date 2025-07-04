@@ -60,7 +60,7 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     const firstPage = pages[0];
     const { width, height } = firstPage.getSize();
 
-    // Load font
+    // Load font - utiliser Helvetica pour correspondre à la prévisualisation
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
@@ -103,8 +103,7 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 
     // Add letter content with automatic pagination using unified wrapping
     // Utiliser exactement la même largeur que dans la prévisualisation
-    const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Réduire pour l'indentation potentielle
-    const lines = wrapTextUnified(letterData.letterContent, effectiveWidth, letterData.textPosition.fontSize);
+    const lines = wrapTextUnified(letterData.letterContent, dimensions.usableWidth, letterData.textPosition.fontSize);
     
     let currentY = actualY - 60; // Start below patient name and date
     let currentPage = firstPage;
@@ -132,13 +131,52 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
         // Calculer la position X selon si c'est une première ligne de paragraphe
         const textX = line.isFirstLineOfParagraph ? actualX + dimensions.paragraphIndent : actualX;
         
-        currentPage.drawText(line.text, {
-          x: textX,
-          y: currentY,
-          size: letterData.textPosition.fontSize,
-          font: font,
-          color: rgb(textColor.r, textColor.g, textColor.b),
-        });
+        // Justifier le texte si nécessaire (sauf dernière ligne de paragraphe)
+        const shouldJustify = !line.isFirstLineOfParagraph && line.text.length > 30;
+        
+        if (shouldJustify) {
+          // Justification simple : espacement uniforme des mots
+          const availableWidth = dimensions.usableWidth - (line.isFirstLineOfParagraph ? dimensions.paragraphIndent : 0);
+          const words = line.text.split(' ');
+          
+          if (words.length > 1) {
+            const totalTextWidth = words.join('').length * letterData.textPosition.fontSize * 0.55;
+            const extraSpace = availableWidth - totalTextWidth;
+            const spaceBetweenWords = extraSpace / (words.length - 1);
+            
+            let currentX = textX;
+            words.forEach((word, wordIndex) => {
+              currentPage.drawText(word, {
+                x: currentX,
+                y: currentY,
+                size: letterData.textPosition.fontSize,
+                font: font,
+                color: rgb(textColor.r, textColor.g, textColor.b),
+              });
+              
+              if (wordIndex < words.length - 1) {
+                currentX += word.length * letterData.textPosition.fontSize * 0.55 + spaceBetweenWords;
+              }
+            });
+          } else {
+            currentPage.drawText(line.text, {
+              x: textX,
+              y: currentY,
+              size: letterData.textPosition.fontSize,
+              font: font,
+              color: rgb(textColor.r, textColor.g, textColor.b),
+            });
+          }
+        } else {
+          currentPage.drawText(line.text, {
+            x: textX,
+            y: currentY,
+            size: letterData.textPosition.fontSize,
+            font: font,
+            color: rgb(textColor.r, textColor.g, textColor.b),
+          });
+        }
+        
         currentY -= lineHeight;
       }
     });
@@ -154,8 +192,7 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 // Calculate how many pages the content will need (now uses unified calculation)
 export const calculatePagesNeeded = (text: string, fontSize: number = 12): number => {
   const dimensions = getLetterDimensions();
-  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que dans le PDF
-  const lines = wrapTextUnified(text, effectiveWidth, fontSize);
+  const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
   
   // Calculer l'espace nécessaire
   let totalHeight = 0;

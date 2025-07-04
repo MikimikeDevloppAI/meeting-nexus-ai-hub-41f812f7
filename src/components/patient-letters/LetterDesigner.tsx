@@ -6,19 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
 
-// Constantes pour le formatage
-const LETTER_CONSTANTS = {
-  MARGIN_LEFT_PERCENT: 8,
-  MARGIN_TOP_PERCENT: 25,
-  MARGIN_RIGHT_PERCENT: 8,
-  FONT_SIZE: 12,
-  DEFAULT_TEXT_COLOR: "#000000",
-  FONT_FAMILY: "Arial, sans-serif",
-  LINE_HEIGHT_MULTIPLIER: 1.4,
-  PARAGRAPH_SPACING_MULTIPLIER: 1.2,
-  PARAGRAPH_INDENT_PERCENT: 8,
-  CHARS_PER_LINE: 80 // Estimation pour le calcul des lignes
-};
+import { LETTER_CONSTANTS, getLetterDimensions, formatTextForPreview } from "@/utils/letterLayout";
 
 interface TextPosition {
   x: number;
@@ -35,70 +23,6 @@ interface LetterDesignerProps {
   textPosition: TextPosition;
 }
 
-// Fonction améliorée pour formater le texte avec justification
-const formatTextForBetterDisplay = (text: string) => {
-  if (!text || text.trim() === '') return [];
-  
-  // Diviser en paragraphes
-  const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-  
-  const formattedLines = [];
-  
-  paragraphs.forEach((paragraph, paragraphIndex) => {
-    const cleanParagraph = paragraph.replace(/\s+/g, ' ').trim();
-    
-    if (cleanParagraph.length === 0) return;
-    
-    // Diviser le paragraphe en mots
-    const words = cleanParagraph.split(' ');
-    const lines = [];
-    let currentLine = '';
-    
-    words.forEach(word => {
-      // Estimation de la largeur en caractères (approximatif)
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      
-      if (testLine.length <= LETTER_CONSTANTS.CHARS_PER_LINE) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          lines.push(word);
-        }
-      }
-    });
-    
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    
-    // Ajouter les lignes formatées
-    lines.forEach((line, lineIndex) => {
-      formattedLines.push({
-        text: line,
-        isFirstLineOfParagraph: lineIndex === 0,
-        isLastLineOfParagraph: lineIndex === lines.length - 1,
-        isEmpty: false,
-        shouldJustify: lineIndex < lines.length - 1 // Justifier toutes les lignes sauf la dernière
-      });
-    });
-    
-    // Ajouter un espace entre les paragraphes (sauf pour le dernier)
-    if (paragraphIndex < paragraphs.length - 1) {
-      formattedLines.push({
-        text: '',
-        isFirstLineOfParagraph: false,
-        isLastLineOfParagraph: false,
-        isEmpty: true,
-        shouldJustify: false
-      });
-    }
-  });
-  
-  return formattedLines;
-};
 
 export const LetterDesigner = ({ 
   templateUrl, 
@@ -122,8 +46,8 @@ export const LetterDesigner = ({
     color: LETTER_CONSTANTS.DEFAULT_TEXT_COLOR
   };
 
-  // Formatage du texte avec les nouvelles règles
-  const formattedLines = formatTextForBetterDisplay(letterContent);
+  // Formatage du texte avec les règles unifiées
+  const { lines: formattedLines } = formatTextForPreview(letterContent, fixedPosition.fontSize);
 
   // Gestion de l'image de fond
   useEffect(() => {
@@ -227,22 +151,15 @@ export const LetterDesigner = ({
                             marginBottom: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
                             minHeight: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto',
                             textIndent: line.isFirstLineOfParagraph ? `${LETTER_CONSTANTS.PARAGRAPH_INDENT_PERCENT}%` : '0',
-                            textAlign: line.shouldJustify ? 'justify' : 'left',
-                            wordSpacing: line.shouldJustify ? '0.1em' : 'normal',
+                            textAlign: 'justify',
+                            wordSpacing: '0.1em',
                             hyphens: 'auto',
                             WebkitHyphens: 'auto',
-                            MozHyphens: 'auto'
+                            MozHyphens: 'auto',
+                            letterSpacing: '0.02em'
                           }}
                         >
-                          {!line.isEmpty && (
-                            <span style={{
-                              display: 'inline-block',
-                              width: '100%',
-                              letterSpacing: line.shouldJustify ? '0.02em' : 'normal'
-                            }}>
-                              {line.text}
-                            </span>
-                          )}
+                          {!line.isEmpty && line.text}
                         </div>
                       ))
                     ) : (

@@ -19,7 +19,7 @@ export const LETTER_CONSTANTS = {
   
   // Police
   FONT_SIZE: 12,
-  FONT_FAMILY: "'Times New Roman', serif",
+  FONT_FAMILY: "Helvetica, Arial, sans-serif",
   
   // Couleurs
   DEFAULT_TEXT_COLOR: "#000000"
@@ -59,13 +59,14 @@ export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize
   const paragraphs = text.split('\n\n'); // Séparer par double saut de ligne
   const wrappedLines: FormattedLine[] = [];
   
-  // Estimation approximative : Times New Roman fait environ 0.6 * fontSize en largeur moyenne par caractère
-  const avgCharWidth = fontSize * 0.6;
+  // Estimation calibrée pour Helvetica : environ 0.55 * fontSize en largeur moyenne par caractère
+  const avgCharWidth = fontSize * 0.55;
   const dimensions = getLetterDimensions();
   
-  // Calculer les largeurs pour ligne normale et ligne avec indentation
-  const maxCharsPerLine = Math.floor(maxWidthInPoints / avgCharWidth);
-  const maxCharsPerIndentedLine = Math.floor((maxWidthInPoints - dimensions.paragraphIndent) / avgCharWidth);
+  // Utiliser la largeur complète disponible (avec marge droite)
+  const fullUsableWidth = dimensions.usableWidth;
+  const maxCharsPerLine = Math.floor(fullUsableWidth / avgCharWidth);
+  const maxCharsPerIndentedLine = Math.floor((fullUsableWidth - dimensions.paragraphIndent) / avgCharWidth);
   
   paragraphs.forEach((paragraph, paragraphIndex) => {
     if (paragraph.trim() === '') {
@@ -138,8 +139,7 @@ export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize
 // Calcul précis du nombre de pages nécessaires
 export const calculatePagesNeededPrecise = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): number => {
   const dimensions = getLetterDimensions();
-  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que le PDF
-  const wrappedLines = wrapTextUnified(text, effectiveWidth, fontSize);
+  const wrappedLines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
   
   // Calculer l'espace nécessaire
   let totalHeight = 0;
@@ -164,8 +164,7 @@ export const calculatePagesNeededPrecise = (text: string, fontSize: number = LET
 // Fonction pour formater le texte avec les mêmes règles que le PDF
 export const formatTextForPreview = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): { lines: FormattedLine[], pages: number } => {
   const dimensions = getLetterDimensions();
-  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que le PDF
-  const lines = wrapTextUnified(text, effectiveWidth, fontSize);
+  const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
   const pages = calculatePagesNeededPrecise(text, fontSize);
   
   return { lines, pages };
