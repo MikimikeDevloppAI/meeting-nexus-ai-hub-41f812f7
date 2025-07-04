@@ -105,7 +105,6 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     
     let currentY = actualY - 60; // Start below patient name and date
     let currentPage = firstPage;
-    let pageIndex = 0;
     const bottomMargin = 50; // Minimum distance from bottom
     const lineHeight = letterData.textPosition.fontSize + 4;
     const paragraphSpacing = letterData.textPosition.fontSize + 8;
@@ -113,18 +112,19 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     lines.forEach((line, index) => {
       const spaceNeeded = line.trim() === '' ? paragraphSpacing : lineHeight;
       
-      // Check if we need a new page
-      if (currentY - spaceNeeded < bottomMargin) {
-        // Create new page
+      // Check if we need a new page (only if we actually have content to add)
+      if (currentY - spaceNeeded < bottomMargin && line.trim() !== '') {
+        // Create new page only when needed
         const newPage = pdfDoc.addPage([595.28, 841.89]);
         currentPage = newPage;
         currentY = height * 0.9; // Start near top of new page
-        pageIndex++;
       }
       
       if (line.trim() === '') {
-        // Ligne vide = espacement de paragraphe
-        currentY -= paragraphSpacing;
+        // Ligne vide = espacement de paragraphe (seulement si on a de la place)
+        if (currentY - paragraphSpacing >= bottomMargin) {
+          currentY -= paragraphSpacing;
+        }
       } else {
         currentPage.drawText(line, {
           x: actualX,
@@ -145,15 +145,36 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
   }
 };
 
-// Helper function to wrap text exactly like whitespace-pre-wrap
+// Calculate how many pages the content will need
+export const calculatePagesNeeded = (text: string, fontSize: number = 12): number => {
+  const linesPerPage = Math.floor((841.89 * 0.7) / (fontSize + 4)); // Approximate lines per page
+  const lines = text.split('\n');
+  let totalLines = 0;
+  
+  lines.forEach(line => {
+    if (line === '') {
+      totalLines += 1; // Empty line for paragraph spacing
+    } else {
+      // Estimate word wrapping - very rough calculation
+      const wordsPerLine = Math.floor(80 / (fontSize * 0.6)); // Rough estimate
+      const words = line.split(' ').length;
+      const linesForThisText = Math.max(1, Math.ceil(words / wordsPerLine));
+      totalLines += linesForThisText;
+    }
+  });
+  
+  return Math.max(1, Math.ceil(totalLines / linesPerPage));
+};
+
+// Helper function to wrap text with better word breaking
 function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  // Diviser le texte exactement comme whitespace-pre-wrap : chaque \n = nouvelle ligne
+  // Diviser le texte par lignes exactement comme saisi par l'utilisateur
   const lines = text.split('\n');
   const allLines: string[] = [];
 
   lines.forEach(line => {
-    // Ligne vide : ajouter une ligne vide (comme whitespace-pre-wrap)
-    if (line === '') {
+    // Ligne vide : ajouter une ligne vide pour marquer les paragraphes
+    if (line.trim() === '') {
       allLines.push('');
       return;
     }
@@ -169,52 +190,54 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
       // En cas d'erreur, continuer avec le wrapping
     }
 
-    // La ligne est trop longue : découper en mots avec césure
+    // La ligne est trop longue : découper intelligemment
     const words = line.split(' ');
     let currentLine = '';
 
-    words.forEach(word => {
+    words.forEach((word, wordIndex) => {
+      // Tester si on peut ajouter ce mot à la ligne courante
       const testLine = currentLine + (currentLine ? ' ' : '') + word;
       
       try {
-        const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+        const testWidth = font.widthOfTextAtSize(testLine, fontSize);
         
-        if (textWidth > maxWidth && currentLine) {
-          // Vérifier si on peut couper le mot avec un tiret
-          if (word.length > 10) {
-            // Essayer de couper le mot long
-            let cutPosition = Math.floor(word.length * 0.7);
-            const firstPart = word.substring(0, cutPosition) + '-';
-            const secondPart = word.substring(cutPosition);
-            
-            const testLineWithHyphen = currentLine + (currentLine ? ' ' : '') + firstPart;
-            const hyphenWidth = font.widthOfTextAtSize(testLineWithHyphen, fontSize);
-            
-            if (hyphenWidth <= maxWidth) {
-              allLines.push(testLineWithHyphen);
-              currentLine = secondPart;
-            } else {
-              allLines.push(currentLine);
-              currentLine = word;
-            }
-          } else {
+        if (testWidth <= maxWidth) {
+          // Le mot rentre, on l'ajoute
+          currentLine = testLine;
+        } else {
+          // Le mot ne rentre pas
+          if (currentLine) {
+            // On finalise la ligne courante
             allLines.push(currentLine);
             currentLine = word;
+          } else {
+            // Le mot seul est trop long, il faut le couper
+            if (word.length > 15) {
+              // Couper le mot long avec un tiret
+              const cutPoint = Math.floor(word.length * 0.7);
+              const firstPart = word.substring(0, cutPoint) + '-';
+              const secondPart = word.substring(cutPoint);
+              
+              allLines.push(firstPart);
+              currentLine = secondPart;
+            } else {
+              // Mot pas si long, on le met tel quel
+              currentLine = word;
+            }
           }
-        } else {
-          currentLine = testLine;
         }
       } catch (error) {
-        // En cas d'erreur d'encodage
+        // En cas d'erreur, traitement basique
         if (currentLine) {
           allLines.push(currentLine);
           currentLine = word;
         } else {
-          currentLine = testLine;
+          currentLine = word;
         }
       }
     });
     
+    // Ajouter la dernière ligne si elle existe
     if (currentLine) {
       allLines.push(currentLine);
     }
