@@ -24,8 +24,18 @@ export const LetterContentCard = ({ letterContent, setLetterContent }: LetterCon
             onChange={(e) => setLetterContent(e.target.value)}
             placeholder="Le contenu dicté apparaîtra ici, ou vous pouvez saisir directement..."
             rows={15}
-            className="mt-1"
+            className="mt-1 font-mono text-sm"
+            style={{
+              fontFamily: "'Times New Roman', serif",
+              lineHeight: '1.4',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}
           />
+          <div className="text-sm text-gray-600 mt-2">
+            <p>📝 Le texte sera automatiquement formaté avec des marges A4 lors de l'export PDF</p>
+            <p>✂️ Les mots longs seront coupés avec des tirets si nécessaire</p>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -33,27 +33,16 @@ export const LetterDesigner = ({
   console.log('🎯 LetterDesigner rendered with templateUrl:', templateUrl);
   
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [backgroundImage, setBackgroundImage] = useState<string>("");
   const [isConverting, setIsConverting] = useState(false);
   const [conversionError, setConversionError] = useState(false);
   
-  const handleMouseDown = () => {
-    setIsDragging(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !canvasRef.current) return;
-    
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    onPositionChange({ ...textPosition, x, y });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
+  // Position fixe avec marges raisonnables pour document A4
+  const fixedPosition = {
+    x: 8, // Marge gauche de 8%
+    y: 15, // Marge haute de 15%
+    fontSize: 12,
+    color: "#000000"
   };
 
   // Utilisé directement l'URL du template comme background
@@ -80,58 +69,16 @@ export const LetterDesigner = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Type className="h-5 w-5" />
-          Designer de lettre
+          Prévisualisation
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="fontSize">Taille de police</Label>
-              <Input
-                id="fontSize"
-                type="number"
-                min="8"
-                max="72"
-                value={textPosition.fontSize}
-                onChange={(e) => onPositionChange({ 
-                  ...textPosition, 
-                  fontSize: parseInt(e.target.value) || 12 
-                })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="textColor">Couleur du texte</Label>
-              <Input
-                id="textColor"
-                type="color"
-                value={textPosition.color}
-                onChange={(e) => onPositionChange({ 
-                  ...textPosition, 
-                  color: e.target.value 
-                })}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => onPositionChange({ x: 10, y: 20, fontSize: 12, color: "#000000" })}
-              >
-                <Move className="h-4 w-4 mr-2" />
-                Réinitialiser position
-              </Button>
-            </div>
-          </div>
-
           {/* Preview Canvas */}
           <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
             <div 
               ref={canvasRef}
               className="pdf-container relative w-full aspect-[210/297] mx-auto bg-white max-w-4xl"
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
             >
               {/* PDF Background Image */}
               {backgroundImage ? (
@@ -174,22 +121,19 @@ export const LetterDesigner = ({
               {/* Text Overlay */}
               {(backgroundImage || templateUrl) && (
                 <div
-                  className="text-overlay absolute p-3 border-2 border-dashed border-blue-500 bg-blue-50 bg-opacity-90 rounded cursor-move shadow-sm select-none"
+                  className="text-overlay absolute p-3 border-2 border-dashed border-gray-300 bg-white bg-opacity-90 rounded shadow-sm select-none"
                   style={{
-                    top: `${textPosition.y}%`,
-                    left: `${textPosition.x}%`,
-                    fontSize: `${Math.max(textPosition.fontSize * 0.8, 8)}px`, // Adapter la taille à l'écran
-                    color: textPosition.color,
-                    width: `${85 - textPosition.x}%`, // Largeur dynamique basée sur la position
-                    minWidth: '200px',
-                    maxHeight: `${90 - textPosition.y}%`, // Hauteur dynamique basée sur la position
+                    top: `${fixedPosition.y}%`,
+                    left: `${fixedPosition.x}%`,
+                    fontSize: `${Math.max(fixedPosition.fontSize * 0.8, 8)}px`,
+                    color: fixedPosition.color,
+                    width: `${84}%`, // Largeur fixe avec marges
                     fontFamily: "'Times New Roman', serif",
                     wordWrap: 'break-word',
                     overflowWrap: 'break-word',
                     lineHeight: '1.4',
-                    margin: '8px', // Marge pour éviter les bords
+                    hyphens: 'auto',
                   }}
-                  onMouseDown={handleMouseDown}
                 >
                   <div className="font-bold mb-2">Patient: {patientName}</div>
                   <div className="whitespace-pre-wrap leading-relaxed break-words">
@@ -201,8 +145,8 @@ export const LetterDesigner = ({
           </div>
 
           <div className="text-sm text-gray-600 space-y-1">
-            <p>📝 Cliquez et glissez la zone de texte pour la repositionner</p>
-            <p>🎨 Ajustez la taille et la couleur du texte avec les contrôles ci-dessus</p>
+            <p>📝 Prévisualisation de la lettre avec formatage automatique</p>
+            <p>✏️ Le formatage du contenu se fait dans la section "Contenu de la Lettre"</p>
             {!templateUrl && (
               <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
             )}

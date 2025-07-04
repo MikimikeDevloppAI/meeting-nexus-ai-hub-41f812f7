@@ -75,9 +75,9 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 
     const textColor = hexToRgb(letterData.textPosition.color);
 
-    // Calculate actual position on PDF (convert from percentage)
-    const actualX = (letterData.textPosition.x / 100) * width;
-    const actualY = height - ((letterData.textPosition.y / 100) * height); // Y is inverted in PDF coordinates
+    // Position fixe avec marges raisonnables pour document A4
+    const actualX = width * 0.08; // Marge gauche de 8% 
+    const actualY = height * 0.85; // Position à 85% de la hauteur (marge haute de 15%)
 
     // Add patient name
     const patientText = `Patient: ${letterData.patientName}`;
@@ -155,7 +155,7 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
       // En cas d'erreur, continuer avec le wrapping
     }
 
-    // La ligne est trop longue : découper en mots
+    // La ligne est trop longue : découper en mots avec césure
     const words = line.split(' ');
     let currentLine = '';
 
@@ -166,8 +166,27 @@ function wrapText(text: string, font: any, fontSize: number, maxWidth: number): 
         const textWidth = font.widthOfTextAtSize(testLine, fontSize);
         
         if (textWidth > maxWidth && currentLine) {
-          allLines.push(currentLine);
-          currentLine = word;
+          // Vérifier si on peut couper le mot avec un tiret
+          if (word.length > 10) {
+            // Essayer de couper le mot long
+            let cutPosition = Math.floor(word.length * 0.7);
+            const firstPart = word.substring(0, cutPosition) + '-';
+            const secondPart = word.substring(cutPosition);
+            
+            const testLineWithHyphen = currentLine + (currentLine ? ' ' : '') + firstPart;
+            const hyphenWidth = font.widthOfTextAtSize(testLineWithHyphen, fontSize);
+            
+            if (hyphenWidth <= maxWidth) {
+              allLines.push(testLineWithHyphen);
+              currentLine = secondPart;
+            } else {
+              allLines.push(currentLine);
+              currentLine = word;
+            }
+          } else {
+            allLines.push(currentLine);
+            currentLine = word;
+          }
         } else {
           currentLine = testLine;
         }

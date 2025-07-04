@@ -20,8 +20,8 @@ const PatientLetters = () => {
   const [templateUrl, setTemplateUrl] = useState("");
   const [originalPdfUrl, setOriginalPdfUrl] = useState(""); // URL du PDF original pour la génération
   const [textPosition, setTextPosition] = useState<TextPosition>({
-    x: 10,
-    y: 20,
+    x: 8, // Position fixe avec marge gauche
+    y: 15, // Position fixe avec marge haute
     fontSize: 12,
     color: "#000000"
   });
