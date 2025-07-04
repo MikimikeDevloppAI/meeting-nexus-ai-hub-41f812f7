@@ -99,27 +99,41 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
       color: rgb(textColor.r, textColor.g, textColor.b),
     });
 
-    // Add letter content (with proper line breaks and paragraph spacing)
+    // Add letter content with automatic pagination
     const maxWidth = width - actualX - 50; // Leave some margin
     const lines = wrapText(letterData.letterContent, font, letterData.textPosition.fontSize, maxWidth);
     
     let currentY = actualY - 60; // Start below patient name and date
+    let currentPage = firstPage;
+    let pageIndex = 0;
+    const bottomMargin = 50; // Minimum distance from bottom
+    const lineHeight = letterData.textPosition.fontSize + 4;
+    const paragraphSpacing = letterData.textPosition.fontSize + 8;
     
     lines.forEach((line, index) => {
-      if (currentY > 50) { // Don't go below page margin
-        if (line.trim() === '') {
-          // Ligne vide = espacement de paragraphe
-          currentY -= letterData.textPosition.fontSize + 8; // Plus d'espace pour les paragraphes
-        } else {
-          firstPage.drawText(line, {
-            x: actualX,
-            y: currentY,
-            size: letterData.textPosition.fontSize,
-            font: font,
-            color: rgb(textColor.r, textColor.g, textColor.b),
-          });
-          currentY -= letterData.textPosition.fontSize + 4; // Espacement normal entre les lignes
-        }
+      const spaceNeeded = line.trim() === '' ? paragraphSpacing : lineHeight;
+      
+      // Check if we need a new page
+      if (currentY - spaceNeeded < bottomMargin) {
+        // Create new page
+        const newPage = pdfDoc.addPage([595.28, 841.89]);
+        currentPage = newPage;
+        currentY = height * 0.9; // Start near top of new page
+        pageIndex++;
+      }
+      
+      if (line.trim() === '') {
+        // Ligne vide = espacement de paragraphe
+        currentY -= paragraphSpacing;
+      } else {
+        currentPage.drawText(line, {
+          x: actualX,
+          y: currentY,
+          size: letterData.textPosition.fontSize,
+          font: font,
+          color: rgb(textColor.r, textColor.g, textColor.b),
+        });
+        currentY -= lineHeight;
       }
     });
 
