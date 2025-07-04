@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { calculatePagesNeeded } from "@/utils/pdfUtils";
+import { calculatePagesNeededPrecise } from "@/utils/letterLayout";
 
 interface LetterContentCardProps {
   letterContent: string;
@@ -11,7 +11,7 @@ interface LetterContentCardProps {
 }
 
 export const LetterContentCard = ({ letterContent, setLetterContent }: LetterContentCardProps) => {
-  const pagesNeeded = calculatePagesNeeded(letterContent);
+  const pagesNeeded = calculatePagesNeededPrecise(letterContent);
   const paragraphCount = letterContent.split('\n\n').filter(p => p.trim()).length;
   const lineCount = letterContent.split('\n').length;
 

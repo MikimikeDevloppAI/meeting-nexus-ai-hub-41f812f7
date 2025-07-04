@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Move, Type, Palette } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatTextForPreview, LETTER_CONSTANTS } from "@/utils/letterLayout";
 
 interface TextPosition {
   x: number;
@@ -37,13 +38,16 @@ export const LetterDesigner = ({
   const [isConverting, setIsConverting] = useState(false);
   const [conversionError, setConversionError] = useState(false);
   
-  // Position fixe avec marges raisonnables pour document A4
+  // Utiliser les constantes standardisées
   const fixedPosition = {
-    x: 8, // Marge gauche de 8%
-    y: 15, // Marge haute de 15%
-    fontSize: 12,
-    color: "#000000"
+    x: LETTER_CONSTANTS.MARGIN_LEFT_PERCENT,
+    y: LETTER_CONSTANTS.MARGIN_TOP_PERCENT,
+    fontSize: LETTER_CONSTANTS.FONT_SIZE,
+    color: LETTER_CONSTANTS.DEFAULT_TEXT_COLOR
   };
+
+  // Formatage du texte avec les mêmes règles que le PDF
+  const { lines: formattedLines, pages } = formatTextForPreview(letterContent, fixedPosition.fontSize);
 
   // Utilisé directement l'URL du template comme background
   React.useEffect(() => {
@@ -127,17 +131,27 @@ export const LetterDesigner = ({
                     left: `${fixedPosition.x}%`,
                     fontSize: `${Math.max(fixedPosition.fontSize * 0.8, 8)}px`,
                     color: fixedPosition.color,
-                    width: `${84}%`, // Largeur fixe avec marges
-                    fontFamily: "'Times New Roman', serif",
-                    wordWrap: 'break-word',
-                    overflowWrap: 'break-word',
-                    lineHeight: '1.4',
-                    hyphens: 'auto',
+                    width: `${100 - fixedPosition.x - LETTER_CONSTANTS.MARGIN_RIGHT_PERCENT}%`, // Largeur exacte calculée
+                    fontFamily: LETTER_CONSTANTS.FONT_FAMILY,
+                    lineHeight: `${LETTER_CONSTANTS.LINE_HEIGHT_MULTIPLIER}`,
+                    overflow: 'hidden'
                   }}
                 >
                   <div className="font-bold mb-2">Patient: {patientName}</div>
-                  <div className="whitespace-pre-wrap leading-relaxed break-words">
-                    {letterContent || "Saisissez ou dictez le contenu de votre lettre..."}
+                  <div className="mb-1">Date: {new Date().toLocaleDateString('fr-FR')}</div>
+                  <div style={{ marginTop: '1em' }}>
+                    {formattedLines.length > 0 ? (
+                      formattedLines.map((line, index) => (
+                        <div key={index} style={{ 
+                          marginBottom: line.trim() === '' ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
+                          minHeight: line.trim() === '' ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto'
+                        }}>
+                          {line.trim() !== '' && line}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-gray-400">Saisissez ou dictez le contenu de votre lettre...</div>
+                    )}
                   </div>
                 </div>
               )}

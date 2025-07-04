@@ -1,5 +1,6 @@
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { LETTER_CONSTANTS, getLetterDimensions, wrapTextUnified } from './letterLayout';
 
 interface TextPosition {
   x: number;
@@ -75,9 +76,10 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 
     const textColor = hexToRgb(letterData.textPosition.color);
 
-    // Position fixe avec marges raisonnables pour document A4
-    const actualX = width * 0.08; // Marge gauche de 8% 
-    const actualY = height * 0.85; // Position à 85% de la hauteur (marge haute de 15%)
+    // Utiliser les dimensions standardisées
+    const dimensions = getLetterDimensions();
+    const actualX = dimensions.marginLeft;
+    const actualY = height - dimensions.marginTop;
 
     // Add patient name
     const patientText = `Patient: ${letterData.patientName}`;
@@ -99,15 +101,14 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
       color: rgb(textColor.r, textColor.g, textColor.b),
     });
 
-    // Add letter content with automatic pagination
-    const maxWidth = width - actualX - 50; // Leave some margin
-    const lines = wrapText(letterData.letterContent, font, letterData.textPosition.fontSize, maxWidth);
+    // Add letter content with automatic pagination using unified wrapping
+    const lines = wrapTextUnified(letterData.letterContent, dimensions.usableWidth, letterData.textPosition.fontSize);
     
     let currentY = actualY - 60; // Start below patient name and date
     let currentPage = firstPage;
-    const bottomMargin = 50; // Minimum distance from bottom
-    const lineHeight = letterData.textPosition.fontSize + 4;
-    const paragraphSpacing = letterData.textPosition.fontSize + 8;
+    const bottomMargin = dimensions.marginTop; // Use consistent margin
+    const lineHeight = dimensions.lineHeight;
+    const paragraphSpacing = dimensions.paragraphSpacing;
     
     lines.forEach((line, index) => {
       const spaceNeeded = line.trim() === '' ? paragraphSpacing : lineHeight;
@@ -145,106 +146,30 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
   }
 };
 
-// Calculate how many pages the content will need
+// Calculate how many pages the content will need (now uses unified calculation)
 export const calculatePagesNeeded = (text: string, fontSize: number = 12): number => {
-  const linesPerPage = Math.floor((841.89 * 0.7) / (fontSize + 4)); // Approximate lines per page
-  const lines = text.split('\n');
-  let totalLines = 0;
+  const dimensions = getLetterDimensions();
+  const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
+  
+  // Calculer l'espace nécessaire
+  let totalHeight = 0;
+  const headerHeight = dimensions.lineHeight * 3; // Patient + Date + espacement
+  
+  totalHeight += headerHeight;
   
   lines.forEach(line => {
-    if (line === '') {
-      totalLines += 1; // Empty line for paragraph spacing
+    if (line.trim() === '') {
+      totalHeight += dimensions.paragraphSpacing;
     } else {
-      // Estimate word wrapping - very rough calculation
-      const wordsPerLine = Math.floor(80 / (fontSize * 0.6)); // Rough estimate
-      const words = line.split(' ').length;
-      const linesForThisText = Math.max(1, Math.ceil(words / wordsPerLine));
-      totalLines += linesForThisText;
+      totalHeight += dimensions.lineHeight;
     }
   });
   
-  return Math.max(1, Math.ceil(totalLines / linesPerPage));
+  // Calculer le nombre de pages
+  return Math.max(1, Math.ceil(totalHeight / dimensions.usableHeight));
 };
 
-// Helper function to wrap text with better word breaking
-function wrapText(text: string, font: any, fontSize: number, maxWidth: number): string[] {
-  // Diviser le texte par lignes exactement comme saisi par l'utilisateur
-  const lines = text.split('\n');
-  const allLines: string[] = [];
-
-  lines.forEach(line => {
-    // Ligne vide : ajouter une ligne vide pour marquer les paragraphes
-    if (line.trim() === '') {
-      allLines.push('');
-      return;
-    }
-
-    // Vérifier si la ligne entière tient sur la largeur
-    try {
-      const lineWidth = font.widthOfTextAtSize(line, fontSize);
-      if (lineWidth <= maxWidth) {
-        allLines.push(line);
-        return;
-      }
-    } catch (error) {
-      // En cas d'erreur, continuer avec le wrapping
-    }
-
-    // La ligne est trop longue : découper intelligemment
-    const words = line.split(' ');
-    let currentLine = '';
-
-    words.forEach((word, wordIndex) => {
-      // Tester si on peut ajouter ce mot à la ligne courante
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      
-      try {
-        const testWidth = font.widthOfTextAtSize(testLine, fontSize);
-        
-        if (testWidth <= maxWidth) {
-          // Le mot rentre, on l'ajoute
-          currentLine = testLine;
-        } else {
-          // Le mot ne rentre pas
-          if (currentLine) {
-            // On finalise la ligne courante
-            allLines.push(currentLine);
-            currentLine = word;
-          } else {
-            // Le mot seul est trop long, il faut le couper
-            if (word.length > 15) {
-              // Couper le mot long avec un tiret
-              const cutPoint = Math.floor(word.length * 0.7);
-              const firstPart = word.substring(0, cutPoint) + '-';
-              const secondPart = word.substring(cutPoint);
-              
-              allLines.push(firstPart);
-              currentLine = secondPart;
-            } else {
-              // Mot pas si long, on le met tel quel
-              currentLine = word;
-            }
-          }
-        }
-      } catch (error) {
-        // En cas d'erreur, traitement basique
-        if (currentLine) {
-          allLines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = word;
-        }
-      }
-    });
-    
-    // Ajouter la dernière ligne si elle existe
-    if (currentLine) {
-      allLines.push(currentLine);
-    }
-  });
-  
-  return allLines;
-}
+// Note: wrapText function is now replaced by wrapTextUnified from letterLayout.ts
 
 export const downloadPDF = (pdfBytes: Uint8Array, filename: string) => {
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
