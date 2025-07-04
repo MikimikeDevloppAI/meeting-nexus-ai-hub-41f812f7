@@ -138,7 +138,8 @@ export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize
 // Calcul précis du nombre de pages nécessaires
 export const calculatePagesNeededPrecise = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): number => {
   const dimensions = getLetterDimensions();
-  const wrappedLines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
+  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que le PDF
+  const wrappedLines = wrapTextUnified(text, effectiveWidth, fontSize);
   
   // Calculer l'espace nécessaire
   let totalHeight = 0;
@@ -163,7 +164,8 @@ export const calculatePagesNeededPrecise = (text: string, fontSize: number = LET
 // Fonction pour formater le texte avec les mêmes règles que le PDF
 export const formatTextForPreview = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): { lines: FormattedLine[], pages: number } => {
   const dimensions = getLetterDimensions();
-  const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
+  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que le PDF
+  const lines = wrapTextUnified(text, effectiveWidth, fontSize);
   const pages = calculatePagesNeededPrecise(text, fontSize);
   
   return { lines, pages };

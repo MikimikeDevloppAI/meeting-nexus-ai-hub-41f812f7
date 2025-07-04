@@ -102,7 +102,9 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     });
 
     // Add letter content with automatic pagination using unified wrapping
-    const lines = wrapTextUnified(letterData.letterContent, dimensions.usableWidth, letterData.textPosition.fontSize);
+    // Utiliser exactement la même largeur que dans la prévisualisation
+    const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Réduire pour l'indentation potentielle
+    const lines = wrapTextUnified(letterData.letterContent, effectiveWidth, letterData.textPosition.fontSize);
     
     let currentY = actualY - 60; // Start below patient name and date
     let currentPage = firstPage;
@@ -152,7 +154,8 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
 // Calculate how many pages the content will need (now uses unified calculation)
 export const calculatePagesNeeded = (text: string, fontSize: number = 12): number => {
   const dimensions = getLetterDimensions();
-  const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
+  const effectiveWidth = dimensions.usableWidth - dimensions.paragraphIndent; // Même largeur que dans le PDF
+  const lines = wrapTextUnified(text, effectiveWidth, fontSize);
   
   // Calculer l'espace nécessaire
   let totalHeight = 0;
