@@ -139,14 +139,15 @@ export const LetterDesigner = ({
                 >
                   <div className="font-bold mb-2">Patient: {patientName}</div>
                   <div className="mb-1">Date: {new Date().toLocaleDateString('fr-FR')}</div>
-                  <div style={{ marginTop: '1em' }}>
+                  <div style={{ marginTop: '1em', textAlign: 'justify' }}>
                     {formattedLines.length > 0 ? (
                       formattedLines.map((line, index) => (
                         <div key={index} style={{ 
-                          marginBottom: line.trim() === '' ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
-                          minHeight: line.trim() === '' ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto'
+                          marginBottom: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : '0',
+                          minHeight: line.isEmpty ? `${LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER}em` : 'auto',
+                          textIndent: line.isFirstLineOfParagraph ? `${LETTER_CONSTANTS.PARAGRAPH_INDENT_PERCENT}%` : '0'
                         }}>
-                          {line.trim() !== '' && line}
+                          {!line.isEmpty && line.text}
                         </div>
                       ))
                     ) : (

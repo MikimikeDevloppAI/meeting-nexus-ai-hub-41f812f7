@@ -10,6 +10,9 @@ export const LETTER_CONSTANTS = {
   MARGIN_RIGHT_PERCENT: 8,
   MARGIN_BOTTOM_PERCENT: 6,
   
+  // Indentation des paragraphes
+  PARAGRAPH_INDENT_PERCENT: 5,
+  
   // Espacement
   LINE_HEIGHT_MULTIPLIER: 1.4,
   PARAGRAPH_SPACING_MULTIPLIER: 2,
@@ -29,70 +32,104 @@ export const getLetterDimensions = () => {
   
   const marginLeft = LETTER_CONSTANTS.A4_WIDTH * LETTER_CONSTANTS.MARGIN_LEFT_PERCENT / 100;
   const marginTop = LETTER_CONSTANTS.A4_HEIGHT * LETTER_CONSTANTS.MARGIN_TOP_PERCENT / 100;
+  const marginRight = LETTER_CONSTANTS.A4_WIDTH * LETTER_CONSTANTS.MARGIN_RIGHT_PERCENT / 100;
+  const paragraphIndent = LETTER_CONSTANTS.A4_WIDTH * LETTER_CONSTANTS.PARAGRAPH_INDENT_PERCENT / 100;
   
   return {
     usableWidth,
     usableHeight,
     marginLeft,
     marginTop,
+    marginRight,
+    paragraphIndent,
     lineHeight: LETTER_CONSTANTS.FONT_SIZE * LETTER_CONSTANTS.LINE_HEIGHT_MULTIPLIER,
     paragraphSpacing: LETTER_CONSTANTS.FONT_SIZE * LETTER_CONSTANTS.PARAGRAPH_SPACING_MULTIPLIER
   };
 };
 
-// Fonction de wrapping de texte unifié (utilisée par la prévisualisation ET le PDF)
-export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): string[] => {
-  const lines = text.split('\n');
-  const wrappedLines: string[] = [];
+// Structure pour représenter une ligne avec ses propriétés
+export interface FormattedLine {
+  text: string;
+  isFirstLineOfParagraph: boolean;
+  isEmpty: boolean;
+}
+
+// Fonction de wrapping de texte unifié avec gestion des paragraphes
+export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): FormattedLine[] => {
+  const paragraphs = text.split('\n\n'); // Séparer par double saut de ligne
+  const wrappedLines: FormattedLine[] = [];
   
   // Estimation approximative : Times New Roman fait environ 0.6 * fontSize en largeur moyenne par caractère
   const avgCharWidth = fontSize * 0.6;
-  const maxCharsPerLine = Math.floor(maxWidthInPoints / avgCharWidth);
+  const dimensions = getLetterDimensions();
   
-  lines.forEach(line => {
-    if (line.trim() === '') {
-      wrappedLines.push('');
+  // Calculer les largeurs pour ligne normale et ligne avec indentation
+  const maxCharsPerLine = Math.floor(maxWidthInPoints / avgCharWidth);
+  const maxCharsPerIndentedLine = Math.floor((maxWidthInPoints - dimensions.paragraphIndent) / avgCharWidth);
+  
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    if (paragraph.trim() === '') {
+      // Paragraphe vide = espacement
+      wrappedLines.push({ text: '', isEmpty: true, isFirstLineOfParagraph: false });
       return;
     }
     
-    // Si la ligne est courte, l'ajouter directement
-    if (line.length <= maxCharsPerLine) {
-      wrappedLines.push(line);
-      return;
-    }
+    const lines = paragraph.split('\n'); // Gérer les sauts de ligne simples dans le paragraphe
     
-    // Découper la ligne en mots
-    const words = line.split(' ');
-    let currentLine = '';
-    
-    words.forEach((word, wordIndex) => {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
+    lines.forEach((line, lineIndex) => {
+      if (line.trim() === '') {
+        wrappedLines.push({ text: '', isEmpty: true, isFirstLineOfParagraph: false });
+        return;
+      }
       
-      if (testLine.length <= maxCharsPerLine) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) {
-          wrappedLines.push(currentLine);
-          currentLine = word;
+      const words = line.split(' ');
+      let currentLine = '';
+      let isFirstLineOfCurrentParagraph = lineIndex === 0;
+      
+      words.forEach((word, wordIndex) => {
+        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+        const maxChars = isFirstLineOfCurrentParagraph ? maxCharsPerIndentedLine : maxCharsPerLine;
+        
+        if (testLine.length <= maxChars) {
+          currentLine = testLine;
         } else {
-          // Mot trop long, le couper avec tiret
-          if (word.length > maxCharsPerLine && maxCharsPerLine > 5) {
-            const cutPoint = Math.floor(maxCharsPerLine * 0.8);
-            const firstPart = word.substring(0, cutPoint) + '-';
-            const secondPart = word.substring(cutPoint);
-            
-            wrappedLines.push(firstPart);
-            currentLine = secondPart;
-          } else {
+          if (currentLine) {
+            wrappedLines.push({ 
+              text: currentLine, 
+              isEmpty: false, 
+              isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
+            });
             currentLine = word;
+            isFirstLineOfCurrentParagraph = false; // Les lignes suivantes ne sont plus des premières lignes
+          } else {
+            // Mot trop long, le couper avec tiret
+            if (word.length > maxChars && maxChars > 5) {
+              const cutPoint = Math.floor(maxChars * 0.8);
+              const firstPart = word.substring(0, cutPoint) + '-';
+              const secondPart = word.substring(cutPoint);
+              
+              wrappedLines.push({ 
+                text: firstPart, 
+                isEmpty: false, 
+                isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
+              });
+              currentLine = secondPart;
+              isFirstLineOfCurrentParagraph = false;
+            } else {
+              currentLine = word;
+            }
           }
         }
+      });
+      
+      if (currentLine) {
+        wrappedLines.push({ 
+          text: currentLine, 
+          isEmpty: false, 
+          isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
+        });
       }
     });
-    
-    if (currentLine) {
-      wrappedLines.push(currentLine);
-    }
   });
   
   return wrappedLines;
@@ -110,7 +147,7 @@ export const calculatePagesNeededPrecise = (text: string, fontSize: number = LET
   totalHeight += headerHeight;
   
   wrappedLines.forEach(line => {
-    if (line.trim() === '') {
+    if (line.isEmpty) {
       totalHeight += dimensions.paragraphSpacing;
     } else {
       totalHeight += dimensions.lineHeight;
@@ -124,7 +161,7 @@ export const calculatePagesNeededPrecise = (text: string, fontSize: number = LET
 };
 
 // Fonction pour formater le texte avec les mêmes règles que le PDF
-export const formatTextForPreview = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): { lines: string[], pages: number } => {
+export const formatTextForPreview = (text: string, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): { lines: FormattedLine[], pages: number } => {
   const dimensions = getLetterDimensions();
   const lines = wrapTextUnified(text, dimensions.usableWidth, fontSize);
   const pages = calculatePagesNeededPrecise(text, fontSize);

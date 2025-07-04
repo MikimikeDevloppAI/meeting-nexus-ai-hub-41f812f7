@@ -111,24 +111,27 @@ export const generateLetterPDF = async (letterData: LetterData): Promise<Uint8Ar
     const paragraphSpacing = dimensions.paragraphSpacing;
     
     lines.forEach((line, index) => {
-      const spaceNeeded = line.trim() === '' ? paragraphSpacing : lineHeight;
+      const spaceNeeded = line.isEmpty ? paragraphSpacing : lineHeight;
       
       // Check if we need a new page (only if we actually have content to add)
-      if (currentY - spaceNeeded < bottomMargin && line.trim() !== '') {
+      if (currentY - spaceNeeded < bottomMargin && !line.isEmpty) {
         // Create new page only when needed
         const newPage = pdfDoc.addPage([595.28, 841.89]);
         currentPage = newPage;
         currentY = height * 0.9; // Start near top of new page
       }
       
-      if (line.trim() === '') {
+      if (line.isEmpty) {
         // Ligne vide = espacement de paragraphe (seulement si on a de la place)
         if (currentY - paragraphSpacing >= bottomMargin) {
           currentY -= paragraphSpacing;
         }
       } else {
-        currentPage.drawText(line, {
-          x: actualX,
+        // Calculer la position X selon si c'est une première ligne de paragraphe
+        const textX = line.isFirstLineOfParagraph ? actualX + dimensions.paragraphIndent : actualX;
+        
+        currentPage.drawText(line.text, {
+          x: textX,
           y: currentY,
           size: letterData.textPosition.fontSize,
           font: font,
@@ -158,7 +161,7 @@ export const calculatePagesNeeded = (text: string, fontSize: number = 12): numbe
   totalHeight += headerHeight;
   
   lines.forEach(line => {
-    if (line.trim() === '') {
+    if (line.isEmpty) {
       totalHeight += dimensions.paragraphSpacing;
     } else {
       totalHeight += dimensions.lineHeight;
