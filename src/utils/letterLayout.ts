@@ -54,7 +54,7 @@ export interface FormattedLine {
   isEmpty: boolean;
 }
 
-// Fonction de wrapping de texte unifié avec gestion des paragraphes
+// Fonction de wrapping de texte unifié qui respecte les passages à la ligne originaux
 export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize: number = LETTER_CONSTANTS.FONT_SIZE): FormattedLine[] => {
   const paragraphs = text.split('\n\n'); // Séparer par double saut de ligne
   const wrappedLines: FormattedLine[] = [];
@@ -75,7 +75,7 @@ export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize
       return;
     }
     
-    const lines = paragraph.split('\n'); // Gérer les sauts de ligne simples dans le paragraphe
+    const lines = paragraph.split('\n'); // Respecter les sauts de ligne simples dans le paragraphe
     
     lines.forEach((line, lineIndex) => {
       if (line.trim() === '') {
@@ -83,52 +83,66 @@ export const wrapTextUnified = (text: string, maxWidthInPoints: number, fontSize
         return;
       }
       
-      const words = line.split(' ');
-      let currentLine = '';
-      let isFirstLineOfCurrentParagraph = lineIndex === 0;
+      // Respecter les passages à la ligne originaux - ne wrapper que si la ligne est trop longue
+      const isFirstLineOfCurrentParagraph = lineIndex === 0;
+      const maxChars = isFirstLineOfCurrentParagraph ? maxCharsPerIndentedLine : maxCharsPerLine;
       
-      words.forEach((word, wordIndex) => {
-        const testLine = currentLine + (currentLine ? ' ' : '') + word;
-        const maxChars = isFirstLineOfCurrentParagraph ? maxCharsPerIndentedLine : maxCharsPerLine;
-        
-        if (testLine.length <= maxChars) {
-          currentLine = testLine;
-        } else {
-          if (currentLine) {
-            wrappedLines.push({ 
-              text: currentLine, 
-              isEmpty: false, 
-              isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
-            });
-            currentLine = word;
-            isFirstLineOfCurrentParagraph = false; // Les lignes suivantes ne sont plus des premières lignes
-          } else {
-            // Mot trop long, le couper avec tiret
-            if (word.length > maxChars && maxChars > 5) {
-              const cutPoint = Math.floor(maxChars * 0.8);
-              const firstPart = word.substring(0, cutPoint) + '-';
-              const secondPart = word.substring(cutPoint);
-              
-              wrappedLines.push({ 
-                text: firstPart, 
-                isEmpty: false, 
-                isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
-              });
-              currentLine = secondPart;
-              isFirstLineOfCurrentParagraph = false;
-            } else {
-              currentLine = word;
-            }
-          }
-        }
-      });
-      
-      if (currentLine) {
+      if (line.length <= maxChars) {
+        // La ligne tient, on la garde telle quelle
         wrappedLines.push({ 
-          text: currentLine, 
+          text: line, 
           isEmpty: false, 
           isFirstLineOfParagraph: isFirstLineOfCurrentParagraph 
         });
+      } else {
+        // La ligne est trop longue, on doit la wrapper
+        const words = line.split(' ');
+        let currentLine = '';
+        let isFirstSubLine = true;
+        
+        words.forEach((word, wordIndex) => {
+          const testLine = currentLine + (currentLine ? ' ' : '') + word;
+          const currentMaxChars = (isFirstLineOfCurrentParagraph && isFirstSubLine) ? maxCharsPerIndentedLine : maxCharsPerLine;
+          
+          if (testLine.length <= currentMaxChars) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              wrappedLines.push({ 
+                text: currentLine, 
+                isEmpty: false, 
+                isFirstLineOfParagraph: isFirstLineOfCurrentParagraph && isFirstSubLine 
+              });
+              currentLine = word;
+              isFirstSubLine = false;
+            } else {
+              // Mot trop long, le couper avec tiret
+              if (word.length > currentMaxChars && currentMaxChars > 5) {
+                const cutPoint = Math.floor(currentMaxChars * 0.8);
+                const firstPart = word.substring(0, cutPoint) + '-';
+                const secondPart = word.substring(cutPoint);
+                
+                wrappedLines.push({ 
+                  text: firstPart, 
+                  isEmpty: false, 
+                  isFirstLineOfParagraph: isFirstLineOfCurrentParagraph && isFirstSubLine 
+                });
+                currentLine = secondPart;
+                isFirstSubLine = false;
+              } else {
+                currentLine = word;
+              }
+            }
+          }
+        });
+        
+        if (currentLine) {
+          wrappedLines.push({ 
+            text: currentLine, 
+            isEmpty: false, 
+            isFirstLineOfParagraph: isFirstLineOfCurrentParagraph && isFirstSubLine 
+          });
+        }
       }
     });
   });
