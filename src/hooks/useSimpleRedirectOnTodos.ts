@@ -44,7 +44,7 @@ export const useSimpleRedirectOnTodos = (
         console.log('[SimpleRedirect] 📊 État:', { todosCount, elapsedTime });
 
         if (todosCount > 0) {
-          console.log('[SimpleRedirect] ✅ Todos détectés! Attente de 30 secondes avant redirection...');
+          console.log('[SimpleRedirect] ✅ Todos détectés! Attente de 5 secondes avant redirection...');
           
           // Nettoyer l'intervalle de vérification
           if (intervalRef.current) {
@@ -52,7 +52,7 @@ export const useSimpleRedirectOnTodos = (
             intervalRef.current = null;
           }
 
-          // Attendre 30 secondes puis rediriger
+          // Attendre 5 secondes puis rediriger
           timeoutRef.current = setTimeout(() => {
             if (!hasRedirectedRef.current) {
               hasRedirectedRef.current = true;
@@ -64,7 +64,7 @@ export const useSimpleRedirectOnTodos = (
               
               navigate(`/meetings/${meetingId}`);
             }
-          }, 30000); // 30 secondes
+          }, 5000); // 5 secondes
         }
       } catch (error) {
         console.error('[SimpleRedirect] ❌ Erreur:', error);
