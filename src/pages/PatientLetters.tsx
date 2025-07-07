@@ -18,7 +18,7 @@ const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [templateUrl, setTemplateUrl] = useState("");
-  const [originalPdfUrl, setOriginalPdfUrl] = useState(""); // URL du PDF original pour la génération
+  const [originalWordUrl, setOriginalWordUrl] = useState(""); // URL du Word original pour la génération
   const [textPosition, setTextPosition] = useState<TextPosition>({
     x: 8, // Position fixe avec marge gauche
     y: 15, // Position fixe avec marge haute
@@ -232,7 +232,7 @@ const PatientLetters = () => {
     setPatientName("");
     setLetterContent("");
     setTemplateUrl("");
-    setOriginalPdfUrl("");
+    setOriginalWordUrl("");
     setTextPosition({ x: 10, y: 20, fontSize: 12, color: "#000000" });
     toast({
       title: "Formulaire vidé",
@@ -245,7 +245,7 @@ const PatientLetters = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres professionnelles avec papier à en-tête, dictée vocale et export Word
+          Créez des lettres professionnelles avec template Word, dictée vocale et export Word
         </p>
       </div>
 
@@ -256,10 +256,10 @@ const PatientLetters = () => {
         />
         
         <LetterTemplateUpload 
-          onTemplateUploaded={(url, pdfUrl) => {
-            console.log('🚀 Template uploaded callback with URL:', url, 'PDF URL:', pdfUrl);
+          onTemplateUploaded={(url, wordUrl) => {
+            console.log('🚀 Template uploaded callback with URL:', url, 'Word URL:', wordUrl);
             setTemplateUrl(url);
-            setOriginalPdfUrl(pdfUrl || url);
+            setOriginalWordUrl(wordUrl || url);
           }}
           currentTemplate={templateUrl}
         />
@@ -287,7 +287,7 @@ const PatientLetters = () => {
         <LetterActionsCard 
           patientName={patientName}
           letterContent={letterContent}
-          templateUrl={originalPdfUrl || templateUrl} // Utiliser le PDF original pour la génération
+          templateUrl={originalWordUrl || templateUrl} // Utiliser le Word original pour la génération
           textPosition={textPosition}
           saveLetterLocally={saveLetterLocally}
           exportAsText={exportAsText}

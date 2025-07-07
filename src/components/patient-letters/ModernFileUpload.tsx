@@ -17,7 +17,7 @@ export const ModernFileUpload = ({
   onFileSelect,
   isUploading,
   uploadProgress = 0,
-  accept = { 'application/pdf': ['.pdf'] },
+  accept = { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] },
   maxSize = 10 * 1024 * 1024, // 10MB
   className = ''
 }: ModernFileUploadProps) => {
@@ -111,14 +111,14 @@ export const ModernFileUpload = ({
                   {isDragActive ? 'Déposez votre fichier' : 'Uploadez votre papier à en-tête'}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  Glissez-déposez votre fichier PDF ici, ou cliquez pour sélectionner
+                  Glissez-déposez votre fichier Word ici, ou cliquez pour sélectionner
                 </p>
               </div>
 
               <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
                 <span className="bg-accent px-2 py-1 rounded-md">
                   <FileText className="h-3 w-3 inline mr-1" />
-                  PDF uniquement
+                  Word uniquement
                 </span>
                 <span className="bg-accent px-2 py-1 rounded-md">
                   Max 10 MB

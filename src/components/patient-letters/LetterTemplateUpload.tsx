@@ -16,7 +16,7 @@ interface LetterTemplate {
 }
 
 interface LetterTemplateUploadProps {
-  onTemplateUploaded: (templateUrl: string, originalPdfUrl?: string) => void;
+  onTemplateUploaded: (templateUrl: string, originalWordUrl?: string) => void;
   currentTemplate?: string;
 }
 
@@ -45,16 +45,16 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     }
   };
 
-  const saveTemplateToDatabase = async (filename: string, fileUrl: string, originalPdfUrl?: string) => {
+  const saveTemplateToDatabase = async (filename: string, fileUrl: string, originalWordUrl?: string) => {
     try {
-      console.log('💾 Saving template to database:', { filename, fileUrl, originalPdfUrl });
+      console.log('💾 Saving template to database:', { filename, fileUrl, originalWordUrl });
       
       const { error } = await supabase
         .from('letter_templates')
         .insert({
           filename,
           file_url: fileUrl,
-          original_pdf_url: originalPdfUrl || fileUrl,
+          original_pdf_url: originalWordUrl || fileUrl,
           user_id: null // Publique pour tous
         });
 
@@ -82,11 +82,11 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     console.log('📁 handleFileSelect triggered');
     console.log('📄 File selected:', file);
     
-    if (file.type !== 'application/pdf') {
+    if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       console.log('❌ Wrong file type:', file.type);
       toast({
         title: "Erreur",
-        description: "Seuls les fichiers PDF sont acceptés",
+        description: "Seuls les fichiers Word (.docx) sont acceptés",
         variant: "destructive",
       });
       return;
@@ -96,7 +96,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
     setIsUploading(true);
 
     try {
-      const fileName = `template_${Date.now()}.pdf`;
+      const fileName = `template_${Date.now()}.docx`;
       console.log('📤 Uploading to bucket with filename:', fileName);
       
       const { data, error } = await supabase.storage
@@ -117,47 +117,16 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
 
       console.log('🔗 Public URL data:', urlData);
       
-      // Appeler l'edge function pour convertir le PDF en image
-      console.log('🔄 About to call convert-pdf-to-image edge function...');
-      
-      let finalImageUrl = urlData.publicUrl;
-      let finalFilename = file.name;
-      
-      try {
-        const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-pdf-to-image', {
-          body: { pdfUrl: urlData.publicUrl }
-        });
+      // Pas de conversion nécessaire pour les fichiers Word
+      onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
 
-        console.log('🔄 Edge function response - data:', conversionData);
-        console.log('🔄 Edge function response - error:', conversionError);
-
-        if (conversionError) {
-          console.error('❌ Conversion error:', conversionError);
-          onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
-          finalImageUrl = urlData.publicUrl;
-        } else if (conversionData?.success) {
-          console.log('✅ PDF converted to image successfully:', conversionData.imageUrl);
-          onTemplateUploaded(conversionData.imageUrl, urlData.publicUrl);
-          finalImageUrl = conversionData.imageUrl;
-          finalFilename = file.name.replace('.pdf', ' (PNG)');
-        } else {
-          console.error('❌ Conversion failed:', conversionData?.error);
-          onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
-          finalImageUrl = urlData.publicUrl;
-        }
-      } catch (error) {
-        console.error('❌ Exception during conversion:', error);
-        onTemplateUploaded(urlData.publicUrl, urlData.publicUrl);
-        finalImageUrl = urlData.publicUrl;
-      }
-
-      // Sauvegarder en base de données avec l'URL du PNG converti
+      // Sauvegarder en base de données
       console.log('💾 Saving to database...');
-      await saveTemplateToDatabase(finalFilename, finalImageUrl, urlData.publicUrl);
+      await saveTemplateToDatabase(file.name, urlData.publicUrl, urlData.publicUrl);
 
       toast({
         title: "Template uploadé",
-        description: "Votre papier à en-tête a été uploadé et sauvegardé avec succès",
+        description: "Votre template Word a été uploadé et sauvegardé avec succès",
       });
     } catch (error) {
       console.error("❌ Error uploading template:", error);
@@ -227,7 +196,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
   const getCurrentTemplateName = () => {
     if (!currentTemplate) return null;
     const currentTemplateData = savedTemplates.find(template => template.file_url === currentTemplate);
-    return currentTemplateData?.filename || "Template PDF actif";
+    return currentTemplateData?.filename || "Template Word actif";
   };
 
   return (
@@ -235,7 +204,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Papier à en-tête
+          Template Word
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -300,6 +269,7 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             onFileSelect={handleFileSelect}
             isUploading={isUploading}
             uploadProgress={isUploading ? 50 : 0}
+            accept={{ 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }}
             className="w-full"
           />
 

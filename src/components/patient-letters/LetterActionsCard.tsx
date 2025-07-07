@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { generateLetterWord, downloadWord, printWord } from "@/utils/wordUtils";
+import { generateLetterFromTemplate, downloadWord, printWord } from "@/utils/wordTemplateUtils";
 
 interface TextPosition {
   x: number;
@@ -47,7 +47,7 @@ export const LetterActionsCard = ({
     setIsGenerating(true);
 
     try {
-      const wordBytes = await generateLetterWord({
+      const wordBytes = await generateLetterFromTemplate({
         patientName,
         letterContent,
         templateUrl,
@@ -87,7 +87,7 @@ export const LetterActionsCard = ({
     setIsGenerating(true);
 
     try {
-      const wordBytes = await generateLetterWord({
+      const wordBytes = await generateLetterFromTemplate({
         patientName,
         letterContent,
         templateUrl,
