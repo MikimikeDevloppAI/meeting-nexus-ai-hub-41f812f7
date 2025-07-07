@@ -213,8 +213,9 @@ export const generateLetterWord = async (letterData: LetterData): Promise<Uint8A
 
     const doc = new Document(docConfig);
 
-    // Générer et retourner le buffer
-    const buffer = await Packer.toBuffer(doc);
+    // Générer et retourner le blob (compatible navigateur)
+    const blob = await Packer.toBlob(doc);
+    const buffer = await blob.arrayBuffer();
     return new Uint8Array(buffer);
   } catch (error) {
     console.error('Erreur lors de la génération du document Word:', error);
