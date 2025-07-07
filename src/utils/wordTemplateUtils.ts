@@ -52,9 +52,19 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     };
 
     console.log('📝 Données du template:', templateData);
+    console.log('🔍 Template détecté - recherche des balises dans le document...');
 
-    // Remplacer les balises dans le template
-    doc.render(templateData);
+    try {
+      // Remplacer les balises dans le template
+      doc.render(templateData);
+      console.log('✅ Balises remplacées avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors du remplacement des balises:', error);
+      if (error.message && error.message.includes('ReferenceError')) {
+        throw new Error(`Balise manquante dans le template Word. Assurez-vous que votre template contient les balises: {{patientName}}, {{date}}, {{letterContent}}. Erreur: ${error.message}`);
+      }
+      throw error;
+    }
 
     // Générer le document modifié
     const buffer = doc.getZip().generate({

@@ -273,6 +273,19 @@ export const LetterTemplateUpload = ({ onTemplateUploaded, currentTemplate }: Le
             className="w-full"
           />
 
+          {/* Instructions pour les balises */}
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm font-medium text-blue-800 mb-2">Balises requises dans votre template Word:</p>
+            <div className="text-xs text-blue-600 space-y-1">
+              <p><code className="bg-white px-1 rounded">{"{{patientName}}"}</code> - Sera remplacé par le nom du patient</p>
+              <p><code className="bg-white px-1 rounded">{"{{date}}"}</code> - Sera remplacé par la date du jour</p>
+              <p><code className="bg-white px-1 rounded">{"{{letterContent}}"}</code> - Sera remplacé par le contenu de la lettre</p>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              💡 Tapez ces balises exactement dans votre document Word où vous voulez que le texte apparaisse
+            </p>
+          </div>
+
           {savedTemplates.length > 0 && (
             <div className="text-xs text-gray-500">
               💡 Cliquez sur un template sauvegardé pour l'utiliser dans votre lettre
