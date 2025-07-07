@@ -1,12 +1,15 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
 import { DocumentPreview } from "./DocumentPreview";
 import { UnifiedDocumentItem } from "@/types/unified-document";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CompactDocumentItemProps {
   document: UnifiedDocumentItem;
@@ -25,6 +28,18 @@ export const CompactDocumentItem = ({
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(document.ai_generated_name || document.original_name);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isEditingTitle && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditingTitle]);
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return 'N/A';
@@ -35,6 +50,70 @@ export const CompactDocumentItem = ({
   const handleMetadataUpdate = () => {
     if (onUpdate) {
       onUpdate();
+    }
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleSave = async () => {
+    if (editedTitle.trim() === (document.ai_generated_name || document.original_name)) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      if (document.type === 'meeting') {
+        const { error } = await supabase
+          .from('meetings')
+          .update({ title: editedTitle.trim() })
+          .eq('id', document.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('uploaded_documents')
+          .update({ ai_generated_name: editedTitle.trim() })
+          .eq('id', document.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Titre mis à jour",
+        description: "Le titre a été modifié avec succès",
+      });
+
+      setIsEditingTitle(false);
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du titre:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le titre",
+        variant: "destructive",
+      });
+      setEditedTitle(document.ai_generated_name || document.original_name);
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setEditedTitle(document.ai_generated_name || document.original_name);
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTitleSave();
+    } else if (e.key === 'Escape') {
+      handleTitleCancel();
     }
   };
 
@@ -80,9 +159,53 @@ export const CompactDocumentItem = ({
               ) : (
                 <FileText className="h-4 w-4 text-gray-600 flex-shrink-0" />
               )}
-              <h3 className="font-medium text-sm truncate flex-1 min-w-0">
-                {document.ai_generated_name || document.original_name}
-              </h3>
+              
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Input
+                    ref={inputRef}
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onKeyDown={handleTitleKeyPress}
+                    onBlur={handleTitleSave}
+                    className="text-sm font-medium h-8 flex-1"
+                    disabled={isSavingTitle}
+                  />
+                  {isSavingTitle ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  ) : (
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        onClick={handleTitleSave}
+                      >
+                        <Check className="h-3 w-3 text-green-600" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        onClick={handleTitleCancel}
+                      >
+                        <X className="h-3 w-3 text-red-600" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-1 min-w-0 group">
+                  <h3 
+                    className="font-medium text-sm truncate flex-1 min-w-0 cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={handleTitleClick}
+                    title="Cliquer pour modifier le titre"
+                  >
+                    {document.ai_generated_name || document.original_name}
+                  </h3>
+                  <Edit3 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-1 mb-2">
@@ -226,9 +349,9 @@ export const CompactDocumentItem = ({
                   ) : (
                     <FileText className="h-5 w-5 text-gray-600 flex-shrink-0" />
                   )}
-                  <h2 className="text-base lg:text-lg font-semibold truncate">
-                    {document.ai_generated_name || document.original_name}
-                  </h2>
+                   <h2 className="text-base lg:text-lg font-semibold truncate">
+                     {isEditingTitle ? editedTitle : (document.ai_generated_name || document.original_name)}
+                   </h2>
                   {/* Statut de traitement dans le header */}
                   {!isMeeting && (
                     <div className="ml-2">
