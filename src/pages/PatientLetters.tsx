@@ -245,7 +245,7 @@ const PatientLetters = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres professionnelles avec papier à en-tête, dictée vocale et export PDF
+          Créez des lettres professionnelles avec papier à en-tête, dictée vocale et export Word
         </p>
       </div>
 

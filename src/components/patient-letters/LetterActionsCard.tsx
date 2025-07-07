@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { generateLetterPDF, downloadPDF, printPDF } from "@/utils/pdfUtils";
+import { generateLetterWord, downloadWord, printWord } from "@/utils/wordUtils";
 
 interface TextPosition {
   x: number;
@@ -34,7 +34,7 @@ export const LetterActionsCard = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const handleSavePDF = async () => {
+  const handleSaveWord = async () => {
     if (!patientName.trim() || !letterContent.trim()) {
       toast({
         title: "Données incomplètes",
@@ -47,27 +47,26 @@ export const LetterActionsCard = ({
     setIsGenerating(true);
 
     try {
-      const pdfBytes = await generateLetterPDF({
+      const wordBytes = await generateLetterWord({
         patientName,
         letterContent,
         templateUrl,
         textPosition
       });
 
-      const filename = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.docx`;
       
-      // Utiliser le téléchargement direct qui fonctionne partout
-      downloadPDF(pdfBytes, filename);
+      downloadWord(wordBytes, filename);
       
       toast({
-        title: "PDF téléchargé",
-        description: "La lettre a été téléchargée en PDF dans votre dossier de téléchargements",
+        title: "Document Word téléchargé",
+        description: "La lettre a été téléchargée en format Word dans votre dossier de téléchargements",
       });
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      console.error("Error generating Word:", error);
       toast({
-        title: "Erreur PDF",
-        description: "Impossible de générer le PDF. Vérifiez le contenu de la lettre.",
+        title: "Erreur Word",
+        description: "Impossible de générer le document Word. Vérifiez le contenu de la lettre.",
         variant: "destructive",
       });
     } finally {
@@ -88,24 +87,24 @@ export const LetterActionsCard = ({
     setIsGenerating(true);
 
     try {
-      const pdfBytes = await generateLetterPDF({
+      const wordBytes = await generateLetterWord({
         patientName,
         letterContent,
         templateUrl,
         textPosition
       });
 
-      printPDF(pdfBytes);
+      printWord(wordBytes);
 
       toast({
         title: "Impression lancée",
-        description: "Le PDF a été envoyé à l'imprimante",
+        description: "Le document Word a été ouvert pour impression",
       });
     } catch (error) {
-      console.error("Error printing PDF:", error);
+      console.error("Error printing Word:", error);
       toast({
         title: "Erreur d'impression",
-        description: "Impossible d'imprimer le PDF",
+        description: "Impossible d'imprimer le document Word",
         variant: "destructive",
       });
     } finally {
@@ -121,7 +120,7 @@ export const LetterActionsCard = ({
       <CardContent>
         <div className="flex flex-wrap gap-3">
           <Button 
-            onClick={handleSavePDF} 
+            onClick={handleSaveWord} 
             className="flex items-center gap-2"
             disabled={isGenerating}
           >
@@ -130,7 +129,7 @@ export const LetterActionsCard = ({
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Sauvegarder PDF
+            Sauvegarder Word
           </Button>
           
           <Button 
@@ -144,7 +143,7 @@ export const LetterActionsCard = ({
             ) : (
               <Printer className="h-4 w-4" />
             )}
-            Imprimer PDF
+            Imprimer Word
           </Button>
           
           <Button onClick={clearForm} variant="outline">
