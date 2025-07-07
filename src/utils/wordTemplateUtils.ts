@@ -1,7 +1,5 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
-import { LETTER_CONSTANTS, getLetterDimensions, wrapTextUnified } from './letterLayout';
 
 interface TextPosition {
   x: number;
@@ -17,7 +15,7 @@ interface LetterData {
   textPosition: TextPosition;
 }
 
-// Lire et modifier un template Word existant
+// Modifier un template Word existant avec docxtemplater
 export const generateLetterFromTemplate = async (letterData: LetterData): Promise<Uint8Array> => {
   try {
     if (!letterData.templateUrl) {
@@ -35,118 +33,46 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     const templateBuffer = await templateResponse.arrayBuffer();
     console.log('✅ Template téléchargé, taille:', templateBuffer.byteLength);
 
-    // Pour l'instant, on utilise docxtemplater ou une approche similaire pour injecter le texte
-    // Ici on va créer un nouveau document basé sur le template
-    const dimensions = getLetterDimensions();
-    const lines = wrapTextUnified(letterData.letterContent, dimensions.usableWidth, letterData.textPosition.fontSize);
-
-    // Créer les paragraphes de contenu
-    const paragraphs: Paragraph[] = [];
-
-    // En-tête avec nom du patient
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Patient: ${letterData.patientName}`,
-            bold: true,
-            size: (letterData.textPosition.fontSize + 2) * 2,
-            font: LETTER_CONSTANTS.FONT_FAMILY.split(',')[0].trim(),
-          })
-        ],
-        spacing: { after: 200 }
-      })
-    );
-
-    // Date
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Date: ${new Date().toLocaleDateString('fr-FR')}`,
-            size: letterData.textPosition.fontSize * 2,
-            font: LETTER_CONSTANTS.FONT_FAMILY.split(',')[0].trim(),
-          })
-        ],
-        spacing: { after: 300 }
-      })
-    );
-
-    // Contenu principal
-    let currentParagraphRuns: TextRun[] = [];
-    let isFirstLineOfParagraph = true;
-
-    lines.forEach((line) => {
-      if (line.isEmpty) {
-        if (currentParagraphRuns.length > 0) {
-          paragraphs.push(
-            new Paragraph({
-              children: currentParagraphRuns,
-              alignment: AlignmentType.JUSTIFIED,
-              spacing: { after: 200 }
-            })
-          );
-          currentParagraphRuns = [];
-        }
-        isFirstLineOfParagraph = true;
-      } else {
-        if (currentParagraphRuns.length > 0) {
-          currentParagraphRuns.push(new TextRun({ text: '\n' }));
-        }
-        
-        currentParagraphRuns.push(
-          new TextRun({
-            text: line.text,
-            size: letterData.textPosition.fontSize * 2,
-            font: LETTER_CONSTANTS.FONT_FAMILY.split(',')[0].trim(),
-          })
-        );
-        
-        if (line.isFirstLineOfParagraph) {
-          isFirstLineOfParagraph = false;
-        }
-      }
+    // Créer un PizZip à partir du template
+    const zip = new PizZip(templateBuffer);
+    
+    // Initialiser docxtemplater avec le template
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
     });
 
-    if (currentParagraphRuns.length > 0) {
-      paragraphs.push(
-        new Paragraph({
-          children: currentParagraphRuns,
-          alignment: AlignmentType.JUSTIFIED,
-        })
-      );
-    }
+    // Préparer les données à injecter dans le template
+    const templateData = {
+      patientName: letterData.patientName,
+      date: new Date().toLocaleDateString('fr-FR'),
+      letterContent: letterData.letterContent,
+      // Formatage du contenu en paragraphes pour un meilleur rendu
+      letterParagraphs: letterData.letterContent.split('\n').filter(p => p.trim()).map(p => ({ text: p.trim() }))
+    };
 
-    // Créer un nouveau document avec les paragraphes
-    // Note: Pour une vraie modification de template, il faudrait utiliser une bibliothèque 
-    // comme docxtemplater, mais pour maintenant on crée un nouveau document
-    const doc = new Document({
-      sections: [{
-        children: paragraphs,
-        properties: {
-          page: {
-            size: {
-              orientation: 'portrait',
-              width: 11906, // A4 width in twips
-              height: 16838, // A4 height in twips
-            },
-            margin: {
-              top: 1440,
-              right: 1440,
-              bottom: 1440,
-              left: 1440,
-            },
-          },
-        },
-      }],
+    console.log('📝 Données du template:', templateData);
+
+    // Remplacer les balises dans le template
+    doc.render(templateData);
+
+    // Générer le document modifié
+    const buffer = doc.getZip().generate({
+      type: 'uint8array',
+      compression: 'DEFLATE',
     });
 
-    const blob = await Packer.toBlob(doc);
-    const buffer = await blob.arrayBuffer();
-    return new Uint8Array(buffer);
+    console.log('✅ Document généré avec succès, taille:', buffer.byteLength);
+    return buffer;
 
   } catch (error) {
     console.error('❌ Erreur lors de la génération depuis template:', error);
+    
+    // Si le template n'a pas les bonnes balises, on fournit des instructions claires
+    if (error.message?.includes('tag')) {
+      throw new Error(`Le template Word doit contenir les balises suivantes : {{patientName}}, {{date}}, {{letterContent}}. Erreur: ${error.message}`);
+    }
+    
     throw new Error(`Erreur lors de la génération depuis template: ${error.message}`);
   }
 };
@@ -168,28 +94,17 @@ export const downloadWord = (wordBytes: Uint8Array, filename: string) => {
 
 export const printWord = (wordBytes: Uint8Array) => {
   // Les navigateurs ne peuvent pas imprimer directement les fichiers Word
-  // On ouvre le document dans un nouvel onglet pour permettre à l'utilisateur d'imprimer
+  // On télécharge le document pour que l'utilisateur l'ouvre et l'imprime
   const blob = new Blob([wordBytes], { 
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
   });
   const url = URL.createObjectURL(blob);
   
-  // Ouvrir dans un nouvel onglet pour impression
-  const newWindow = window.open(url, '_blank');
-  if (newWindow) {
-    newWindow.focus();
-    // Nettoyer l'URL après un délai
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 5000);
-  } else {
-    // Fallback : téléchargement si popup bloqué
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lettre_impression_${new Date().getTime()}.docx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `lettre_impression_${new Date().getTime()}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };

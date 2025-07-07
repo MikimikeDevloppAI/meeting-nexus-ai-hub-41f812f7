@@ -5,7 +5,7 @@ import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingC
 import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
 import { LetterActionsCard } from "@/components/patient-letters/LetterActionsCard";
 import { LetterTemplateUpload } from "@/components/patient-letters/LetterTemplateUpload";
-import { LetterDesigner } from "@/components/patient-letters/LetterDesigner";
+
 
 interface TextPosition {
   x: number;
@@ -276,13 +276,6 @@ const PatientLetters = () => {
           setLetterContent={setLetterContent}
         />
 
-        <LetterDesigner
-          templateUrl={templateUrl}
-          letterContent={letterContent}
-          patientName={patientName}
-          onPositionChange={setTextPosition}
-          textPosition={textPosition}
-        />
         
         <LetterActionsCard 
           patientName={patientName}
