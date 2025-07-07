@@ -94,11 +94,11 @@ export const LetterActionsCard = ({
         textPosition
       });
 
-      printWord(wordBytes);
+      await printWord(wordBytes);
 
       toast({
-        title: "Document téléchargé pour impression",
-        description: "Ouvrez le document téléchargé et utilisez Ctrl+P pour l'imprimer.",
+        title: "Impression lancée",
+        description: "Le document a été converti en PDF et l'impression a été lancée.",
       });
     } catch (error) {
       console.error("Error printing Word:", error);

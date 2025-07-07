@@ -200,19 +200,76 @@ export const downloadWord = (wordBytes: Uint8Array, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-export const printWord = (wordBytes: Uint8Array) => {
-  // Les navigateurs ne peuvent pas imprimer directement les fichiers Word
-  // On télécharge le document pour que l'utilisateur l'ouvre et l'imprime
-  const blob = new Blob([wordBytes], { 
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-  });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `lettre_impression_${new Date().getTime()}.docx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+export const printWord = async (wordBytes: Uint8Array) => {
+  try {
+    console.log('🔄 Conversion Word vers PDF pour impression...');
+    
+    // Créer un blob temporaire du fichier Word
+    const wordBlob = new Blob([wordBytes], { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+    
+    // Créer un FormData pour envoyer le fichier Word
+    const formData = new FormData();
+    formData.append('file', wordBlob, 'lettre_impression.docx');
+    
+    // Appeler un service de conversion Word vers PDF
+    const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/convert-word-to-pdf', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+      },
+      body: formData,
+    });
+    
+    if (response.ok) {
+      const pdfBlob = await response.blob();
+      
+      // Créer une URL temporaire pour le PDF
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Ouvrir le PDF dans une nouvelle fenêtre et lancer l'impression
+      const printWindow = window.open(pdfUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          // Nettoyer l'URL après un délai
+          setTimeout(() => {
+            URL.revokeObjectURL(pdfUrl);
+            printWindow.close();
+          }, 1000);
+        };
+      } else {
+        // Si popup bloqué, fallback : télécharger pour impression
+        console.log('⚠️ Popup bloqué, téléchargement pour impression...');
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `lettre_impression_${new Date().getTime()}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(pdfUrl);
+      }
+    } else {
+      throw new Error('Échec de la conversion en PDF');
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la conversion pour impression:', error);
+    
+    // Fallback : télécharger le Word pour impression manuelle
+    console.log('🔄 Fallback : téléchargement du fichier Word...');
+    const blob = new Blob([wordBytes], { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lettre_impression_${new Date().getTime()}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 };
