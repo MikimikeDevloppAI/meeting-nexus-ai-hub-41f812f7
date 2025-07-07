@@ -33,7 +33,7 @@ export class SynthesisAgent {
       console.log('[SYNTHESIS] 🎯 Utilisation des données embeddings disponibles');
       contextContent += '\n\nCONTEXTE DOCUMENTAIRE PERTINENT:\n';
       contextContent += embeddingsResult.chunks.slice(0, 5).map((chunk: any, index: number) => 
-        `Document ${index + 1}: ${chunk.document_name || 'Document'}\nContenu: ${chunk.chunk_text}`
+        `Document: ${chunk.document_name || 'Document'}\nContenu: ${chunk.chunk_text}`
       ).join('\n\n---\n\n');
     }
 

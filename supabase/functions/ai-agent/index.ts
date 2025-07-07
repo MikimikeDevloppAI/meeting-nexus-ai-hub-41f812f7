@@ -95,9 +95,9 @@ serve(async (req) => {
         );
       }
 
-      // Construire le contexte pour OpenAI avec les IDs des documents
+      // Construire le contexte pour OpenAI sans les IDs des documents
       const contextText = embeddingsResult.chunks.slice(0, 10).map((chunk, index) => { // Augmenté de 5 à 10 chunks
-        return `Document ID: ${chunk.document_id}\nDocument: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
+        return `Document: ${chunk.document_name || 'Inconnu'}\nContenu: ${chunk.chunk_text}`;
       }).join('\n\n---\n\n');
 
       // Construire l'historique de conversation
@@ -128,12 +128,8 @@ serve(async (req) => {
 - Explique clairement ce que tu as trouvé et comment c'est lié à la question
 - Propose des suggestions pour affiner la recherche si nécessaire
 
-IMPORTANT POUR LES SOURCES - FORMAT OBLIGATOIRE :
-À la fin de ta réponse, tu DOIS ajouter une section qui liste les Document IDs que tu as utilisés pour formuler ta réponse. Utilise ce format EXACT :
-
-DOCS_USED:
-id1,id2,id3
-END_DOCS
+IMPORTANT POUR LES SOURCES :
+Base-toi sur les documents fournis et fournis une réponse claire et utile basée sur leur contenu.
 
 Question de l'utilisateur: "${message}"
 
@@ -164,38 +160,11 @@ Réponds en te basant sur les documents fournis, en faisant des liens contextuel
           const data = await openaiResponse.json();
           const fullResponse = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse basée sur les documents.';
           
-          console.log('[AI-AGENT-CABINET-MEDICAL] 📝 RÉPONSE COMPLÈTE D\'OPENAI:');
-          console.log(fullResponse);
+          console.log('[AI-AGENT-CABINET-MEDICAL] 📝 RÉPONSE GÉNÉRÉE AVEC SUCCÈS');
           
-          // Extraction robuste des documents utilisés
-          const docsUsedMatch = fullResponse.match(/DOCS_USED:\s*(.*?)\s*END_DOCS/s);
-          console.log('[AI-AGENT-CABINET-MEDICAL] 🔍 Match trouvé:', docsUsedMatch);
-          
-          if (docsUsedMatch) {
-            const docsSection = docsUsedMatch[1].trim();
-            console.log('[AI-AGENT-CABINET-MEDICAL] 📋 Section docs extraite:', docsSection);
-            
-            if (docsSection === 'none' || docsSection === '') {
-              console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ IA A RÉPONDU "none" - Utilisation des documents trouvés');
-              // Au lieu de forcer une réponse standard, utiliser les documents trouvés
-              actuallyUsedDocuments = [...new Set(embeddingsResult.chunks.slice(0, 5).map(chunk => chunk.document_id))];
-              response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
-            } else {
-              // Séparer les IDs par virgule et nettoyer
-              actuallyUsedDocuments = docsSection
-                .split(',')
-                .map(id => id.trim())
-                .filter(id => id && id !== '');
-                
-              // Nettoyer la réponse en supprimant la section des documents utilisés
-              response = fullResponse.replace(/DOCS_USED:.*?END_DOCS/s, '').trim();
-            }
-          } else {
-            console.log('[AI-AGENT-CABINET-MEDICAL] ⚠️ Aucun match DOCS_USED trouvé - Utilisation documents trouvés');
-            // Utiliser automatiquement les documents trouvés
-            actuallyUsedDocuments = [...new Set(embeddingsResult.chunks.slice(0, 5).map(chunk => chunk.document_id))];
-            response = fullResponse;
-          }
+          // Utiliser tous les documents trouvés comme sources
+          actuallyUsedDocuments = [...new Set(embeddingsResult.chunks.slice(0, 5).map(chunk => chunk.document_id))];
+          response = fullResponse;
           
           console.log('[AI-AGENT-CABINET-MEDICAL] 📄 Documents explicitement utilisés extraits:', actuallyUsedDocuments);
           console.log('[AI-AGENT-CABINET-MEDICAL] 📝 Réponse nettoyée (premiers 200 chars):', response.substring(0, 200));
