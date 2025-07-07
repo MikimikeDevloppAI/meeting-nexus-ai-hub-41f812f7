@@ -258,14 +258,21 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   };
 
-  const viewFile = (filePath: string, filename: string) => {
-    const { data } = supabase.storage
-      .from('invoices')
-      .getPublicUrl(filePath);
-    
-    if (data?.publicUrl) {
-      window.open(data.publicUrl, '_blank');
-    } else {
+  const viewFile = async (filePath: string, filename: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('invoices')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      window.open(url, '_blank');
+      
+      // Clean up the URL after a short delay
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Error viewing file:', error);
       toast.error('Impossible d\'ouvrir le fichier');
     }
   };
