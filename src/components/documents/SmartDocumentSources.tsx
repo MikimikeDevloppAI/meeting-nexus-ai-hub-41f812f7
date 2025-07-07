@@ -4,6 +4,7 @@ import { DocumentViewer } from "./DocumentViewer";
 import { CompactDocumentItem } from "./CompactDocumentItem";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { useDocumentsByIds } from "@/hooks/useDocumentsByIds";
+import { getDocumentDownloadUrl } from "@/lib/utils";
 
 interface DocumentSource {
   documentId: string;
@@ -51,8 +52,14 @@ export const SmartDocumentSources = ({ sources, title = "Documents sources utili
     } else {
       // For real documents, download
       if (document.file_path) {
-        const downloadUrl = `/api/documents/${document.id}/download`;
-        window.open(downloadUrl, '_blank');
+        const downloadUrl = getDocumentDownloadUrl(document.file_path);
+        const link = window.document.createElement('a');
+        link.href = downloadUrl;
+        link.download = document.ai_generated_name || document.original_name;
+        link.target = '_blank';
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
       } else {
         // Show document details in viewer
         setSelectedDocument(document);
