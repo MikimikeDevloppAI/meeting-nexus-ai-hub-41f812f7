@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2 } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
@@ -238,6 +238,38 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     setValidationDialogOpen(true);
   };
 
+  const handleQuickValidate = async (invoice: Invoice) => {
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'validated',
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+
+      toast.success(`Facture "${invoice.original_filename}" validée avec succès`);
+      await refetch();
+    } catch (error) {
+      console.error('Error validating invoice:', error);
+      toast.error('Erreur lors de la validation de la facture');
+    }
+  };
+
+  const viewFile = (filePath: string, filename: string) => {
+    const { data } = supabase.storage
+      .from('invoices')
+      .getPublicUrl(filePath);
+    
+    if (data?.publicUrl) {
+      window.open(data.publicUrl, '_blank');
+    } else {
+      toast.error('Impossible d\'ouvrir le fichier');
+    }
+  };
+
   const handleValidationComplete = () => {
     refetch();
   };
@@ -342,15 +374,38 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => downloadFile(invoice.file_path, invoice.original_filename)}
+                    onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
                     className="flex items-center gap-1"
                   >
-                    <Download className="h-4 w-4" />
-                    Télécharger
+                    <Eye className="h-4 w-4" />
+                    Visualiser
                   </Button>
                 )}
                 
-                {(invoice.status === 'completed' || invoice.status === 'validated') && (
+                {invoice.status === 'completed' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickValidate(invoice)}
+                      className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <Check className="h-4 w-4" />
+                      Valider
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleValidateInvoice(invoice)}
+                      className="flex items-center gap-1"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Modifier
+                    </Button>
+                  </>
+                )}
+                
+                {invoice.status === 'validated' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -358,7 +413,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     className="flex items-center gap-1"
                   >
                     <Edit className="h-4 w-4" />
-                    {invoice.status === 'validated' ? 'Modifier' : 'Valider'}
+                    Modifier
                   </Button>
                 )}
                 
