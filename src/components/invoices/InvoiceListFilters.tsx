@@ -44,8 +44,8 @@ export function InvoiceListFilters({ filters, onFiltersChange, supplierNames }: 
   const sortedSuppliers = supplierNames.sort((a, b) => a.localeCompare(b, 'fr'));
 
   return (
-    <Card className="mb-6">
-      <CardContent className="p-4">
+    <Card className="mb-6 bg-card border shadow-sm">
+      <CardContent className="p-4 bg-card">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Fournisseur */}
           <div>
