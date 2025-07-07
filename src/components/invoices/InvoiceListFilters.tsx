@@ -53,10 +53,10 @@ export function InvoiceListFilters({ filters, onFiltersChange, supplierNames }: 
               Fournisseur
             </Label>
             <Select value={filters.supplierName} onValueChange={(value) => updateFilter('supplierName', value)}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-background">
                 <SelectValue placeholder="Tous les fournisseurs" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border shadow-md z-50">
                 <SelectItem value="">Tous les fournisseurs</SelectItem>
                 {sortedSuppliers.map((supplier) => (
                   <SelectItem key={supplier} value={supplier}>
@@ -112,19 +112,19 @@ export function InvoiceListFilters({ filters, onFiltersChange, supplierNames }: 
             <Label className="text-sm font-medium">Trier par</Label>
             <div className="space-y-2">
               <Select value={filters.sortBy} onValueChange={(value: 'date' | 'amount') => updateFilter('sortBy', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-md z-50">
                   <SelectItem value="date">Date</SelectItem>
                   <SelectItem value="amount">Montant</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filters.sortOrder} onValueChange={(value: 'desc' | 'asc') => updateFilter('sortOrder', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-md z-50">
                   {filters.sortBy === 'date' ? (
                     <>
                       <SelectItem value="desc">Plus récent d'abord</SelectItem>
