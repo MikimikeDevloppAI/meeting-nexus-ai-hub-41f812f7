@@ -86,7 +86,8 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     });
 
     console.log('✅ Document créé avec succès');
-    const buffer = await Packer.toBuffer(doc);
+    const blob = await Packer.toBlob(doc);
+    const buffer = await blob.arrayBuffer();
     return new Uint8Array(buffer);
     
   } catch (error) {
