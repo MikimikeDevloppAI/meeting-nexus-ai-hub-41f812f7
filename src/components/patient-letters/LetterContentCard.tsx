@@ -49,16 +49,6 @@ export const LetterContentCard = ({ letterContent, setLetterContent }: LetterCon
               wordWrap: 'break-word'
             }}
           />
-          <div className="text-sm text-gray-600 mt-2 space-y-1">
-            <p>📝 Le texte sera automatiquement formaté avec des marges A4 lors de l'export PDF</p>
-            <p>✂️ Les mots longs seront coupés avec des tirets si nécessaire</p>
-            <p>📄 Lignes vides = nouveaux paragraphes avec espacement</p>
-            {pagesNeeded > 1 && (
-              <p className="text-orange-600 font-medium">
-                ⚠️ Le contenu nécessitera {pagesNeeded} pages lors de l'impression
-              </p>
-            )}
-          </div>
         </div>
       </CardContent>
     </Card>
