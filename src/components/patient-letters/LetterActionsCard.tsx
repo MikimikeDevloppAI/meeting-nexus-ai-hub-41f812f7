@@ -132,19 +132,6 @@ export const LetterActionsCard = ({
             Sauvegarder Word
           </Button>
           
-          <Button 
-            onClick={handlePrint} 
-            variant="outline" 
-            className="flex items-center gap-2"
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Printer className="h-4 w-4" />
-            )}
-            Imprimer Word
-          </Button>
           
           <Button onClick={clearForm} variant="outline">
             Nouvelle lettre

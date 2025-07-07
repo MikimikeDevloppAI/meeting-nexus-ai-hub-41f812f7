@@ -62,6 +62,11 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     const contentToAdd = `
     <w:p>
       <w:pPr>
+        <w:spacing w:after="360"/>
+      </w:pPr>
+    </w:p>
+    <w:p>
+      <w:pPr>
         <w:spacing w:after="240"/>
       </w:pPr>
       <w:r>
