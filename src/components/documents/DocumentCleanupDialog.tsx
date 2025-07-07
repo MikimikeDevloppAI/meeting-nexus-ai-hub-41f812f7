@@ -105,12 +105,6 @@ export const DocumentCleanupDialog = ({ documents, onCleanupComplete }: Document
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4" />
-          Nettoyer les documents orphelins
-        </Button>
-      </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
