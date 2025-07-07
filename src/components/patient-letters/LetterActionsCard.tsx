@@ -15,6 +15,7 @@ interface TextPosition {
 
 interface LetterActionsCardProps {
   patientName: string;
+  patientAddress: string;
   letterContent: string;
   templateUrl?: string;
   textPosition: TextPosition;
@@ -24,7 +25,8 @@ interface LetterActionsCardProps {
 }
 
 export const LetterActionsCard = ({ 
-  patientName, 
+  patientName,
+  patientAddress,
   letterContent, 
   templateUrl,
   textPosition,
@@ -49,6 +51,7 @@ export const LetterActionsCard = ({
     try {
       const wordBytes = await generateLetterFromTemplate({
         patientName,
+        patientAddress,
         letterContent,
         templateUrl,
         textPosition
@@ -89,6 +92,7 @@ export const LetterActionsCard = ({
     try {
       const wordBytes = await generateLetterFromTemplate({
         patientName,
+        patientAddress,
         letterContent,
         templateUrl,
         textPosition

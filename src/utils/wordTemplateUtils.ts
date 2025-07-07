@@ -7,6 +7,7 @@ interface TextPosition {
 
 interface LetterData {
   patientName: string;
+  patientAddress: string;
   letterContent: string;
   templateUrl?: string;
   textPosition: TextPosition;
@@ -57,9 +58,10 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     
     // Créer le contenu à ajouter au début (XML bien formé)
     const patientName = escapeXml(letterData.patientName);
+    const patientAddress = escapeXml(letterData.patientAddress);
     const currentDate = escapeXml(new Date().toLocaleDateString('fr-FR'));
     
-    const contentToAdd = `
+    let contentToAdd = `
     <w:p>
       <w:pPr>
         <w:spacing w:after="360"/>
@@ -71,12 +73,33 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
       </w:pPr>
       <w:r>
         <w:rPr>
-          <w:b/>
           <w:sz w:val="28"/>
         </w:rPr>
         <w:t>Patient: ${patientName}</w:t>
       </w:r>
-    </w:p>
+    </w:p>`;
+
+    // Ajouter l'adresse si elle est fournie
+    if (patientAddress && patientAddress.trim()) {
+      const addressLines = patientAddress.split('\n').filter(line => line.trim());
+      for (const line of addressLines) {
+        const escapedLine = escapeXml(line.trim());
+        contentToAdd += `
+    <w:p>
+      <w:pPr>
+        <w:spacing w:after="120"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:sz w:val="24"/>
+        </w:rPr>
+        <w:t>${escapedLine}</w:t>
+      </w:r>
+    </w:p>`;
+      }
+    }
+
+    contentToAdd += `
     <w:p>
       <w:pPr>
         <w:spacing w:after="240"/>

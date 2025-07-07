@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 interface PatientInfoCardProps {
   patientName: string;
   setPatientName: (name: string) => void;
+  patientAddress: string;
+  setPatientAddress: (address: string) => void;
 }
 
-export const PatientInfoCard = ({ patientName, setPatientName }: PatientInfoCardProps) => {
-  const [patientAddress, setPatientAddress] = useState("");
+export const PatientInfoCard = ({ patientName, setPatientName, patientAddress, setPatientAddress }: PatientInfoCardProps) => {
 
   return (
     <Card>

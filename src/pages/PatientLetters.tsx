@@ -16,6 +16,7 @@ interface TextPosition {
 
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
+  const [patientAddress, setPatientAddress] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [templateUrl, setTemplateUrl] = useState("");
   const [originalWordUrl, setOriginalWordUrl] = useState(""); // URL du Word original pour la génération
@@ -230,6 +231,7 @@ const PatientLetters = () => {
 
   const clearForm = () => {
     setPatientName("");
+    setPatientAddress("");
     setLetterContent("");
     setTemplateUrl("");
     setOriginalWordUrl("");
@@ -263,7 +265,9 @@ const PatientLetters = () => {
         {/* 2. Informations patient avec nom et adresse */}
         <PatientInfoCard 
           patientName={patientName} 
-          setPatientName={setPatientName} 
+          setPatientName={setPatientName}
+          patientAddress={patientAddress}
+          setPatientAddress={setPatientAddress}
         />
         
         {/* 3. Section d'upload de documents (plus compacte) */}
@@ -284,6 +288,7 @@ const PatientLetters = () => {
         
         <LetterActionsCard 
           patientName={patientName}
+          patientAddress={patientAddress}
           letterContent={letterContent}
           templateUrl={originalWordUrl || templateUrl} // Utiliser le Word original pour la génération
           textPosition={textPosition}
