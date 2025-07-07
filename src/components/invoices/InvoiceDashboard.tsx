@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon, DollarSign, FileText, ArrowLeft, Users, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { InvoiceFilters } from "./InvoiceFilters";
-import { InvoiceListFilters, type InvoiceListFilters as InvoiceListFiltersType } from "./InvoiceListFilters";
 import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
 import { DonutCategoryChart } from "./DonutCategoryChart";
 import { SupplierChart } from "./SupplierChart";
@@ -66,15 +65,6 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
-  const [listFilters, setListFilters] = useState<InvoiceListFiltersType>({
-    supplierName: '',
-    amountMin: '',
-    amountMax: '',
-    dateFrom: '',
-    dateTo: '',
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-invoices'],
@@ -142,8 +132,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const filteredInvoices = useMemo(() => {
     if (!invoices) return [];
     
-    let filtered = invoices.filter(invoice => {
-      // Filtre par date (du dashboard)
+    return invoices.filter(invoice => {
+      // Filtre par date
       if (filters.dateFrom && invoice.invoice_date) {
         if (new Date(invoice.invoice_date) < new Date(filters.dateFrom)) return false;
       }
@@ -151,47 +141,15 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         if (new Date(invoice.invoice_date) > new Date(filters.dateTo)) return false;
       }
       
-      // Filtre par compte (du dashboard)
+      // Filtre par compte
       if (filters.compte && invoice.compte !== filters.compte) return false;
       
-      // Filtre par catégorie (du dashboard)
+      // Filtre par catégorie
       if (filters.category && invoice.purchase_category !== filters.category) return false;
-
-      // Filtres de la liste
-      if (listFilters.supplierName && !invoice.supplier_name?.toLowerCase().includes(listFilters.supplierName.toLowerCase())) {
-        return false;
-      }
-      if (listFilters.amountMin && invoice.total_amount && invoice.total_amount < parseFloat(listFilters.amountMin)) {
-        return false;
-      }
-      if (listFilters.amountMax && invoice.total_amount && invoice.total_amount > parseFloat(listFilters.amountMax)) {
-        return false;
-      }
-      if (listFilters.dateFrom && invoice.invoice_date && new Date(invoice.invoice_date) < new Date(listFilters.dateFrom)) {
-        return false;
-      }
-      if (listFilters.dateTo && invoice.invoice_date && new Date(invoice.invoice_date) > new Date(listFilters.dateTo)) {
-        return false;
-      }
       
       return true;
     });
-
-    // Tri basé sur les filtres de la liste
-    filtered.sort((a, b) => {
-      if (listFilters.sortBy === 'date') {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return listFilters.sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-      } else {
-        const amountA = a.total_amount || 0;
-        const amountB = b.total_amount || 0;
-        return listFilters.sortOrder === 'desc' ? amountB - amountA : amountA - amountB;
-      }
-    });
-
-    return filtered;
-  }, [invoices, filters, listFilters]);
+  }, [invoices, filters]);
 
   const stats = useMemo(() => {
     if (!filteredInvoices?.length) return {
@@ -218,15 +176,6 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       davidAmount
     };
   }, [filteredInvoices]);
-
-  // Obtenir la liste unique des fournisseurs pour le dropdown
-  const supplierNames = useMemo(() => {
-    if (!invoices) return [];
-    const names = invoices
-      .map(invoice => invoice.supplier_name)
-      .filter(name => name && name !== 'N/A');
-    return [...new Set(names)];
-  }, [invoices]);
 
   // Fonction pour formatter les montants en CHF avec séparateurs de milliers
   const formatAmount = (amount: number): string => {
@@ -354,7 +303,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               </Button>
             </div>
             
-            
+            <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
           </CardContent>
         </Card>
 
@@ -418,13 +367,6 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           <DonutCategoryChart invoices={filteredInvoices} />
           <SupplierChart invoices={filteredInvoices} />
         </div>
-
-        {/* Filtres de la liste des factures */}
-        <InvoiceListFilters 
-          filters={listFilters}
-          onFiltersChange={setListFilters}
-          supplierNames={supplierNames}
-        />
 
         {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 

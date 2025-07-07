@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2,
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
-import { InvoiceListFilters, type InvoiceListFilters as InvoiceListFiltersType } from "./InvoiceListFilters";
 import { toast } from "sonner";
 
 interface Invoice {
@@ -104,17 +103,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<InvoiceListFiltersType>({
-    supplierName: '',
-    amountMin: '',
-    amountMax: '',
-    dateFrom: '',
-    dateTo: '',
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
 
-  const { data: allInvoices, isLoading, refetch } = useQuery({
+  const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
     queryFn: async () => {
       console.log('Fetching invoices...');
@@ -132,63 +122,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       return data as Invoice[];
     }
   });
-
-  // Filtrer et trier les factures
-  const filteredAndSortedInvoices = useMemo(() => {
-    if (!allInvoices) return [];
-
-    let filtered = allInvoices.filter((invoice) => {
-      // Filtre par fournisseur
-      if (filters.supplierName && 
-          !formatSupplierName(invoice.supplier_name).toLowerCase().includes(filters.supplierName.toLowerCase())) {
-        return false;
-      }
-
-      // Filtre par montant
-      if (filters.amountMin && invoice.total_amount && invoice.total_amount < parseFloat(filters.amountMin)) {
-        return false;
-      }
-      if (filters.amountMax && invoice.total_amount && invoice.total_amount > parseFloat(filters.amountMax)) {
-        return false;
-      }
-
-      // Filtre par date
-      if (filters.dateFrom && invoice.invoice_date && 
-          new Date(invoice.invoice_date) < new Date(filters.dateFrom)) {
-        return false;
-      }
-      if (filters.dateTo && invoice.invoice_date && 
-          new Date(invoice.invoice_date) > new Date(filters.dateTo)) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Tri
-    filtered.sort((a, b) => {
-      if (filters.sortBy === 'date') {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return filters.sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-      } else {
-        const amountA = a.total_amount || 0;
-        const amountB = b.total_amount || 0;
-        return filters.sortOrder === 'desc' ? amountB - amountA : amountA - amountB;
-      }
-    });
-
-    return filtered;
-  }, [allInvoices, filters]);
-
-  // Obtenir la liste unique des fournisseurs pour le dropdown
-  const supplierNames = useMemo(() => {
-    if (!allInvoices) return [];
-    const names = allInvoices
-      .map(invoice => formatSupplierName(invoice.supplier_name))
-      .filter(name => name && name !== 'N/A');
-    return [...new Set(names)];
-  }, [allInvoices]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -352,7 +285,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     return <div className="text-center py-8">Chargement des factures...</div>;
   }
 
-  if (!allInvoices || allInvoices.length === 0) {
+  if (!invoices || invoices.length === 0) {
     return (
       <Card>
         <CardContent className="text-center py-8">
@@ -365,22 +298,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   return (
     <>
-      <InvoiceListFilters 
-        filters={filters}
-        onFiltersChange={setFilters}
-        supplierNames={supplierNames}
-      />
-      
       <div className="space-y-4">
-        {filteredAndSortedInvoices.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600">Aucune facture ne correspond aux filtres</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredAndSortedInvoices.map((invoice) => (
+        {invoices?.map((invoice) => (
           <Card key={invoice.id}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -535,8 +454,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               </div>
             </CardContent>
           </Card>
-          ))
-        )}
+        ))}
       </div>
 
       {selectedInvoice && (
