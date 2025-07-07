@@ -346,23 +346,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 </div>
               </div>
 
-              {/* Informations supplémentaires si disponibles */}
-              {(invoice.purchase_category || invoice.purchase_subcategory) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm pt-2 border-t">
-                  {invoice.purchase_category && (
-                    <div>
-                      <span className="font-medium text-gray-700">Catégorie:</span>
-                      <div className="text-gray-900">{invoice.purchase_category}</div>
-                    </div>
-                  )}
-                  {invoice.purchase_subcategory && (
-                    <div>
-                      <span className="font-medium text-gray-700">Sous-catégorie:</span>
-                      <div className="text-gray-900">{invoice.purchase_subcategory}</div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Error Message */}
               {invoice.status === 'error' && invoice.error_message && (
