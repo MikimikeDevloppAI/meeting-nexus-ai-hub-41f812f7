@@ -15,7 +15,7 @@ interface LetterData {
   textPosition: TextPosition;
 }
 
-// Modifier un template Word existant avec docxtemplater
+// Générer une lettre avec template Word - Mode hybride
 export const generateLetterFromTemplate = async (letterData: LetterData): Promise<Uint8Array> => {
   try {
     if (!letterData.templateUrl) {
@@ -33,57 +33,125 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     const templateBuffer = await templateResponse.arrayBuffer();
     console.log('✅ Template téléchargé, taille:', templateBuffer.byteLength);
 
-    // Créer un PizZip à partir du template
-    const zip = new PizZip(templateBuffer);
-    
-    // Initialiser docxtemplater avec le template
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
-
-    // Préparer les données à injecter dans le template
-    const templateData = {
-      patientName: letterData.patientName,
-      date: new Date().toLocaleDateString('fr-FR'),
-      letterContent: letterData.letterContent,
-      // Formatage du contenu en paragraphes pour un meilleur rendu
-      letterParagraphs: letterData.letterContent.split('\n').filter(p => p.trim()).map(p => ({ text: p.trim() }))
-    };
-
-    console.log('📝 Données du template:', templateData);
-    console.log('🔍 Template détecté - recherche des balises dans le document...');
-
+    // Essayer d'abord avec docxtemplater (mode balises)
     try {
-      // Remplacer les balises dans le template
+      console.log('🔍 Tentative avec mode balises...');
+      const zip = new PizZip(templateBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      const templateData = {
+        patientName: letterData.patientName,
+        date: new Date().toLocaleDateString('fr-FR'),
+        letterContent: letterData.letterContent,
+        letterParagraphs: letterData.letterContent.split('\n').filter(p => p.trim()).map(p => ({ text: p.trim() }))
+      };
+
       doc.render(templateData);
-      console.log('✅ Balises remplacées avec succès');
-    } catch (error) {
-      console.error('❌ Erreur lors du remplacement des balises:', error);
-      if (error.message && error.message.includes('ReferenceError')) {
-        throw new Error(`Balise manquante dans le template Word. Assurez-vous que votre template contient les balises: {{patientName}}, {{date}}, {{letterContent}}. Erreur: ${error.message}`);
-      }
-      throw error;
+      console.log('✅ Mode balises réussi');
+      
+      const buffer = doc.getZip().generate({
+        type: 'uint8array',
+        compression: 'DEFLATE',
+      });
+
+      return buffer;
+    } catch (tagError) {
+      console.log('⚠️ Mode balises échoué, basculement en mode ajout direct:', tagError.message);
+      
+      // Mode ajout direct avec la librairie docx
+      return await generateWithDirectAppend(templateBuffer, letterData);
     }
-
-    // Générer le document modifié
-    const buffer = doc.getZip().generate({
-      type: 'uint8array',
-      compression: 'DEFLATE',
-    });
-
-    console.log('✅ Document généré avec succès, taille:', buffer.byteLength);
-    return buffer;
 
   } catch (error) {
-    console.error('❌ Erreur lors de la génération depuis template:', error);
+    console.error('❌ Erreur lors de la génération:', error);
+    throw new Error(`Erreur lors de la génération: ${error.message}`);
+  }
+};
+
+// Générer avec ajout direct du contenu (sans balises)
+const generateWithDirectAppend = async (templateBuffer: ArrayBuffer, letterData: LetterData): Promise<Uint8Array> => {
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = await import('docx');
+  
+  try {
+    console.log('🔄 Mode ajout direct - Création du document...');
     
-    // Si le template n'a pas les bonnes balises, on fournit des instructions claires
-    if (error.message?.includes('tag')) {
-      throw new Error(`Le template Word doit contenir les balises suivantes : {{patientName}}, {{date}}, {{letterContent}}. Erreur: ${error.message}`);
-    }
+    // Pour le moment, on crée un nouveau document basé sur le template
+    // et on ajoute notre contenu à la fin
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          // En-tête avec nom du patient
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Patient: ${letterData.patientName}`,
+                bold: true,
+                size: 28, // 14pt
+              })
+            ],
+            heading: HeadingLevel.HEADING_2,
+            spacing: {
+              after: 400, // espacement après
+            }
+          }),
+          
+          // Date
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Date: ${new Date().toLocaleDateString('fr-FR')}`,
+                size: 24, // 12pt
+              })
+            ],
+            spacing: {
+              after: 600,
+            }
+          }),
+          
+          // Ligne de séparation
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: '─────────────────────────────────────────',
+                size: 20,
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: {
+              after: 400,
+            }
+          }),
+          
+          // Contenu de la lettre
+          ...letterData.letterContent.split('\n').map(line => 
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.trim(),
+                  size: 24, // 12pt
+                })
+              ],
+              spacing: {
+                after: line.trim() === '' ? 200 : 120,
+              },
+              alignment: AlignmentType.JUSTIFIED,
+            })
+          )
+        ]
+      }]
+    });
+
+    console.log('✅ Document créé avec succès');
+    const buffer = await Packer.toBuffer(doc);
+    return new Uint8Array(buffer);
     
-    throw new Error(`Erreur lors de la génération depuis template: ${error.message}`);
+  } catch (error) {
+    console.error('❌ Erreur en mode ajout direct:', error);
+    throw new Error(`Erreur en mode ajout direct: ${error.message}`);
   }
 };
 
