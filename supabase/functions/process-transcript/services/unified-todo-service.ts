@@ -40,7 +40,6 @@ Participants disponibles dans le système : ${participantNames}
 **RÈGLES DE DESCRIPTION CONCISE:**
 - description concise mais qui donne le contexte nécessaire pour la compréhension
 - Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
-- Inclus seulement les détails importants
 - Format: "Action + Objet + Contexte "
 
 
@@ -60,7 +59,7 @@ Participants disponibles dans le système : ${participantNames}
 **RÈGLES POUR LES RECOMMANDATIONS IA:**
 Pour chaque tâche, génère:
 1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils, ou challenge les décisions si pertinent.
-2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte et très détaillés).
+2. **Email pré-rédigé COMPLET** si communication interne est nécessaire: direct et concis et si une communication externe est nécessaire professionnel avec tout le contexte et très détaillés.
 3. Si la tâche est simple/évidente, marque hasRecommendation: false avec "Aucune recommandation nécessaire."
 
 Critères qualité pour les recommandations:
@@ -81,7 +80,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Action concise et claire avec contexte minimal (max 100 caractères)",
+      "description": "Action concise et claire avec contexte ",
       "assigned_to": ["Nom exact du participant tel qu'il apparaît dans la liste"] ou null,
       "hasRecommendation": true/false,
       "recommendation": "Recommandation détaillée ou 'Aucune recommandation nécessaire.'",
