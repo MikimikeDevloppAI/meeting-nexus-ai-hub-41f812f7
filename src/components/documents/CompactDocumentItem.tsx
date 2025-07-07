@@ -6,10 +6,10 @@ import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, C
 import { useState, useRef, useEffect } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
-import { DocumentPreview } from "./DocumentPreview";
 import { UnifiedDocumentItem } from "@/types/unified-document";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getDocumentViewUrl } from "@/lib/utils";
 
 interface CompactDocumentItemProps {
   document: UnifiedDocumentItem;
@@ -27,7 +27,6 @@ export const CompactDocumentItem = ({
   onUpdate 
 }: CompactDocumentItemProps) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(document.ai_generated_name || document.original_name);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -130,7 +129,10 @@ export const CompactDocumentItem = ({
 
   const handlePreview = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowPreview(true);
+    if (document.file_path) {
+      const fileUrl = getDocumentViewUrl(document.file_path);
+      window.open(fileUrl, '_blank');
+    }
   };
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -323,15 +325,6 @@ export const CompactDocumentItem = ({
           </div>
         </div>
       </div>
-
-      {/* Nouveau composant de prévisualisation */}
-      {showPreview && (
-        <DocumentPreview
-          document={document}
-          isOpen={showPreview}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
 
       {/* Modal pour les détails */}
       {showDetails && (
