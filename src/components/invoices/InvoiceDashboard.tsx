@@ -144,8 +144,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       // Filtre par compte
       if (filters.compte && invoice.compte !== filters.compte) return false;
       
-      // Filtre par fournisseur
-      if (filters.supplier && invoice.supplier_name !== filters.supplier) return false;
+      // Filtre par fournisseur (insensible à la casse)
+      if (filters.supplier && invoice.supplier_name?.toLowerCase() !== filters.supplier.toLowerCase()) return false;
       
       return true;
     });
