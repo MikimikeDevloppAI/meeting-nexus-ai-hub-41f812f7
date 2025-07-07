@@ -41,7 +41,7 @@ interface DashboardFilters {
   dateFrom?: string;
   dateTo?: string;
   compte?: string;
-  category?: string;
+  supplier?: string;
 }
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
@@ -144,8 +144,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       // Filtre par compte
       if (filters.compte && invoice.compte !== filters.compte) return false;
       
-      // Filtre par catégorie
-      if (filters.category && invoice.purchase_category !== filters.category) return false;
+      // Filtre par fournisseur
+      if (filters.supplier && invoice.supplier_name !== filters.supplier) return false;
       
       return true;
     });

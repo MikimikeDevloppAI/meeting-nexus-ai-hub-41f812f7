@@ -4,18 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { X } from "lucide-react";
 
 interface Invoice {
   compte: string;
-  purchase_category?: string;
+  supplier_name?: string;
 }
 
 interface DashboardFilters {
   dateFrom?: string;
   dateTo?: string;
   compte?: string;
-  category?: string;
+  supplier?: string;
 }
 
 interface InvoiceFiltersProps {
@@ -26,7 +27,13 @@ interface InvoiceFiltersProps {
 
 export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFiltersProps) {
   const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean)));
-  const uniqueCategories = Array.from(new Set(invoices.map(inv => inv.purchase_category).filter(Boolean)));
+  const uniqueSuppliers = Array.from(new Set(invoices.map(inv => inv.supplier_name).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  
+  const supplierOptions = [
+    { value: 'all', label: 'Tous les fournisseurs' },
+    ...uniqueSuppliers.map(supplier => ({ value: supplier, label: supplier }))
+  ];
 
   const clearFilters = () => {
     onFiltersChange({});
@@ -85,18 +92,15 @@ export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFi
           </div>
 
           <div className="space-y-2">
-            <Label>Catégorie</Label>
-            <Select value={filters.category || 'all'} onValueChange={(value) => onFiltersChange({ ...filters, category: value === 'all' ? undefined : value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les catégories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                {uniqueCategories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Fournisseur</Label>
+            <Combobox
+              options={supplierOptions}
+              value={filters.supplier}
+              placeholder="Tous les fournisseurs"
+              searchPlaceholder="Rechercher un fournisseur..."
+              emptyText="Aucun fournisseur trouvé"
+              onSelect={(value) => onFiltersChange({ ...filters, supplier: value === 'all' ? undefined : value })}
+            />
           </div>
         </div>
       </CardContent>
