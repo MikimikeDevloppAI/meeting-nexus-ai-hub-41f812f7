@@ -250,11 +250,7 @@ const PatientLetters = () => {
       </div>
 
       <div className="grid gap-6">
-        <PatientInfoCard 
-          patientName={patientName} 
-          setPatientName={setPatientName} 
-        />
-        
+        {/* 1. Sélection du template Word en premier */}
         <LetterTemplateUpload 
           onTemplateUploaded={(url, wordUrl) => {
             console.log('🚀 Template uploaded callback with URL:', url, 'Word URL:', wordUrl);
@@ -264,17 +260,26 @@ const PatientLetters = () => {
           currentTemplate={templateUrl}
         />
         
-        <VoiceRecordingCard 
-          isRecording={isRecording}
-          isProcessing={isProcessing}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
+        {/* 2. Informations patient avec nom et adresse */}
+        <PatientInfoCard 
+          patientName={patientName} 
+          setPatientName={setPatientName} 
         />
         
-        <LetterContentCard 
-          letterContent={letterContent}
-          setLetterContent={setLetterContent}
-        />
+        {/* 3. Section d'upload de documents (plus compacte) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <VoiceRecordingCard 
+            isRecording={isRecording}
+            isProcessing={isProcessing}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+          />
+          
+          <LetterContentCard 
+            letterContent={letterContent}
+            setLetterContent={setLetterContent}
+          />
+        </div>
 
         
         <LetterActionsCard 
