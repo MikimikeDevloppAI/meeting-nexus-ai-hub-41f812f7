@@ -8,7 +8,8 @@ import {
   ImageRun,
   SectionType,
   convertInchesToTwip,
-  convertMillimetersToTwip
+  convertMillimetersToTwip,
+  Header
 } from 'docx';
 import { LETTER_CONSTANTS, getLetterDimensions, wrapTextUnified } from './letterLayout';
 
@@ -191,11 +192,15 @@ export const generateLetterWord = async (letterData: LetterData): Promise<Uint8A
       ],
     };
 
-    // Ajouter l'image de fond si disponible
+    // Ajouter l'image de fond si disponible (en watermark)
     if (backgroundImage) {
-      // Ajouter l'image comme premier élément (approximation du background)
-      docConfig.sections[0].children.unshift(
-        new Paragraph({
+      docConfig.sections[0].properties.page.background = {
+        color: 'FFFFFF'
+      };
+      
+      // Ajouter comme watermark/background approximatif en position absolue
+      docConfig.sections[0].headers = {
+        default: new Paragraph({
           children: [
             new ImageRun({
               data: backgroundImage,
@@ -203,12 +208,28 @@ export const generateLetterWord = async (letterData: LetterData): Promise<Uint8A
                 width: convertMillimetersToTwip(210),
                 height: convertMillimetersToTwip(297),
               },
-              type: "png"
+              type: "png",
+              floating: {
+                horizontalPosition: {
+                  offset: convertMillimetersToTwip(0),
+                },
+                verticalPosition: {
+                  offset: convertMillimetersToTwip(0),
+                },
+                wrap: {
+                  type: 0 // 0 = behind text
+                },
+                margins: {
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                }
+              }
             })
           ],
-          alignment: AlignmentType.CENTER,
         })
-      );
+      };
     }
 
     const doc = new Document(docConfig);
@@ -239,23 +260,18 @@ export const downloadWord = (wordBytes: Uint8Array, filename: string) => {
 };
 
 export const printWord = (wordBytes: Uint8Array) => {
+  // Les navigateurs ne peuvent pas imprimer directement les fichiers Word
+  // On télécharge le fichier et informe l'utilisateur
   const blob = new Blob([wordBytes], { 
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
   });
   const url = URL.createObjectURL(blob);
   
-  // Ouvrir le document Word pour impression
-  const printWindow = window.open(url);
-  if (printWindow) {
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-      }, 1000);
-    };
-  }
-  
-  // Nettoyer après un délai
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 5000);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `lettre_impression_${new Date().getTime()}.docx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };

@@ -97,8 +97,8 @@ export const LetterActionsCard = ({
       printWord(wordBytes);
 
       toast({
-        title: "Impression lancée",
-        description: "Le document Word a été ouvert pour impression",
+        title: "Document téléchargé",
+        description: "Ouvrez le fichier Word téléchargé et utilisez Ctrl+P pour l'imprimer",
       });
     } catch (error) {
       console.error("Error printing Word:", error);
