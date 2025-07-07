@@ -161,13 +161,14 @@ export const CompactDocumentItem = ({
               )}
               
               {isEditingTitle ? (
-                <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                   <Input
                     ref={inputRef}
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
                     onKeyDown={handleTitleKeyPress}
                     onBlur={handleTitleSave}
+                    onClick={(e) => e.stopPropagation()}
                     className="text-sm font-medium h-8 flex-1"
                     disabled={isSavingTitle}
                   />
@@ -179,7 +180,10 @@ export const CompactDocumentItem = ({
                         size="sm"
                         variant="ghost"
                         className="h-6 w-6 p-0"
-                        onClick={handleTitleSave}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTitleSave();
+                        }}
                       >
                         <Check className="h-3 w-3 text-green-600" />
                       </Button>
@@ -187,7 +191,10 @@ export const CompactDocumentItem = ({
                         size="sm"
                         variant="ghost"
                         className="h-6 w-6 p-0"
-                        onClick={handleTitleCancel}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTitleCancel();
+                        }}
                       >
                         <X className="h-3 w-3 text-red-600" />
                       </Button>
