@@ -303,7 +303,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               </Button>
             </div>
             
-            <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
+            
           </CardContent>
         </Card>
 
