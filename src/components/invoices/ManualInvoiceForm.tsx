@@ -70,7 +70,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
     formState: { errors },
   } = useForm<ManualInvoiceFormData>({
     defaultValues: {
-      currency: "EUR",
+      currency: "CHF",
       line_items: [{ description: "", quantity: 1, unit_price: 0, total: 0 }],
       invoice_date: new Date().toISOString().split('T')[0],
     },
@@ -273,7 +273,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
             )}
             {watchedFormData.total_amount && watchedFormData.total_amount > 0 && (
               <Badge variant="outline">
-                {watchedFormData.total_amount} {watchedFormData.currency || 'EUR'}
+                {watchedFormData.total_amount} {watchedFormData.currency || 'CHF'}
               </Badge>
             )}
           </div>
@@ -359,7 +359,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                   <Input
                     id="currency"
                     {...register("currency")}
-                    placeholder="EUR"
+                    placeholder="CHF"
                     className={validationErrors.some(e => e.includes('devise')) ? 'border-red-500' : ''}
                   />
                 </div>
@@ -392,8 +392,6 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                     type="number"
                     step="0.01"
                     {...register("total_net", { valueAsNumber: true })}
-                    readOnly
-                    className="bg-muted"
                   />
                 </div>
 
@@ -416,8 +414,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                     type="number"
                     step="0.01"
                     {...register("total_amount", { valueAsNumber: true })}
-                    readOnly
-                    className="bg-muted font-bold"
+                    className="font-bold"
                   />
                 </div>
               </div>
