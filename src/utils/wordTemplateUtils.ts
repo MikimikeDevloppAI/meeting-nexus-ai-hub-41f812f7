@@ -110,17 +110,6 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
         </w:rPr>
         <w:t>Date: ${currentDate}</w:t>
       </w:r>
-    </w:p>
-    <w:p>
-      <w:pPr>
-        <w:spacing w:after="240"/>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:sz w:val="20"/>
-        </w:rPr>
-        <w:t>─────────────────────────────────────────</w:t>
-      </w:r>
     </w:p>`;
     
     // Ajouter chaque ligne du contenu avec échappement XML

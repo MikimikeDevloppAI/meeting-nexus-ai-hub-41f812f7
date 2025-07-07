@@ -99,6 +99,20 @@ const PatientLetters = () => {
     }
   };
 
+  const handleAudioFileUpload = async (file: File) => {
+    if (!file.type.startsWith('audio/')) {
+      toast({
+        title: "Format non supporté",
+        description: "Veuillez sélectionner un fichier audio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('📁 Audio file selected:', file.name, file.type, file.size);
+    await processAudioWithWhisper(file);
+  };
+
   const processAudioWithWhisper = async (audioBlob: Blob) => {
     setIsProcessing(true);
 
@@ -277,6 +291,7 @@ const PatientLetters = () => {
             isProcessing={isProcessing}
             startRecording={startRecording}
             stopRecording={stopRecording}
+            onAudioFileUpload={handleAudioFileUpload}
           />
           
           <LetterContentCard 
