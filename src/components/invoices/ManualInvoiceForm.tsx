@@ -73,6 +73,8 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
       currency: "CHF",
       line_items: [{ description: "", quantity: 1, unit_price: 0, total: 0 }],
       invoice_date: new Date().toISOString().split('T')[0],
+      total_net: undefined,
+      total_amount: undefined,
     },
   });
 
@@ -191,26 +193,26 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
 
       // Créer la facture dans la base de données
       const { error } = await supabase.from("invoices").insert({
-        invoice_number: data.invoice_number,
-        invoice_date: data.invoice_date,
-        due_date: data.due_date,
+        invoice_number: data.invoice_number || null,
+        invoice_date: data.invoice_date || null,
+        due_date: data.due_date || null,
         supplier_name: data.supplier_name,
-        supplier_address: data.supplier_address,
-        supplier_email: data.supplier_email,
-        supplier_phone_number: data.supplier_phone_number,
-        supplier_vat_number: data.supplier_vat_number,
-        customer_name: data.customer_name,
-        customer_address: data.customer_address,
-        customer_vat_number: data.customer_vat_number,
+        supplier_address: data.supplier_address || null,
+        supplier_email: data.supplier_email || null,
+        supplier_phone_number: data.supplier_phone_number || null,
+        supplier_vat_number: data.supplier_vat_number || null,
+        customer_name: data.customer_name || null,
+        customer_address: data.customer_address || null,
+        customer_vat_number: data.customer_vat_number || null,
         currency: data.currency,
-        total_net: data.total_net,
-        total_tax: data.total_tax,
-        total_amount: data.total_amount,
-        payment_details: data.payment_details,
-        purchase_category: data.purchase_category,
-        purchase_subcategory: data.purchase_subcategory,
-        compte: data.compte,
-        line_items: data.line_items,
+        total_net: data.total_net || null,
+        total_tax: data.total_tax || null,
+        total_amount: data.total_amount || null,
+        payment_details: data.payment_details || null,
+        purchase_category: data.purchase_category || null,
+        purchase_subcategory: data.purchase_subcategory || null,
+        compte: data.compte || null,
+        line_items: data.line_items || null,
         file_path: filePath,
         original_filename: uploadedFile?.name || null,
         content_type: uploadedFile?.type || null,
@@ -387,6 +389,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                     type="number"
                     step="0.01"
                     {...register("total_net", { valueAsNumber: true })}
+                    placeholder="0.00"
                   />
                 </div>
 
@@ -410,6 +413,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                     step="0.01"
                     {...register("total_amount", { valueAsNumber: true })}
                     className="font-bold"
+                    placeholder="0.00"
                   />
                 </div>
               </div>
