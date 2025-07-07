@@ -12,7 +12,7 @@ interface LetterData {
   textPosition: TextPosition;
 }
 
-// Générer une lettre Word en utilisant le template et en ajoutant le contenu
+// Générer une lettre Word en utilisant le template et en ajoutant le contenu au début
 export const generateLetterFromTemplate = async (letterData: LetterData): Promise<Uint8Array> => {
   try {
     if (!letterData.templateUrl) {
@@ -45,7 +45,7 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     
     const docXmlContent = await docXmlFile.async('string');
     
-    // Créer le contenu à ajouter
+    // Créer le contenu à ajouter au début
     const contentToAdd = `
       <w:p>
         <w:pPr>
@@ -97,22 +97,78 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
           <w:t>${line.trim()}</w:t>
         </w:r>
       </w:p>`).join('');
+
+    // Ajouter un saut de page pour séparer le contenu ajouté du template
+    const pageBreak = `
+      <w:p>
+        <w:r>
+          <w:br w:type="page"/>
+        </w:r>
+      </w:p>`;
     
-    // Trouver la fin du body et insérer le nouveau contenu
-    const bodyEndIndex = docXmlContent.lastIndexOf('</w:body>');
-    if (bodyEndIndex === -1) {
-      throw new Error('Structure XML invalide - balise </w:body> non trouvée');
+    // Trouver le début du body et insérer le nouveau contenu au début
+    const bodyStartIndex = docXmlContent.indexOf('<w:body>');
+    if (bodyStartIndex === -1) {
+      throw new Error('Structure XML invalide - balise <w:body> non trouvée');
     }
     
-    const modifiedXml = docXmlContent.substring(0, bodyEndIndex) + 
+    const bodyTagEnd = docXmlContent.indexOf('>', bodyStartIndex) + 1;
+    
+    // Limiter le template aux 2 premières pages maximum
+    let templateContent = docXmlContent.substring(bodyTagEnd);
+    const bodyEndIndex = templateContent.lastIndexOf('</w:body>');
+    
+    if (bodyEndIndex !== -1) {
+      templateContent = templateContent.substring(0, bodyEndIndex);
+    }
+    
+    // Compter les sauts de page dans le template
+    const pageBreakCount = (templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g) || []).length;
+    
+    // Si le template a plus d'une page, le limiter aux 2 premières
+    if (pageBreakCount > 1) {
+      const pageBreakMatches = templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g);
+      if (pageBreakMatches && pageBreakMatches.length > 1) {
+        // Trouver la position du 2ème saut de page
+        let secondPageBreakIndex = -1;
+        let count = 0;
+        let searchIndex = 0;
+        
+        while (count < 2 && searchIndex < templateContent.length) {
+          const match = templateContent.indexOf('<w:br', searchIndex);
+          if (match === -1) break;
+          
+          const endMatch = templateContent.indexOf('/>', match);
+          if (endMatch === -1) break;
+          
+          const fullMatch = templateContent.substring(match, endMatch + 2);
+          if (fullMatch.includes('w:type="page"')) {
+            count++;
+            if (count === 2) {
+              secondPageBreakIndex = endMatch + 2;
+              break;
+            }
+          }
+          searchIndex = endMatch + 2;
+        }
+        
+        if (secondPageBreakIndex !== -1) {
+          templateContent = templateContent.substring(0, secondPageBreakIndex);
+        }
+      }
+    }
+    
+    const modifiedXml = docXmlContent.substring(0, bodyTagEnd) + 
                        contentToAdd + 
                        contentParagraphs + 
-                       docXmlContent.substring(bodyEndIndex);
+                       pageBreak +
+                       templateContent + 
+                       '</w:body></w:document>';
     
     // Remplacer le contenu du document
     doc.file('word/document.xml', modifiedXml);
     
-    console.log('✅ Contenu ajouté au template');
+    console.log('✅ Contenu ajouté au début du template');
     
     // Générer le nouveau fichier Word
     const modifiedBuffer = await doc.generateAsync({
