@@ -28,10 +28,10 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
     invoices.forEach(invoice => {
       if (!invoice.total_amount) return;
       
-      // Nettoyer le nom du fournisseur
-      let supplierName = invoice.supplier_name || 'Fournisseur inconnu';
+      // Nettoyer le nom du fournisseur et le mettre en majuscules
+      let supplierName = invoice.supplier_name || 'FOURNISSEUR INCONNU';
       
-      // Gérer l'encodage des caractères
+      // Gérer l'encodage des caractères puis convertir en majuscules
       try {
         supplierName = supplierName
           .replace(/Ã©/g, 'é')
@@ -43,9 +43,11 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
           .replace(/Ã¯/g, 'ï')
           .replace(/Ã«/g, 'ë')
           .replace(/Ã¹/g, 'ù')
-          .replace(/Ã»/g, 'û');
+          .replace(/Ã»/g, 'û')
+          .toUpperCase();
       } catch (e) {
-        // En cas d'erreur, garder le nom original
+        // En cas d'erreur, garder le nom original en majuscules
+        supplierName = (invoice.supplier_name || 'FOURNISSEUR INCONNU').toUpperCase();
       }
 
       supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + invoice.total_amount);
