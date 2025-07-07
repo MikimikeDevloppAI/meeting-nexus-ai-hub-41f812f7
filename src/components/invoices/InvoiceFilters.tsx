@@ -27,8 +27,11 @@ interface InvoiceFiltersProps {
 
 export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFiltersProps) {
   const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean)));
-  const uniqueSuppliers = Array.from(new Set(invoices.map(inv => inv.supplier_name).filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  const uniqueSuppliers = Array.from(new Set(
+    invoices
+      .map(inv => inv.supplier_name?.toUpperCase())
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   
   const supplierOptions = [
     { value: 'all', label: 'Tous les fournisseurs' },
