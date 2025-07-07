@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
 import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
 import { LETTER_CONSTANTS, getLetterDimensions, wrapTextUnified } from './letterLayout';
 
 interface TextPosition {
@@ -34,7 +35,8 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     const templateBuffer = await templateResponse.arrayBuffer();
     console.log('✅ Template téléchargé, taille:', templateBuffer.byteLength);
 
-    // Créer un nouveau document avec le même contenu mais avec le texte ajouté
+    // Pour l'instant, on utilise docxtemplater ou une approche similaire pour injecter le texte
+    // Ici on va créer un nouveau document basé sur le template
     const dimensions = getLetterDimensions();
     const lines = wrapTextUnified(letterData.letterContent, dimensions.usableWidth, letterData.textPosition.fontSize);
 
@@ -165,16 +167,29 @@ export const downloadWord = (wordBytes: Uint8Array, filename: string) => {
 };
 
 export const printWord = (wordBytes: Uint8Array) => {
+  // Les navigateurs ne peuvent pas imprimer directement les fichiers Word
+  // On ouvre le document dans un nouvel onglet pour permettre à l'utilisateur d'imprimer
   const blob = new Blob([wordBytes], { 
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
   });
   const url = URL.createObjectURL(blob);
   
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `lettre_impression_${new Date().getTime()}.docx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Ouvrir dans un nouvel onglet pour impression
+  const newWindow = window.open(url, '_blank');
+  if (newWindow) {
+    newWindow.focus();
+    // Nettoyer l'URL après un délai
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 5000);
+  } else {
+    // Fallback : téléchargement si popup bloqué
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lettre_impression_${new Date().getTime()}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 };

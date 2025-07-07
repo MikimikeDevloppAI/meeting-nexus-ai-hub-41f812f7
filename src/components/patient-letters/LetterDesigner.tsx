@@ -84,33 +84,14 @@ export const LetterDesigner = ({
               ref={canvasRef}
               className="pdf-container relative w-full aspect-[210/297] mx-auto bg-white max-w-4xl"
             >
-              {/* PDF Background Image */}
-              {backgroundImage ? (
-                <img 
-                  src={backgroundImage} 
-                  alt="PDF Template"
-                  className="pdf-background w-full h-full object-contain block"
-                />
-              ) : templateUrl ? (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                  {isConverting ? (
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-blue-600 font-medium">Conversion du PDF en cours...</p>
-                      <p className="text-sm text-blue-500">Veuillez patienter</p>
-                    </div>
-                  ) : conversionError ? (
-                    <div className="text-center text-orange-600">
-                      <Type className="h-12 w-12 mx-auto mb-2" />
-                      <p className="font-medium">Conversion impossible</p>
-                      <p className="text-sm">Le template sera utilisé lors de l'export</p>
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-500">
-                      <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>Préparation du template...</p>
-                    </div>
-                  )}
+              {/* Word Template Simulation */}
+              {templateUrl ? (
+                <div className="w-full h-full flex items-center justify-center bg-white border border-gray-200">
+                  <div className="text-center text-gray-500">
+                    <Type className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="font-medium">Template Word chargé</p>
+                    <p className="text-sm">Papier à en-tête prêt pour la génération</p>
+                  </div>
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
@@ -123,7 +104,7 @@ export const LetterDesigner = ({
               )}
               
               {/* Text Overlay avec formatage amélioré */}
-              {(backgroundImage || templateUrl) && (
+              {templateUrl && (
                 <div
                   className="text-overlay absolute p-3 border-2 border-dashed border-gray-300 bg-white bg-opacity-90 rounded shadow-sm select-none"
                   style={{
@@ -189,16 +170,10 @@ export const LetterDesigner = ({
             )}
             
             {!templateUrl && (
-              <p className="text-orange-600">💡 Uploadez un template PDF pour voir l'aperçu</p>
+              <p className="text-orange-600">💡 Uploadez un template Word pour voir l'aperçu</p>
             )}
-            {templateUrl && backgroundImage && (
-              <p className="text-green-600">✅ PDF converti et affiché en arrière-plan</p>
-            )}
-            {templateUrl && isConverting && (
-              <p className="text-blue-600">🔄 Conversion du PDF en cours...</p>
-            )}
-            {templateUrl && conversionError && (
-              <p className="text-orange-600">⚠️ Conversion échouée - Template utilisé à l'export</p>
+            {templateUrl && (
+              <p className="text-green-600">✅ Template Word chargé et prêt</p>
             )}
           </div>
         </div>
