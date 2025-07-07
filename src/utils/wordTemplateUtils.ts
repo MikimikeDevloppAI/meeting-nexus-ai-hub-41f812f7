@@ -45,142 +45,141 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     
     const docXmlContent = await docXmlFile.async('string');
     
-    // Créer le contenu à ajouter au début
-    const contentToAdd = `
-      <w:p>
-        <w:pPr>
-          <w:spacing w:after="240"/>
-        </w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:b/>
-            <w:sz w:val="28"/>
-          </w:rPr>
-          <w:t>Patient: ${letterData.patientName}</w:t>
-        </w:r>
-      </w:p>
-      <w:p>
-        <w:pPr>
-          <w:spacing w:after="240"/>
-        </w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:sz w:val="24"/>
-          </w:rPr>
-          <w:t>Date: ${new Date().toLocaleDateString('fr-FR')}</w:t>
-        </w:r>
-      </w:p>
-      <w:p>
-        <w:pPr>
-          <w:spacing w:after="240"/>
-        </w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:sz w:val="20"/>
-          </w:rPr>
-          <w:t>─────────────────────────────────────────</w:t>
-        </w:r>
-      </w:p>`;
+    // Fonction pour échapper les caractères XML spéciaux
+    const escapeXml = (text: string) => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
     
-    // Ajouter chaque ligne du contenu
+    // Créer le contenu à ajouter au début (XML bien formé)
+    const patientName = escapeXml(letterData.patientName);
+    const currentDate = escapeXml(new Date().toLocaleDateString('fr-FR'));
+    
+    const contentToAdd = `
+    <w:p>
+      <w:pPr>
+        <w:spacing w:after="240"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:sz w:val="28"/>
+        </w:rPr>
+        <w:t>Patient: ${patientName}</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:pPr>
+        <w:spacing w:after="240"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:sz w:val="24"/>
+        </w:rPr>
+        <w:t>Date: ${currentDate}</w:t>
+      </w:r>
+    </w:p>
+    <w:p>
+      <w:pPr>
+        <w:spacing w:after="240"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:sz w:val="20"/>
+        </w:rPr>
+        <w:t>─────────────────────────────────────────</w:t>
+      </w:r>
+    </w:p>`;
+    
+    // Ajouter chaque ligne du contenu avec échappement XML
     const contentLines = letterData.letterContent.split('\n');
-    const contentParagraphs = contentLines.map(line => `
-      <w:p>
-        <w:pPr>
-          <w:spacing w:after="120"/>
-          <w:jc w:val="both"/>
-        </w:pPr>
-        <w:r>
-          <w:rPr>
-            <w:sz w:val="24"/>
-          </w:rPr>
-          <w:t>${line.trim()}</w:t>
-        </w:r>
-      </w:p>`).join('');
+    const contentParagraphs = contentLines.map(line => {
+      const escapedLine = escapeXml(line.trim());
+      if (escapedLine === '') {
+        return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>';
+      }
+      return `
+    <w:p>
+      <w:pPr>
+        <w:spacing w:after="120"/>
+        <w:jc w:val="both"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:sz w:val="24"/>
+        </w:rPr>
+        <w:t>${escapedLine}</w:t>
+      </w:r>
+    </w:p>`;
+    }).join('');
 
-    // Estimer la longueur du contenu pour déterminer le nombre de pages nécessaires
-    const totalLines = contentLines.length + 4; // +4 pour patient, date, séparateur, espacement
-    const approximateLinesPerPage = 35; // Estimation basée sur la taille de police 12pt
+    // Estimer la longueur du contenu
+    const totalLines = contentLines.length + 4;
+    const approximateLinesPerPage = 35;
     const needsSecondPage = totalLines > approximateLinesPerPage;
     
     console.log(`📄 Contenu estimé: ${totalLines} lignes, ${needsSecondPage ? '2 pages' : '1 page'} nécessaire(s)`);
     
-    // Trouver le début du body
-    const bodyStartIndex = docXmlContent.indexOf('<w:body>');
-    if (bodyStartIndex === -1) {
+    // Trouver le body du document
+    const bodyStartMatch = docXmlContent.match(/<w:body[^>]*>/);
+    if (!bodyStartMatch) {
       throw new Error('Structure XML invalide - balise <w:body> non trouvée');
     }
     
-    const bodyTagEnd = docXmlContent.indexOf('>', bodyStartIndex) + 1;
+    const bodyStartIndex = bodyStartMatch.index! + bodyStartMatch[0].length;
+    const bodyEndIndex = docXmlContent.lastIndexOf('</w:body>');
     
-    // Extraire le contenu original du template
-    let templateContent = docXmlContent.substring(bodyTagEnd);
-    const bodyEndIndex = templateContent.lastIndexOf('</w:body>');
-    
-    if (bodyEndIndex !== -1) {
-      templateContent = templateContent.substring(0, bodyEndIndex);
+    if (bodyEndIndex === -1) {
+      throw new Error('Structure XML invalide - balise </w:body> non trouvée');
     }
     
-    // Compter les pages du template original
-    const templatePageBreaks = (templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g) || []).length;
-    const templatePages = templatePageBreaks + 1;
+    // Extraire le contenu du template entre <w:body> et </w:body>
+    let templateContent = docXmlContent.substring(bodyStartIndex, bodyEndIndex);
     
-    console.log(`📑 Template original: ${templatePages} page(s)`);
-    
-    // Décider de la stratégie selon le contenu et le template
+    // Gérer les pages selon le contenu
     let finalContent = '';
     
     if (!needsSecondPage) {
-      // Contenu court : utiliser seulement la première page du template
+      // Contenu court : supprimer les sauts de page du template
       console.log('📝 Stratégie: Contenu sur première page seulement');
-      
-      // Si template multi-pages, ne garder que jusqu'au premier saut de page
-      if (templatePageBreaks > 0) {
-        const firstPageBreakIndex = templateContent.search(/<w:br[^>]*w:type="page"[^>]*\/>/);
-        if (firstPageBreakIndex !== -1) {
-          templateContent = templateContent.substring(0, firstPageBreakIndex);
-        }
-      }
-      
-      // Insérer le contenu au début, sans saut de page
+      templateContent = templateContent.replace(/<w:br[^>]*w:type="page"[^>]*\/>/g, '');
       finalContent = contentToAdd + contentParagraphs + templateContent;
-      
     } else {
-      // Contenu long : utiliser première page + saut de page + deuxième page si disponible
-      console.log('📝 Stratégie: Contenu sur première page + saut de page + template');
+      // Contenu long : ajouter saut de page et limiter template
+      console.log('📝 Stratégie: Contenu + saut de page + template');
       
-      // Limiter le template à 2 pages maximum
-      if (templatePageBreaks > 1) {
-        let pageCount = 0;
-        let cutIndex = templateContent.length;
-        
-        const regex = /<w:br[^>]*w:type="page"[^>]*\/>/g;
-        let match;
-        
-        while ((match = regex.exec(templateContent)) !== null && pageCount < 1) {
-          pageCount++;
-          if (pageCount === 1) {
-            cutIndex = match.index + match[0].length;
-          }
-        }
-        
-        templateContent = templateContent.substring(0, cutIndex);
+      // Limiter le template à la première page après un saut de page
+      const pageBreakMatch = templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/);
+      if (pageBreakMatch) {
+        const firstPageBreakEnd = pageBreakMatch.index! + pageBreakMatch[0].length;
+        templateContent = templateContent.substring(0, firstPageBreakEnd);
       }
       
-      // Ajouter un saut de page entre le contenu et le template
       const pageBreak = `
-        <w:p>
-          <w:r>
-            <w:br w:type="page"/>
-          </w:r>
-        </w:p>`;
+    <w:p>
+      <w:r>
+        <w:br w:type="page"/>
+      </w:r>
+    </w:p>`;
       
       finalContent = contentToAdd + contentParagraphs + pageBreak + templateContent;
     }
     
-    const modifiedXml = docXmlContent.substring(0, bodyTagEnd) + 
-                       finalContent + 
-                       '</w:body></w:document>';
+    // Reconstruire le document XML complet
+    const documentStart = docXmlContent.substring(0, bodyStartIndex);
+    const documentEnd = docXmlContent.substring(bodyEndIndex);
+    const modifiedXml = documentStart + finalContent + documentEnd;
+    
+    // Vérifier que le XML est bien formé (validation basique)
+    const openTags = (modifiedXml.match(/<w:\w+[^/>]*>/g) || []).length;
+    const closeTags = (modifiedXml.match(/<\/w:\w+>/g) || []).length;
+    const selfClosingTags = (modifiedXml.match(/<w:\w+[^>]*\/>/g) || []).length;
+    
+    console.log(`🔍 Validation XML - Balises ouvertes: ${openTags}, fermées: ${closeTags}, auto-fermées: ${selfClosingTags}`);
     
     // Remplacer le contenu du document
     doc.file('word/document.xml', modifiedXml);
@@ -193,7 +192,7 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
       compression: 'DEFLATE'
     });
     
-    console.log('✅ Document Word généré avec succès');
+    console.log('✅ Document Word généré avec succès, taille:', modifiedBuffer.length);
     return modifiedBuffer;
     
   } catch (error) {
