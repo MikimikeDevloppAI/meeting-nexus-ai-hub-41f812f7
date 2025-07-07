@@ -98,15 +98,14 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
         </w:r>
       </w:p>`).join('');
 
-    // Ajouter un saut de page pour séparer le contenu ajouté du template
-    const pageBreak = `
-      <w:p>
-        <w:r>
-          <w:br w:type="page"/>
-        </w:r>
-      </w:p>`;
+    // Estimer la longueur du contenu pour déterminer le nombre de pages nécessaires
+    const totalLines = contentLines.length + 4; // +4 pour patient, date, séparateur, espacement
+    const approximateLinesPerPage = 35; // Estimation basée sur la taille de police 12pt
+    const needsSecondPage = totalLines > approximateLinesPerPage;
     
-    // Trouver le début du body et insérer le nouveau contenu au début
+    console.log(`📄 Contenu estimé: ${totalLines} lignes, ${needsSecondPage ? '2 pages' : '1 page'} nécessaire(s)`);
+    
+    // Trouver le début du body
     const bodyStartIndex = docXmlContent.indexOf('<w:body>');
     if (bodyStartIndex === -1) {
       throw new Error('Structure XML invalide - balise <w:body> non trouvée');
@@ -114,7 +113,7 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
     
     const bodyTagEnd = docXmlContent.indexOf('>', bodyStartIndex) + 1;
     
-    // Limiter le template aux 2 premières pages maximum
+    // Extraire le contenu original du template
     let templateContent = docXmlContent.substring(bodyTagEnd);
     const bodyEndIndex = templateContent.lastIndexOf('</w:body>');
     
@@ -122,47 +121,65 @@ export const generateLetterFromTemplate = async (letterData: LetterData): Promis
       templateContent = templateContent.substring(0, bodyEndIndex);
     }
     
-    // Compter les sauts de page dans le template
-    const pageBreakCount = (templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g) || []).length;
+    // Compter les pages du template original
+    const templatePageBreaks = (templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g) || []).length;
+    const templatePages = templatePageBreaks + 1;
     
-    // Si le template a plus d'une page, le limiter aux 2 premières
-    if (pageBreakCount > 1) {
-      const pageBreakMatches = templateContent.match(/<w:br[^>]*w:type="page"[^>]*\/>/g);
-      if (pageBreakMatches && pageBreakMatches.length > 1) {
-        // Trouver la position du 2ème saut de page
-        let secondPageBreakIndex = -1;
-        let count = 0;
-        let searchIndex = 0;
-        
-        while (count < 2 && searchIndex < templateContent.length) {
-          const match = templateContent.indexOf('<w:br', searchIndex);
-          if (match === -1) break;
-          
-          const endMatch = templateContent.indexOf('/>', match);
-          if (endMatch === -1) break;
-          
-          const fullMatch = templateContent.substring(match, endMatch + 2);
-          if (fullMatch.includes('w:type="page"')) {
-            count++;
-            if (count === 2) {
-              secondPageBreakIndex = endMatch + 2;
-              break;
-            }
-          }
-          searchIndex = endMatch + 2;
-        }
-        
-        if (secondPageBreakIndex !== -1) {
-          templateContent = templateContent.substring(0, secondPageBreakIndex);
+    console.log(`📑 Template original: ${templatePages} page(s)`);
+    
+    // Décider de la stratégie selon le contenu et le template
+    let finalContent = '';
+    
+    if (!needsSecondPage) {
+      // Contenu court : utiliser seulement la première page du template
+      console.log('📝 Stratégie: Contenu sur première page seulement');
+      
+      // Si template multi-pages, ne garder que jusqu'au premier saut de page
+      if (templatePageBreaks > 0) {
+        const firstPageBreakIndex = templateContent.search(/<w:br[^>]*w:type="page"[^>]*\/>/);
+        if (firstPageBreakIndex !== -1) {
+          templateContent = templateContent.substring(0, firstPageBreakIndex);
         }
       }
+      
+      // Insérer le contenu au début, sans saut de page
+      finalContent = contentToAdd + contentParagraphs + templateContent;
+      
+    } else {
+      // Contenu long : utiliser première page + saut de page + deuxième page si disponible
+      console.log('📝 Stratégie: Contenu sur première page + saut de page + template');
+      
+      // Limiter le template à 2 pages maximum
+      if (templatePageBreaks > 1) {
+        let pageCount = 0;
+        let cutIndex = templateContent.length;
+        
+        const regex = /<w:br[^>]*w:type="page"[^>]*\/>/g;
+        let match;
+        
+        while ((match = regex.exec(templateContent)) !== null && pageCount < 1) {
+          pageCount++;
+          if (pageCount === 1) {
+            cutIndex = match.index + match[0].length;
+          }
+        }
+        
+        templateContent = templateContent.substring(0, cutIndex);
+      }
+      
+      // Ajouter un saut de page entre le contenu et le template
+      const pageBreak = `
+        <w:p>
+          <w:r>
+            <w:br w:type="page"/>
+          </w:r>
+        </w:p>`;
+      
+      finalContent = contentToAdd + contentParagraphs + pageBreak + templateContent;
     }
     
     const modifiedXml = docXmlContent.substring(0, bodyTagEnd) + 
-                       contentToAdd + 
-                       contentParagraphs + 
-                       pageBreak +
-                       templateContent + 
+                       finalContent + 
                        '</w:body></w:document>';
     
     // Remplacer le contenu du document
