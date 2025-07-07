@@ -1,6 +1,3 @@
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
-
 interface TextPosition {
   x: number;
   y: number;
@@ -15,71 +12,14 @@ interface LetterData {
   textPosition: TextPosition;
 }
 
-// Générer une lettre avec template Word - Mode hybride
+// Générer une lettre Word avec ajout direct du contenu
 export const generateLetterFromTemplate = async (letterData: LetterData): Promise<Uint8Array> => {
-  try {
-    if (!letterData.templateUrl) {
-      throw new Error('Template Word requis');
-    }
-
-    console.log('🔄 Téléchargement du template Word:', letterData.templateUrl);
-    
-    // Télécharger le template Word
-    const templateResponse = await fetch(letterData.templateUrl);
-    if (!templateResponse.ok) {
-      throw new Error(`Impossible de télécharger le template: ${templateResponse.status}`);
-    }
-    
-    const templateBuffer = await templateResponse.arrayBuffer();
-    console.log('✅ Template téléchargé, taille:', templateBuffer.byteLength);
-
-    // Essayer d'abord avec docxtemplater (mode balises)
-    try {
-      console.log('🔍 Tentative avec mode balises...');
-      const zip = new PizZip(templateBuffer);
-      const doc = new Docxtemplater(zip, {
-        paragraphLoop: true,
-        linebreaks: true,
-      });
-
-      const templateData = {
-        patientName: letterData.patientName,
-        date: new Date().toLocaleDateString('fr-FR'),
-        letterContent: letterData.letterContent,
-        letterParagraphs: letterData.letterContent.split('\n').filter(p => p.trim()).map(p => ({ text: p.trim() }))
-      };
-
-      doc.render(templateData);
-      console.log('✅ Mode balises réussi');
-      
-      const buffer = doc.getZip().generate({
-        type: 'uint8array',
-        compression: 'DEFLATE',
-      });
-
-      return buffer;
-    } catch (tagError) {
-      console.log('⚠️ Mode balises échoué, basculement en mode ajout direct:', tagError.message);
-      
-      // Mode ajout direct avec la librairie docx
-      return await generateWithDirectAppend(templateBuffer, letterData);
-    }
-
-  } catch (error) {
-    console.error('❌ Erreur lors de la génération:', error);
-    throw new Error(`Erreur lors de la génération: ${error.message}`);
-  }
-};
-
-// Générer avec ajout direct du contenu (sans balises)
-const generateWithDirectAppend = async (templateBuffer: ArrayBuffer, letterData: LetterData): Promise<Uint8Array> => {
   const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = await import('docx');
   
   try {
-    console.log('🔄 Mode ajout direct - Création du document...');
+    console.log('🔄 Génération du document Word avec ajout direct...');
     
-    // Pour le moment, on crée un nouveau document basé sur le template
-    // et on ajoute notre contenu à la fin
+    // Créer un nouveau document avec le contenu de la lettre
     const doc = new Document({
       sections: [{
         properties: {},
@@ -150,8 +90,8 @@ const generateWithDirectAppend = async (templateBuffer: ArrayBuffer, letterData:
     return new Uint8Array(buffer);
     
   } catch (error) {
-    console.error('❌ Erreur en mode ajout direct:', error);
-    throw new Error(`Erreur en mode ajout direct: ${error.message}`);
+    console.error('❌ Erreur lors de la génération:', error);
+    throw new Error(`Erreur lors de la génération: ${error.message}`);
   }
 };
 
