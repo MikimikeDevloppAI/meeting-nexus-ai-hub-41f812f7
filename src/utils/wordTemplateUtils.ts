@@ -12,83 +12,116 @@ interface LetterData {
   textPosition: TextPosition;
 }
 
-// Générer une lettre Word avec ajout direct du contenu
+// Générer une lettre Word en utilisant le template et en ajoutant le contenu
 export const generateLetterFromTemplate = async (letterData: LetterData): Promise<Uint8Array> => {
-  const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = await import('docx');
-  
   try {
-    console.log('🔄 Génération du document Word avec ajout direct...');
-    
-    // Créer un nouveau document avec le contenu de la lettre
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          // En-tête avec nom du patient
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Patient: ${letterData.patientName}`,
-                bold: true,
-                size: 28, // 14pt
-              })
-            ],
-            heading: HeadingLevel.HEADING_2,
-            spacing: {
-              after: 400, // espacement après
-            }
-          }),
-          
-          // Date
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Date: ${new Date().toLocaleDateString('fr-FR')}`,
-                size: 24, // 12pt
-              })
-            ],
-            spacing: {
-              after: 600,
-            }
-          }),
-          
-          // Ligne de séparation
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '─────────────────────────────────────────',
-                size: 20,
-              })
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: {
-              after: 400,
-            }
-          }),
-          
-          // Contenu de la lettre
-          ...letterData.letterContent.split('\n').map(line => 
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: line.trim(),
-                  size: 24, // 12pt
-                })
-              ],
-              spacing: {
-                after: line.trim() === '' ? 200 : 120,
-              },
-              alignment: AlignmentType.JUSTIFIED,
-            })
-          )
-        ]
-      }]
-    });
+    if (!letterData.templateUrl) {
+      throw new Error('Template Word requis');
+    }
 
-    console.log('✅ Document créé avec succès');
-    const blob = await Packer.toBlob(doc);
-    const buffer = await blob.arrayBuffer();
-    return new Uint8Array(buffer);
+    console.log('🔄 Téléchargement du template Word:', letterData.templateUrl);
+    
+    // Télécharger le template Word
+    const templateResponse = await fetch(letterData.templateUrl);
+    if (!templateResponse.ok) {
+      throw new Error(`Impossible de télécharger le template: ${templateResponse.status}`);
+    }
+    
+    const templateBuffer = await templateResponse.arrayBuffer();
+    console.log('✅ Template téléchargé, taille:', templateBuffer.byteLength);
+
+    // Utiliser JSZip pour manipuler le document Word
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const doc = await zip.loadAsync(templateBuffer);
+    
+    console.log('🔄 Modification du document Word...');
+    
+    // Lire le document principal (document.xml)
+    const docXmlFile = doc.file('word/document.xml');
+    if (!docXmlFile) {
+      throw new Error('Structure de document Word invalide');
+    }
+    
+    const docXmlContent = await docXmlFile.async('string');
+    
+    // Créer le contenu à ajouter
+    const contentToAdd = `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:after="240"/>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:b/>
+            <w:sz w:val="28"/>
+          </w:rPr>
+          <w:t>Patient: ${letterData.patientName}</w:t>
+        </w:r>
+      </w:p>
+      <w:p>
+        <w:pPr>
+          <w:spacing w:after="240"/>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:sz w:val="24"/>
+          </w:rPr>
+          <w:t>Date: ${new Date().toLocaleDateString('fr-FR')}</w:t>
+        </w:r>
+      </w:p>
+      <w:p>
+        <w:pPr>
+          <w:spacing w:after="240"/>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:sz w:val="20"/>
+          </w:rPr>
+          <w:t>─────────────────────────────────────────</w:t>
+        </w:r>
+      </w:p>`;
+    
+    // Ajouter chaque ligne du contenu
+    const contentLines = letterData.letterContent.split('\n');
+    const contentParagraphs = contentLines.map(line => `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:after="120"/>
+          <w:jc w:val="both"/>
+        </w:pPr>
+        <w:r>
+          <w:rPr>
+            <w:sz w:val="24"/>
+          </w:rPr>
+          <w:t>${line.trim()}</w:t>
+        </w:r>
+      </w:p>`).join('');
+    
+    // Trouver la fin du body et insérer le nouveau contenu
+    const bodyEndIndex = docXmlContent.lastIndexOf('</w:body>');
+    if (bodyEndIndex === -1) {
+      throw new Error('Structure XML invalide - balise </w:body> non trouvée');
+    }
+    
+    const modifiedXml = docXmlContent.substring(0, bodyEndIndex) + 
+                       contentToAdd + 
+                       contentParagraphs + 
+                       docXmlContent.substring(bodyEndIndex);
+    
+    // Remplacer le contenu du document
+    doc.file('word/document.xml', modifiedXml);
+    
+    console.log('✅ Contenu ajouté au template');
+    
+    // Générer le nouveau fichier Word
+    const modifiedBuffer = await doc.generateAsync({
+      type: 'uint8array',
+      compression: 'DEFLATE'
+    });
+    
+    console.log('✅ Document Word généré avec succès');
+    return modifiedBuffer;
     
   } catch (error) {
     console.error('❌ Erreur lors de la génération:', error);
