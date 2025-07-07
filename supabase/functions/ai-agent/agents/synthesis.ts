@@ -77,8 +77,11 @@ ${contextContent}
 CONTEXTE INTERNET:
 ${internetContext.hasContent ? internetContext.content : 'Aucune recherche internet effectuée'}
 
-INSTRUCTION PRINCIPALE:
-Réponds de manière professionnelle et utile en te basant sur le contexte fourni. Si tu proposes de créer une tâche ou d'ajouter un point à l'ordre du jour, utilise le format [ACTION_TACHE:description] ou [ACTION_REUNION:description] pour que l'action soit interceptée et validée par l'utilisateur.
+INSTRUCTIONS IMPORTANTES:
+- Réponds de manière professionnelle et utile en te basant sur le contexte fourni
+- Ne mentionne JAMAIS les identifiants techniques des documents (Document ID, UUID, etc.)
+- Réfère-toi aux documents uniquement par leur nom ou titre
+- Si tu proposes de créer une tâche ou d'ajouter un point à l'ordre du jour, utilise le format [ACTION_TACHE:description] ou [ACTION_REUNION:description]
 
 Question de l'utilisateur: "${message}"
 
@@ -94,7 +97,7 @@ Réponds en français de manière claire et professionnelle.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1-2025-04-14',
           messages: [{ role: 'user', content: enrichedPrompt }],
           temperature: 0.7,
           max_tokens: 16384,

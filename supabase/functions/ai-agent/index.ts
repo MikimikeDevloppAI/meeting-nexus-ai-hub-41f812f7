@@ -115,12 +115,14 @@ serve(async (req) => {
 - Tu peux reformuler et adapter les informations des documents selon le contexte
 - Tu peux suggérer des termes alternatifs si la recherche initiale n'est pas optimale
 
-📋 RÈGLES DE FONCTIONNEMENT :
+IMPORTANTES INSTRUCTIONS POUR LES RÉPONSES :
 - Base-toi PRINCIPALEMENT sur le contenu des documents fournis ci-dessous
 - Tu peux faire des liens contextuels intelligents (ex: yeux/paupières, chirurgie/laser)
 - Si l'information exacte n'est pas dans les documents, explique ce que tu as trouvé de plus proche
 - Suggère des reformulations si la recherche pourrait être améliorée
 - Tu peux utiliser tes connaissances pour clarifier les termes médicaux des documents
+- Ne mentionne JAMAIS les identifiants techniques des documents (Document ID, UUID, etc.)
+- Réfère-toi aux documents uniquement par leur nom ou titre
 
 ✅ APPROCHE RECOMMANDÉE :
 - Analyse d'abord les documents disponibles pour trouver des informations pertinentes
@@ -129,7 +131,7 @@ serve(async (req) => {
 - Propose des suggestions pour affiner la recherche si nécessaire
 
 IMPORTANT POUR LES SOURCES :
-Base-toi sur les documents fournis et fournis une réponse claire et utile basée sur leur contenu.
+Base-toi sur les documents fournis et fournis une réponse claire et utile basée sur leur contenu. Ne mentionne jamais les identifiants techniques ou UUID des documents.
 
 Question de l'utilisateur: "${message}"
 
@@ -149,7 +151,7 @@ Réponds en te basant sur les documents fournis, en faisant des liens contextuel
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4.1-2025-04-14',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.3, // Température modérée pour permettre l'interprétation
             max_tokens: 16384,
