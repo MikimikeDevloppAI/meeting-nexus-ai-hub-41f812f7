@@ -1,9 +1,10 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 const FileAudio = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -50,6 +51,16 @@ export const AudioRecordingSection = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
+  const { pauseInactivityTimer, resumeInactivityTimer } = useAuth();
+
+  // Gérer la pause/reprise du timer d'inactivité selon l'état d'enregistrement
+  useEffect(() => {
+    if (isRecording) {
+      pauseInactivityTimer();
+    } else {
+      resumeInactivityTimer();
+    }
+  }, [isRecording, pauseInactivityTimer, resumeInactivityTimer]);
 
   const startRecording = async () => {
     try {

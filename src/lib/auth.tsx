@@ -18,6 +18,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
+  pauseInactivityTimer: () => void;
+  resumeInactivityTimer: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -284,6 +286,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        pauseInactivityTimer: inactivityTimer.pauseTimer,
+        resumeInactivityTimer: inactivityTimer.resumeTimer,
       }}
     >
       {children}

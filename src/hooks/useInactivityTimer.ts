@@ -24,8 +24,10 @@ export const useInactivityTimer = ({
   const countdownRef = useRef<NodeJS.Timeout>();
   const lastActivityRef = useRef<number>(Date.now());
 
+  const [isPaused, setIsPaused] = useState(false);
+
   const resetTimer = useCallback(() => {
-    if (!enabled) return;
+    if (!enabled || isPaused) return;
 
     // Nettoyer les timers existants
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -64,7 +66,29 @@ export const useInactivityTimer = ({
     timeoutRef.current = setTimeout(() => {
       onTimeout();
     }, timeout);
-  }, [enabled, timeout, warningTime, onTimeout, onWarning]);
+  }, [enabled, isPaused, timeout, warningTime, onTimeout, onWarning]);
+
+  const pauseTimer = useCallback(() => {
+    if (!enabled) return;
+    
+    setIsPaused(true);
+    
+    // Nettoyer les timers existants
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
+    // Masquer l'avertissement si affiché
+    setShowWarning(false);
+  }, [enabled]);
+
+  const resumeTimer = useCallback(() => {
+    if (!enabled) return;
+    
+    setIsPaused(false);
+    // Le timer redémarrera automatiquement grâce à resetTimer
+    setTimeout(() => resetTimer(), 100);
+  }, [enabled, resetTimer]);
 
   const extendSession = useCallback(() => {
     resetTimer();
@@ -165,7 +189,10 @@ export const useInactivityTimer = ({
     isActive,
     showWarning,
     timeLeft,
+    isPaused,
     extendSession,
-    resetTimer
+    resetTimer,
+    pauseTimer,
+    resumeTimer
   };
 };
