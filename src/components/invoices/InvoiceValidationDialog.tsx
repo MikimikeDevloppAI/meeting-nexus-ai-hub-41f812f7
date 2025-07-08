@@ -138,6 +138,36 @@ export function InvoiceValidationDialog({
     return errors.length === 0;
   };
 
+  // Helper function for currency conversion
+  const convertCurrency = async (currency: string, amount: number, invoiceDate: string) => {
+    if (currency === 'CHF') {
+      return { exchange_rate: 1, original_amount_chf: amount };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('currency-converter', {
+        body: {
+          currency,
+          amount,
+          date: invoiceDate
+        }
+      });
+
+      if (error) {
+        console.warn('Currency conversion failed:', error);
+        return { exchange_rate: null, original_amount_chf: null };
+      }
+
+      return {
+        exchange_rate: data.exchange_rate,
+        original_amount_chf: data.converted_amount
+      };
+    } catch (error) {
+      console.warn('Currency conversion error:', error);
+      return { exchange_rate: null, original_amount_chf: null };
+    }
+  };
+
   const handleSave = async () => {
     if (!validateRequiredFields()) {
       toast.error('Veuillez remplir tous les champs obligatoires');
@@ -146,8 +176,17 @@ export function InvoiceValidationDialog({
 
     setSaving(true);
     try {
+      // Convert currency if needed
+      const currencyConversion = await convertCurrency(
+        formData.currency || 'EUR', 
+        formData.total_amount || 0, 
+        formData.invoice_date || new Date().toISOString().split('T')[0]
+      );
+
       const updateData = {
         ...formData,
+        exchange_rate: currencyConversion.exchange_rate,
+        original_amount_chf: currencyConversion.original_amount_chf,
         status: 'validated',
         processed_at: new Date().toISOString(),
         invoice_date: formData.invoice_date === '' ? null : formData.invoice_date,

@@ -160,6 +160,36 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
     return data.path;
   };
 
+  // Helper function for currency conversion
+  const convertCurrency = async (currency: string, amount: number, invoiceDate: string) => {
+    if (currency === 'CHF') {
+      return { exchange_rate: 1, original_amount_chf: amount };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('currency-converter', {
+        body: {
+          currency,
+          amount,
+          date: invoiceDate
+        }
+      });
+
+      if (error) {
+        console.warn('Currency conversion failed:', error);
+        return { exchange_rate: null, original_amount_chf: null };
+      }
+
+      return {
+        exchange_rate: data.exchange_rate,
+        original_amount_chf: data.converted_amount
+      };
+    } catch (error) {
+      console.warn('Currency conversion error:', error);
+      return { exchange_rate: null, original_amount_chf: null };
+    }
+  };
+
   const onSubmit = async (data: ManualInvoiceFormData) => {
     if (!validateRequiredFields()) {
       toast({
@@ -191,6 +221,13 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
         }
       }
 
+      // Convert currency if needed
+      const currencyConversion = await convertCurrency(
+        data.currency, 
+        data.total_amount, 
+        data.invoice_date || new Date().toISOString().split('T')[0]
+      );
+
       // Créer la facture dans la base de données
       const { error } = await supabase.from("invoices").insert({
         invoice_number: data.invoice_number || null,
@@ -205,6 +242,8 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
         customer_address: data.customer_address || null,
         customer_vat_number: data.customer_vat_number || null,
         currency: data.currency,
+        exchange_rate: currencyConversion.exchange_rate,
+        original_amount_chf: currencyConversion.original_amount_chf,
         total_net: data.total_net || null,
         total_tax: data.total_tax || null,
         total_amount: data.total_amount || null,

@@ -233,11 +233,47 @@ serve(async (req) => {
       };
     }
 
+    // Convert currency if needed
+    let currencyData = {};
+    if (extractedData.currency !== 'CHF' && extractedData.total_amount) {
+      try {
+        const conversionDate = extractedData.invoice_date 
+          ? new Date(extractedData.invoice_date).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+
+        const { data: conversionResult, error: conversionError } = await supabaseClient.functions.invoke('currency-converter', {
+          body: {
+            currency: extractedData.currency,
+            amount: extractedData.total_amount,
+            date: conversionDate
+          }
+        });
+
+        if (!conversionError && conversionResult) {
+          currencyData = {
+            exchange_rate: conversionResult.exchange_rate,
+            original_amount_chf: conversionResult.converted_amount
+          };
+          console.log(`Currency conversion: ${extractedData.total_amount} ${extractedData.currency} = ${conversionResult.converted_amount} CHF`);
+        } else {
+          console.warn('Currency conversion failed:', conversionError);
+        }
+      } catch (error) {
+        console.warn('Currency conversion error:', error);
+      }
+    } else if (extractedData.currency === 'CHF') {
+      currencyData = {
+        exchange_rate: 1,
+        original_amount_chf: extractedData.total_amount
+      };
+    }
+
     // Update invoice with extracted data
     const { error: updateError } = await supabaseClient
       .from('invoices')
       .update({
         ...extractedData,
+        ...currencyData,
         status: 'completed',
         processed_at: new Date().toISOString(),
         error_message: null

@@ -25,6 +25,8 @@ interface Invoice {
   total_net?: number;
   total_tax?: number;
   currency?: string;
+  exchange_rate?: number;
+  original_amount_chf?: number;
   supplier_name?: string;
   supplier_address?: string;
   supplier_email?: string;
@@ -238,14 +240,58 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     setValidationDialogOpen(true);
   };
 
+  // Helper function for currency conversion
+  const convertCurrency = async (currency: string, amount: number, invoiceDate: string) => {
+    if (currency === 'CHF') {
+      return { exchange_rate: 1, original_amount_chf: amount };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('currency-converter', {
+        body: {
+          currency,
+          amount,
+          date: invoiceDate
+        }
+      });
+
+      if (error) {
+        console.warn('Currency conversion failed:', error);
+        return { exchange_rate: null, original_amount_chf: null };
+      }
+
+      return {
+        exchange_rate: data.exchange_rate,
+        original_amount_chf: data.converted_amount
+      };
+    } catch (error) {
+      console.warn('Currency conversion error:', error);
+      return { exchange_rate: null, original_amount_chf: null };
+    }
+  };
+
   const handleQuickValidate = async (invoice: Invoice) => {
     try {
+      // Convert currency if needed and not already converted
+      let updateData: any = { 
+        status: 'validated',
+        processed_at: new Date().toISOString()
+      };
+
+      if (invoice.currency !== 'CHF' && !invoice.exchange_rate && invoice.total_amount) {
+        const currencyConversion = await convertCurrency(
+          invoice.currency || 'EUR', 
+          invoice.total_amount, 
+          invoice.invoice_date ? new Date(invoice.invoice_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+        );
+        
+        updateData.exchange_rate = currencyConversion.exchange_rate;
+        updateData.original_amount_chf = currencyConversion.original_amount_chf;
+      }
+
       const { error } = await supabase
         .from('invoices')
-        .update({ 
-          status: 'validated',
-          processed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', invoice.id);
 
       if (error) throw error;
@@ -338,10 +384,23 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 <div>
                   <span className="font-medium text-gray-700">Montant TTC:</span>
                   <div className="text-gray-900 font-semibold">
-                    {invoice.total_amount ? 
-                      `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
-                      'N/A'
-                    }
+                    {invoice.total_amount ? (
+                      <div className="space-y-1">
+                        <div>
+                          {invoice.total_amount.toFixed(2)} {invoice.currency || 'EUR'}
+                        </div>
+                        {invoice.original_amount_chf && invoice.currency !== 'CHF' && (
+                          <div className="text-sm text-blue-600">
+                            ≈ {invoice.original_amount_chf.toFixed(2)} CHF
+                            {invoice.exchange_rate && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (taux: {invoice.exchange_rate.toFixed(4)})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : 'N/A'}
                   </div>
                 </div>
               </div>
