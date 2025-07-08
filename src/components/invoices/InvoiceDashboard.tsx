@@ -35,6 +35,7 @@ interface Invoice {
   original_filename: string;
   file_path: string;
   error_message?: string;
+  original_amount_chf?: number;
 }
 
 interface DashboardFilters {
@@ -160,13 +161,13 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       davidAmount: 0
     };
 
-    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
     const communAmount = filteredInvoices
       .filter(inv => inv.compte === 'Commun')
-      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
     const davidAmount = filteredInvoices
       .filter(inv => inv.compte === 'David Tabibian')
-      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
 
     return {
       totalAmount,

@@ -7,6 +7,7 @@ import { useMemo } from "react";
 interface Invoice {
   supplier_name?: string;
   total_amount?: number;
+  original_amount_chf?: number;
   compte: string;
 }
 
@@ -26,7 +27,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
     const supplierMap = new Map<string, number>();
 
     invoices.forEach(invoice => {
-      if (!invoice.total_amount) return;
+      if (!invoice.original_amount_chf) return;
       
       // Nettoyer le nom du fournisseur et le mettre en majuscules
       let supplierName = invoice.supplier_name || 'FOURNISSEUR INCONNU';
@@ -50,7 +51,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         supplierName = (invoice.supplier_name || 'FOURNISSEUR INCONNU').toUpperCase();
       }
 
-      supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + invoice.total_amount);
+      supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + invoice.original_amount_chf);
     });
 
     return Array.from(supplierMap.entries())

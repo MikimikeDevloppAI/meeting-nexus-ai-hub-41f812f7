@@ -6,6 +6,7 @@ import { useMemo } from "react";
 interface Invoice {
   invoice_date?: string;
   total_amount?: number;
+  original_amount_chf?: number;
 }
 
 interface GrowthComparisonCardProps {
@@ -41,18 +42,18 @@ export function GrowthComparisonCard({ allInvoices, dateFrom, dateTo }: GrowthCo
     let previousAmount = 0;
 
     allInvoices.forEach(invoice => {
-      if (!invoice.invoice_date || !invoice.total_amount) return;
+      if (!invoice.invoice_date || !invoice.original_amount_chf) return;
       
       const invoiceDate = new Date(invoice.invoice_date);
       
       // Période actuelle
       if (invoiceDate >= currentStart && invoiceDate <= currentEnd) {
-        currentAmount += invoice.total_amount;
+        currentAmount += invoice.original_amount_chf;
       }
       
       // Période précédente
       if (invoiceDate >= previousStart && invoiceDate <= previousEnd) {
-        previousAmount += invoice.total_amount;
+        previousAmount += invoice.original_amount_chf;
       }
     });
 

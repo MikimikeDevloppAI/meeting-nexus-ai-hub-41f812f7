@@ -10,6 +10,7 @@ interface Invoice {
   purchase_category?: string;
   purchase_subcategory?: string;
   total_amount?: number;
+  original_amount_chf?: number;
 }
 
 interface DonutCategoryChartProps {
@@ -27,7 +28,7 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
     const dataMap = new Map<string, number>();
 
     invoices.forEach(invoice => {
-      if (!invoice.total_amount) return;
+      if (!invoice.original_amount_chf) return;
       
       let key = '';
       switch (mode) {
@@ -42,7 +43,7 @@ export function DonutCategoryChart({ invoices }: DonutCategoryChartProps) {
           break;
       }
       
-      dataMap.set(key, (dataMap.get(key) || 0) + invoice.total_amount);
+      dataMap.set(key, (dataMap.get(key) || 0) + invoice.original_amount_chf);
     });
 
     return Array.from(dataMap.entries())

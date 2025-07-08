@@ -7,6 +7,7 @@ interface Invoice {
   compte: string;
   invoice_date?: string;
   total_amount?: number;
+  original_amount_chf?: number;
 }
 
 interface MonthlyExpenseChartProps {
@@ -47,7 +48,7 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
     });
 
     filteredInvoices.forEach(invoice => {
-      if (!invoice.invoice_date || !invoice.total_amount) return;
+      if (!invoice.invoice_date || !invoice.original_amount_chf) return;
 
       const date = new Date(invoice.invoice_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -59,9 +60,9 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
 
       const data = dataMap.get(monthKey)!;
       if (invoice.compte === 'Commun') {
-        data.commun += invoice.total_amount;
+        data.commun += invoice.original_amount_chf;
       } else if (invoice.compte === 'David Tabibian') {
-        data.david += invoice.total_amount;
+        data.david += invoice.original_amount_chf;
       }
     });
 
