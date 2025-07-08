@@ -112,18 +112,27 @@ export function InvoiceValidationDialog({
       let processedValue = value;
       
       // Traitement spécial pour le taux de change : accepter les virgules
-      if (field === 'exchange_rate' && typeof value === 'string') {
-        // Remplacer les virgules par des points pour la conversion en nombre
-        const normalizedValue = value.replace(',', '.');
-        const parsedValue = parseFloat(normalizedValue);
-        // Utiliser la valeur parsée si elle est un nombre valide, sinon garder 1 par défaut
-        processedValue = !isNaN(parsedValue) ? parsedValue : 1;
+      if (field === 'exchange_rate') {
+        if (typeof value === 'string') {
+          // Remplacer les virgules par des points pour la conversion en nombre
+          const normalizedValue = value.replace(',', '.');
+          // Garder la valeur comme string si elle est en cours de saisie (ex: "0.", "0,5")
+          if (normalizedValue === '' || normalizedValue === '.' || normalizedValue === '0.' || normalizedValue === '0') {
+            processedValue = normalizedValue;
+          } else {
+            const parsedValue = parseFloat(normalizedValue);
+            processedValue = !isNaN(parsedValue) ? parsedValue : value;
+          }
+        }
       }
       
       const newData = { ...prev, [field]: processedValue };
       
       // Recalculer original_amount_chf si le taux de change ou le montant TTC change
-      if ((field === 'exchange_rate' || field === 'total_amount') && newData.exchange_rate && newData.total_amount) {
+      // Utiliser typeof et > 0 au lieu de truthy check pour permettre les valeurs < 1
+      if ((field === 'exchange_rate' || field === 'total_amount') && 
+          typeof newData.exchange_rate === 'number' && newData.exchange_rate > 0 && 
+          newData.total_amount) {
         newData.original_amount_chf = newData.total_amount * newData.exchange_rate;
       }
       
@@ -204,11 +213,11 @@ export function InvoiceValidationDialog({
       // Utiliser le taux de change du formulaire (modifié par l'utilisateur)
       // Si l'utilisateur n'a pas modifié le taux de change et que c'est une nouvelle devise,
       // on peut appeler l'API, sinon on garde la valeur du formulaire
-      let finalExchangeRate = formData.exchange_rate || 1;
+      let finalExchangeRate = typeof formData.exchange_rate === 'number' ? formData.exchange_rate : 1;
       let finalOriginalAmountChf = formData.original_amount_chf || 0;
 
-      // Si pas de taux de change défini, essayer la conversion automatique
-      if (!formData.exchange_rate || formData.exchange_rate === 1) {
+      // Si pas de taux de change défini ou égal à 1, essayer la conversion automatique
+      if (typeof formData.exchange_rate !== 'number' || formData.exchange_rate === 1) {
         const currencyConversion = await convertCurrency(
           formData.currency || 'EUR', 
           formData.total_amount || 0, 
