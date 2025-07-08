@@ -146,12 +146,14 @@ serve(async (req) => {
     }
 
     // Log currency confidence for debugging
-    const currencyConfidence = prediction.locale?.currency_confidence;
+    const currencyConfidence = prediction.locale?.confidence;
     const originalCurrency = prediction.locale?.currency;
     console.log(`Currency confidence: ${currencyConfidence}, Original currency: ${originalCurrency}`);
     
     if (!currencyConfidence || currencyConfidence < 0.5) {
       console.log(`Low currency confidence (${currencyConfidence}), forcing CHF instead of ${originalCurrency}`);
+    } else {
+      console.log(`Good currency confidence (${currencyConfidence}), using detected currency: ${originalCurrency}`);
     }
 
     // Extract data based on document type
@@ -166,7 +168,7 @@ serve(async (req) => {
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
-        currency: (prediction.locale?.currency_confidence && prediction.locale.currency_confidence >= 0.5) 
+        currency: (prediction.locale?.confidence && prediction.locale.confidence >= 0.5) 
           ? prediction.locale.currency 
           : 'CHF',
         supplier_name: prediction.supplier_name?.value || '',
@@ -203,7 +205,7 @@ serve(async (req) => {
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
-        currency: (prediction.locale?.currency_confidence && prediction.locale.currency_confidence >= 0.5) 
+        currency: (prediction.locale?.confidence && prediction.locale.confidence >= 0.5) 
           ? prediction.locale.currency 
           : 'CHF',
         supplier_name: prediction.supplier_name?.value || '',
