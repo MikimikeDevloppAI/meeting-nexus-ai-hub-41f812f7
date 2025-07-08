@@ -273,13 +273,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   const handleQuickValidate = async (invoice: Invoice) => {
     try {
-      // Convert currency if needed and not already converted
+      // Convert currency ONLY if no valid exchange rate exists
       let updateData: any = { 
         status: 'validated',
         processed_at: new Date().toISOString()
       };
 
-      if (invoice.currency !== 'CHF' && !invoice.exchange_rate && invoice.total_amount) {
+      // Only call API if exchange_rate is null or 0 AND currency is not CHF
+      if (invoice.currency !== 'CHF' && (!invoice.exchange_rate || invoice.exchange_rate <= 0) && invoice.total_amount) {
+        console.log('Quick validate: calling currency API for', invoice.currency);
         const currencyConversion = await convertCurrency(
           invoice.currency || 'EUR', 
           invoice.total_amount, 
@@ -288,6 +290,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         
         updateData.exchange_rate = currencyConversion.exchange_rate;
         updateData.original_amount_chf = currencyConversion.original_amount_chf;
+      } else {
+        console.log('Quick validate: preserving existing exchange rate', invoice.exchange_rate);
+        // Don't modify exchange rate if it already has a valid value
       }
 
       const { error } = await supabase

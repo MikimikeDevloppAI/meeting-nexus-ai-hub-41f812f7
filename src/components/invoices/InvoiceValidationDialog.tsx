@@ -274,50 +274,44 @@ export function InvoiceValidationDialog({
       let finalExchangeRate = formData.exchange_rate;
       let finalOriginalAmountChf = formData.original_amount_chf || 0;
 
-      // Utiliser la fonction utilitaire pour déterminer si l'API doit être appelée
-      const needsAPICall = shouldCallCurrencyAPI(
-        invoice.currency || 'EUR', 
-        formData.currency || 'EUR', 
-        formData.exchange_rate
-      );
-
-      if (needsAPICall) {
-        console.log('=== Calling currency API ===');
-        console.log('Currency:', formData.currency);
-        console.log('Amount:', formData.total_amount);
-        console.log('Date:', formData.invoice_date);
-        
-        const currencyConversion = await convertCurrency(
-          formData.currency || 'EUR', 
-          formData.total_amount || 0, 
-          formData.invoice_date || new Date().toISOString().split('T')[0]
-        );
-        
-        if (currencyConversion.exchange_rate) {
-          finalExchangeRate = currencyConversion.exchange_rate;
-          console.log('=== API SUCCESS ===');
-          console.log('New exchange rate from API:', finalExchangeRate);
-          
-          // Mettre à jour immédiatement formData pour l'affichage
-          setFormData(prev => ({
-            ...prev,
-            exchange_rate: finalExchangeRate,
-            original_amount_chf: calculateOriginalAmountChf(formData.total_amount || 0, finalExchangeRate)
-          }));
-        } else {
-          console.warn('=== API FAILED ===');
-          console.warn('API did not return a valid exchange rate');
-          finalExchangeRate = 1; // Fallback
-        }
+      // Si l'utilisateur a saisi manuellement un taux, le respecter
+      if (typeof formData.exchange_rate === 'number' && formData.exchange_rate > 0) {
+        console.log('=== Using manually set exchange rate ===');
+        console.log('Manual rate:', formData.exchange_rate);
+        finalExchangeRate = formData.exchange_rate;
       } else {
-        console.log('=== Skipping API call ===');
-        console.log('Current currency:', formData.currency);
-        console.log('Current rate:', formData.exchange_rate);
-        
-        finalExchangeRate = getExchangeRateForCurrency(
+        // Sinon, utiliser la logique d'API pour les nouveaux cas
+        const needsAPICall = shouldCallCurrencyAPI(
+          invoice.currency || 'EUR', 
           formData.currency || 'EUR', 
           formData.exchange_rate
-        ) || 1;
+        );
+
+        if (needsAPICall && formData.currency !== 'CHF') {
+          console.log('=== Calling currency API ===');
+          console.log('Currency:', formData.currency);
+          console.log('Amount:', formData.total_amount);
+          console.log('Date:', formData.invoice_date);
+          
+          const currencyConversion = await convertCurrency(
+            formData.currency || 'EUR', 
+            formData.total_amount || 0, 
+            formData.invoice_date || new Date().toISOString().split('T')[0]
+          );
+          
+          if (currencyConversion.exchange_rate) {
+            finalExchangeRate = currencyConversion.exchange_rate;
+            console.log('=== API SUCCESS ===');
+            console.log('New exchange rate from API:', finalExchangeRate);
+          } else {
+            console.warn('=== API FAILED ===');
+            console.warn('API did not return a valid exchange rate');
+            finalExchangeRate = 1; // Fallback
+          }
+        } else {
+          console.log('=== Using default/CHF rate ===');
+          finalExchangeRate = formData.currency === 'CHF' ? 1 : (formData.exchange_rate || 1);
+        }
       }
 
       // Calculer le montant CHF final
