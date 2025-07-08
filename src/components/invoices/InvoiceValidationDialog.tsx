@@ -124,7 +124,7 @@ export function InvoiceValidationDialog({
   useEffect(() => {
     if (invoice) {
       setFormData({
-        invoice_number: invoice.invoice_number || '',
+        invoice_number: invoice.invoice_number || null,
         invoice_date: formatDateForInput(invoice.invoice_date),
         due_date: formatDateForInput(invoice.due_date),
         total_amount: invoice.total_amount || 0,
@@ -134,21 +134,21 @@ export function InvoiceValidationDialog({
         exchange_rate: invoice.exchange_rate || 1,
         original_amount_chf: invoice.original_amount_chf || 0,
         compte: invoice.compte || 'Commun',
-        purchase_category: invoice.purchase_category || '',
-        purchase_subcategory: invoice.purchase_subcategory || '',
-        supplier_name: invoice.supplier_name || '',
-        supplier_address: invoice.supplier_address || '',
-        supplier_email: invoice.supplier_email || '',
-        supplier_phone_number: invoice.supplier_phone_number || '',
-        supplier_iban: invoice.supplier_iban || '',
-        supplier_website: invoice.supplier_website || '',
-        supplier_company_registration: invoice.supplier_company_registration || '',
-        supplier_vat_number: invoice.supplier_vat_number || '',
-        customer_name: invoice.customer_name || '',
-        customer_address: invoice.customer_address || '',
-        customer_company_registration: invoice.customer_company_registration || '',
-        customer_vat_number: invoice.customer_vat_number || '',
-        payment_details: invoice.payment_details || '',
+        purchase_category: invoice.purchase_category || null,
+        purchase_subcategory: invoice.purchase_subcategory || null,
+        supplier_name: invoice.supplier_name || null,
+        supplier_address: invoice.supplier_address || null,
+        supplier_email: invoice.supplier_email || null,
+        supplier_phone_number: invoice.supplier_phone_number || null,
+        supplier_iban: invoice.supplier_iban || null,
+        supplier_website: invoice.supplier_website || null,
+        supplier_company_registration: invoice.supplier_company_registration || null,
+        supplier_vat_number: invoice.supplier_vat_number || null,
+        customer_name: invoice.customer_name || null,
+        customer_address: invoice.customer_address || null,
+        customer_company_registration: invoice.customer_company_registration || null,
+        customer_vat_number: invoice.customer_vat_number || null,
+        payment_details: invoice.payment_details || null,
       });
     }
   }, [invoice]);
@@ -158,6 +158,11 @@ export function InvoiceValidationDialog({
     
     setFormData(prev => {
       let processedValue = value;
+      
+      // Convertir les chaînes vides en null pour tous les champs texte
+      if (typeof value === 'string' && value.trim() === '') {
+        processedValue = null;
+      }
       
       // Traitement spécial pour le taux de change : accepter les virgules
       if (field === 'exchange_rate') {
@@ -208,7 +213,7 @@ export function InvoiceValidationDialog({
     const errors: string[] = [];
 
     // Vérifier le nom du fournisseur
-    if (!formData.supplier_name || formData.supplier_name.trim() === '') {
+    if (!formData.supplier_name || (typeof formData.supplier_name === 'string' && formData.supplier_name.trim() === '')) {
       errors.push('Le nom du fournisseur est obligatoire');
     }
 
@@ -329,6 +334,22 @@ export function InvoiceValidationDialog({
         processed_at: new Date().toISOString(),
         invoice_date: formData.invoice_date === '' ? null : formData.invoice_date,
         due_date: formData.due_date === '' ? null : formData.due_date,
+        // Convertir les chaînes vides en null pour tous les champs optionnels
+        invoice_number: formData.invoice_number === '' ? null : formData.invoice_number,
+        purchase_category: formData.purchase_category === '' ? null : formData.purchase_category,
+        purchase_subcategory: formData.purchase_subcategory === '' ? null : formData.purchase_subcategory,
+        supplier_address: formData.supplier_address === '' ? null : formData.supplier_address,
+        supplier_email: formData.supplier_email === '' ? null : formData.supplier_email,
+        supplier_phone_number: formData.supplier_phone_number === '' ? null : formData.supplier_phone_number,
+        supplier_iban: formData.supplier_iban === '' ? null : formData.supplier_iban,
+        supplier_website: formData.supplier_website === '' ? null : formData.supplier_website,
+        supplier_company_registration: formData.supplier_company_registration === '' ? null : formData.supplier_company_registration,
+        supplier_vat_number: formData.supplier_vat_number === '' ? null : formData.supplier_vat_number,
+        customer_name: formData.customer_name === '' ? null : formData.customer_name,
+        customer_address: formData.customer_address === '' ? null : formData.customer_address,
+        customer_company_registration: formData.customer_company_registration === '' ? null : formData.customer_company_registration,
+        customer_vat_number: formData.customer_vat_number === '' ? null : formData.customer_vat_number,
+        payment_details: formData.payment_details === '' ? null : formData.payment_details,
       };
 
       const { error } = await supabase
