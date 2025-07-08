@@ -252,6 +252,12 @@ export function InvoiceValidationDialog({
         if (currencyConversion.exchange_rate) {
           finalExchangeRate = currencyConversion.exchange_rate;
           console.log('API returned exchange rate:', finalExchangeRate);
+          
+          // Mettre à jour le formData pour que l'affichage se mette à jour aussi
+          setFormData(prev => ({
+            ...prev,
+            exchange_rate: finalExchangeRate
+          }));
         } else {
           console.warn('API did not return a valid exchange rate, keeping default');
         }
