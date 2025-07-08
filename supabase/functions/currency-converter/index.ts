@@ -28,10 +28,11 @@ serve(async (req) => {
   try {
     const { currency, amount, date }: ConversionRequest = await req.json()
     
-    console.log(`Converting ${amount} ${currency} to CHF for date ${date}`)
+    console.log(`[currency-converter] Starting conversion: ${amount} ${currency} to CHF for date ${date}`)
 
     // Si la devise est déjà CHF, pas besoin de conversion
     if (currency === 'CHF') {
+      console.log(`[currency-converter] Currency is already CHF, returning 1:1 conversion`)
       const response: ConversionResponse = {
         exchange_rate: 1,
         converted_amount: amount,
@@ -53,30 +54,45 @@ serve(async (req) => {
     // Récupérer la clé API
     const apiKey = Deno.env.get('EXCHANGERATE_API_KEY')
     if (!apiKey) {
+      console.error('[currency-converter] EXCHANGERATE_API_KEY not configured')
       throw new Error('EXCHANGERATE_API_KEY not configured')
     }
+    console.log(`[currency-converter] API key found: ${apiKey.substring(0, 8)}...`)
 
-    // Appeler l'API exchangerate.host
-    const apiUrl = `https://api.exchangerate.host/${date}?base=${currency}&symbols=CHF&access_key=${apiKey}`
-    console.log(`Calling exchangerate API: ${apiUrl}`)
+    // Construire l'URL selon la documentation exchangerate.host
+    // Pour les données historiques: https://api.exchangerate.host/historical?access_key=KEY&date=YYYY-MM-DD&source=EUR&currencies=CHF
+    const apiUrl = `https://api.exchangerate.host/historical?access_key=${apiKey}&date=${date}&source=${currency}&currencies=CHF`
+    console.log(`[currency-converter] Calling exchangerate API: ${apiUrl.replace(apiKey, 'REDACTED')}`)
 
     const exchangeResponse = await fetch(apiUrl)
+    console.log(`[currency-converter] API response status: ${exchangeResponse.status} ${exchangeResponse.statusText}`)
     
     if (!exchangeResponse.ok) {
-      throw new Error(`Exchange rate API error: ${exchangeResponse.status} ${exchangeResponse.statusText}`)
+      const errorText = await exchangeResponse.text()
+      console.error(`[currency-converter] Exchange rate API error: ${exchangeResponse.status} - ${errorText}`)
+      throw new Error(`Exchange rate API error: ${exchangeResponse.status} ${exchangeResponse.statusText} - ${errorText}`)
     }
 
     const exchangeData = await exchangeResponse.json()
-    console.log('Exchange rate response:', exchangeData)
+    console.log('[currency-converter] Exchange rate response:', JSON.stringify(exchangeData, null, 2))
 
     // Vérifier si l'API a retourné une erreur
     if (!exchangeData.success) {
-      throw new Error(`Exchange rate API error: ${exchangeData.error?.info || 'Unknown error'}`)
+      const errorInfo = exchangeData.error?.info || 'Unknown error'
+      console.error(`[currency-converter] API returned error: ${errorInfo}`)
+      throw new Error(`Exchange rate API error: ${errorInfo}`)
     }
 
-    // Récupérer le taux de change CHF
-    const exchangeRate = exchangeData.rates?.CHF
+    // Récupérer le taux de change CHF depuis les quotes
+    // Le format est: quotes: { "EURCHF": 0.95 } pour EUR vers CHF
+    const quotePair = `${currency}CHF`
+    const exchangeRate = exchangeData.quotes?.[quotePair]
+    
+    console.log(`[currency-converter] Looking for quote pair: ${quotePair}`)
+    console.log(`[currency-converter] Available quotes:`, Object.keys(exchangeData.quotes || {}))
+    
     if (!exchangeRate) {
+      console.error(`[currency-converter] No exchange rate found for ${quotePair}`)
       throw new Error(`No exchange rate found for ${currency} to CHF on ${date}`)
     }
 
@@ -92,7 +108,7 @@ serve(async (req) => {
       conversion_date: date
     }
 
-    console.log(`Conversion successful: ${amount} ${currency} = ${response.converted_amount} CHF (rate: ${exchangeRate})`)
+    console.log(`[currency-converter] Conversion successful: ${amount} ${currency} = ${response.converted_amount} CHF (rate: ${exchangeRate})`)
 
     return new Response(
       JSON.stringify(response),
@@ -103,7 +119,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Currency conversion error:', error)
+    console.error('[currency-converter] Currency conversion error:', error)
     
     return new Response(
       JSON.stringify({ 
