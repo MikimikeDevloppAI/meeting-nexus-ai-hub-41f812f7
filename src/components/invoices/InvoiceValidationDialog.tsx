@@ -115,7 +115,9 @@ export function InvoiceValidationDialog({
       if (field === 'exchange_rate' && typeof value === 'string') {
         // Remplacer les virgules par des points pour la conversion en nombre
         const normalizedValue = value.replace(',', '.');
-        processedValue = parseFloat(normalizedValue) || 1;
+        const parsedValue = parseFloat(normalizedValue);
+        // Utiliser la valeur parsée si elle est un nombre valide, sinon garder 1 par défaut
+        processedValue = !isNaN(parsedValue) ? parsedValue : 1;
       }
       
       const newData = { ...prev, [field]: processedValue };
@@ -433,11 +435,10 @@ export function InvoiceValidationDialog({
                 <Label htmlFor="exchange_rate">Taux de change</Label>
                 <Input
                   id="exchange_rate"
-                  type="number"
-                  step="0.0001"
+                  type="text"
                   value={formData.exchange_rate || ''}
-                  onChange={(e) => handleInputChange('exchange_rate', parseFloat(e.target.value) || 1)}
-                  placeholder="1.0000"
+                  onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
+                  placeholder="1,0000"
                 />
               </div>
 
