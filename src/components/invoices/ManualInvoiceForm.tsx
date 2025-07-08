@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -71,6 +72,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
   } = useForm<ManualInvoiceFormData>({
     defaultValues: {
       currency: "CHF",
+      compte: "Commun",
       line_items: [{ description: "", quantity: 1, unit_price: 0, total: 0 }],
       invoice_date: new Date().toISOString().split('T')[0],
       total_net: undefined,
@@ -407,6 +409,26 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Compte <span className="text-red-500">*</span></Label>
+                  <RadioGroup
+                    value={watch("compte")}
+                    onValueChange={(value) => setValue("compte", value)}
+                    className="flex gap-6 mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Commun" id="commun" />
+                      <Label htmlFor="commun" className="text-sm font-normal">Commun</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="David Tabibian" id="david" />
+                      <Label htmlFor="david" className="text-sm font-normal">David Tabibian</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="invoice_date">
                     Date facture <span className="text-red-500">*</span>
