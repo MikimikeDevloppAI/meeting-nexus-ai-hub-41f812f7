@@ -221,13 +221,23 @@ export function InvoiceValidationDialog({
     setSaving(true);
     try {
       // Utiliser le taux de change du formulaire (modifié par l'utilisateur)
-      // Si l'utilisateur n'a pas modifié le taux de change et que c'est une nouvelle devise,
-      // on peut appeler l'API, sinon on garde la valeur du formulaire
       let finalExchangeRate = typeof formData.exchange_rate === 'number' ? formData.exchange_rate : 1;
       let finalOriginalAmountChf = formData.original_amount_chf || 0;
 
-      // Si pas de taux de change défini ou égal à 1, essayer la conversion automatique
-      if (typeof formData.exchange_rate !== 'number' || formData.exchange_rate === 1) {
+      // Détecter si la devise a changé par rapport à la facture originale
+      const currencyChanged = invoice.currency !== formData.currency;
+      
+      // Appeler l'API uniquement si :
+      // 1. La devise n'est pas CHF
+      // 2. ET (la devise a changé OU pas de taux de change défini)
+      // 3. ET le taux de change est toujours à 1 (pas modifié manuellement)
+      const shouldCallAPI = formData.currency !== 'CHF' && 
+                           (currencyChanged || !formData.exchange_rate) && 
+                           formData.exchange_rate === 1;
+
+      if (shouldCallAPI) {
+        console.log('Calling currency API for:', formData.currency, 'amount:', formData.total_amount);
+        
         const currencyConversion = await convertCurrency(
           formData.currency || 'EUR', 
           formData.total_amount || 0, 
@@ -236,7 +246,12 @@ export function InvoiceValidationDialog({
         
         if (currencyConversion.exchange_rate) {
           finalExchangeRate = currencyConversion.exchange_rate;
+          console.log('API returned exchange rate:', finalExchangeRate);
+        } else {
+          console.warn('API did not return a valid exchange rate, keeping default');
         }
+      } else {
+        console.log('Skipping API call - Currency:', formData.currency, 'Rate:', formData.exchange_rate, 'Changed:', currencyChanged);
       }
 
       // Toujours recalculer le montant CHF avec le taux final
