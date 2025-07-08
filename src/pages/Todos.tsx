@@ -484,30 +484,14 @@ export default function Todos() {
                       </div>
                     </div>
 
+                    {/* AI Recommendations - positioned right under participants */}
+                    <div className="border-t pt-3">
+                      <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={false} />
+                    </div>
+
                     {/* AI Tools - Style professionnel sans background coloré */}
                     <div className="space-y-3">
                       <div className="flex gap-3 border-t pt-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
-                          className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
-                            activeTool === 'recommendation' 
-                              ? 'border-blue-400 bg-blue-50/50 shadow-sm' 
-                              : 'hover:border-gray-300 hover:bg-gray-50/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Mail className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">Communication</span>
-                          </div>
-                          {activeTool === 'recommendation' ? (
-                            <ChevronUp className="h-4 w-4 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
-                          )}
-                        </Button>
-
                         <Button
                           variant="ghost"
                           size="sm"
@@ -533,9 +517,6 @@ export default function Todos() {
                       {/* AI Tool Content */}
                       {activeTool !== 'none' && (
                         <div className="w-full bg-gray-50/30 rounded-lg p-4 border border-gray-100">
-                          {activeTool === 'recommendation' && (
-                            <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
-                          )}
                           {activeTool === 'assistant' && (
                             <TodoAssistantContent 
                               todoId={todo.id} 
