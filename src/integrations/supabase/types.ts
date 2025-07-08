@@ -122,6 +122,7 @@ export type Database = {
           customer_vat_number: string | null
           due_date: string | null
           error_message: string | null
+          exchange_rate: number | null
           file_path: string | null
           file_size: number | null
           id: string
@@ -129,6 +130,7 @@ export type Database = {
           invoice_number: string | null
           line_items: Json | null
           mindee_raw_response: Json | null
+          original_amount_chf: number | null
           original_filename: string | null
           payment_details: string | null
           processed_at: string | null
@@ -160,6 +162,7 @@ export type Database = {
           customer_vat_number?: string | null
           due_date?: string | null
           error_message?: string | null
+          exchange_rate?: number | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -167,6 +170,7 @@ export type Database = {
           invoice_number?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
+          original_amount_chf?: number | null
           original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
@@ -198,6 +202,7 @@ export type Database = {
           customer_vat_number?: string | null
           due_date?: string | null
           error_message?: string | null
+          exchange_rate?: number | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -205,6 +210,7 @@ export type Database = {
           invoice_number?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
+          original_amount_chf?: number | null
           original_filename?: string | null
           payment_details?: string | null
           processed_at?: string | null
