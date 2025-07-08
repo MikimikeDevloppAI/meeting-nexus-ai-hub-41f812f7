@@ -493,13 +493,34 @@ export function InvoiceValidationDialog({
                 <Label htmlFor="currency">
                   Devise <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="currency"
-                  value={formData.currency || ''}
-                  onChange={(e) => handleInputChange('currency', e.target.value)}
-                  placeholder="EUR"
-                  className={validationErrors.some(e => e.includes('devise')) ? 'border-red-500' : ''}
-                />
+                <Select value={formData.currency || ''} onValueChange={(value) => handleInputChange('currency', value)}>
+                  <SelectTrigger className={validationErrors.some(e => e.includes('devise')) ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Sélectionner une devise" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CHF">CHF</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="JPY">JPY</SelectItem>
+                    <SelectItem value="CNY">CNY</SelectItem>
+                    <SelectItem value="AUD">AUD</SelectItem>
+                    <SelectItem value="CAD">CAD</SelectItem>
+                    <SelectItem value="SEK">SEK</SelectItem>
+                    <SelectItem value="NOK">NOK</SelectItem>
+                    <SelectItem value="DKK">DKK</SelectItem>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="BRL">BRL</SelectItem>
+                    <SelectItem value="MXN">MXN</SelectItem>
+                    <SelectItem value="ZAR">ZAR</SelectItem>
+                    <SelectItem value="SGD">SGD</SelectItem>
+                    <SelectItem value="HKD">HKD</SelectItem>
+                    <SelectItem value="NZD">NZD</SelectItem>
+                    <SelectItem value="KRW">KRW</SelectItem>
+                    <SelectItem value="TRY">TRY</SelectItem>
+                    <SelectItem value="RUB">RUB</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
