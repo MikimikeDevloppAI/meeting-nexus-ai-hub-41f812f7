@@ -159,7 +159,7 @@ export default function MeetingDetail() {
             </div>
             
             {/* Résumé */}
-            <div className="max-w-full overflow-hidden">
+            <div className="max-w-full break-words overflow-wrap-anywhere">
               <EditableContent
                 content={summary}
                 onSave={handleSummarySave}
