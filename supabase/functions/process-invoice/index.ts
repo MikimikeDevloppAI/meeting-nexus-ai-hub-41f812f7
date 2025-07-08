@@ -235,6 +235,12 @@ serve(async (req) => {
       };
     }
 
+    // Fallback: si invoice_date est null mais due_date ne l'est pas, utiliser due_date
+    if (!extractedData.invoice_date && extractedData.due_date) {
+      extractedData.invoice_date = extractedData.due_date;
+      console.log(`Invoice date was null, using due_date as fallback: ${extractedData.invoice_date}`);
+    }
+
     // Convert currency if needed
     let currencyData = {};
     if (extractedData.currency !== 'CHF' && extractedData.total_amount) {
