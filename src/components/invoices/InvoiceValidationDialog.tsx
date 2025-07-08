@@ -109,7 +109,16 @@ export function InvoiceValidationDialog({
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => {
-      const newData = { ...prev, [field]: value };
+      let processedValue = value;
+      
+      // Traitement spécial pour le taux de change : accepter les virgules
+      if (field === 'exchange_rate' && typeof value === 'string') {
+        // Remplacer les virgules par des points pour la conversion en nombre
+        const normalizedValue = value.replace(',', '.');
+        processedValue = parseFloat(normalizedValue) || 1;
+      }
+      
+      const newData = { ...prev, [field]: processedValue };
       
       // Recalculer original_amount_chf si le taux de change ou le montant TTC change
       if ((field === 'exchange_rate' || field === 'total_amount') && newData.exchange_rate && newData.total_amount) {
