@@ -159,13 +159,15 @@ export default function MeetingDetail() {
             </div>
             
             {/* Résumé */}
-            <div className="max-w-full break-words overflow-wrap-anywhere">
-              <EditableContent
-                content={summary}
-                onSave={handleSummarySave}
-                type="summary"
-                id={meeting.id}
-              />
+            <div className="w-full overflow-hidden">
+              <div className="max-w-full break-words overflow-wrap-anywhere whitespace-pre-wrap">
+                <EditableContent
+                  content={summary}
+                  onSave={handleSummarySave}
+                  type="summary"
+                  id={meeting.id}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

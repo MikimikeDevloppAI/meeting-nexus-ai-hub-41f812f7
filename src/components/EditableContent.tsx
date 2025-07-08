@@ -127,17 +127,17 @@ export const EditableContent = ({
             </div>
             
             {showPreview ? (
-              <div className="border rounded-md p-4 bg-gray-50 min-h-[300px]">
-                <div className="prose prose-sm max-w-none break-words overflow-wrap-anywhere">
+              <div className="border rounded-md p-4 bg-gray-50 min-h-[300px] w-full overflow-hidden">
+                <div className="prose prose-sm max-w-none break-words overflow-wrap-anywhere w-full">
                   <ReactMarkdown 
                     components={{
-                      h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900 break-words">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800 break-words">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700 break-words">{children}</h3>,
-                      strong: ({ children }) => <strong className="font-semibold text-gray-900 break-words">{children}</strong>,
-                      ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1 break-words">{children}</ul>,
-                      li: ({ children }) => <li className="text-sm text-gray-700 break-words">{children}</li>,
-                      p: ({ children }) => <p className="mb-2 text-sm text-gray-700 break-words">{children}</p>,
+                      h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900 break-words overflow-wrap-anywhere">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800 break-words overflow-wrap-anywhere">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700 break-words overflow-wrap-anywhere">{children}</h3>,
+                      strong: ({ children }) => <strong className="font-semibold text-gray-900 break-words overflow-wrap-anywhere">{children}</strong>,
+                      ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1 break-words overflow-wrap-anywhere">{children}</ul>,
+                      li: ({ children }) => <li className="text-sm text-gray-700 break-words overflow-wrap-anywhere">{children}</li>,
+                      p: ({ children }) => <p className="mb-2 text-sm text-gray-700 break-words overflow-wrap-anywhere">{children}</p>,
                     }}
                   >
                     {editedContent || '*Aperçu vide*'}
@@ -187,26 +187,26 @@ export const EditableContent = ({
   }
 
   return (
-    <div className={`group ${className}`} onClick={handleStartEdit}>
-      <div className="relative cursor-pointer hover:bg-gray-50 rounded p-1 -m-1">
+    <div className={`group w-full overflow-hidden ${className}`} onClick={handleStartEdit}>
+      <div className="relative cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 w-full overflow-hidden">
         {type === 'summary' ? (
-          <div className="prose prose-sm max-w-none break-words overflow-wrap-anywhere">
+          <div className="prose prose-sm max-w-none break-words overflow-wrap-anywhere w-full">
             <ReactMarkdown 
               components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900 break-words">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800 break-words">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700 break-words">{children}</h3>,
-                strong: ({ children }) => <strong className="font-semibold text-gray-900 break-words">{children}</strong>,
-                ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1 break-words">{children}</ul>,
-                li: ({ children }) => <li className="text-sm text-gray-700 break-words">{children}</li>,
-                p: ({ children }) => <p className="mb-2 text-sm text-gray-700 break-words">{children}</p>,
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900 break-words overflow-wrap-anywhere">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800 break-words overflow-wrap-anywhere">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700 break-words overflow-wrap-anywhere">{children}</h3>,
+                strong: ({ children }) => <strong className="font-semibold text-gray-900 break-words overflow-wrap-anywhere">{children}</strong>,
+                ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1 break-words overflow-wrap-anywhere">{children}</ul>,
+                li: ({ children }) => <li className="text-sm text-gray-700 break-words overflow-wrap-anywhere">{children}</li>,
+                p: ({ children }) => <p className="mb-2 text-sm text-gray-700 break-words overflow-wrap-anywhere">{children}</p>,
               }}
             >
               {content}
             </ReactMarkdown>
           </div>
         ) : (
-          <span>{content}</span>
+          <span className="break-words overflow-wrap-anywhere">{content}</span>
         )}
       </div>
     </div>
