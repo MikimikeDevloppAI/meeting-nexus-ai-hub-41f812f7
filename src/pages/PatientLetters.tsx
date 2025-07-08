@@ -284,21 +284,20 @@ const PatientLetters = () => {
           setPatientAddress={setPatientAddress}
         />
         
-        {/* 3. Section d'upload de documents (plus compacte) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <VoiceRecordingCard 
-            isRecording={isRecording}
-            isProcessing={isProcessing}
-            startRecording={startRecording}
-            stopRecording={stopRecording}
-            onAudioFileUpload={handleAudioFileUpload}
-          />
-          
-          <LetterContentCard 
-            letterContent={letterContent}
-            setLetterContent={setLetterContent}
-          />
-        </div>
+        {/* 3. Dictée vocale */}
+        <VoiceRecordingCard 
+          isRecording={isRecording}
+          isProcessing={isProcessing}
+          startRecording={startRecording}
+          stopRecording={stopRecording}
+          onAudioFileUpload={handleAudioFileUpload}
+        />
+        
+        {/* 4. Contenu de la lettre */}
+        <LetterContentCard 
+          letterContent={letterContent}
+          setLetterContent={setLetterContent}
+        />
 
         
         <LetterActionsCard 
