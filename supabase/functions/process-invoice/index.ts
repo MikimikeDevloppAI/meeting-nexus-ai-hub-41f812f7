@@ -145,6 +145,15 @@ serve(async (req) => {
       throw new Error('No prediction data from Mindee')
     }
 
+    // Log currency confidence for debugging
+    const currencyConfidence = prediction.locale?.currency_confidence;
+    const originalCurrency = prediction.locale?.currency;
+    console.log(`Currency confidence: ${currencyConfidence}, Original currency: ${originalCurrency}`);
+    
+    if (!currencyConfidence || currencyConfidence < 0.5) {
+      console.log(`Low currency confidence (${currencyConfidence}), forcing CHF instead of ${originalCurrency}`);
+    }
+
     // Extract data based on document type
     let extractedData;
     
@@ -157,7 +166,9 @@ serve(async (req) => {
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
-        currency: prediction.locale?.currency || 'EUR',
+        currency: (prediction.locale?.currency_confidence && prediction.locale.currency_confidence >= 0.5) 
+          ? prediction.locale.currency 
+          : 'CHF',
         supplier_name: prediction.supplier_name?.value || '',
         supplier_address: prediction.supplier_address?.value || '',
         supplier_email: '',
@@ -192,7 +203,9 @@ serve(async (req) => {
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
-        currency: prediction.locale?.currency || 'EUR',
+        currency: (prediction.locale?.currency_confidence && prediction.locale.currency_confidence >= 0.5) 
+          ? prediction.locale.currency 
+          : 'CHF',
         supplier_name: prediction.supplier_name?.value || '',
         supplier_address: prediction.supplier_address?.value || '',
         supplier_email: prediction.supplier_email?.value || '',
