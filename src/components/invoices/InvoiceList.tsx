@@ -113,7 +113,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
-        .order('invoice_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) {
