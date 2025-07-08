@@ -128,9 +128,19 @@ export function InvoiceValidationDialog({
       
       const newData = { ...prev, [field]: processedValue };
       
+      // Si la devise est CHF, forcer le taux de change à 1
+      if (field === 'currency' && value === 'CHF') {
+        newData.exchange_rate = 1;
+      }
+      
+      // Si on modifie la devise vers CHF, fixer le taux à 1
+      if (newData.currency === 'CHF') {
+        newData.exchange_rate = 1;
+      }
+      
       // Recalculer original_amount_chf si le taux de change ou le montant TTC change
       // Utiliser typeof et > 0 au lieu de truthy check pour permettre les valeurs < 1
-      if ((field === 'exchange_rate' || field === 'total_amount') && 
+      if ((field === 'exchange_rate' || field === 'total_amount' || field === 'currency') && 
           typeof newData.exchange_rate === 'number' && newData.exchange_rate > 0 && 
           newData.total_amount) {
         newData.original_amount_chf = newData.total_amount * newData.exchange_rate;
@@ -448,6 +458,8 @@ export function InvoiceValidationDialog({
                   value={formData.exchange_rate || ''}
                   onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
                   placeholder="1,0000"
+                  disabled={formData.currency === 'CHF'}
+                  className={formData.currency === 'CHF' ? 'bg-muted' : ''}
                 />
               </div>
 
