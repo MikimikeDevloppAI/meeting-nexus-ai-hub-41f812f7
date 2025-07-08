@@ -162,11 +162,15 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
 
   // Helper function for currency conversion
   const convertCurrency = async (currency: string, amount: number, invoiceDate: string) => {
+    console.log(`ManualInvoiceForm: Converting ${amount} ${currency} to CHF for date ${invoiceDate}`);
+    
     if (currency === 'CHF') {
+      console.log('ManualInvoiceForm: Currency is already CHF, no conversion needed');
       return { exchange_rate: 1, original_amount_chf: amount };
     }
 
     try {
+      console.log('ManualInvoiceForm: Calling currency-converter function...');
       const { data, error } = await supabase.functions.invoke('currency-converter', {
         body: {
           currency,
@@ -175,17 +179,20 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
         }
       });
 
+      console.log('ManualInvoiceForm: Currency converter response:', { data, error });
+
       if (error) {
-        console.warn('Currency conversion failed:', error);
+        console.warn('ManualInvoiceForm: Currency conversion failed:', error);
         return { exchange_rate: null, original_amount_chf: null };
       }
 
+      console.log('ManualInvoiceForm: Currency conversion successful:', data);
       return {
         exchange_rate: data.exchange_rate,
         original_amount_chf: data.converted_amount
       };
     } catch (error) {
-      console.warn('Currency conversion error:', error);
+      console.warn('ManualInvoiceForm: Currency conversion error:', error);
       return { exchange_rate: null, original_amount_chf: null };
     }
   };
