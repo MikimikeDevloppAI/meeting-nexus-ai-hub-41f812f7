@@ -127,7 +127,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     for (let i = 0; i < tasksWithRecommendations.length; i++) {
       const taskData = tasksWithRecommendations[i];
       try {
-        console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description?.substring(0, 50)}...`);
+        console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description}`);
         
         // 1. Créer la tâche d'abord avec assignation limitée aux participants de la réunion
         const savedTask = await saveTaskUnified(supabaseClient, taskData, meetingData.id, participants);
@@ -195,7 +195,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 
 // Fonction pour sauvegarder une tâche avec assignation limitée aux participants de la réunion
 async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) {
-  console.log('💾 Saving unified task:', task.description?.substring(0, 50) + '...');
+  console.log('💾 Saving unified task:', task.description);
   console.log('👥 Participants de la réunion disponibles pour assignation:', meetingParticipants?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   try {
