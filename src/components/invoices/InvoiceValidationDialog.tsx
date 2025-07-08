@@ -27,6 +27,8 @@ interface Invoice {
   total_net?: number;
   total_tax?: number;
   currency?: string;
+  exchange_rate?: number;
+  original_amount_chf?: number;
   supplier_name?: string;
   supplier_address?: string;
   supplier_email?: string;
@@ -83,6 +85,8 @@ export function InvoiceValidationDialog({
         total_net: invoice.total_net || 0,
         total_tax: invoice.total_tax || 0,
         currency: invoice.currency || 'EUR',
+        exchange_rate: invoice.exchange_rate || 1,
+        original_amount_chf: invoice.original_amount_chf || 0,
         compte: invoice.compte || 'Commun',
         purchase_category: invoice.purchase_category || '',
         purchase_subcategory: invoice.purchase_subcategory || '',
@@ -104,7 +108,17 @@ export function InvoiceValidationDialog({
   }, [invoice]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Recalculer original_amount_chf si le taux de change ou le montant TTC change
+      if ((field === 'exchange_rate' || field === 'total_amount') && newData.exchange_rate && newData.total_amount) {
+        newData.original_amount_chf = newData.total_amount * newData.exchange_rate;
+      }
+      
+      return newData;
+    });
+    
     // Clear validation errors when user starts typing
     if (validationErrors.length > 0) {
       setValidationErrors([]);
@@ -176,17 +190,34 @@ export function InvoiceValidationDialog({
 
     setSaving(true);
     try {
-      // Convert currency if needed
-      const currencyConversion = await convertCurrency(
-        formData.currency || 'EUR', 
-        formData.total_amount || 0, 
-        formData.invoice_date || new Date().toISOString().split('T')[0]
-      );
+      // Utiliser le taux de change du formulaire (modifié par l'utilisateur)
+      // Si l'utilisateur n'a pas modifié le taux de change et que c'est une nouvelle devise,
+      // on peut appeler l'API, sinon on garde la valeur du formulaire
+      let finalExchangeRate = formData.exchange_rate || 1;
+      let finalOriginalAmountChf = formData.original_amount_chf || 0;
+
+      // Si pas de taux de change défini, essayer la conversion automatique
+      if (!formData.exchange_rate || formData.exchange_rate === 1) {
+        const currencyConversion = await convertCurrency(
+          formData.currency || 'EUR', 
+          formData.total_amount || 0, 
+          formData.invoice_date || new Date().toISOString().split('T')[0]
+        );
+        
+        if (currencyConversion.exchange_rate) {
+          finalExchangeRate = currencyConversion.exchange_rate;
+        }
+      }
+
+      // Toujours recalculer le montant CHF avec le taux final
+      if (formData.total_amount) {
+        finalOriginalAmountChf = formData.total_amount * finalExchangeRate;
+      }
 
       const updateData = {
         ...formData,
-        exchange_rate: currencyConversion.exchange_rate,
-        original_amount_chf: currencyConversion.original_amount_chf,
+        exchange_rate: finalExchangeRate,
+        original_amount_chf: finalOriginalAmountChf,
         status: 'validated',
         processed_at: new Date().toISOString(),
         invoice_date: formData.invoice_date === '' ? null : formData.invoice_date,
@@ -386,6 +417,32 @@ export function InvoiceValidationDialog({
                   value={formData.total_amount || ''}
                   onChange={(e) => handleInputChange('total_amount', parseFloat(e.target.value) || 0)}
                   className={validationErrors.some(e => e.includes('montant TTC')) ? 'border-red-500' : ''}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="exchange_rate">Taux de change</Label>
+                <Input
+                  id="exchange_rate"
+                  type="number"
+                  step="0.0001"
+                  value={formData.exchange_rate || ''}
+                  onChange={(e) => handleInputChange('exchange_rate', parseFloat(e.target.value) || 1)}
+                  placeholder="1.0000"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="original_amount_chf">Montant en CHF</Label>
+                <Input
+                  id="original_amount_chf"
+                  type="number"
+                  step="0.01"
+                  value={formData.original_amount_chf || ''}
+                  onChange={(e) => handleInputChange('original_amount_chf', parseFloat(e.target.value) || 0)}
+                  placeholder="Calculé automatiquement"
+                  readOnly
+                  className="bg-muted"
                 />
               </div>
             </div>
