@@ -93,7 +93,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       console.log(`📊 Total todos found: ${allTodos.length} for meeting ${meetingId}`);
       console.log('📋 Todos details:', allTodos.map(t => ({
         id: t.id,
-        description: t.description.substring(0, 50) + '...',
+        description: t.description,
         status: t.status,
         priority: t.priority,
         participants: t.todo_participants?.length || 0
