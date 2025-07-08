@@ -2,6 +2,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useInactivityTimer } from "@/hooks/useInactivityTimer";
+import { InactivityWarningDialog } from "@/components/auth/InactivityWarningDialog";
 
 export interface User {
   id: string;
@@ -24,6 +26,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
+
+  // Configuration de l'inactivité (20 minutes = 1200000ms, avertissement à 3 minutes = 180000ms)
+  const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes
+  const WARNING_TIME = 3 * 60 * 1000; // 3 minutes
+
+  const handleInactivityTimeout = () => {
+    console.log("Déconnexion automatique pour inactivité");
+    signOut();
+    toast({
+      title: "Session expirée",
+      description: "Vous avez été déconnecté en raison d'inactivité.",
+      variant: "destructive",
+    });
+  };
+
+  const handleInactivityWarning = () => {
+    console.log("Avertissement d'inactivité affiché");
+  };
+
+  const inactivityTimer = useInactivityTimer({
+    timeout: INACTIVITY_TIMEOUT,
+    warningTime: WARNING_TIME,
+    onTimeout: handleInactivityTimeout,
+    onWarning: handleInactivityWarning,
+    enabled: !!user // Activer seulement si utilisateur connecté
+  });
 
   // Fonction pour récupérer le profil utilisateur
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
@@ -259,6 +287,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <InactivityWarningDialog
+        isOpen={inactivityTimer.showWarning}
+        timeLeft={inactivityTimer.timeLeft}
+        onExtendSession={inactivityTimer.extendSession}
+      />
     </AuthContext.Provider>
   );
 }
