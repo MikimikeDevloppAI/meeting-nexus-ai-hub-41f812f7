@@ -377,20 +377,20 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleQuickValidate(invoice)}
-                      className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                    >
-                      <Check className="h-4 w-4" />
-                      Valider
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
                       onClick={() => handleValidateInvoice(invoice)}
                       className="flex items-center gap-1"
                     >
                       <Edit className="h-4 w-4" />
                       Modifier
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickValidate(invoice)}
+                      className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <Check className="h-4 w-4" />
+                      Valider
                     </Button>
                   </>
                 )}
