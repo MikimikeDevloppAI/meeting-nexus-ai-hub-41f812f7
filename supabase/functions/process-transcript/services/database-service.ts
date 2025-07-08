@@ -137,30 +137,6 @@ const findBestParticipantMatch = (searchName: string, allParticipants: any[]): a
   return null;
 };
 
-// Fonction pour rendre les descriptions plus concises
-const makeDescriptionConcise = (description: string): string => {
-  // Nettoyer la description
-  let cleaned = description.trim();
-  
-  // Supprimer les répétitions et les phrases trop longues
-  const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  
-  // Prendre seulement les 2 premières phrases les plus importantes
-  const importantSentences = sentences.slice(0, 2);
-  
-  // Rejoindre et limiter à 120 caractères
-  let result = importantSentences.join('. ').trim();
-  if (result.length > 120) {
-    result = result.substring(0, 117) + '...';
-  }
-  
-  // S'assurer qu'il y a un point à la fin
-  if (result && !result.endsWith('.') && !result.endsWith('...')) {
-    result += '.';
-  }
-  
-  return result;
-};
 
 export const saveTask = async (supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) => {
   console.log('💾 Saving task:', task.description?.substring(0, 50) + '...');
@@ -180,17 +156,14 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
 
     console.log(`👥 Total participants disponibles: ${allParticipants?.length || 0}`);
     
-    // Rendre la description plus concise
-    const conciseDescription = makeDescriptionConcise(task.description);
     console.log('📝 Description originale:', task.description);
-    console.log('📝 Description concise:', conciseDescription);
     
     // Créer la tâche sans assigned_to puisque cette colonne n'existe plus
     const { data: savedTask, error } = await supabaseClient
       .from('todos')
       .insert([{
         meeting_id: meetingId,
-        description: conciseDescription,
+        description: task.description,
         status: 'confirmed',
         due_date: task.due_date || null
       }])
