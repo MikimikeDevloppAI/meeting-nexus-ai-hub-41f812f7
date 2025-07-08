@@ -34,7 +34,6 @@ interface Invoice {
   customer_address?: string;
   payment_details?: string;
   line_items?: any;
-  mindee_raw_response?: any;
   created_at: string;
   processed_at?: string;
   error_message?: string;
@@ -100,44 +99,6 @@ const formatSupplierName = (supplierName?: string): string => {
   }
 };
 
-// Helper function to get currency with confidence check
-const getCurrencyWithConfidence = (invoice: Invoice): string => {
-  try {
-    // Check if there's mindee raw response with confidence data
-    if (invoice.mindee_raw_response && typeof invoice.mindee_raw_response === 'object') {
-      const mindeeData = invoice.mindee_raw_response as any;
-      
-      // Look for currency confidence in various possible locations
-      let currencyConfidence = null;
-      
-      // Check in document prediction currency field
-      if (mindeeData?.document?.prediction?.locale?.currency?.confidence) {
-        currencyConfidence = mindeeData.document.prediction.locale.currency.confidence;
-      }
-      // Alternative path for currency confidence
-      else if (mindeeData?.prediction?.locale?.currency?.confidence) {
-        currencyConfidence = mindeeData.prediction.locale.currency.confidence;
-      }
-      // Check in total_amount field confidence if currency is linked to it
-      else if (mindeeData?.document?.prediction?.total_amount?.confidence) {
-        currencyConfidence = mindeeData.document.prediction.total_amount.confidence;
-      }
-      
-      // If confidence is below 0.5, return CHF
-      if (currencyConfidence !== null && currencyConfidence < 0.5) {
-        return 'CHF';
-      }
-    }
-    
-    // Return the original currency or default to EUR
-    return invoice.currency || 'EUR';
-  } catch (error) {
-    console.warn('Error checking currency confidence:', error);
-    // Fallback to original currency
-    return invoice.currency || 'EUR';
-  }
-};
-
 export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -149,7 +110,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       console.log('Fetching invoices...');
       const { data, error } = await supabase
         .from('invoices')
-        .select('*, mindee_raw_response')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -378,7 +339,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   <span className="font-medium text-gray-700">Montant TTC:</span>
                   <div className="text-gray-900 font-semibold">
                     {invoice.total_amount ? 
-                      `${invoice.total_amount.toFixed(2)} ${getCurrencyWithConfidence(invoice)}` : 
+                      `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 
                       'N/A'
                     }
                   </div>
