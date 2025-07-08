@@ -199,27 +199,21 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
   console.log('👥 Participants de la réunion disponibles pour assignation:', meetingParticipants?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   try {
-    // Fonction pour rendre les descriptions plus concises
+    // Fonction pour nettoyer les descriptions sans limitation de longueur
     const makeDescriptionConcise = (description: string): string => {
       if (!description) return '';
       
       // Nettoyer la description
       let cleaned = description.trim();
       
-      // Supprimer les répétitions et les phrases trop longues
+      // Supprimer les répétitions évidentes et nettoyer
       const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 0);
       
-      // Prendre seulement les 2 premières phrases les plus importantes
-      const importantSentences = sentences.slice(0, 2);
-      
-      // Rejoindre et limiter à 100 caractères
-      let result = importantSentences.join('. ').trim();
-      if (result.length > 100) {
-        result = result.substring(0, 97) + '...';
-      }
+      // Rejoindre toutes les phrases importantes
+      let result = sentences.join('. ').trim();
       
       // S'assurer qu'il y a un point à la fin
-      if (result && !result.endsWith('.') && !result.endsWith('...')) {
+      if (result && !result.endsWith('.')) {
         result += '.';
       }
       
