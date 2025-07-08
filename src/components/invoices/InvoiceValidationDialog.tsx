@@ -65,6 +65,27 @@ const formatDateForInput = (isoDate?: string): string => {
   }
 };
 
+// Utility functions for currency calculations
+const calculateOriginalAmountChf = (amount: number, rate: number): number => {
+  return amount * rate;
+};
+
+const shouldCallCurrencyAPI = (currentCurrency: string, newCurrency: string, currentRate: number | null): boolean => {
+  console.log('shouldCallCurrencyAPI check:', { currentCurrency, newCurrency, currentRate });
+  
+  if (newCurrency === 'CHF') return false;
+  
+  // Call API if currency changed to non-CHF or if no rate is set
+  const shouldCall = (currentCurrency !== newCurrency) || (currentRate === null || currentRate === 1);
+  console.log('shouldCallCurrencyAPI result:', shouldCall);
+  return shouldCall;
+};
+
+const getExchangeRateForCurrency = (currency: string, currentRate: number | null): number | null => {
+  if (currency === 'CHF') return 1;
+  return currentRate;
+};
+
 export function InvoiceValidationDialog({ 
   invoice, 
   open, 
@@ -74,6 +95,31 @@ export function InvoiceValidationDialog({
   const [formData, setFormData] = useState<Partial<Invoice>>({});
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Function to recalculate amounts when needed
+  const recalculateAmounts = (data: Partial<Invoice>) => {
+    console.log('recalculateAmounts called with:', { currency: data.currency, rate: data.exchange_rate, amount: data.total_amount });
+    
+    if (data.currency === 'CHF') {
+      return {
+        ...data,
+        exchange_rate: 1,
+        original_amount_chf: data.total_amount || 0
+      };
+    }
+    
+    if (typeof data.exchange_rate === 'number' && data.exchange_rate > 0 && data.total_amount) {
+      const newChfAmount = calculateOriginalAmountChf(data.total_amount, data.exchange_rate);
+      console.log('Calculated CHF amount:', newChfAmount);
+      
+      return {
+        ...data,
+        original_amount_chf: newChfAmount
+      };
+    }
+    
+    return data;
+  };
 
   useEffect(() => {
     if (invoice) {
@@ -108,15 +154,15 @@ export function InvoiceValidationDialog({
   }, [invoice]);
 
   const handleInputChange = (field: string, value: any) => {
+    console.log('handleInputChange called:', { field, value, currentCurrency: formData.currency });
+    
     setFormData(prev => {
       let processedValue = value;
       
       // Traitement spécial pour le taux de change : accepter les virgules
       if (field === 'exchange_rate') {
         if (typeof value === 'string') {
-          // Remplacer les virgules par des points pour la conversion en nombre
           const normalizedValue = value.replace(',', '.');
-          // Garder la valeur comme string si elle est en cours de saisie (ex: "0.", "0,5")
           if (normalizedValue === '' || normalizedValue === '.' || normalizedValue === '0.' || normalizedValue === '0') {
             processedValue = normalizedValue;
           } else {
@@ -126,31 +172,29 @@ export function InvoiceValidationDialog({
         }
       }
       
-      const newData = { ...prev, [field]: processedValue };
+      let newData = { ...prev, [field]: processedValue };
       
-      // Si la devise est CHF, forcer le taux de change à 1
-      if (field === 'currency' && value === 'CHF') {
-        newData.exchange_rate = 1;
+      // Gestion spéciale pour le changement de devise
+      if (field === 'currency') {
+        console.log('Currency change detected:', { from: prev.currency, to: value });
+        
+        if (value === 'CHF') {
+          // Si on passe à CHF, forcer le taux à 1
+          newData.exchange_rate = 1;
+          console.log('Set exchange rate to 1 for CHF');
+        } else if (value !== prev.currency) {
+          // Si on change vers une autre devise, marquer pour appel API
+          newData.exchange_rate = null;
+          console.log('Set exchange rate to null for API call');
+        }
       }
       
-      // Si on modifie la devise vers CHF, fixer le taux à 1
-      if (newData.currency === 'CHF') {
-        newData.exchange_rate = 1;
+      // Recalculer les montants uniquement si nécessaire
+      if (field === 'total_amount' || field === 'exchange_rate') {
+        newData = recalculateAmounts(newData);
       }
       
-      // Si on change vers une devise non-CHF, réinitialiser le taux pour permettre l'appel API
-      if (field === 'currency' && value !== 'CHF' && value !== invoice.currency) {
-        newData.exchange_rate = null; // null indique qu'il faut appeler l'API
-      }
-      
-      // Recalculer original_amount_chf si le taux de change ou le montant TTC change
-      // Utiliser typeof et > 0 au lieu de truthy check pour permettre les valeurs < 1
-      if ((field === 'exchange_rate' || field === 'total_amount' || field === 'currency') && 
-          typeof newData.exchange_rate === 'number' && newData.exchange_rate > 0 && 
-          newData.total_amount) {
-        newData.original_amount_chf = newData.total_amount * newData.exchange_rate;
-      }
-      
+      console.log('handleInputChange result:', { newData: newData });
       return newData;
     });
     
@@ -225,23 +269,23 @@ export function InvoiceValidationDialog({
 
     setSaving(true);
     try {
-      // Utiliser le taux de change du formulaire (modifié par l'utilisateur)
-      let finalExchangeRate = typeof formData.exchange_rate === 'number' ? formData.exchange_rate : 1;
+      console.log('handleSave started with formData:', formData);
+      
+      let finalExchangeRate = formData.exchange_rate;
       let finalOriginalAmountChf = formData.original_amount_chf || 0;
 
-      // Détecter si la devise a changé par rapport à la facture originale
-      const currencyChanged = invoice.currency !== formData.currency;
-      
-      // Appeler l'API uniquement si :
-      // 1. La devise n'est pas CHF
-      // 2. ET (la devise a changé OU pas de taux de change défini)  
-      // 3. ET le taux de change est null (réinitialisé après changement de devise) ou à 1 par défaut
-      const shouldCallAPI = formData.currency !== 'CHF' && 
-                           (currencyChanged || !formData.exchange_rate) && 
-                           (formData.exchange_rate === null || formData.exchange_rate === 1);
+      // Utiliser la fonction utilitaire pour déterminer si l'API doit être appelée
+      const needsAPICall = shouldCallCurrencyAPI(
+        invoice.currency || 'EUR', 
+        formData.currency || 'EUR', 
+        formData.exchange_rate
+      );
 
-      if (shouldCallAPI) {
-        console.log('Calling currency API for:', formData.currency, 'amount:', formData.total_amount);
+      if (needsAPICall) {
+        console.log('=== Calling currency API ===');
+        console.log('Currency:', formData.currency);
+        console.log('Amount:', formData.total_amount);
+        console.log('Date:', formData.invoice_date);
         
         const currencyConversion = await convertCurrency(
           formData.currency || 'EUR', 
@@ -251,24 +295,37 @@ export function InvoiceValidationDialog({
         
         if (currencyConversion.exchange_rate) {
           finalExchangeRate = currencyConversion.exchange_rate;
-          console.log('API returned exchange rate:', finalExchangeRate);
+          console.log('=== API SUCCESS ===');
+          console.log('New exchange rate from API:', finalExchangeRate);
           
-          // Mettre à jour le formData pour que l'affichage se mette à jour aussi
+          // Mettre à jour immédiatement formData pour l'affichage
           setFormData(prev => ({
             ...prev,
-            exchange_rate: finalExchangeRate
+            exchange_rate: finalExchangeRate,
+            original_amount_chf: calculateOriginalAmountChf(formData.total_amount || 0, finalExchangeRate)
           }));
         } else {
-          console.warn('API did not return a valid exchange rate, keeping default');
+          console.warn('=== API FAILED ===');
+          console.warn('API did not return a valid exchange rate');
+          finalExchangeRate = 1; // Fallback
         }
       } else {
-        console.log('Skipping API call - Currency:', formData.currency, 'Rate:', formData.exchange_rate, 'Changed:', currencyChanged);
+        console.log('=== Skipping API call ===');
+        console.log('Current currency:', formData.currency);
+        console.log('Current rate:', formData.exchange_rate);
+        
+        finalExchangeRate = getExchangeRateForCurrency(
+          formData.currency || 'EUR', 
+          formData.exchange_rate
+        ) || 1;
       }
 
-      // Toujours recalculer le montant CHF avec le taux final
-      if (formData.total_amount) {
-        finalOriginalAmountChf = formData.total_amount * finalExchangeRate;
-      }
+      // Calculer le montant CHF final
+      finalOriginalAmountChf = calculateOriginalAmountChf(formData.total_amount || 0, finalExchangeRate);
+      
+      console.log('=== Final values before save ===');
+      console.log('Final exchange rate:', finalExchangeRate);
+      console.log('Final CHF amount:', finalOriginalAmountChf);
 
       const updateData = {
         ...formData,
