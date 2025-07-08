@@ -138,6 +138,11 @@ export function InvoiceValidationDialog({
         newData.exchange_rate = 1;
       }
       
+      // Si on change vers une devise non-CHF, réinitialiser le taux pour permettre l'appel API
+      if (field === 'currency' && value !== 'CHF' && value !== invoice.currency) {
+        newData.exchange_rate = null; // null indique qu'il faut appeler l'API
+      }
+      
       // Recalculer original_amount_chf si le taux de change ou le montant TTC change
       // Utiliser typeof et > 0 au lieu de truthy check pour permettre les valeurs < 1
       if ((field === 'exchange_rate' || field === 'total_amount' || field === 'currency') && 
@@ -229,11 +234,11 @@ export function InvoiceValidationDialog({
       
       // Appeler l'API uniquement si :
       // 1. La devise n'est pas CHF
-      // 2. ET (la devise a changé OU pas de taux de change défini)
-      // 3. ET le taux de change est toujours à 1 (pas modifié manuellement)
+      // 2. ET (la devise a changé OU pas de taux de change défini)  
+      // 3. ET le taux de change est null (réinitialisé après changement de devise) ou à 1 par défaut
       const shouldCallAPI = formData.currency !== 'CHF' && 
                            (currencyChanged || !formData.exchange_rate) && 
-                           formData.exchange_rate === 1;
+                           (formData.exchange_rate === null || formData.exchange_rate === 1);
 
       if (shouldCallAPI) {
         console.log('Calling currency API for:', formData.currency, 'amount:', formData.total_amount);
