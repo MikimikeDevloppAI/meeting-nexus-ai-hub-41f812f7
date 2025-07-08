@@ -36,14 +36,9 @@ Pour chaque catégorie abordée :
 ### [Emoji] [Nom de la catégorie]
 
 - Point discuté 1
-  → Décision prise (si une décision a été prise pour ce point)[action prise, par qui, et quand si possible]
+  → Décision prise (si une décision a été prise pour ce point) - action prise, par qui, et quand si possible
 - Point discuté 2
-  → Décision prise (si une décision a été prise pour ce point)[action prise, par qui, et quand si possible]
-
----
-
-💡 **Recommandations IA**  
-Cette section doit apparaître **uniquement à la fin du résumé** et **uniquement si l’IA identifie des recommandations réellement utiles et actionnables**, basées sur le contenu de la réunion. Propose des suggestions concrètes adaptées au contexte du cabinet Ophtacare (ex. : bonnes pratiques, outils numériques, procédures à améliorer, point à aborder à la porchaine réunion).
+  → Décision prise (si une décision a été prise pour ce point) - action prise, par qui, et quand si possible
 
 
 RÈGLES :
