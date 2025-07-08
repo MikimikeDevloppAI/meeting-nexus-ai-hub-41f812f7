@@ -444,6 +444,19 @@ export function InvoiceValidationDialog({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="compte_doc">Compte</Label>
+                <Select value={formData.compte || ''} onValueChange={(value) => handleInputChange('compte', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un compte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="David Tabibian">David Tabibian</SelectItem>
+                    <SelectItem value="Commun">Commun</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="supplier_name_doc">
                   Nom du fournisseur <span className="text-red-500">*</span>
                 </Label>
@@ -602,19 +615,6 @@ export function InvoiceValidationDialog({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="compte">Compte</Label>
-                <Select value={formData.compte || ''} onValueChange={(value) => handleInputChange('compte', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un compte" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="David Tabibian">David Tabibian</SelectItem>
-                    <SelectItem value="Commun">Commun</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="purchase_subcategory">Sous-catégorie d'achat</Label>
                 <Input
                   id="purchase_subcategory"
