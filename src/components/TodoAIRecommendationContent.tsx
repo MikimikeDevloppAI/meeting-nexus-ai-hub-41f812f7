@@ -5,9 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, 
-  Send, Loader2, MessageSquare, User, Bot
+  Send, Loader2, MessageSquare, User, Bot, Edit2, Save, X
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +47,11 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
   const [showContacts, setShowContacts] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentEmailDraft, setCurrentEmailDraft] = useState<string>("");
+  
+  // États pour l'édition directe de l'email
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
   
   // États pour le chat de modification d'email
   const [emailChatMessages, setEmailChatMessages] = useState<EmailChatMessage[]>([]);
@@ -131,6 +137,50 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditEmail = () => {
+    setEditedEmail(currentEmailDraft);
+    setIsEditingEmail(true);
+  };
+
+  const handleSaveEmail = async () => {
+    if (!recommendation) return;
+    
+    setSavingEmail(true);
+    try {
+      const { error } = await supabase
+        .from("todo_ai_recommendations")
+        .update({ 
+          email_draft: editedEmail,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recommendation.id);
+
+      if (error) throw error;
+
+      setCurrentEmailDraft(editedEmail);
+      setIsEditingEmail(false);
+      
+      toast({
+        title: "Email modifié",
+        description: "L'email a été mis à jour avec succès",
+      });
+    } catch (error: any) {
+      console.error("Error updating email:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier l'email",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingEmail(false);
+    setEditedEmail("");
   };
 
   const sendEmailChatMessage = async () => {
@@ -289,27 +339,73 @@ export const TodoAIRecommendationContent = ({ todoId, autoOpenEmail = false }: T
           {/* Email content first */}
           {currentEmailDraft ? (
             <div className="bg-muted/50 rounded p-3">
-              <div className="flex items-center gap-2 mb-3">
-                <Mail className="h-4 w-4 text-blue-500" />
-                <span className="font-medium text-sm">Email de communication</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium text-sm">Email de communication</span>
+                </div>
+                {!isEditingEmail && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleEditEmail}
+                    className="h-6 px-2"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
-              <pre className="text-xs whitespace-pre-wrap font-sans mb-3">
-                {currentEmailDraft}
-              </pre>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(currentEmailDraft);
-                  toast({
-                    title: "Email copié",
-                    description: "L'email a été copié dans le presse-papiers",
-                  });
-                }}
-                className="w-full"
-              >
-                Copier l'email
-              </Button>
+              
+              {isEditingEmail ? (
+                <div className="space-y-3">
+                  <Textarea
+                    value={editedEmail}
+                    onChange={(e) => setEditedEmail(e.target.value)}
+                    className="min-h-[150px] text-sm"
+                    placeholder="Modifier l'email..."
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveEmail}
+                      disabled={savingEmail}
+                      className="flex-1"
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {savingEmail ? "Sauvegarde..." : "Sauvegarder"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                      disabled={savingEmail}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <pre className="text-xs whitespace-pre-wrap font-sans mb-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors" onClick={handleEditEmail}>
+                    {currentEmailDraft}
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentEmailDraft);
+                      toast({
+                        title: "Email copié",
+                        description: "L'email a été copié dans le presse-papiers",
+                      });
+                    }}
+                    className="w-full"
+                  >
+                    Copier l'email
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-muted/50 rounded p-3">
