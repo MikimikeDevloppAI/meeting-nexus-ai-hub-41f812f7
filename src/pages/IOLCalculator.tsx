@@ -97,36 +97,20 @@ export default function IOLCalculator() {
     setIsUploading(true);
     try {
       console.log("Envoi du PDF au webhook n8n:", webhookUrl);
+      console.log("Fichier:", pdfFile.name, "Taille:", pdfFile.size);
       
-      // Convertir le fichier en base64
-      const base64Data = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // Enlever le préfixe data:application/pdf;base64,
-        };
-        reader.readAsDataURL(pdfFile);
-      });
-
-      const payload = {
-        fileName: pdfFile.name,
-        fileSize: pdfFile.size,
-        mimeType: pdfFile.type,
-        fileData: base64Data,
-        timestamp: new Date().toISOString(),
-        triggered_from: window.location.origin,
-        source: "lovable-iol-calculator"
-      };
-
-      console.log("Payload à envoyer:", payload);
-      console.log("URL du webhook:", webhookUrl);
-      
+      // Envoyer le fichier PDF en tant que données binaires brutes
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/pdf",
+          "X-File-Name": encodeURIComponent(pdfFile.name),
+          "X-File-Size": pdfFile.size.toString(),
+          "X-User-Id": user?.id || "",
+          "X-Timestamp": new Date().toISOString(),
+          "X-Source": "lovable-iol-calculator"
         },
-        body: JSON.stringify(payload),
+        body: pdfFile,
       });
 
       console.log("Réponse du webhook:", response.status, response.statusText);
