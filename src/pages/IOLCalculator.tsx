@@ -2,16 +2,30 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Loader2 } from "lucide-react";
+import { Upload, FileText, Loader2, Eye, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface IOLData {
+  patientName?: string;
+  patientAge?: string;
+  axialLength?: string;
+  keratometry?: string;
+  anteriorChamberDepth?: string;
+  lensThickness?: string;
+  recommendations?: string[];
+  rawText?: string;
+  error?: boolean;
+  message?: string;
+}
 
 export default function IOLCalculator() {
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [iolData, setIolData] = useState<IOLData | null>(null);
+  const [showRawText, setShowRawText] = useState(false);
   const { toast } = useToast();
-
-  const webhookUrl = "https://n8n.srv758474.hstgr.cloud/webhook-test/06ff1a12-9f11-4d2c-9472-3f33a574be43";
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,101 +66,53 @@ export default function IOLCalculator() {
     document.getElementById('pdf-upload')?.click();
   };
 
-  const testWebhook = async () => {
-    setIsUploading(true);
-    try {
-      console.log("Test du webhook:", webhookUrl);
-      
-      const testPayload = {
-        test: true,
-        message: "Test depuis IOL Calculator",
-        timestamp: new Date().toISOString()
-      };
-      
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(testPayload),
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Test réussi",
-          description: "Le webhook n8n répond correctement.",
-        });
-      } else {
-        throw new Error(`Test failed: ${response.status}`);
-      }
-    } catch (error: any) {
-      console.error("Erreur test webhook:", error);
-      toast({
-        title: "Test échoué",
-        description: `Le webhook ne répond pas: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const sendToWebhook = async () => {
-    if (!pdfFile) return;
+  const extractIOLData = async () => {
+    if (!pdfFile || !user) return;
 
     setIsUploading(true);
+    setIolData(null);
+    
     try {
-      console.log("Envoi du PDF au webhook n8n:", webhookUrl);
-      console.log("Fichier:", pdfFile.name, "Taille:", pdfFile.size);
+      console.log("Téléchargement du PDF:", pdfFile.name, "Taille:", pdfFile.size);
       
-      // Envoyer le fichier PDF en tant que données binaires brutes
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/pdf",
-          "X-File-Name": encodeURIComponent(pdfFile.name),
-          "X-File-Size": pdfFile.size.toString(),
-          "X-User-Id": user?.id || "",
-          "X-Timestamp": new Date().toISOString(),
-          "X-Source": "lovable-iol-calculator"
-        },
-        body: pdfFile,
+      // Upload PDF to Supabase storage
+      const fileName = `iol-documents/${Date.now()}-${pdfFile.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, pdfFile);
+
+      if (uploadError) {
+        throw new Error(`Erreur de téléchargement: ${uploadError.message}`);
+      }
+
+      console.log("PDF téléchargé avec succès:", uploadData.path);
+
+      // Call the extract-iol-data edge function
+      const { data, error } = await supabase.functions.invoke('extract-iol-data', {
+        body: { filePath: uploadData.path }
       });
 
-      console.log("Réponse du webhook:", response.status, response.statusText);
-      
-      if (response.ok) {
-        const responseText = await response.text();
-        console.log("Contenu de la réponse:", responseText);
-        
-        toast({
-          title: "PDF envoyé avec succès",
-          description: `Le PDF a été envoyé au webhook n8n (Status: ${response.status}). Vérifiez les logs de votre workflow.`,
-        });
-      } else {
-        const errorText = await response.text();
-        console.error("Erreur du webhook:", errorText);
-        throw new Error(`Webhook a retourné le status ${response.status}: ${response.statusText}`);
+      if (error) {
+        throw new Error(`Erreur d'extraction: ${error.message}`);
       }
-      
-      // Réinitialiser le fichier après envoi
-      setPdfFile(null);
-      const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+
+      console.log("Données IOL extraites:", data);
+      setIolData(data);
+
+      toast({
+        title: "Extraction réussie",
+        description: "Les données IOL ont été extraites avec succès du PDF.",
+      });
+
+      // Clean up uploaded file from storage
+      await supabase.storage.from('documents').remove([uploadData.path]);
       
     } catch (error: any) {
-      console.error("Erreur lors de l'envoi au webhook:", error);
-      
-      let errorMessage = "Erreur inconnue";
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.name === "TypeError" && error.message?.includes("Failed to fetch")) {
-        errorMessage = "Impossible de contacter le webhook. Vérifiez que l'URL est accessible et que CORS est configuré.";
-      }
+      console.error("Erreur lors de l'extraction IOL:", error);
       
       toast({
-        title: "Erreur webhook",
-        description: `Impossible d'envoyer le PDF au webhook n8n: ${errorMessage}`,
+        title: "Erreur d'extraction",
+        description: `Impossible d'extraire les données IOL: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -163,9 +129,9 @@ export default function IOLCalculator() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Envoi de PDF au webhook n8n</CardTitle>
+          <CardTitle>Extraction de données IOL depuis PDF</CardTitle>
           <CardDescription>
-            Téléchargez un fichier PDF pour l'envoyer automatiquement au workflow n8n.
+            Téléchargez un fichier PDF pour extraire automatiquement les données IOL avec OCR intégré.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -204,38 +170,106 @@ export default function IOLCalculator() {
                   ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
                 </span>
               </div>
-              <Button onClick={sendToWebhook} disabled={isUploading}>
+              <Button onClick={extractIOLData} disabled={isUploading}>
                 {isUploading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Envoi en cours...
+                    Extraction en cours...
                   </>
                 ) : (
-                  "Envoyer au webhook"
+                  "Extraire les données IOL"
                 )}
               </Button>
             </div>
           )}
           
-          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg space-y-2">
-            <p><strong>Webhook configuré :</strong></p>
-            <p className="font-mono text-xs break-all">{webhookUrl}</p>
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              onClick={testWebhook}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Test en cours...
-                </>
-              ) : (
-                "Tester le webhook"
-              )}
-            </Button>
-          </div>
+          {iolData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Données IOL extraites
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {iolData.error ? (
+                  <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
+                    <p className="font-medium text-yellow-800">Document scanné détecté</p>
+                    <p className="text-yellow-700">{iolData.message}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {iolData.patientName && (
+                      <div>
+                        <p className="font-medium">Nom du patient</p>
+                        <p className="text-muted-foreground">{iolData.patientName}</p>
+                      </div>
+                    )}
+                    {iolData.patientAge && (
+                      <div>
+                        <p className="font-medium">Âge</p>
+                        <p className="text-muted-foreground">{iolData.patientAge}</p>
+                      </div>
+                    )}
+                    {iolData.axialLength && (
+                      <div>
+                        <p className="font-medium">Longueur axiale</p>
+                        <p className="text-muted-foreground">{iolData.axialLength}</p>
+                      </div>
+                    )}
+                    {iolData.keratometry && (
+                      <div>
+                        <p className="font-medium">Kératométrie</p>
+                        <p className="text-muted-foreground">{iolData.keratometry}</p>
+                      </div>
+                    )}
+                    {iolData.anteriorChamberDepth && (
+                      <div>
+                        <p className="font-medium">Profondeur chambre antérieure</p>
+                        <p className="text-muted-foreground">{iolData.anteriorChamberDepth}</p>
+                      </div>
+                    )}
+                    {iolData.lensThickness && (
+                      <div>
+                        <p className="font-medium">Épaisseur du cristallin</p>
+                        <p className="text-muted-foreground">{iolData.lensThickness}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {iolData.recommendations && (
+                  <div>
+                    <p className="font-medium mb-2">Recommandations</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      {iolData.recommendations.map((rec, index) => (
+                        <li key={index}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {iolData.rawText && (
+                  <div className="border-t pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRawText(!showRawText)}
+                      className="mb-2"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      {showRawText ? "Masquer" : "Afficher"} le texte brut
+                    </Button>
+                    {showRawText && (
+                      <div className="bg-muted p-3 rounded-lg max-h-64 overflow-y-auto">
+                        <pre className="text-xs whitespace-pre-wrap">{iolData.rawText}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </CardContent>
       </Card>
     </div>
