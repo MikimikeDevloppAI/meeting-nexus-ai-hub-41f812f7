@@ -36,6 +36,8 @@ export interface IOLData {
   };
   measurements: {
     rightEye: {
+      surgeryType?: string;
+      measurementDate?: string;
       axialLength?: number;
       cct?: number;
       ad?: number;
@@ -51,9 +53,12 @@ export interface IOLData {
       k_mean_radius?: number;
       astigmatism?: number;
       astigmatism_axis?: number;
+      q?: string;
       wtw?: number;
     };
     leftEye: {
+      surgeryType?: string;
+      measurementDate?: string;
       axialLength?: number;
       cct?: number;
       ad?: number;
@@ -69,6 +74,7 @@ export interface IOLData {
       k_mean_radius?: number;
       astigmatism?: number;
       astigmatism_axis?: number;
+      q?: string;
       wtw?: number;
     };
   };
@@ -171,6 +177,15 @@ export const parseIOLData = (rawText: string): IOLData => {
   if (odSection) {
     const odText = odSection[0];
     
+    // Type de chirurgie
+    data.measurements.rightEye.surgeryType = "Phaque";
+    
+    // Date de mesure
+    const measurementDateMatch = odText.match(/(\d{1,2}\s\w+\s\d{4})/);
+    if (measurementDateMatch) {
+      data.measurements.rightEye.measurementDate = measurementDateMatch[1];
+    }
+    
     // AL (Longueur axiale)
     const alMatch = odText.match(/AL \[mm\]\s*(\d+\.\d+)/);
     if (alMatch) {
@@ -245,18 +260,80 @@ export const parseIOLData = (rawText: string): IOLData => {
     
     // Vérifier s'il y a des données pour l'œil gauche
     if (!osText.includes('Pas de données de mesure')) {
-      // Même extraction que pour l'œil droit mais pour leftEye
+      // Type de chirurgie
+      data.measurements.leftEye.surgeryType = "Phaque";
+      
+      // Date de mesure
+      const measurementDateMatch = osText.match(/(\d{1,2}\s\w+\s\d{4})/);
+      if (measurementDateMatch) {
+        data.measurements.leftEye.measurementDate = measurementDateMatch[1];
+      }
+      
+      // AL (Longueur axiale)
       const alMatch = osText.match(/AL \[mm\]\s*(\d+\.\d+)/);
       if (alMatch) {
         data.measurements.leftEye.axialLength = parseFloat(alMatch[1]);
       }
 
+      // CCT (Épaisseur cornéenne centrale)
       const cctMatch = osText.match(/CCT \[μm\]\s*(\d+)/);
       if (cctMatch) {
         data.measurements.leftEye.cct = parseInt(cctMatch[1]);
       }
 
-      // Continuer avec les autres mesures...
+      // AD (Profondeur de chambre antérieure)
+      const adMatch = osText.match(/AD \[mm\]\s*(\d+\.\d+)/);
+      if (adMatch) {
+        data.measurements.leftEye.ad = parseFloat(adMatch[1]);
+      }
+
+      // ACD (Profondeur de chambre antérieure)
+      const acdMatch = osText.match(/ACD \[mm\]\s*(\d+\.\d+)/);
+      if (acdMatch) {
+        data.measurements.leftEye.acd = parseFloat(acdMatch[1]);
+      }
+
+      // LT (Épaisseur du cristallin)
+      const ltMatch = osText.match(/LT \[mm\]\s*(\d+\.\d+)/);
+      if (ltMatch) {
+        data.measurements.leftEye.lt = parseFloat(ltMatch[1]);
+      }
+
+      // K1 (Kératométrie)
+      const k1Match = osText.match(/K1 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
+      if (k1Match) {
+        data.measurements.leftEye.k1 = parseFloat(k1Match[1]);
+        data.measurements.leftEye.k1_radius = parseFloat(k1Match[2]);
+        data.measurements.leftEye.k1_axis = parseInt(k1Match[3]);
+      }
+
+      // K2 (Kératométrie)
+      const k2Match = osText.match(/K2 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
+      if (k2Match) {
+        data.measurements.leftEye.k2 = parseFloat(k2Match[1]);
+        data.measurements.leftEye.k2_radius = parseFloat(k2Match[2]);
+        data.measurements.leftEye.k2_axis = parseInt(k2Match[3]);
+      }
+
+      // K moyen
+      const kMatch = osText.match(/K \[D\/mm\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)/);
+      if (kMatch) {
+        data.measurements.leftEye.k_mean = parseFloat(kMatch[1]);
+        data.measurements.leftEye.k_mean_radius = parseFloat(kMatch[2]);
+      }
+
+      // Astigmatisme
+      const astMatch = osText.match(/\+AST \[D\/°\]\s*(\d+\.\d+)\s*@\s*(\d+)/);
+      if (astMatch) {
+        data.measurements.leftEye.astigmatism = parseFloat(astMatch[1]);
+        data.measurements.leftEye.astigmatism_axis = parseInt(astMatch[2]);
+      }
+
+      // WTW (Distance blanc à blanc)
+      const wtwMatch = osText.match(/WTW \[mm\]\s*(\d+\.\d+)/);
+      if (wtwMatch) {
+        data.measurements.leftEye.wtw = parseFloat(wtwMatch[1]);
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileText, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -168,128 +169,138 @@ export default function IOLCalculator() {
                     <p className="text-yellow-700">{iolData.errorMessage}</p>
                   </div>
                 ) : (
-                  <>
-                    {/* Informations patient */}
+                  <div className="space-y-4">
+                    {/* Informations générales */}
                     <div className="border rounded-lg p-4">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Informations patient
-                      </h3>
+                      <h3 className="font-semibold mb-3">Informations générales</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="font-medium text-muted-foreground">Nom du test</p>
-                          <p className="text-lg">{iolData.patientInfo.name || "Non spécifié"}</p>
+                          <p>{iolData.patientInfo.name || "—"}</p>
                         </div>
                         <div>
                           <p className="font-medium text-muted-foreground">Date</p>
-                          <p className="text-lg">{iolData.patientInfo.dateOfBirth || "Non spécifiée"}</p>
+                          <p>{iolData.patientInfo.dateOfBirth || "—"}</p>
                         </div>
                         <div>
                           <p className="font-medium text-muted-foreground">ID de calcul (CID)</p>
-                          <p className="text-lg">{iolData.patientInfo.patientId || "Non spécifié"}</p>
+                          <p>{iolData.patientInfo.patientId || "—"}</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Mesures œil droit */}
-                    <div className="border rounded-lg p-4">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
-                        Œil droit (OD)
-                      </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        {iolData.measurements.rightEye.axialLength && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">AL (mm)</p>
-                            <p className="text-lg">{iolData.measurements.rightEye.axialLength}</p>
-                          </div>
-                        )}
-                        {iolData.measurements.rightEye.cct && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">CCT (μm)</p>
-                            <p className="text-lg">{iolData.measurements.rightEye.cct}</p>
-                          </div>
-                        )}
-                        {iolData.measurements.rightEye.acd && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">ACD (mm)</p>
-                            <p className="text-lg">{iolData.measurements.rightEye.acd}</p>
-                          </div>
-                        )}
-                        {iolData.measurements.rightEye.lt && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">LT (mm)</p>
-                            <p className="text-lg">{iolData.measurements.rightEye.lt}</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Kératométrie */}
-                      {(iolData.measurements.rightEye.k1 || iolData.measurements.rightEye.k2) && (
-                        <div className="mt-4 pt-4 border-t">
-                          <h4 className="font-medium mb-2">Kératométrie</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            {iolData.measurements.rightEye.k1 && (
-                              <div>
-                                <p className="font-medium text-muted-foreground">K1</p>
-                                <p>{iolData.measurements.rightEye.k1}D / {iolData.measurements.rightEye.k1_radius}mm @ {iolData.measurements.rightEye.k1_axis}°</p>
-                              </div>
-                            )}
-                            {iolData.measurements.rightEye.k2 && (
-                              <div>
-                                <p className="font-medium text-muted-foreground">K2</p>
-                                <p>{iolData.measurements.rightEye.k2}D / {iolData.measurements.rightEye.k2_radius}mm @ {iolData.measurements.rightEye.k2_axis}°</p>
-                              </div>
-                            )}
-                            {iolData.measurements.rightEye.k_mean && (
-                              <div>
-                                <p className="font-medium text-muted-foreground">K moyen</p>
-                                <p>{iolData.measurements.rightEye.k_mean}D / {iolData.measurements.rightEye.k_mean_radius}mm</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Astigmatisme et WTW */}
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          {iolData.measurements.rightEye.astigmatism && (
-                            <div>
-                              <p className="font-medium text-muted-foreground">Astigmatisme</p>
-                              <p>{iolData.measurements.rightEye.astigmatism}D @ {iolData.measurements.rightEye.astigmatism_axis}°</p>
-                            </div>
-                          )}
-                          {iolData.measurements.rightEye.wtw && (
-                            <div>
-                              <p className="font-medium text-muted-foreground">WTW (mm)</p>
-                              <p>{iolData.measurements.rightEye.wtw}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    {/* Tableau des mesures */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-semibold">Paramètre</TableHead>
+                            <TableHead className="font-semibold text-center">Œil droit (OD)</TableHead>
+                            <TableHead className="font-semibold text-center">Œil gauche (OS)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell className="font-medium">Type de chirurgie</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.surgeryType || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.surgeryType || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">Date de mesure</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.measurementDate || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.measurementDate || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">AL [mm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.axialLength || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.axialLength || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">CCT [μm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.cct || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.cct || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">AD [mm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.ad || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.ad || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">ACD [mm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.acd || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.acd || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">LT [mm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.lt || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.lt || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">K1 [D/mm/°]</TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.rightEye.k1 ? 
+                                `${iolData.measurements.rightEye.k1} / ${iolData.measurements.rightEye.k1_radius} @ ${iolData.measurements.rightEye.k1_axis}` 
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.leftEye.k1 ? 
+                                `${iolData.measurements.leftEye.k1} / ${iolData.measurements.leftEye.k1_radius} @ ${iolData.measurements.leftEye.k1_axis}` 
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">K2 [D/mm/°]</TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.rightEye.k2 ? 
+                                `${iolData.measurements.rightEye.k2} / ${iolData.measurements.rightEye.k2_radius} @ ${iolData.measurements.rightEye.k2_axis}` 
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.leftEye.k2 ? 
+                                `${iolData.measurements.leftEye.k2} / ${iolData.measurements.leftEye.k2_radius} @ ${iolData.measurements.leftEye.k2_axis}` 
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">K [D/mm]</TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.rightEye.k_mean ? 
+                                `${iolData.measurements.rightEye.k_mean} / ${iolData.measurements.rightEye.k_mean_radius}` 
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.leftEye.k_mean ? 
+                                `${iolData.measurements.leftEye.k_mean} / ${iolData.measurements.leftEye.k_mean_radius}` 
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">Astigmatisme (AST) [D/°]</TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.rightEye.astigmatism ? 
+                                `+${iolData.measurements.rightEye.astigmatism} @ ${iolData.measurements.rightEye.astigmatism_axis}` 
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {iolData.measurements.leftEye.astigmatism ? 
+                                `+${iolData.measurements.leftEye.astigmatism} @ ${iolData.measurements.leftEye.astigmatism_axis}` 
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">Q</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.q || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.q || "—"}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium">Distance blanc à blanc (WTW) [mm]</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.rightEye.wtw || "—"}</TableCell>
+                            <TableCell className="text-center">{iolData.measurements.leftEye.wtw || "—"}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
                     </div>
-
-                    {/* Mesures œil gauche si présentes */}
-                    {iolData.measurements.leftEye.axialLength && (
-                      <div className="border rounded-lg p-4">
-                        <h3 className="font-semibold mb-3 flex items-center gap-2">
-                          <Eye className="h-4 w-4" />
-                          Œil gauche (OS)
-                        </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          {/* Afficher les mesures de l'œil gauche de la même manière */}
-                          {iolData.measurements.leftEye.axialLength && (
-                            <div>
-                              <p className="font-medium text-muted-foreground">AL (mm)</p>
-                              <p className="text-lg">{iolData.measurements.leftEye.axialLength}</p>
-                            </div>
-                          )}
-                          {/* ... autres mesures ... */}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
                 
                 {iolData.recommendations && (
