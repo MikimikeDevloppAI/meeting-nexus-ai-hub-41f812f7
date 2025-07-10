@@ -95,6 +95,8 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
       console.log('✅ Text extraction successful - valid medical text found');
       return extractedText;
     }
+    console.log(`📝 Initial extracted text length: ${extractedText?.length || 0}`);
+    console.log(`📝 Text preview: "${extractedText?.substring(0, 200) || 'EMPTY'}"`);
     
     // Si le texte contient trop de caractères corrompus, c'est probablement un PDF scanné
     if (extractedText && extractedText.length > 20 && !isValidMedicalText(extractedText)) {
@@ -102,8 +104,14 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
       return await extractTextWithOCR(arrayBuffer);
     }
     
-    console.log('❌ No readable text found - Trying OCR...');
-    return await extractTextWithOCR(arrayBuffer);
+    // Si pas de texte du tout, essayer OCR
+    if (!extractedText || extractedText.trim().length < 20) {
+      console.log('❌ No readable text found - Trying OCR...');
+      return await extractTextWithOCR(arrayBuffer);
+    }
+    
+    console.log('✅ Valid text extracted directly from PDF');
+    return extractedText;
     
   } catch (error) {
     console.error('❌ Error in PDF extraction:', error);
@@ -387,16 +395,18 @@ function parseIOLData(text: string): any {
 
 async function extractTextWithOCR(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('🔍 Starting OCR text extraction with external API...');
+    console.log('🔍 === STARTING OCR EXTRACTION ===');
     
     // Convertir le PDF en base64 pour l'API OCR
     const pdfData = new Uint8Array(arrayBuffer);
     const base64Data = btoa(String.fromCharCode(...pdfData));
     
     console.log(`📄 PDF size: ${pdfData.length} bytes`);
+    console.log(`📋 Base64 length: ${base64Data.length} chars`);
     
     // Utiliser l'API OCR.space (gratuite avec limitation)
     const ocrApiKey = Deno.env.get('OCR_API_KEY') || 'helloworld'; // clé de test
+    console.log(`🔑 Using OCR API key: ${ocrApiKey.substring(0, 5)}...`);
     
     const formData = new FormData();
     formData.append('base64Image', `data:application/pdf;base64,${base64Data}`);
@@ -415,8 +425,12 @@ async function extractTextWithOCR(arrayBuffer: ArrayBuffer): Promise<string> {
       body: formData,
     });
     
+    console.log(`📡 OCR API Response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
+      const errorText = await response.text();
       console.error(`❌ OCR API error: ${response.status} ${response.statusText}`);
+      console.error(`❌ Error body: ${errorText}`);
       return generateScannedPDFMessage();
     }
     
@@ -426,20 +440,27 @@ async function extractTextWithOCR(arrayBuffer: ArrayBuffer): Promise<string> {
     if (result.OCRExitCode === 1 && result.ParsedResults && result.ParsedResults.length > 0) {
       const extractedText = result.ParsedResults[0].ParsedText;
       
-      console.log(`✅ OCR completed. Extracted text length: ${extractedText.length}`);
+      console.log(`✅ OCR completed successfully!`);
+      console.log(`📏 Extracted text length: ${extractedText.length}`);
       console.log(`📝 OCR text preview: "${extractedText.substring(0, 500)}"`);
       
       if (extractedText && extractedText.trim().length > 20) {
         return extractedText;
       }
+    } else {
+      console.error('❌ OCR failed or returned no results');
+      console.error(`❌ OCR Exit Code: ${result.OCRExitCode}`);
+      console.error(`❌ Error Message: ${result.ErrorMessage || 'Unknown error'}`);
     }
     
     console.log('❌ OCR did not extract enough text');
     return generateScannedPDFMessage();
     
   } catch (error) {
-    console.error('❌ Error in OCR extraction:', error);
-    console.error('Error details:', error.message);
+    console.error('❌ === CRITICAL ERROR IN OCR EXTRACTION ===');
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
     return generateScannedPDFMessage();
   }
 }
