@@ -57,6 +57,9 @@ serve(async (req) => {
 
     // Parse IOL data from extracted text
     const iolData = parseIOLData(extractedText);
+    
+    // Ajouter le texte brut pour debug
+    iolData.rawText = extractedText;
 
     console.log(`✅ Successfully extracted IOL data:`, iolData);
 
@@ -125,7 +128,7 @@ async function extractTextBasic(pdfBuffer: Uint8Array): Promise<string> {
 }
 
 function parseIOLData(text: string): IOLData {
-  const data: IOLData = {};
+  const data: any = {}; // Utiliser any pour permettre des propriétés dynamiques
   const lowerText = text.toLowerCase();
 
   console.log('🔍 Parsing text for IOL data...');
@@ -249,6 +252,20 @@ function parseIOLData(text: string): IOLData {
       "Consultez un spécialiste pour le calcul précis de l'IOL",
       "Vérifiez les mesures biométriques avant la chirurgie"
     ];
+  }
+
+  // Essayer d'extraire d'autres données numériques du texte
+  const numericMatches = text.match(/(\d+\.?\d*)\s*(mm|d|diopter|dioptrie)/gi);
+  if (numericMatches) {
+    data.otherMeasurements = numericMatches;
+  }
+
+  // Extraire toutes les lignes contenant des mesures
+  const measurementLines = text.split('\n').filter(line => 
+    /\d+\.?\d*\s*(mm|d|diopter|dioptrie)/i.test(line) && line.trim().length > 5
+  );
+  if (measurementLines.length > 0) {
+    data.measurementLines = measurementLines;
   }
 
   return data;

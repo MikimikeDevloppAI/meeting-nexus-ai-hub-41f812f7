@@ -15,6 +15,8 @@ interface IOLData {
   anteriorChamberDepth?: string;
   lensThickness?: string;
   recommendations?: string[];
+  rawText?: string; // Ajout pour afficher le texte brut extrait
+  [key: string]: any; // Permettre d'autres propriétés dynamiques
 }
 
 export default function IOLCalculator() {
@@ -95,6 +97,7 @@ export default function IOLCalculator() {
       if (extractionError) throw extractionError;
 
       setExtractedData(extractionData);
+      console.log("Données extraites:", extractionData);
       toast({
         title: "Extraction réussie",
         description: "Les données IOL ont été extraites avec succès.",
@@ -225,6 +228,22 @@ export default function IOLCalculator() {
                     <p className="text-lg">{extractedData.lensThickness}</p>
                   </div>
                 )}
+                
+                {/* Afficher toutes les autres données trouvées */}
+                {Object.entries(extractedData)
+                  .filter(([key, value]) => 
+                    !['patientName', 'patientAge', 'axialLength', 'keratometry', 'anteriorChamberDepth', 'lensThickness', 'recommendations', 'rawText'].includes(key) 
+                    && value
+                  )
+                  .map(([key, value]) => (
+                    <div key={key}>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </label>
+                      <p className="text-lg">{String(value)}</p>
+                    </div>
+                  ))
+                }
               </div>
               
               {extractedData.recommendations && extractedData.recommendations.length > 0 && (
@@ -237,6 +256,16 @@ export default function IOLCalculator() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              
+              {/* Afficher le texte brut extrait pour debug */}
+              {extractedData.rawText && (
+                <div className="mt-6">
+                  <label className="text-sm font-medium text-muted-foreground">Texte brut extrait (debug)</label>
+                  <div className="mt-2 max-h-40 overflow-y-auto bg-muted p-3 rounded text-xs">
+                    <pre className="whitespace-pre-wrap">{extractedData.rawText}</pre>
+                  </div>
                 </div>
               )}
             </CardContent>
