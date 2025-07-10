@@ -13,7 +13,7 @@ import {
   SidebarHeader,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu } from "lucide-react";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,11 @@ const menuItems = [
     title: "Documents",
     url: "/documents",
     icon: FileText,
+  },
+  {
+    title: "IOL Calculator",
+    url: "/iol-calculator",
+    icon: Calculator,
   },
   {
     title: "Lettres Patient",

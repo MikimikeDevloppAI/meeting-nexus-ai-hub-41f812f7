@@ -24,6 +24,7 @@ import NotFound from "./pages/NotFound";
 import Invoices from "./pages/Invoices";
 import UserManagement from "./pages/UserManagement";
 import PatientLetters from "./pages/PatientLetters";
+import IOLCalculator from "./pages/IOLCalculator";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="meetings/:id" element={<MeetingDetail />} />
               <Route path="todos" element={<Todos />} />
               <Route path="documents" element={<Documents />} />
+              <Route path="iol-calculator" element={<IOLCalculator />} />
               <Route path="invoices" element={<Invoices />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="patient-letters" element={<PatientLetters />} />

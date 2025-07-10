@@ -1,0 +1,211 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Upload, FileText, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface IOLData {
+  patientName?: string;
+  patientAge?: string;
+  axialLength?: string;
+  keratometry?: string;
+  anteriorChamberDepth?: string;
+  lensThickness?: string;
+  recommendations?: string[];
+}
+
+export default function IOLCalculator() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isUploading, setIsUploading] = useState(false);
+  const [extractedData, setExtractedData] = useState<IOLData | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const { toast } = useToast();
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "application/pdf") {
+      setPdfFile(file);
+      setExtractedData(null);
+    } else {
+      toast({
+        title: "Format de fichier incorrect",
+        description: "Veuillez sélectionner un fichier PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUploadAndExtract = async () => {
+    if (!pdfFile) return;
+
+    setIsUploading(true);
+    try {
+      // Upload the PDF to Supabase storage
+      const fileName = `iol-${Date.now()}-${pdfFile.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(fileName, pdfFile);
+
+      if (uploadError) throw uploadError;
+
+      // Call the edge function to extract IOL data
+      const { data: extractionData, error: extractionError } = await supabase.functions.invoke(
+        "extract-iol-data",
+        {
+          body: { filePath: uploadData.path }
+        }
+      );
+
+      if (extractionError) throw extractionError;
+
+      setExtractedData(extractionData);
+      toast({
+        title: "Extraction réussie",
+        description: "Les données IOL ont été extraites avec succès.",
+      });
+
+      // Clean up the uploaded file
+      await supabase.storage.from("documents").remove([uploadData.path]);
+    } catch (error) {
+      console.error("Erreur lors de l'extraction:", error);
+      toast({
+        title: "Erreur d'extraction",
+        description: "Impossible d'extraire les données du PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center space-x-2">
+          <FileText className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">IOL Calculator</h1>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Extraction des données IOL depuis un PDF</CardTitle>
+            <CardDescription>
+              Téléchargez un fichier PDF contenant des mesures biométriques pour extraire automatiquement les données IOL.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <div className="space-y-2">
+                <p className="text-lg font-medium">Sélectionnez un fichier PDF</p>
+                <p className="text-sm text-muted-foreground">
+                  Formats acceptés: PDF uniquement
+                </p>
+              </div>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="pdf-upload"
+              />
+              <label htmlFor="pdf-upload">
+                <Button variant="outline" className="mt-4">
+                  Choisir un fichier
+                </Button>
+              </label>
+            </div>
+
+            {pdfFile && (
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5" />
+                  <span className="font-medium">{pdfFile.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                </div>
+                <Button onClick={handleUploadAndExtract} disabled={isUploading}>
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Extraction en cours...
+                    </>
+                  ) : (
+                    "Extraire les données"
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {extractedData && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Données extraites</CardTitle>
+              <CardDescription>
+                Informations IOL extraites du document PDF
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {extractedData.patientName && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nom du patient</label>
+                    <p className="text-lg">{extractedData.patientName}</p>
+                  </div>
+                )}
+                {extractedData.patientAge && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Âge</label>
+                    <p className="text-lg">{extractedData.patientAge}</p>
+                  </div>
+                )}
+                {extractedData.axialLength && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Longueur axiale</label>
+                    <p className="text-lg">{extractedData.axialLength}</p>
+                  </div>
+                )}
+                {extractedData.keratometry && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Kératométrie</label>
+                    <p className="text-lg">{extractedData.keratometry}</p>
+                  </div>
+                )}
+                {extractedData.anteriorChamberDepth && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Profondeur chambre antérieure</label>
+                    <p className="text-lg">{extractedData.anteriorChamberDepth}</p>
+                  </div>
+                )}
+                {extractedData.lensThickness && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Épaisseur cristallin</label>
+                    <p className="text-lg">{extractedData.lensThickness}</p>
+                  </div>
+                )}
+              </div>
+              
+              {extractedData.recommendations && extractedData.recommendations.length > 0 && (
+                <div className="mt-6">
+                  <label className="text-sm font-medium text-muted-foreground">Recommandations IOL</label>
+                  <ul className="mt-2 space-y-1">
+                    {extractedData.recommendations.map((rec, index) => (
+                      <li key={index} className="text-sm bg-muted p-2 rounded">
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+  );
+}
