@@ -50,11 +50,16 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
     }
 
     // Fallback to client-side PDF.js extraction
+    // Force disable worker before getDocument call
+    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
+    (pdfjsLib as any).disableWorker = true;
+    
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       verbosity: 0,
       isEvalSupported: false,
-      useWorkerFetch: false
+      useWorkerFetch: false,
+      worker: null as any
     });
     
     const pdf = await loadingTask.promise;
