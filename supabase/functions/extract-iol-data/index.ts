@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-// Note: Tesseract.js temporarily disabled for debugging
+import * as pdfParse from 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -94,54 +94,74 @@ serve(async (req) => {
 
 async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('🔍 Starting PDF text extraction...');
+    console.log('🔍 Starting PDF.js text extraction...');
     
-    // Convertir en Uint8Array pour l'analyse
-    const pdfBytes = new Uint8Array(arrayBuffer);
+    // Utiliser PDF.js pour extraire le texte
+    const pdfDoc = await pdfParse.getDocument({ data: arrayBuffer }).promise;
+    console.log(`📊 PDF loaded with ${pdfDoc.numPages} pages`);
     
-    console.log(`📊 PDF size: ${pdfBytes.length} bytes`);
+    let allText = '';
     
-    // Méthode 1: Extraction directe du texte
-    const extractedText = extractTextFromPDFBytes(pdfBytes);
-    
-    console.log(`📝 Extracted text length: ${extractedText?.length || 0}`);
-    console.log(`📝 Text preview: "${extractedText.substring(0, 200)}"`);
-    
-    // Vérifier la qualité du texte extrait
-    if (extractedText && extractedText.length > 20) {
-      const textQuality = assessTextQuality(extractedText);
-      console.log(`📊 Text quality assessment:`, textQuality);
-      
-      // Si le texte est de qualité suffisante, le retourner
-      if (textQuality.isReadable) {
-        console.log('✅ Good quality text extracted');
-        return extractedText;
-      } else {
-        console.log('⚠️ Poor quality text detected, trying alternative methods...');
+    // Parcourir toutes les pages
+    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Extraire le texte de chaque élément de la page
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .trim();
+        
+        if (pageText) {
+          allText += pageText + '\n';
+          console.log(`📄 Page ${pageNum}: extracted ${pageText.length} characters`);
+        }
+      } catch (pageError) {
+        console.error(`❌ Error extracting page ${pageNum}:`, pageError);
+        continue;
       }
     }
     
-    // Méthode 2: Extraction alternative avec patterns améliorés
-    const alternativeText = extractTextAlternative(pdfBytes);
-    console.log(`📝 Alternative extraction result length: ${alternativeText?.length || 0}`);
+    // Nettoyer le texte extrait
+    const cleanedText = allText
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
     
-    if (alternativeText && alternativeText.length > 10) {
-      const altQuality = assessTextQuality(alternativeText);
-      console.log(`📊 Alternative text quality:`, altQuality);
-      
-      if (altQuality.isReadable) {
-        console.log('✅ Alternative method successful');
-        return alternativeText;
-      }
+    console.log(`📝 Total extracted text: ${cleanedText.length} characters`);
+    console.log(`📝 First 500 characters:`, cleanedText.substring(0, 500));
+    
+    if (cleanedText.length > 10) {
+      return cleanedText;
+    } else {
+      console.log('⚠️ PDF.js extraction yielded insufficient text, trying fallback...');
+      // Fallback vers l'ancienne méthode si PDF.js ne trouve rien
+      return await extractTextFromPDFBytes(new Uint8Array(arrayBuffer));
     }
-    
-    // Si aucune méthode ne fonctionne, retourner un message d'erreur informatif
-    console.log('❌ Unable to extract readable text - PDF may be graphics-based');
-    return generateErrorMessage(extractedText || '');
     
   } catch (error) {
-    console.error('❌ Error in PDF extraction:', error);
-    return generateErrorMessage('');
+    console.error('❌ PDF.js extraction failed:', error);
+    console.log('🔄 Falling back to manual extraction...');
+    
+    // Fallback vers l'ancienne méthode en cas d'erreur PDF.js
+    try {
+      const pdfBytes = new Uint8Array(arrayBuffer);
+      const fallbackText = extractTextFromPDFBytes(pdfBytes);
+      
+      if (fallbackText && fallbackText.length > 10) {
+        const textQuality = assessTextQuality(fallbackText);
+        if (textQuality.isReadable) {
+          return fallbackText;
+        }
+      }
+      
+      return generateErrorMessage(fallbackText || '');
+    } catch (fallbackError) {
+      console.error('❌ Fallback extraction also failed:', fallbackError);
+      return generateErrorMessage('');
+    }
   }
 }
 
