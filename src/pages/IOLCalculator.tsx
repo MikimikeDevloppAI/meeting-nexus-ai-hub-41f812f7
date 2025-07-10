@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Loader2, Eye, Database } from "lucide-react";
+import { Upload, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,7 +24,6 @@ export default function IOLCalculator() {
   const [isUploading, setIsUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [iolData, setIolData] = useState<IOLData | null>(null);
-  const [showRawText, setShowRawText] = useState(false);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +100,7 @@ export default function IOLCalculator() {
 
       toast({
         title: "Extraction réussie",
-        description: "Les données IOL ont été extraites avec succès du PDF.",
+        description: "Le texte a été extrait avec succès du PDF.",
       });
 
       // Clean up uploaded file from storage
@@ -112,7 +111,7 @@ export default function IOLCalculator() {
       
       toast({
         title: "Erreur d'extraction",
-        description: `Impossible d'extraire les données IOL: ${error.message}`,
+        description: `Impossible d'extraire le texte: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -129,9 +128,9 @@ export default function IOLCalculator() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Extraction de données IOL depuis PDF</CardTitle>
+          <CardTitle>Extraction de texte depuis PDF</CardTitle>
           <CardDescription>
-            Téléchargez un fichier PDF pour extraire automatiquement les données IOL avec OCR intégré.
+            Téléchargez un fichier PDF pour extraire automatiquement tout le texte avec OCR intégré.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -177,7 +176,7 @@ export default function IOLCalculator() {
                     Extraction en cours...
                   </>
                 ) : (
-                  "Extraire les données IOL"
+                  "Extraire le texte du PDF"
                 )}
               </Button>
             </div>
@@ -187,8 +186,8 @@ export default function IOLCalculator() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Données IOL extraites
+                  <FileText className="h-5 w-5" />
+                  Texte extrait du PDF
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -198,73 +197,69 @@ export default function IOLCalculator() {
                     <p className="text-yellow-700">{iolData.message}</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {iolData.patientName && (
-                      <div>
-                        <p className="font-medium">Nom du patient</p>
-                        <p className="text-muted-foreground">{iolData.patientName}</p>
+                  <>
+                    {iolData.rawText && (
+                      <div className="bg-muted p-4 rounded-lg">
+                        <h3 className="font-medium mb-2">Texte complet extrait :</h3>
+                        <div className="max-h-96 overflow-y-auto border bg-background p-3 rounded text-sm">
+                          <pre className="whitespace-pre-wrap font-mono">{iolData.rawText}</pre>
+                        </div>
                       </div>
                     )}
-                    {iolData.patientAge && (
-                      <div>
-                        <p className="font-medium">Âge</p>
-                        <p className="text-muted-foreground">{iolData.patientAge}</p>
+                    
+                    {/* Données structurées en second plan */}
+                    <div className="border-t pt-4">
+                      <h3 className="font-medium mb-3">Données identifiées :</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {iolData.patientName && (
+                          <div>
+                            <p className="font-medium">Nom du patient</p>
+                            <p className="text-muted-foreground">{iolData.patientName}</p>
+                          </div>
+                        )}
+                        {iolData.patientAge && (
+                          <div>
+                            <p className="font-medium">Âge</p>
+                            <p className="text-muted-foreground">{iolData.patientAge}</p>
+                          </div>
+                        )}
+                        {iolData.axialLength && (
+                          <div>
+                            <p className="font-medium">Longueur axiale</p>
+                            <p className="text-muted-foreground">{iolData.axialLength}</p>
+                          </div>
+                        )}
+                        {iolData.keratometry && (
+                          <div>
+                            <p className="font-medium">Kératométrie</p>
+                            <p className="text-muted-foreground">{iolData.keratometry}</p>
+                          </div>
+                        )}
+                        {iolData.anteriorChamberDepth && (
+                          <div>
+                            <p className="font-medium">Profondeur chambre antérieure</p>
+                            <p className="text-muted-foreground">{iolData.anteriorChamberDepth}</p>
+                          </div>
+                        )}
+                        {iolData.lensThickness && (
+                          <div>
+                            <p className="font-medium">Épaisseur du cristallin</p>
+                            <p className="text-muted-foreground">{iolData.lensThickness}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {iolData.axialLength && (
-                      <div>
-                        <p className="font-medium">Longueur axiale</p>
-                        <p className="text-muted-foreground">{iolData.axialLength}</p>
-                      </div>
-                    )}
-                    {iolData.keratometry && (
-                      <div>
-                        <p className="font-medium">Kératométrie</p>
-                        <p className="text-muted-foreground">{iolData.keratometry}</p>
-                      </div>
-                    )}
-                    {iolData.anteriorChamberDepth && (
-                      <div>
-                        <p className="font-medium">Profondeur chambre antérieure</p>
-                        <p className="text-muted-foreground">{iolData.anteriorChamberDepth}</p>
-                      </div>
-                    )}
-                    {iolData.lensThickness && (
-                      <div>
-                        <p className="font-medium">Épaisseur du cristallin</p>
-                        <p className="text-muted-foreground">{iolData.lensThickness}</p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  </>
                 )}
                 
                 {iolData.recommendations && (
-                  <div>
+                  <div className="border-t pt-4">
                     <p className="font-medium mb-2">Recommandations</p>
                     <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
                       {iolData.recommendations.map((rec, index) => (
                         <li key={index}>{rec}</li>
                       ))}
                     </ul>
-                  </div>
-                )}
-
-                {iolData.rawText && (
-                  <div className="border-t pt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowRawText(!showRawText)}
-                      className="mb-2"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      {showRawText ? "Masquer" : "Afficher"} le texte brut
-                    </Button>
-                    {showRawText && (
-                      <div className="bg-muted p-3 rounded-lg max-h-64 overflow-y-auto">
-                        <pre className="text-xs whitespace-pre-wrap">{iolData.rawText}</pre>
-                      </div>
-                    )}
                   </div>
                 )}
               </CardContent>
