@@ -49,6 +49,9 @@ serve(async (req) => {
     // Convert blob to buffer for text extraction
     const arrayBuffer = await fileData.arrayBuffer();
     
+    // Envoyer le PDF au webhook n8n en arrière-plan (sans attendre)
+    const webhookPromise = sendPDFToWebhook(filePath, fileData);
+    
     // Extract text from PDF with improved methods
     const extractedText = await extractTextFromPDF(arrayBuffer);
     
@@ -62,6 +65,16 @@ serve(async (req) => {
     iolData.rawText = extractedText;
 
     console.log(`✅ Successfully extracted IOL data:`, iolData);
+
+    // Utiliser waitUntil pour gérer le webhook en arrière-plan
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(webhookPromise);
+    } else {
+      // Fallback: démarrer la promesse sans l'attendre
+      webhookPromise.catch(error => 
+        console.error('❌ Webhook error (non-blocking):', error)
+      );
+    }
 
     return new Response(JSON.stringify(iolData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -484,3 +497,51 @@ function isScannedPDF(pdfBytes: Uint8Array): boolean {
   // Si on a beaucoup d'images et peu de texte, c'est probablement scanné
   return imageCount > 5 && textCount < 10;
 }
+
+// Fonction pour envoyer le PDF au webhook n8n
+async function sendPDFToWebhook(filePath: string, fileData: Blob): Promise<void> {
+  try {
+    console.log('🚀 Sending PDF to n8n webhook...');
+    
+    const webhookUrl = 'https://n8n.srv758474.hstgr.cloud/webhook-test/06ff1a12-9f11-4d2c-9472-3f33a574be43';
+    
+    // Convertir le blob en ArrayBuffer puis en base64
+    const arrayBuffer = await fileData.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64Data = btoa(String.fromCharCode(...uint8Array));
+    
+    // Préparer les données à envoyer
+    const payload = {
+      fileName: filePath,
+      fileSize: fileData.size,
+      mimeType: fileData.type || 'application/pdf',
+      fileData: base64Data,
+      timestamp: new Date().toISOString(),
+      source: 'lovable-iol-calculator'
+    };
+    
+    console.log(`📤 Sending ${fileData.size} bytes to webhook...`);
+    
+    // Envoyer au webhook
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      console.log('✅ PDF successfully sent to n8n webhook');
+      const responseText = await response.text();
+      console.log('📝 Webhook response:', responseText);
+    } else {
+      console.error(`❌ Webhook failed with status ${response.status}: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error sending PDF to webhook:', error);
+    // Ne pas relancer l'erreur car c'est une tâche en arrière-plan
+  }
