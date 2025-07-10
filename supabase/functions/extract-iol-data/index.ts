@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getDocument } from 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +48,12 @@ serve(async (req) => {
 
     // Convert blob to buffer for text extraction
     const arrayBuffer = await fileData.arrayBuffer();
-    const pdfBuffer = new Uint8Array(arrayBuffer);
-
-    // Extract text from PDF using a simple approach
-    // Note: This is a basic implementation. For production, consider using a more robust PDF parser
-    const extractedText = await extractTextFromPDF(pdfBuffer);
+    
+    // Extract text from PDF using pdf.js
+    const extractedText = await extractTextFromPDF(arrayBuffer);
     
     console.log(`📝 Extracted text length: ${extractedText.length} characters`);
+    console.log(`📝 First 500 characters: ${extractedText.substring(0, 500)}`);
 
     // Parse IOL data from extracted text
     const iolData = parseIOLData(extractedText);
@@ -76,8 +76,41 @@ serve(async (req) => {
   }
 });
 
-async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
-  // Basic PDF text extraction
+async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
+  try {
+    // Use pdf.js to properly extract text from PDF
+    const pdf = await getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useSystemFonts: true,
+    }).promise;
+
+    let fullText = '';
+    
+    // Extract text from all pages
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n';
+    }
+
+    return fullText.trim();
+  } catch (error) {
+    console.error('❌ Error extracting text with pdf.js:', error);
+    
+    // Fallback to basic extraction
+    return extractTextBasic(new Uint8Array(arrayBuffer));
+  }
+}
+
+async function extractTextBasic(pdfBuffer: Uint8Array): Promise<string> {
+  console.log('🔍 Using basic fallback extraction method');
+  
+  // Basic PDF text extraction as fallback
   // Convert buffer to string and look for text patterns
   const pdfString = new TextDecoder('latin1').decode(pdfBuffer);
   
