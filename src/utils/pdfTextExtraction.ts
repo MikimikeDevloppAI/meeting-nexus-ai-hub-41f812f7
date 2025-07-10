@@ -49,12 +49,15 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
       console.log('⚠️ Edge function failed, falling back to client-side extraction');
     }
 
+    // Configure PDF.js BEFORE creating the loading task
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
     // Fallback to client-side PDF.js extraction
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       verbosity: 0,
       isEvalSupported: false,
-      useWorkerFetch: false,
+      useWorkerFetch: false
     });
     
     const pdf = await loadingTask.promise;
