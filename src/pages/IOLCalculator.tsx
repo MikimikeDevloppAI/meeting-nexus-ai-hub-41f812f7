@@ -192,58 +192,74 @@ export default function IOLCalculator() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {extractedData.patientName && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nom du patient</label>
-                    <p className="text-lg">{extractedData.patientName}</p>
-                  </div>
-                )}
-                {extractedData.patientAge && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Âge</label>
-                    <p className="text-lg">{extractedData.patientAge}</p>
-                  </div>
-                )}
-                {extractedData.axialLength && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Longueur axiale</label>
-                    <p className="text-lg">{extractedData.axialLength}</p>
-                  </div>
-                )}
-                {extractedData.keratometry && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Kératométrie</label>
-                    <p className="text-lg">{extractedData.keratometry}</p>
-                  </div>
-                )}
-                {extractedData.anteriorChamberDepth && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Profondeur chambre antérieure</label>
-                    <p className="text-lg">{extractedData.anteriorChamberDepth}</p>
-                  </div>
-                )}
-                {extractedData.lensThickness && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Épaisseur cristallin</label>
-                    <p className="text-lg">{extractedData.lensThickness}</p>
-                  </div>
-                )}
-                
-                {/* Afficher toutes les autres données trouvées */}
-                {Object.entries(extractedData)
-                  .filter(([key, value]) => 
-                    !['patientName', 'patientAge', 'axialLength', 'keratometry', 'anteriorChamberDepth', 'lensThickness', 'recommendations', 'rawText'].includes(key) 
-                    && value
-                  )
-                  .map(([key, value]) => (
-                    <div key={key}>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </label>
-                      <p className="text-lg">{String(value)}</p>
+                {/* Gestion des erreurs de PDF scanné */}
+                {extractedData.error ? (
+                  <div className="col-span-full">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                        📄 Document scanné détecté
+                      </h3>
+                      <div className="text-sm text-yellow-700 whitespace-pre-line">
+                        {extractedData.message}
+                      </div>
                     </div>
-                  ))
-                }
+                  </div>
+                ) : (
+                  <>
+                    {extractedData.patientName && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Nom du patient</label>
+                        <p className="text-lg">{extractedData.patientName}</p>
+                      </div>
+                    )}
+                    {extractedData.patientAge && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Âge</label>
+                        <p className="text-lg">{extractedData.patientAge}</p>
+                      </div>
+                    )}
+                    {extractedData.axialLength && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Longueur axiale</label>
+                        <p className="text-lg">{extractedData.axialLength}</p>
+                      </div>
+                    )}
+                    {extractedData.keratometry && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Kératométrie</label>
+                        <p className="text-lg">{extractedData.keratometry}</p>
+                      </div>
+                    )}
+                    {extractedData.anteriorChamberDepth && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Profondeur chambre antérieure</label>
+                        <p className="text-lg">{extractedData.anteriorChamberDepth}</p>
+                      </div>
+                    )}
+                    {extractedData.lensThickness && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Épaisseur cristallin</label>
+                        <p className="text-lg">{extractedData.lensThickness}</p>
+                      </div>
+                    )}
+                    
+                    {/* Afficher toutes les autres données trouvées */}
+                    {Object.entries(extractedData)
+                      .filter(([key, value]) => 
+                        !['patientName', 'patientAge', 'axialLength', 'keratometry', 'anteriorChamberDepth', 'lensThickness', 'recommendations', 'rawText', 'error', 'message'].includes(key) 
+                        && value
+                      )
+                      .map(([key, value]) => (
+                        <div key={key}>
+                          <label className="text-sm font-medium text-muted-foreground">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </label>
+                          <p className="text-lg">{String(value)}</p>
+                        </div>
+                      ))
+                    }
+                  </>
+                )}
               </div>
               
               {extractedData.recommendations && extractedData.recommendations.length > 0 && (
@@ -259,8 +275,8 @@ export default function IOLCalculator() {
                 </div>
               )}
               
-              {/* Afficher le texte brut extrait pour debug */}
-              {extractedData.rawText && (
+              {/* Afficher le texte brut extrait pour debug seulement si pas d'erreur */}
+              {extractedData.rawText && !extractedData.error && (
                 <div className="mt-6">
                   <label className="text-sm font-medium text-muted-foreground">Texte brut extrait (debug)</label>
                   <div className="mt-2 max-h-40 overflow-y-auto bg-muted p-3 rounded text-xs">

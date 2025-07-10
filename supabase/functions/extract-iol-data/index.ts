@@ -88,35 +88,49 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
     // Méthode 1: Chercher les objets de texte dans le PDF
     const extractedText = extractTextFromPDFBytes(pdfBytes);
     
-    if (extractedText && extractedText.length > 50) {
-      console.log('✅ Text extraction successful with method 1');
+    console.log(`📊 Extracted text preview: "${extractedText.substring(0, 200)}"`);
+    
+    // Vérifier si le texte extrait est valide (pas de caractères corrompus)
+    if (extractedText && extractedText.length > 50 && isValidMedicalText(extractedText)) {
+      console.log('✅ Text extraction successful - valid medical text found');
       return extractedText;
     }
     
-    // Méthode 2: Si pas de texte trouvé, essayer une approche différente
-    console.log('⚠️ Method 1 failed, trying alternative extraction...');
-    const alternativeText = extractTextAlternative(pdfBytes);
-    
-    if (alternativeText && alternativeText.length > 20) {
-      console.log('✅ Text extraction successful with method 2');
-      return alternativeText;
+    // Si le texte contient trop de caractères corrompus, c'est probablement un PDF scanné
+    if (extractedText && extractedText.length > 20 && !isValidMedicalText(extractedText)) {
+      console.log('⚠️ Detected scanned/image-based PDF');
+      return generateScannedPDFMessage();
     }
     
-    // Si aucune méthode ne fonctionne, retourner un message d'erreur informatif
-    console.log('❌ No readable text found - PDF might be scanned or image-based');
-    return `ERREUR: Ce PDF semble être scanné ou basé sur des images. 
-Pour extraire les données IOL, veuillez utiliser un PDF contenant du texte sélectionnable.
-Si c'est un document scanné, essayez de le convertir avec un logiciel OCR d'abord.
-
-Informations techniques:
-- Taille du fichier: ${arrayBuffer.byteLength} bytes
-- Type détecté: PDF binaire
-- Suggestion: Utilisez un PDF généré électroniquement plutôt qu'un scan`;
+    console.log('❌ No readable text found');
+    return generateScannedPDFMessage();
     
   } catch (error) {
     console.error('❌ Error in PDF extraction:', error);
-    return `ERREUR TECHNIQUE: ${error.message}`;
+    return generateScannedPDFMessage();
   }
+}
+
+function generateScannedPDFMessage(): string {
+  return `DOCUMENT SCANNÉ DÉTECTÉ
+
+Ce PDF semble être un document scanné ou basé sur des images. L'extraction automatique de texte n'est pas possible.
+
+POUR UTILISER CE DOCUMENT :
+1. Convertissez le PDF avec un logiciel OCR (Reconnaissance Optique de Caractères)
+2. Utilisez Adobe Acrobat avec fonction OCR
+3. Ou saisissez manuellement les données IOL ci-dessous :
+
+DONNÉES À RECHERCHER :
+- Nom du patient
+- Âge du patient  
+- Longueur axiale (AL) en mm
+- Kératométrie (K1, K2) en dioptries
+- Profondeur chambre antérieure (ACD) en mm
+- Épaisseur du cristallin (LT) en mm
+- Recommandations de puissance IOL en dioptries
+
+SUGGESTION : Essayez avec un PDF généré électroniquement (non scanné) pour une extraction automatique.`;
 }
 
 function extractTextFromPDFBytes(pdfBytes: Uint8Array): string {
@@ -160,7 +174,7 @@ function extractTextFromPDFBytes(pdfBytes: Uint8Array): string {
         .replace(/\s+/g, ' ')
         .trim();
       
-      if (extractedText.length > 50 && isReadableText(extractedText)) {
+      if (extractedText.length > 50 && isValidMedicalText(extractedText)) {
         return extractedText;
       }
       
@@ -200,17 +214,37 @@ function extractTextAlternative(pdfBytes: Uint8Array): string {
   return extractedParts.trim();
 }
 
-function isReadableText(text: string): boolean {
+function isValidMedicalText(text: string): boolean {
   // Vérifier si le texte contient principalement des caractères lisibles
   const readableChars = text.match(/[a-zA-Z0-9\s.,;:()\-]/g) || [];
   const readableRatio = readableChars.length / text.length;
-  return readableRatio > 0.7; // Au moins 70% de caractères lisibles
+  
+  // Vérifier la présence de caractères corrompus typiques des PDFs scannés
+  const corruptedChars = text.match(/[¢€¥Š‚ƒ„…†‡ˆ‰Ž''""•–—˜™ž]/g) || [];
+  const corruptedRatio = corruptedChars.length / text.length;
+  
+  // Le texte est valide s'il a au moins 80% de caractères lisibles ET moins de 10% de caractères corrompus
+  return readableRatio > 0.8 && corruptedRatio < 0.1;
 }
 
-function parseIOLData(text: string): IOLData {
-  const data: any = {}; // Utiliser any pour permettre des propriétés dynamiques
-  const lowerText = text.toLowerCase();
+function parseIOLData(text: string): any {
+  const data: any = {};
+  
+  // Si c'est un message d'erreur pour PDF scanné, ne pas essayer de parser
+  if (text.includes('DOCUMENT SCANNÉ DÉTECTÉ')) {
+    return {
+      error: true,
+      message: text,
+      recommendations: [
+        "PDF scanné détecté - Conversion OCR nécessaire",
+        "Utilisez un PDF avec du texte sélectionnable",
+        "Ou saisissez les données manuellement"
+      ]
+    };
+  }
 
+  
+  const lowerText = text.toLowerCase();
   console.log('🔍 Parsing text for IOL data...');
 
   // Patient name patterns
