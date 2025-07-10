@@ -2,7 +2,6 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js to work without worker in Lovable environment
 pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-pdfjsLib.GlobalWorkerOptions.workerPort = null;
 
 export interface IOLData {
   patientName?: string;
