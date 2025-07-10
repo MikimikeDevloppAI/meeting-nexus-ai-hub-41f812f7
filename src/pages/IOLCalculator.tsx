@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Upload, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +27,7 @@ export default function IOLCalculator() {
   const [isUploading, setIsUploading] = useState(false);
   const [extractedData, setExtractedData] = useState<IOLData | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState<string>("");
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,11 +71,67 @@ export default function IOLCalculator() {
     document.getElementById('pdf-upload')?.click();
   };
 
+  const sendToZapierWebhook = async (file: File): Promise<void> => {
+    if (!webhookUrl) return;
+
+    try {
+      console.log("Envoi du PDF au webhook Zapier:", webhookUrl);
+      
+      // Convertir le fichier en base64
+      const base64Data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // Enlever le préfixe data:application/pdf;base64,
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const payload = {
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        fileData: base64Data,
+        timestamp: new Date().toISOString(),
+        triggered_from: window.location.origin,
+        source: "lovable-iol-calculator"
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        mode: "no-cors", // Pour gérer CORS
+        body: JSON.stringify(payload),
+      });
+
+      console.log("PDF envoyé au webhook Zapier avec succès");
+      toast({
+        title: "PDF envoyé",
+        description: "Le PDF a été envoyé à votre Zap. Vérifiez l'historique de votre Zap pour confirmer.",
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'envoi au webhook:", error);
+      toast({
+        title: "Erreur webhook",
+        description: "Impossible d'envoyer le PDF au webhook. L'extraction continue.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleUploadAndExtract = async () => {
     if (!pdfFile) return;
 
     setIsUploading(true);
     try {
+      // ÉTAPE 1: Envoyer le PDF au webhook Zapier en premier
+      if (webhookUrl) {
+        await sendToZapierWebhook(pdfFile);
+      }
+
+      // ÉTAPE 2: Continuer avec l'extraction normale
       // Clean the filename to avoid issues with special characters
       const cleanFileName = pdfFile.name
         .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
@@ -132,6 +191,21 @@ export default function IOLCalculator() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Champ webhook Zapier */}
+            <div className="space-y-2">
+              <Label htmlFor="webhook-url">URL du webhook Zapier (optionnel)</Label>
+              <Input
+                id="webhook-url"
+                type="url"
+                placeholder="https://hooks.zapier.com/hooks/catch/..."
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Si fourni, le PDF sera automatiquement envoyé à votre Zap avant l'extraction
+              </p>
+            </div>
+            
             <div 
               className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onDrop={handleDrop}
