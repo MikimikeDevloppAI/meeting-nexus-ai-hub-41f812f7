@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createWorker } from 'https://cdn.skypack.dev/tesseract.js@5.0.4';
+// Note: Tesseract.js temporarily disabled for debugging
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -405,62 +405,23 @@ function parseIOLData(text: string): any {
 }
 
 async function extractTextWithOCR(arrayBuffer: ArrayBuffer): Promise<string> {
-  let worker;
-  try {
-    console.log('🔍 === STARTING TESSERACT.JS OCR EXTRACTION ===');
-    
-    // Créer un worker Tesseract.js
-    console.log('🤖 Creating Tesseract worker...');
-    worker = await createWorker(['fra', 'eng']);
-    
-    // Convertir le PDF en image pour Tesseract
-    const imageBuffer = await convertPDFToImage(arrayBuffer);
-    
-    if (!imageBuffer) {
-      throw new Error('Failed to convert PDF to image');
-    }
-    
-    console.log(`🖼️ Converted PDF to image: ${imageBuffer.length} bytes`);
-    
-    // Effectuer l'OCR avec Tesseract.js
-    console.log('🔤 Running OCR with Tesseract.js...');
-    const { data: { text } } = await worker.recognize(imageBuffer);
-    
-    console.log(`✅ OCR completed successfully!`);
-    console.log(`📏 Extracted text length: ${text.length}`);
-    console.log(`📝 OCR text preview: "${text.substring(0, 500)}"`);
-    
-    // Nettoyer le texte extrait
-    const cleanedText = text
-      .replace(/\s+/g, ' ')
-      .replace(/[^\w\s.,;:()\-àâäéèêëïîôöùûüÿçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/g, ' ')
-      .trim();
-    
-    if (cleanedText && cleanedText.length > 20) {
-      console.log(`✅ Successfully extracted ${cleanedText.length} characters with Tesseract.js`);
-      return cleanedText;
-    }
-    
-    console.log('❌ OCR did not extract enough meaningful text');
-    return generateScannedPDFMessage();
-    
-  } catch (error) {
-    console.error('❌ === CRITICAL ERROR IN TESSERACT OCR ===');
-    console.error('❌ Error type:', error.constructor.name);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
-    return generateScannedPDFMessage();
-  } finally {
-    // Nettoyer le worker
-    if (worker) {
-      try {
-        await worker.terminate();
-        console.log('🧹 Tesseract worker terminated');
-      } catch (e) {
-        console.warn('⚠️ Warning: Failed to terminate Tesseract worker:', e.message);
-      }
-    }
+  console.log('❌ OCR temporairement désactivé pour le debug');
+  console.log('🔄 Essayons d\'extraire du texte avec des méthodes alternatives...');
+  
+  // Convertir en Uint8Array
+  const pdfBytes = new Uint8Array(arrayBuffer);
+  
+  // Essayer l'extraction alternative
+  const alternativeText = extractTextAlternative(pdfBytes);
+  console.log(`📝 Alternative extraction result: "${alternativeText.substring(0, 200)}"`);
+  
+  if (alternativeText && alternativeText.length > 10) {
+    console.log(`✅ Alternative method extracted ${alternativeText.length} characters`);
+    return alternativeText;
   }
+  
+  console.log('❌ No text found with alternative methods either');
+  return generateScannedPDFMessage();
 }
 
 async function convertPDFToImage(arrayBuffer: ArrayBuffer): Promise<Uint8Array | null> {
