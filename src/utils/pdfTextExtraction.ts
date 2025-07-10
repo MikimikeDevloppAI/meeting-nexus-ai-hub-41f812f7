@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Disable worker entirely to avoid loading issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+// Disable worker to avoid loading issues - use same config as pdfToImage.ts
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = false;
 
 export interface IOLData {
   patientName?: string;
@@ -50,14 +50,15 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
     }
 
     // Fallback to client-side PDF.js extraction
-    // Force disable worker before getDocument call
-    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
+    console.log('🔄 Using client-side PDF.js extraction');
     
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       verbosity: 0,
       isEvalSupported: false,
-      useWorkerFetch: false
+      useWorkerFetch: false,
+      disableRange: true,
+      disableStream: true
     });
     
     const pdf = await loadingTask.promise;
@@ -250,8 +251,17 @@ export const extractIOLDataFromPdf = async (file: File): Promise<IOLData> => {
     if (!rawText || rawText.trim().length === 0) {
       return {
         error: true,
-        message: 'Aucun texte n\'a pu être extrait du PDF. Le document pourrait être une image scannée.',
+        message: 'Document scanné détecté - Aucun texte n\'a pu être extrait du PDF. Veuillez utiliser un service OCR pour traiter ce document.',
         rawText: ''
+      };
+    }
+
+    // Check if extracted text is very short (likely a scanned document)
+    if (rawText.trim().length < 50) {
+      return {
+        error: true,
+        message: 'Document scanné détecté - Le texte extrait est très court. Ce document semble être une image scannée nécessitant un service OCR.',
+        rawText
       };
     }
 
