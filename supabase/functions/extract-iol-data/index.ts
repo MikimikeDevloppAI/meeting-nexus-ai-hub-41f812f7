@@ -99,47 +99,49 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
     // Convertir en Uint8Array pour l'analyse
     const pdfBytes = new Uint8Array(arrayBuffer);
     
-    // Analyser d'abord si c'est un PDF scanné
-    const isScanned = isScannedPDF(pdfBytes);
-    console.log(`📋 PDF Type Analysis: ${isScanned ? 'SCANNED' : 'DIGITAL'}`);
+    console.log(`📊 PDF size: ${pdfBytes.length} bytes`);
     
-    // Si c'est clairement un PDF scanné, aller directement à l'OCR
-    if (isScanned) {
-      console.log('📸 Scanned PDF detected - proceeding directly to OCR...');
-      return await extractTextWithOCR(arrayBuffer);
-    }
-    
-    // Méthode 1: Chercher les objets de texte dans le PDF
+    // Méthode 1: Extraction directe du texte
     const extractedText = extractTextFromPDFBytes(pdfBytes);
     
-    console.log(`📊 Extracted text preview: "${extractedText.substring(0, 200)}"`);
-    console.log(`📝 Initial extracted text length: ${extractedText?.length || 0}`);
+    console.log(`📝 Extracted text length: ${extractedText?.length || 0}`);
+    console.log(`📝 Text preview: "${extractedText.substring(0, 200)}"`);
     
-    // Vérifier si le texte extrait est valide (pas de caractères corrompus)
-    if (extractedText && extractedText.length > 50 && isValidMedicalText(extractedText)) {
-      console.log('✅ Text extraction successful - valid medical text found');
-      return extractedText;
+    // Vérifier la qualité du texte extrait
+    if (extractedText && extractedText.length > 20) {
+      const textQuality = assessTextQuality(extractedText);
+      console.log(`📊 Text quality assessment:`, textQuality);
+      
+      // Si le texte est de qualité suffisante, le retourner
+      if (textQuality.isReadable) {
+        console.log('✅ Good quality text extracted');
+        return extractedText;
+      } else {
+        console.log('⚠️ Poor quality text detected, trying alternative methods...');
+      }
     }
     
-    // Si le texte contient trop de caractères corrompus, c'est probablement un PDF scanné
-    if (extractedText && extractedText.length > 20 && !isValidMedicalText(extractedText)) {
-      console.log('⚠️ Detected corrupted text - likely scanned PDF, trying OCR...');
-      return await extractTextWithOCR(arrayBuffer);
+    // Méthode 2: Extraction alternative avec patterns améliorés
+    const alternativeText = extractTextAlternative(pdfBytes);
+    console.log(`📝 Alternative extraction result length: ${alternativeText?.length || 0}`);
+    
+    if (alternativeText && alternativeText.length > 10) {
+      const altQuality = assessTextQuality(alternativeText);
+      console.log(`📊 Alternative text quality:`, altQuality);
+      
+      if (altQuality.isReadable) {
+        console.log('✅ Alternative method successful');
+        return alternativeText;
+      }
     }
     
-    // Si pas de texte du tout, essayer OCR
-    if (!extractedText || extractedText.trim().length < 20) {
-      console.log('❌ No readable text found - trying OCR as fallback...');
-      return await extractTextWithOCR(arrayBuffer);
-    }
-    
-    console.log('✅ Valid text extracted directly from PDF');
-    return extractedText;
+    // Si aucune méthode ne fonctionne, retourner un message d'erreur informatif
+    console.log('❌ Unable to extract readable text - PDF may be graphics-based');
+    return generateErrorMessage(extractedText || '');
     
   } catch (error) {
     console.error('❌ Error in PDF extraction:', error);
-    console.log('🔄 Falling back to OCR due to extraction error...');
-    return await extractTextWithOCR(arrayBuffer);
+    return generateErrorMessage('');
   }
 }
 
@@ -176,46 +178,141 @@ function extractTextFromPDFBytes(pdfBytes: Uint8Array): string {
     try {
       pdfString = new TextDecoder(encoding, { fatal: false }).decode(pdfBytes);
       
-      // Chercher les flux de texte (streams)
+      // Chercher les flux de texte (streams) avec patterns améliorés
       const textMatches = [];
       
       // Patterns pour différents types de contenu texte PDF
       const patterns = [
-        /BT\s+(.*?)\s+ET/gs,  // Text objects (BT...ET)
-        /\((.*?)\)\s*Tj/g,     // Text showing operators
-        /\[(.*?)\]\s*TJ/g,     // Array text showing
-        /\/F\d+\s+\d+\s+Tf\s+(.*?)(?=\/F\d+|$)/gs, // Font changes avec texte
+        /\(([^)]+)\)\s*Tj/g,           // Texte simple entre parenthèses
+        /\(([^)]+)\)\s*TJ/g,           // Texte avec ajustements
+        /\[([^\]]+)\]\s*TJ/g,          // Arrays de texte
+        /<([0-9A-Fa-f\s]+)>\s*Tj/g,   // Texte hexadécimal
+        /\/F\d+\s+\d+\s+Tf\s*\(([^)]+)\)/g, // Texte avec font
       ];
       
       for (const pattern of patterns) {
         const matches = [...pdfString.matchAll(pattern)];
         matches.forEach(match => {
           if (match[1]) {
-            textMatches.push(match[1]);
+            // Nettoyer le texte extrait
+            let cleanText = match[1]
+              .replace(/\\n/g, '\n')
+              .replace(/\\r/g, '\r')
+              .replace(/\\t/g, '\t')
+              .replace(/\\\\/g, '\\')
+              .replace(/\\\(/g, '(')
+              .replace(/\\\)/g, ')')
+              .trim();
+            
+            if (cleanText.length > 2) {
+              textMatches.push(cleanText);
+            }
           }
         });
       }
       
-      // Nettoyer et joindre le texte trouvé
+      // Chercher aussi du texte dans les objets de type Text
+      const textObjectPattern = /BT\s+(.*?)\s+ET/gs;
+      const textObjects = [...pdfString.matchAll(textObjectPattern)];
+      
+      textObjects.forEach(match => {
+        const content = match[1];
+        const textInObject = [...content.matchAll(/\(([^)]+)\)/g)];
+        textInObject.forEach(textMatch => {
+          if (textMatch[1] && textMatch[1].length > 2) {
+            textMatches.push(textMatch[1].replace(/\\(.)/g, '$1'));
+          }
+        });
+      });
+      
+      // Joindre et nettoyer le texte
       let extractedText = textMatches
         .join(' ')
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\t/g, '\t')
-        .replace(/\\/g, '')
         .replace(/\s+/g, ' ')
         .trim();
       
-      if (extractedText.length > 50 && isValidMedicalText(extractedText)) {
+      console.log(`📝 Found ${textMatches.length} text fragments with encoding ${encoding}`);
+      
+      if (extractedText.length > 20) {
         return extractedText;
       }
       
     } catch (e) {
+      console.log(`⚠️ Encoding ${encoding} failed, trying next...`);
       continue;
     }
   }
   
   return '';
+}
+
+// Nouvelle fonction pour évaluer la qualité du texte
+function assessTextQuality(text: string): { isReadable: boolean, score: number, issues: string[] } {
+  const issues = [];
+  let score = 100;
+  
+  // Vérifier le ratio de caractères lisibles
+  const readableChars = text.match(/[a-zA-Z0-9\s.,;:()\-]/g) || [];
+  const readableRatio = readableChars.length / text.length;
+  
+  if (readableRatio < 0.6) {
+    issues.push('Low readable character ratio');
+    score -= 40;
+  }
+  
+  // Vérifier la présence de caractères de contrôle
+  const controlChars = text.match(/[\x00-\x1F\x7F-\x9F]/g) || [];
+  const controlRatio = controlChars.length / text.length;
+  
+  if (controlRatio > 0.1) {
+    issues.push('High control character ratio');
+    score -= 30;
+  }
+  
+  // Vérifier les caractères corrompus typiques
+  const corruptedChars = text.match(/[¢€¥Š‚ƒ„…†‡ˆ‰Ž''""•–—˜™ž]/g) || [];
+  const corruptedRatio = corruptedChars.length / text.length;
+  
+  if (corruptedRatio > 0.05) {
+    issues.push('Corrupted characters detected');
+    score -= 25;
+  }
+  
+  // Vérifier la longueur minimale
+  if (text.length < 10) {
+    issues.push('Text too short');
+    score -= 20;
+  }
+  
+  return {
+    isReadable: score >= 50,
+    score,
+    issues
+  };
+}
+
+// Fonction pour générer un message d'erreur informatif
+function generateErrorMessage(corruptedText: string): string {
+  return `ERREUR D'EXTRACTION DE TEXTE
+
+Ce PDF ne contient pas de texte extractible ou utilise un encodage non supporté.
+
+TEXTE DÉTECTÉ (CORROMPU):
+${corruptedText.substring(0, 200)}${corruptedText.length > 200 ? '...' : ''}
+
+SOLUTIONS POSSIBLES:
+1. Le PDF est composé principalement d'images - utilisez un logiciel OCR
+2. Le PDF utilise un encodage spécial - convertissez-le avec Adobe Acrobat
+3. Essayez de sauvegarder le PDF dans un format différent
+4. Saisissez manuellement les données nécessaires
+
+DONNÉES À RECHERCHER MANUELLEMENT:
+- Nom et âge du patient
+- Longueur axiale (AL) en mm
+- Kératométrie (K1, K2) en dioptries
+- Profondeur chambre antérieure (ACD) en mm
+- Épaisseur du cristallin (LT) en mm
+- Recommandations de puissance IOL`;
 }
 
 function extractTextAlternative(pdfBytes: Uint8Array): string {
@@ -247,16 +344,9 @@ function extractTextAlternative(pdfBytes: Uint8Array): string {
 }
 
 function isValidMedicalText(text: string): boolean {
-  // Vérifier si le texte contient principalement des caractères lisibles
-  const readableChars = text.match(/[a-zA-Z0-9\s.,;:()\-]/g) || [];
-  const readableRatio = readableChars.length / text.length;
-  
-  // Vérifier la présence de caractères corrompus typiques des PDFs scannés
-  const corruptedChars = text.match(/[¢€¥Š‚ƒ„…†‡ˆ‰Ž''""•–—˜™ž]/g) || [];
-  const corruptedRatio = corruptedChars.length / text.length;
-  
-  // Le texte est valide s'il a au moins 80% de caractères lisibles ET moins de 10% de caractères corrompus
-  return readableRatio > 0.8 && corruptedRatio < 0.1;
+  // Nouvelle méthode plus stricte pour valider le texte médical
+  const quality = assessTextQuality(text);
+  return quality.isReadable;
 }
 
 function parseIOLData(text: string): any {
