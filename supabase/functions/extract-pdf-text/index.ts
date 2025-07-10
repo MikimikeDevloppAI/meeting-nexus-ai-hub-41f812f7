@@ -1,8 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// Import PDF.js for Deno environment
-import 'https://esm.sh/pdfjs-dist@5.3.31/build/pdf.min.js'
+// Import PDF.js legacy build for better Node/SSR compatibility
+import * as pdfjsLib from 'https://esm.sh/pdfjs-dist@5.3.31/legacy/build/pdf.js'
+import * as pdfjsWorker from 'https://esm.sh/pdfjs-dist@5.3.31/build/pdf.worker.entry.js'
 
 declare global {
   const pdfjsLib: any;
@@ -33,11 +34,11 @@ serve(async (req) => {
     const arrayBuffer = await file.arrayBuffer();
     console.log('✅ File converted to array buffer');
 
-    // Configure PDF.js for Deno environment
-    globalThis.pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    // Configure PDF.js with proper worker for Node/SSR environment
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
     
-    // Load the PDF document
-    const loadingTask = globalThis.pdfjsLib.getDocument({
+    // Load the PDF document using the imported pdfjsLib
+    const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       verbosity: 0,
       isEvalSupported: false,
