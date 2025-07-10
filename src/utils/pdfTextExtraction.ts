@@ -1,7 +1,4 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Disable worker to avoid loading issues - use exact same config as pdfToImage.ts
-pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+import { extract } from 'pdf-text-extract';
 
 export interface IOLData {
   patientName?: string;
@@ -49,43 +46,31 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
       console.log('⚠️ Edge function failed, falling back to client-side extraction');
     }
 
-    // Fallback to client-side PDF.js extraction
-    console.log('🔄 Using client-side PDF.js extraction');
+    // Fallback to pdf-text-extract library
+    console.log('🔄 Using pdf-text-extract library');
     
-    const loadingTask = pdfjsLib.getDocument({
-      data: arrayBuffer,
-      verbosity: 0,
-      isEvalSupported: false,
-      useWorkerFetch: false,
-      disableRange: true,
-      disableStream: true
+    const buffer = Buffer.from(arrayBuffer);
+    
+    return new Promise((resolve, reject) => {
+      extract(buffer, (err: any, pages: string[]) => {
+        if (err) {
+          console.error('❌ pdf-text-extract error:', err);
+          reject(new Error(`Erreur lors de l'extraction: ${err.message}`));
+          return;
+        }
+        
+        const extractedText = pages.join('\n').trim();
+        console.log('✅ PDF text extracted via pdf-text-extract');
+        console.log('📊 Total extracted text length:', extractedText.length);
+        
+        if (extractedText.length === 0) {
+          reject(new Error('Aucun texte trouvé dans le PDF'));
+          return;
+        }
+        
+        resolve(extractedText);
+      });
     });
-    
-    const pdf = await loadingTask.promise;
-    console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
-
-    let fullText = '';
-
-    // Extract text from all pages
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      console.log(`📖 Processing page ${pageNum}/${pdf.numPages}`);
-      
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
-      console.log(`✅ Page ${pageNum} text extracted (${pageText.length} chars)`);
-    }
-
-    console.log('🎉 PDF text extraction completed successfully!');
-    console.log('📊 Total extracted text length:', fullText.length);
-    
-    return fullText.trim();
     
   } catch (error) {
     console.error('❌ Error extracting text from PDF:');
