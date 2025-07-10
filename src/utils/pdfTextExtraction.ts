@@ -16,6 +16,8 @@ async function loadPdfJs(): Promise<any> {
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
     script.onload = () => {
       console.log('✅ PDF.js loaded from CDN');
+      // Configure worker to use CDN version to match the working HTML example
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
       resolve(window.pdfjsLib);
     };
     script.onerror = () => {
