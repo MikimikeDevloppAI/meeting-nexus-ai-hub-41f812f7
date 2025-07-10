@@ -93,33 +93,51 @@ serve(async (req) => {
 });
 
 async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
+  console.log('🔍 Starting PDF text extraction...');
+  console.log('📊 ArrayBuffer size:', arrayBuffer.byteLength);
+  
   try {
-    console.log('🔍 Starting PDF.js text extraction...');
+    console.log('🔧 Attempting PDF.js extraction...');
     
-    // Utiliser PDF.js pour extraire le texte
+    // Vérifier si PDF.js est disponible
+    console.log('📚 PDF.js available:', typeof pdfParse !== 'undefined');
+    console.log('📚 PDF.js getDocument:', typeof pdfParse.getDocument);
+    
+    // Essayer PDF.js
     const pdfDoc = await pdfParse.getDocument({ data: arrayBuffer }).promise;
-    console.log(`📊 PDF loaded with ${pdfDoc.numPages} pages`);
+    console.log(`📊 PDF.js: PDF loaded with ${pdfDoc.numPages} pages`);
     
     let allText = '';
     
     // Parcourir toutes les pages
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
       try {
+        console.log(`📄 Processing page ${pageNum}/${pdfDoc.numPages}`);
         const page = await pdfDoc.getPage(pageNum);
+        console.log(`📄 Page ${pageNum} loaded`);
+        
         const textContent = await page.getTextContent();
+        console.log(`📄 Page ${pageNum} text content items:`, textContent.items.length);
         
         // Extraire le texte de chaque élément de la page
         const pageText = textContent.items
-          .map((item: any) => item.str)
+          .map((item: any) => {
+            console.log('📝 Text item:', item.str);
+            return item.str;
+          })
           .join(' ')
           .trim();
         
         if (pageText) {
           allText += pageText + '\n';
           console.log(`📄 Page ${pageNum}: extracted ${pageText.length} characters`);
+          console.log(`📄 Page ${pageNum} text preview:`, pageText.substring(0, 200));
+        } else {
+          console.log(`📄 Page ${pageNum}: no text found`);
         }
       } catch (pageError) {
         console.error(`❌ Error extracting page ${pageNum}:`, pageError);
+        console.error(`❌ Page error details:`, pageError.message);
         continue;
       }
     }
@@ -130,38 +148,48 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
       .replace(/\n\s*\n/g, '\n')
       .trim();
     
-    console.log(`📝 Total extracted text: ${cleanedText.length} characters`);
-    console.log(`📝 First 500 characters:`, cleanedText.substring(0, 500));
+    console.log(`📝 PDF.js total extracted text: ${cleanedText.length} characters`);
+    console.log(`📝 PDF.js first 500 characters:`, cleanedText.substring(0, 500));
     
     if (cleanedText.length > 10) {
+      console.log('✅ PDF.js extraction successful');
       return cleanedText;
     } else {
       console.log('⚠️ PDF.js extraction yielded insufficient text, trying fallback...');
-      // Fallback vers l'ancienne méthode si PDF.js ne trouve rien
-      return await extractTextFromPDFBytes(new Uint8Array(arrayBuffer));
     }
     
   } catch (error) {
     console.error('❌ PDF.js extraction failed:', error);
-    console.log('🔄 Falling back to manual extraction...');
+    console.error('❌ PDF.js error message:', error.message);
+    console.error('❌ PDF.js error stack:', error.stack);
+  }
+  
+  console.log('🔄 Falling back to manual extraction...');
+  
+  // Fallback vers l'ancienne méthode
+  try {
+    const pdfBytes = new Uint8Array(arrayBuffer);
+    console.log('📊 Manual extraction - PDF bytes length:', pdfBytes.length);
     
-    // Fallback vers l'ancienne méthode en cas d'erreur PDF.js
-    try {
-      const pdfBytes = new Uint8Array(arrayBuffer);
-      const fallbackText = extractTextFromPDFBytes(pdfBytes);
+    const fallbackText = extractTextFromPDFBytes(pdfBytes);
+    console.log('📝 Manual extraction result length:', fallbackText?.length || 0);
+    console.log('📝 Manual extraction preview:', fallbackText.substring(0, 200));
+    
+    if (fallbackText && fallbackText.length > 10) {
+      const textQuality = assessTextQuality(fallbackText);
+      console.log('📊 Manual extraction quality:', textQuality);
       
-      if (fallbackText && fallbackText.length > 10) {
-        const textQuality = assessTextQuality(fallbackText);
-        if (textQuality.isReadable) {
-          return fallbackText;
-        }
+      if (textQuality.isReadable) {
+        console.log('✅ Manual extraction successful');
+        return fallbackText;
       }
-      
-      return generateErrorMessage(fallbackText || '');
-    } catch (fallbackError) {
-      console.error('❌ Fallback extraction also failed:', fallbackError);
-      return generateErrorMessage('');
     }
+    
+    console.log('❌ Manual extraction also failed');
+    return generateErrorMessage(fallbackText || '');
+  } catch (fallbackError) {
+    console.error('❌ Fallback extraction also failed:', fallbackError);
+    return generateErrorMessage('');
   }
 }
 
