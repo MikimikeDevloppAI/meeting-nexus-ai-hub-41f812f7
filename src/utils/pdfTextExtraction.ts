@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js to work without worker in Lovable environment
+// Disable worker entirely to avoid loading issues
 pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 export interface IOLData {
@@ -48,9 +48,6 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
     } catch (edgeFunctionError) {
       console.log('⚠️ Edge function failed, falling back to client-side extraction');
     }
-
-    // Configure PDF.js BEFORE creating the loading task
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
     // Fallback to client-side PDF.js extraction
     const loadingTask = pdfjsLib.getDocument({
