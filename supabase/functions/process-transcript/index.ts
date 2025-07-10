@@ -61,7 +61,7 @@ serve(async (req) => {
 
     console.log(`👥 [PROCESS-TRANSCRIPT] Total participants disponibles dans la base: ${allParticipants?.length || 0}`);
 
-    const participantNames = allParticipants?.map(p => p.name).join(', ') || '';
+    const participantNames = meetingParticipants?.map(p => p.name).join(', ') || '';
 
     // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry et 16384 tokens
     const cleaningStartTime = Date.now();
