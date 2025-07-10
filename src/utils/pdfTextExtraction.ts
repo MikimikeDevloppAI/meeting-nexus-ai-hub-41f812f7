@@ -79,6 +79,7 @@ export interface IOLData {
     };
   };
   recommendations: string;
+  rawText?: string; // Pour debugging
   isScannedPdf: boolean;
   hasError: boolean;
   errorMessage: string;
@@ -373,7 +374,9 @@ export const extractIOLDataFromPdf = async (file: File): Promise<IOLData> => {
       };
     }
 
-    return parseIOLData(rawText);
+    const parsedData = parseIOLData(rawText);
+    parsedData.rawText = rawText; // Ajouter le texte brut pour debugging
+    return parsedData;
     
   } catch (error) {
     console.error('❌ Error extracting IOL data from PDF:', error);

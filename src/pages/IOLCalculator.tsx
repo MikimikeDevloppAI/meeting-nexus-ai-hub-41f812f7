@@ -309,6 +309,14 @@ export default function IOLCalculator() {
                     <p className="text-sm text-muted-foreground">{iolData.recommendations}</p>
                   </div>
                 )}
+
+                {/* Affichage du texte brut extrait pour debugging */}
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h3 className="font-semibold mb-3">Texte brut extrait (pour debugging)</h3>
+                  <pre className="text-xs bg-white p-3 rounded border overflow-auto max-h-96 whitespace-pre-wrap">
+                    {iolData.rawText || "Texte brut non disponible"}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
           )}
