@@ -79,20 +79,29 @@ export default function IOLCalculator() {
         source: "lovable-iol-calculator"
       };
 
+      console.log("Payload à envoyer:", payload);
+      
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        mode: "no-cors", // Pour gérer CORS
         body: JSON.stringify(payload),
       });
 
-      console.log("PDF envoyé au webhook n8n avec succès");
-      toast({
-        title: "PDF envoyé avec succès",
-        description: "Le PDF a été envoyé au webhook n8n. Vérifiez les logs de votre workflow pour confirmer.",
-      });
+      console.log("Réponse du webhook:", response.status, response.statusText);
+      
+      if (response.ok) {
+        const responseText = await response.text();
+        console.log("Contenu de la réponse:", responseText);
+        
+        toast({
+          title: "PDF envoyé avec succès",
+          description: `Le PDF a été envoyé au webhook n8n (Status: ${response.status}). Vérifiez les logs de votre workflow.`,
+        });
+      } else {
+        throw new Error(`Webhook a retourné le status ${response.status}: ${response.statusText}`);
+      }
       
       // Réinitialiser le fichier après envoi
       setPdfFile(null);
