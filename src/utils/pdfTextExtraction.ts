@@ -173,170 +173,159 @@ export const parseIOLData = (rawText: string): IOLData => {
     data.patientInfo.name = testMatch[1].trim();
   }
 
-  // Extraire les données pour l'œil droit (OD)
-  const odSection = cleanText.match(/OD[\s\S]*?(?=OS|Phaque[\s\S]*?Pas de données|$)/);
-  if (odSection) {
-    const odText = odSection[0];
-    
-    // Type de chirurgie
-    data.measurements.rightEye.surgeryType = "Phaque";
-    
-    // Date de mesure
-    const measurementDateMatch = odText.match(/(\d{1,2}\s\w+\s\d{4})/);
-    if (measurementDateMatch) {
-      data.measurements.rightEye.measurementDate = measurementDateMatch[1];
-    }
-    
-    // AL (Longueur axiale)
-    const alMatch = odText.match(/AL \[mm\]\s*(\d+\.\d+)/);
-    if (alMatch) {
-      data.measurements.rightEye.axialLength = parseFloat(alMatch[1]);
-    }
+  // Utiliser les regex patterns pour extraire les données
 
-    // CCT (Épaisseur cornéenne centrale)
-    const cctMatch = odText.match(/CCT \[μm\]\s*(\d+)/);
-    if (cctMatch) {
-      data.measurements.rightEye.cct = parseInt(cctMatch[1]);
-    }
+  // Type de chirurgie pour les deux yeux
+  data.measurements.rightEye.surgeryType = "Phaque";
+  data.measurements.leftEye.surgeryType = "Phaque";
+  
+  // Date de mesure
+  const measurementDateMatches = cleanText.match(/(\d{1,2}\s\w+\s\d{4})/g);
+  if (measurementDateMatches && measurementDateMatches[0]) {
+    data.measurements.rightEye.measurementDate = measurementDateMatches[0];
+  }
+  if (measurementDateMatches && measurementDateMatches[1]) {
+    data.measurements.leftEye.measurementDate = measurementDateMatches[1];
+  }
+  
+  // AL [mm] - Longueur axiale
+  const alMatches = cleanText.match(/AL\s+\[mm\]\s+([\d\.]+)/g);
+  if (alMatches && alMatches[0]) {
+    const alValue = alMatches[0].match(/AL\s+\[mm\]\s+([\d\.]+)/);
+    if (alValue) data.measurements.rightEye.axialLength = parseFloat(alValue[1]);
+  }
+  if (alMatches && alMatches[1]) {
+    const alValue = alMatches[1].match(/AL\s+\[mm\]\s+([\d\.]+)/);
+    if (alValue) data.measurements.leftEye.axialLength = parseFloat(alValue[1]);
+  }
 
-    // AD (Profondeur de chambre antérieure)
-    const adMatch = odText.match(/AD \[mm\]\s*(\d+\.\d+)/);
-    if (adMatch) {
-      data.measurements.rightEye.ad = parseFloat(adMatch[1]);
-    }
+  // CCT [μm] - Épaisseur cornéenne centrale
+  const cctMatches = cleanText.match(/CCT\s+\[μm\]\s+([\d\.]+)/g);
+  if (cctMatches && cctMatches[0]) {
+    const cctValue = cctMatches[0].match(/CCT\s+\[μm\]\s+([\d\.]+)/);
+    if (cctValue) data.measurements.rightEye.cct = parseInt(cctValue[1]);
+  }
+  if (cctMatches && cctMatches[1]) {
+    const cctValue = cctMatches[1].match(/CCT\s+\[μm\]\s+([\d\.]+)/);
+    if (cctValue) data.measurements.leftEye.cct = parseInt(cctValue[1]);
+  }
 
-    // ACD (Profondeur de chambre antérieure)
-    const acdMatch = odText.match(/ACD \[mm\]\s*(\d+\.\d+)/);
-    if (acdMatch) {
-      data.measurements.rightEye.acd = parseFloat(acdMatch[1]);
-    }
+  // AD [mm] - Profondeur de chambre antérieure
+  const adMatches = cleanText.match(/AD\s+\[mm\]\s+([\d\.]+)/g);
+  if (adMatches && adMatches[0]) {
+    const adValue = adMatches[0].match(/AD\s+\[mm\]\s+([\d\.]+)/);
+    if (adValue) data.measurements.rightEye.ad = parseFloat(adValue[1]);
+  }
+  if (adMatches && adMatches[1]) {
+    const adValue = adMatches[1].match(/AD\s+\[mm\]\s+([\d\.]+)/);
+    if (adValue) data.measurements.leftEye.ad = parseFloat(adValue[1]);
+  }
 
-    // LT (Épaisseur du cristallin)
-    const ltMatch = odText.match(/LT \[mm\]\s*(\d+\.\d+)/);
-    if (ltMatch) {
-      data.measurements.rightEye.lt = parseFloat(ltMatch[1]);
-    }
+  // ACD [mm] - Profondeur de chambre antérieure
+  const acdMatches = cleanText.match(/ACD\s+\[mm\]\s+([\d\.]+)/g);
+  if (acdMatches && acdMatches[0]) {
+    const acdValue = acdMatches[0].match(/ACD\s+\[mm\]\s+([\d\.]+)/);
+    if (acdValue) data.measurements.rightEye.acd = parseFloat(acdValue[1]);
+  }
+  if (acdMatches && acdMatches[1]) {
+    const acdValue = acdMatches[1].match(/ACD\s+\[mm\]\s+([\d\.]+)/);
+    if (acdValue) data.measurements.leftEye.acd = parseFloat(acdValue[1]);
+  }
 
-    // K1 (Kératométrie)
-    const k1Match = odText.match(/K1 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
-    if (k1Match) {
-      data.measurements.rightEye.k1 = parseFloat(k1Match[1]);
-      data.measurements.rightEye.k1_radius = parseFloat(k1Match[2]);
-      data.measurements.rightEye.k1_axis = parseInt(k1Match[3]);
-    }
+  // LT [mm] - Épaisseur du cristallin
+  const ltMatches = cleanText.match(/LT\s+\[mm\]\s+([\d\.]+)/g);
+  if (ltMatches && ltMatches[0]) {
+    const ltValue = ltMatches[0].match(/LT\s+\[mm\]\s+([\d\.]+)/);
+    if (ltValue) data.measurements.rightEye.lt = parseFloat(ltValue[1]);
+  }
+  if (ltMatches && ltMatches[1]) {
+    const ltValue = ltMatches[1].match(/LT\s+\[mm\]\s+([\d\.]+)/);
+    if (ltValue) data.measurements.leftEye.lt = parseFloat(ltValue[1]);
+  }
 
-    // K2 (Kératométrie)
-    const k2Match = odText.match(/K2 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
-    if (k2Match) {
-      data.measurements.rightEye.k2 = parseFloat(k2Match[1]);
-      data.measurements.rightEye.k2_radius = parseFloat(k2Match[2]);
-      data.measurements.rightEye.k2_axis = parseInt(k2Match[3]);
+  // K1 [D/mm/°] - Kératométrie
+  const k1Matches = cleanText.match(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g);
+  if (k1Matches && k1Matches[0]) {
+    const k1Value = k1Matches[0].match(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/);
+    if (k1Value) {
+      data.measurements.rightEye.k1 = parseFloat(k1Value[1]);
+      data.measurements.rightEye.k1_radius = parseFloat(k1Value[2]);
+      data.measurements.rightEye.k1_axis = parseInt(k1Value[3]);
     }
-
-    // K moyen
-    const kMatch = odText.match(/K \[D\/mm\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)/);
-    if (kMatch) {
-      data.measurements.rightEye.k_mean = parseFloat(kMatch[1]);
-      data.measurements.rightEye.k_mean_radius = parseFloat(kMatch[2]);
-    }
-
-    // Astigmatisme
-    const astMatch = odText.match(/\+AST \[D\/°\]\s*(\d+\.\d+)\s*@\s*(\d+)/);
-    if (astMatch) {
-      data.measurements.rightEye.astigmatism = parseFloat(astMatch[1]);
-      data.measurements.rightEye.astigmatism_axis = parseInt(astMatch[2]);
-    }
-
-    // WTW (Distance blanc à blanc)
-    const wtwMatch = odText.match(/WTW \[mm\]\s*(\d+\.\d+)/);
-    if (wtwMatch) {
-      data.measurements.rightEye.wtw = parseFloat(wtwMatch[1]);
+  }
+  if (k1Matches && k1Matches[1]) {
+    const k1Value = k1Matches[1].match(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/);
+    if (k1Value) {
+      data.measurements.leftEye.k1 = parseFloat(k1Value[1]);
+      data.measurements.leftEye.k1_radius = parseFloat(k1Value[2]);
+      data.measurements.leftEye.k1_axis = parseInt(k1Value[3]);
     }
   }
 
-  // Extraire les données pour l'œil gauche (OS) si présentes
-  const osSection = cleanText.match(/OS[\s\S]*?(?=Phaque[\s\S]*?Pas de données|$)/);
-  if (osSection) {
-    const osText = osSection[0];
-    
-    // Vérifier s'il y a des données pour l'œil gauche
-    if (!osText.includes('Pas de données de mesure')) {
-      // Type de chirurgie
-      data.measurements.leftEye.surgeryType = "Phaque";
-      
-      // Date de mesure
-      const measurementDateMatch = osText.match(/(\d{1,2}\s\w+\s\d{4})/);
-      if (measurementDateMatch) {
-        data.measurements.leftEye.measurementDate = measurementDateMatch[1];
-      }
-      
-      // AL (Longueur axiale)
-      const alMatch = osText.match(/AL \[mm\]\s*(\d+\.\d+)/);
-      if (alMatch) {
-        data.measurements.leftEye.axialLength = parseFloat(alMatch[1]);
-      }
-
-      // CCT (Épaisseur cornéenne centrale)
-      const cctMatch = osText.match(/CCT \[μm\]\s*(\d+)/);
-      if (cctMatch) {
-        data.measurements.leftEye.cct = parseInt(cctMatch[1]);
-      }
-
-      // AD (Profondeur de chambre antérieure)
-      const adMatch = osText.match(/AD \[mm\]\s*(\d+\.\d+)/);
-      if (adMatch) {
-        data.measurements.leftEye.ad = parseFloat(adMatch[1]);
-      }
-
-      // ACD (Profondeur de chambre antérieure)
-      const acdMatch = osText.match(/ACD \[mm\]\s*(\d+\.\d+)/);
-      if (acdMatch) {
-        data.measurements.leftEye.acd = parseFloat(acdMatch[1]);
-      }
-
-      // LT (Épaisseur du cristallin)
-      const ltMatch = osText.match(/LT \[mm\]\s*(\d+\.\d+)/);
-      if (ltMatch) {
-        data.measurements.leftEye.lt = parseFloat(ltMatch[1]);
-      }
-
-      // K1 (Kératométrie)
-      const k1Match = osText.match(/K1 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
-      if (k1Match) {
-        data.measurements.leftEye.k1 = parseFloat(k1Match[1]);
-        data.measurements.leftEye.k1_radius = parseFloat(k1Match[2]);
-        data.measurements.leftEye.k1_axis = parseInt(k1Match[3]);
-      }
-
-      // K2 (Kératométrie)
-      const k2Match = osText.match(/K2 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
-      if (k2Match) {
-        data.measurements.leftEye.k2 = parseFloat(k2Match[1]);
-        data.measurements.leftEye.k2_radius = parseFloat(k2Match[2]);
-        data.measurements.leftEye.k2_axis = parseInt(k2Match[3]);
-      }
-
-      // K moyen
-      const kMatch = osText.match(/K \[D\/mm\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)/);
-      if (kMatch) {
-        data.measurements.leftEye.k_mean = parseFloat(kMatch[1]);
-        data.measurements.leftEye.k_mean_radius = parseFloat(kMatch[2]);
-      }
-
-      // Astigmatisme
-      const astMatch = osText.match(/\+AST \[D\/°\]\s*(\d+\.\d+)\s*@\s*(\d+)/);
-      if (astMatch) {
-        data.measurements.leftEye.astigmatism = parseFloat(astMatch[1]);
-        data.measurements.leftEye.astigmatism_axis = parseInt(astMatch[2]);
-      }
-
-      // WTW (Distance blanc à blanc)
-      const wtwMatch = osText.match(/WTW \[mm\]\s*(\d+\.\d+)/);
-      if (wtwMatch) {
-        data.measurements.leftEye.wtw = parseFloat(wtwMatch[1]);
-      }
+  // K2 [D/mm/°] - Kératométrie
+  const k2Matches = cleanText.match(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g);
+  if (k2Matches && k2Matches[0]) {
+    const k2Value = k2Matches[0].match(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/);
+    if (k2Value) {
+      data.measurements.rightEye.k2 = parseFloat(k2Value[1]);
+      data.measurements.rightEye.k2_radius = parseFloat(k2Value[2]);
+      data.measurements.rightEye.k2_axis = parseInt(k2Value[3]);
     }
   }
+  if (k2Matches && k2Matches[1]) {
+    const k2Value = k2Matches[1].match(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/);
+    if (k2Value) {
+      data.measurements.leftEye.k2 = parseFloat(k2Value[1]);
+      data.measurements.leftEye.k2_radius = parseFloat(k2Value[2]);
+      data.measurements.leftEye.k2_axis = parseInt(k2Value[3]);
+    }
+  }
+
+  // K [D/mm] - K moyen
+  const kMatches = cleanText.match(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g);
+  if (kMatches && kMatches[0]) {
+    const kValue = kMatches[0].match(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/);
+    if (kValue) {
+      data.measurements.rightEye.k_mean = parseFloat(kValue[1]);
+      data.measurements.rightEye.k_mean_radius = parseFloat(kValue[2]);
+    }
+  }
+  if (kMatches && kMatches[1]) {
+    const kValue = kMatches[1].match(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/);
+    if (kValue) {
+      data.measurements.leftEye.k_mean = parseFloat(kValue[1]);
+      data.measurements.leftEye.k_mean_radius = parseFloat(kValue[2]);
+    }
+  }
+
+  // +AST [D/°] - Astigmatisme
+  const astMatches = cleanText.match(/\+AST\s+\[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g);
+  if (astMatches && astMatches[0]) {
+    const astValue = astMatches[0].match(/\+AST\s+\[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/);
+    if (astValue) {
+      data.measurements.rightEye.astigmatism = parseFloat(astValue[1]);
+      data.measurements.rightEye.astigmatism_axis = parseInt(astValue[2]);
+    }
+  }
+  if (astMatches && astMatches[1]) {
+    const astValue = astMatches[1].match(/\+AST\s+\[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/);
+    if (astValue) {
+      data.measurements.leftEye.astigmatism = parseFloat(astValue[1]);
+      data.measurements.leftEye.astigmatism_axis = parseInt(astValue[2]);
+    }
+  }
+
+  // WTW [mm] - Distance blanc à blanc
+  const wtwMatches = cleanText.match(/WTW\s+\[mm\]\s+([\d\.]+)/g);
+  if (wtwMatches && wtwMatches[0]) {
+    const wtwValue = wtwMatches[0].match(/WTW\s+\[mm\]\s+([\d\.]+)/);
+    if (wtwValue) data.measurements.rightEye.wtw = parseFloat(wtwValue[1]);
+  }
+  if (wtwMatches && wtwMatches[1]) {
+    const wtwValue = wtwMatches[1].match(/WTW\s+\[mm\]\s+([\d\.]+)/);
+    if (wtwValue) data.measurements.leftEye.wtw = parseFloat(wtwValue[1]);
+  }
+
 
   // Extraire les recommandations
   const lensMatch = cleanText.match(/LS900 cône T (.*?)\s*-\s*\d+/);
