@@ -701,6 +701,7 @@ export type Database = {
           extracted_text: string | null
           file_path: string
           file_size: number | null
+          google_drive_link: string | null
           id: string
           metadata: Json | null
           original_name: string
@@ -716,6 +717,7 @@ export type Database = {
           extracted_text?: string | null
           file_path: string
           file_size?: number | null
+          google_drive_link?: string | null
           id?: string
           metadata?: Json | null
           original_name: string
@@ -731,6 +733,7 @@ export type Database = {
           extracted_text?: string | null
           file_path?: string
           file_size?: number | null
+          google_drive_link?: string | null
           id?: string
           metadata?: Json | null
           original_name?: string
