@@ -1,7 +1,30 @@
-import * as pdfjsLib from 'pdfjs-dist';
+// Load PDF.js dynamically from CDN like in the working HTML example
+declare global {
+  interface Window {
+    pdfjsLib: any;
+  }
+}
 
-// Configure PDF.js worker like in the working HTML example - set to empty string to disable
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
+// Function to dynamically load PDF.js from CDN
+async function loadPdfJs(): Promise<any> {
+  if (window.pdfjsLib) {
+    return window.pdfjsLib;
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
+    script.onload = () => {
+      console.log('✅ PDF.js loaded from CDN');
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = () => {
+      console.error('❌ Failed to load PDF.js from CDN');
+      reject(new Error('Failed to load PDF.js'));
+    };
+    document.head.appendChild(script);
+  });
+}
 
 export interface IOLData {
   patientName?: string;
@@ -49,7 +72,8 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
       console.log('⚠️ Edge function failed, falling back to client-side extraction');
     }
 
-    // Use exactly the same approach as the working HTML example
+    // Load PDF.js dynamically and use exactly the same approach as the working HTML example
+    const pdfjsLib = await loadPdfJs();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
 
