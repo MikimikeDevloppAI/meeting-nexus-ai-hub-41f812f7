@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Disable worker to avoid loading issues - use same config as pdfToImage.ts
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = false;
+// Disable worker to avoid loading issues - use exact same config as pdfToImage.ts
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 export interface IOLData {
   patientName?: string;
