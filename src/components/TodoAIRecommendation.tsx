@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  Lightbulb, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin
+  Lightbulb, Mail, ChevronDown, ChevronUp, Phone, Globe, MapPin, Edit2, Save, X
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface TodoAIRecommendationProps {
   todoId: string;
@@ -35,6 +37,10 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
   const [showEmailDraft, setShowEmailDraft] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchRecommendation = async () => {
@@ -119,6 +125,47 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
     if (newIsOpen && recommendation?.email_draft) {
       setShowEmailDraft(true);
     }
+  };
+
+  const handleEditEmail = () => {
+    setEditedEmail(recommendation?.email_draft || "");
+    setIsEditingEmail(true);
+  };
+
+  const handleSaveEmail = async () => {
+    if (!recommendation) return;
+    
+    setSavingEmail(true);
+    try {
+      const { error } = await supabase
+        .from("todo_ai_recommendations")
+        .update({ email_draft: editedEmail })
+        .eq("id", recommendation.id);
+
+      if (error) throw error;
+
+      setRecommendation({ ...recommendation, email_draft: editedEmail });
+      setIsEditingEmail(false);
+      
+      toast({
+        title: "Email modifié",
+        description: "L'email a été mis à jour avec succès",
+      });
+    } catch (error: any) {
+      console.error("Error updating email:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier l'email",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingEmail(false);
+    setEditedEmail("");
   };
 
   if (loading) {
@@ -296,19 +343,67 @@ export const TodoAIRecommendation = ({ todoId }: TodoAIRecommendationProps) => {
 
                         <CollapsibleContent>
                           <div className="mt-2 bg-muted/50 rounded p-3">
-                            <pre className="text-xs whitespace-pre-wrap font-sans break-words overflow-wrap-anywhere">
-                              {recommendation.email_draft}
-                            </pre>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                navigator.clipboard.writeText(recommendation.email_draft || '');
-                              }}
-                              className="w-full mt-3"
-                            >
-                              Copier l'email
-                            </Button>
+                            {isEditingEmail ? (
+                              <div className="space-y-3">
+                                <Textarea
+                                  value={editedEmail}
+                                  onChange={(e) => setEditedEmail(e.target.value)}
+                                  className="min-h-[150px] text-sm"
+                                  placeholder="Modifier l'email..."
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={handleSaveEmail}
+                                    disabled={savingEmail}
+                                    className="flex-1"
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    {savingEmail ? "Sauvegarde..." : "Sauvegarder"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleCancelEdit}
+                                    disabled={savingEmail}
+                                  >
+                                    <X className="h-3 w-3 mr-1" />
+                                    Annuler
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium">Email de communication</span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleEditEmail}
+                                    className="h-6 px-2"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <pre className="text-xs whitespace-pre-wrap font-sans break-words overflow-wrap-anywhere cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors" onClick={handleEditEmail}>
+                                  {recommendation.email_draft}
+                                </pre>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(recommendation.email_draft || '');
+                                    toast({
+                                      title: "Email copié",
+                                      description: "L'email a été copié dans le presse-papiers",
+                                    });
+                                  }}
+                                  className="w-full mt-3"
+                                >
+                                  Copier l'email
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
