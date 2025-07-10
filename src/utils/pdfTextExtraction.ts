@@ -1,5 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
+// Configure PDF.js worker like in the working HTML example - set to empty string to disable
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
+
 export interface IOLData {
   patientName?: string;
   patientAge?: string;
@@ -46,9 +49,7 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
       console.log('⚠️ Edge function failed, falling back to client-side extraction');
     }
 
-    // Fallback to client-side PDF.js extraction - using simple approach like the working example
-    console.log('🔄 Using client-side PDF.js extraction');
-    
+    // Use exactly the same approach as the working HTML example
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
 
