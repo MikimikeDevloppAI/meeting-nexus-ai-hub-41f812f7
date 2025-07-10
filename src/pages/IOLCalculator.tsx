@@ -1,27 +1,12 @@
 import { useState } from "react";
-import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-interface IOLData {
-  patientName?: string;
-  patientAge?: string;
-  axialLength?: string;
-  keratometry?: string;
-  anteriorChamberDepth?: string;
-  lensThickness?: string;
-  recommendations?: string[];
-  rawText?: string;
-  error?: boolean;
-  message?: string;
-}
+import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 
 export default function IOLCalculator() {
-  const { user } = useAuth();
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [iolData, setIolData] = useState<IOLData | null>(null);
   const { toast } = useToast();
@@ -66,45 +51,31 @@ export default function IOLCalculator() {
   };
 
   const extractIOLData = async () => {
-    if (!pdfFile || !user) return;
+    if (!pdfFile) return;
 
-    setIsUploading(true);
+    setIsProcessing(true);
     setIolData(null);
     
     try {
-      console.log("Téléchargement du PDF:", pdfFile.name, "Taille:", pdfFile.size);
+      console.log("Extraction directe du PDF:", pdfFile.name, "Taille:", pdfFile.size);
       
-      // Upload PDF to Supabase storage
-      const fileName = `iol-documents/${Date.now()}-${pdfFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, pdfFile);
-
-      if (uploadError) {
-        throw new Error(`Erreur de téléchargement: ${uploadError.message}`);
-      }
-
-      console.log("PDF téléchargé avec succès:", uploadData.path);
-
-      // Call the extract-iol-data edge function
-      const { data, error } = await supabase.functions.invoke('extract-iol-data', {
-        body: { filePath: uploadData.path }
-      });
-
-      if (error) {
-        throw new Error(`Erreur d'extraction: ${error.message}`);
-      }
-
+      const data = await extractIOLDataFromPdf(pdfFile);
+      
       console.log("Données IOL extraites:", data);
       setIolData(data);
 
-      toast({
-        title: "Extraction réussie",
-        description: "Le texte a été extrait avec succès du PDF.",
-      });
-
-      // Clean up uploaded file from storage
-      await supabase.storage.from('documents').remove([uploadData.path]);
+      if (data.error) {
+        toast({
+          title: "Document scanné détecté",
+          description: data.message || "Le PDF semble être une image scannée.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Extraction réussie",
+          description: "Le texte a été extrait avec succès du PDF.",
+        });
+      }
       
     } catch (error: any) {
       console.error("Erreur lors de l'extraction IOL:", error);
@@ -115,7 +86,7 @@ export default function IOLCalculator() {
         variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -169,8 +140,8 @@ export default function IOLCalculator() {
                   ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
                 </span>
               </div>
-              <Button onClick={extractIOLData} disabled={isUploading}>
-                {isUploading ? (
+              <Button onClick={extractIOLData} disabled={isProcessing}>
+                {isProcessing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Extraction en cours...
