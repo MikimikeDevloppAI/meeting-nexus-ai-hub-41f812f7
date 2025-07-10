@@ -71,8 +71,13 @@ export default function IOLCalculator() {
 
     setIsUploading(true);
     try {
+      // Clean the filename to avoid issues with special characters
+      const cleanFileName = pdfFile.name
+        .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
+        .replace(/_{2,}/g, '_'); // Replace multiple underscores with single one
+      
       // Upload the PDF to Supabase storage
-      const fileName = `iol-${Date.now()}-${pdfFile.name}`;
+      const fileName = `iol-${Date.now()}-${cleanFileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("documents")
         .upload(fileName, pdfFile);
