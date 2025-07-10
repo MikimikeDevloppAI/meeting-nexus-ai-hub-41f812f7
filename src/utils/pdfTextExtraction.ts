@@ -1,9 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker properly for PDF.js
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
-}
+// Disable worker completely for Lovable environment
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 export interface IOLData {
   patientName?: string;
