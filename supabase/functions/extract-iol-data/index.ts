@@ -545,3 +545,4 @@ async function sendPDFToWebhook(filePath: string, fileData: Blob): Promise<void>
     console.error('❌ Error sending PDF to webhook:', error);
     // Ne pas relancer l'erreur car c'est une tâche en arrière-plan
   }
+}
