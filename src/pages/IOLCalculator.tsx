@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Loader2 } from "lucide-react";
+import { Upload, FileText, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 
@@ -64,10 +64,10 @@ export default function IOLCalculator() {
       console.log("Données IOL extraites:", data);
       setIolData(data);
 
-      if (data.error) {
+      if (data.hasError) {
         toast({
           title: "Document scanné détecté",
-          description: data.message || "Le PDF semble être une image scannée.",
+          description: data.errorMessage || "Le PDF semble être une image scannée.",
           variant: "destructive",
         });
       } else {
@@ -99,9 +99,9 @@ export default function IOLCalculator() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Extraction de texte depuis PDF</CardTitle>
+          <CardTitle>Extraction de données IOL depuis PDF</CardTitle>
           <CardDescription>
-            Téléchargez un fichier PDF pour extraire automatiquement tout le texte avec OCR intégré.
+            Téléchargez un fichier PDF de biométrie oculaire pour extraire automatiquement les mesures IOL.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -116,7 +116,7 @@ export default function IOLCalculator() {
             <div className="space-y-2">
               <p className="text-lg font-medium">Glissez-déposez un fichier PDF ou cliquez pour sélectionner</p>
               <p className="text-sm text-muted-foreground">
-                Formats acceptés: PDF uniquement
+                Formats acceptés: PDF de biométrie IOL
               </p>
             </div>
             <input
@@ -147,7 +147,7 @@ export default function IOLCalculator() {
                     Extraction en cours...
                   </>
                 ) : (
-                  "Extraire le texte du PDF"
+                  "Extraire les données IOL"
                 )}
               </Button>
             </div>
@@ -157,80 +157,145 @@ export default function IOLCalculator() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Texte extrait du PDF
+                  <Eye className="h-5 w-5" />
+                  Données IOL extraites
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {iolData.error ? (
+              <CardContent className="space-y-6">
+                {iolData.hasError ? (
                   <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
                     <p className="font-medium text-yellow-800">Document scanné détecté</p>
-                    <p className="text-yellow-700">{iolData.message}</p>
+                    <p className="text-yellow-700">{iolData.errorMessage}</p>
                   </div>
                 ) : (
                   <>
-                    {iolData.rawText && (
-                      <div className="bg-muted p-4 rounded-lg">
-                        <h3 className="font-medium mb-2">Texte complet extrait :</h3>
-                        <div className="max-h-96 overflow-y-auto border bg-background p-3 rounded text-sm">
-                          <pre className="whitespace-pre-wrap font-mono">{iolData.rawText}</pre>
+                    {/* Informations patient */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Informations patient
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="font-medium text-muted-foreground">Nom du test</p>
+                          <p className="text-lg">{iolData.patientInfo.name || "Non spécifié"}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-muted-foreground">Date</p>
+                          <p className="text-lg">{iolData.patientInfo.dateOfBirth || "Non spécifiée"}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-muted-foreground">ID de calcul (CID)</p>
+                          <p className="text-lg">{iolData.patientInfo.patientId || "Non spécifié"}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mesures œil droit */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        Œil droit (OD)
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        {iolData.measurements.rightEye.axialLength && (
+                          <div>
+                            <p className="font-medium text-muted-foreground">AL (mm)</p>
+                            <p className="text-lg">{iolData.measurements.rightEye.axialLength}</p>
+                          </div>
+                        )}
+                        {iolData.measurements.rightEye.cct && (
+                          <div>
+                            <p className="font-medium text-muted-foreground">CCT (μm)</p>
+                            <p className="text-lg">{iolData.measurements.rightEye.cct}</p>
+                          </div>
+                        )}
+                        {iolData.measurements.rightEye.acd && (
+                          <div>
+                            <p className="font-medium text-muted-foreground">ACD (mm)</p>
+                            <p className="text-lg">{iolData.measurements.rightEye.acd}</p>
+                          </div>
+                        )}
+                        {iolData.measurements.rightEye.lt && (
+                          <div>
+                            <p className="font-medium text-muted-foreground">LT (mm)</p>
+                            <p className="text-lg">{iolData.measurements.rightEye.lt}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Kératométrie */}
+                      {(iolData.measurements.rightEye.k1 || iolData.measurements.rightEye.k2) && (
+                        <div className="mt-4 pt-4 border-t">
+                          <h4 className="font-medium mb-2">Kératométrie</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            {iolData.measurements.rightEye.k1 && (
+                              <div>
+                                <p className="font-medium text-muted-foreground">K1</p>
+                                <p>{iolData.measurements.rightEye.k1}D / {iolData.measurements.rightEye.k1_radius}mm @ {iolData.measurements.rightEye.k1_axis}°</p>
+                              </div>
+                            )}
+                            {iolData.measurements.rightEye.k2 && (
+                              <div>
+                                <p className="font-medium text-muted-foreground">K2</p>
+                                <p>{iolData.measurements.rightEye.k2}D / {iolData.measurements.rightEye.k2_radius}mm @ {iolData.measurements.rightEye.k2_axis}°</p>
+                              </div>
+                            )}
+                            {iolData.measurements.rightEye.k_mean && (
+                              <div>
+                                <p className="font-medium text-muted-foreground">K moyen</p>
+                                <p>{iolData.measurements.rightEye.k_mean}D / {iolData.measurements.rightEye.k_mean_radius}mm</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Astigmatisme et WTW */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          {iolData.measurements.rightEye.astigmatism && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">Astigmatisme</p>
+                              <p>{iolData.measurements.rightEye.astigmatism}D @ {iolData.measurements.rightEye.astigmatism_axis}°</p>
+                            </div>
+                          )}
+                          {iolData.measurements.rightEye.wtw && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">WTW (mm)</p>
+                              <p>{iolData.measurements.rightEye.wtw}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mesures œil gauche si présentes */}
+                    {iolData.measurements.leftEye.axialLength && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          Œil gauche (OS)
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          {/* Afficher les mesures de l'œil gauche de la même manière */}
+                          {iolData.measurements.leftEye.axialLength && (
+                            <div>
+                              <p className="font-medium text-muted-foreground">AL (mm)</p>
+                              <p className="text-lg">{iolData.measurements.leftEye.axialLength}</p>
+                            </div>
+                          )}
+                          {/* ... autres mesures ... */}
                         </div>
                       </div>
                     )}
-                    
-                    {/* Données structurées en second plan */}
-                    <div className="border-t pt-4">
-                      <h3 className="font-medium mb-3">Données identifiées :</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        {iolData.patientName && (
-                          <div>
-                            <p className="font-medium">Nom du patient</p>
-                            <p className="text-muted-foreground">{iolData.patientName}</p>
-                          </div>
-                        )}
-                        {iolData.patientAge && (
-                          <div>
-                            <p className="font-medium">Âge</p>
-                            <p className="text-muted-foreground">{iolData.patientAge}</p>
-                          </div>
-                        )}
-                        {iolData.axialLength && (
-                          <div>
-                            <p className="font-medium">Longueur axiale</p>
-                            <p className="text-muted-foreground">{iolData.axialLength}</p>
-                          </div>
-                        )}
-                        {iolData.keratometry && (
-                          <div>
-                            <p className="font-medium">Kératométrie</p>
-                            <p className="text-muted-foreground">{iolData.keratometry}</p>
-                          </div>
-                        )}
-                        {iolData.anteriorChamberDepth && (
-                          <div>
-                            <p className="font-medium">Profondeur chambre antérieure</p>
-                            <p className="text-muted-foreground">{iolData.anteriorChamberDepth}</p>
-                          </div>
-                        )}
-                        {iolData.lensThickness && (
-                          <div>
-                            <p className="font-medium">Épaisseur du cristallin</p>
-                            <p className="text-muted-foreground">{iolData.lensThickness}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </>
                 )}
                 
                 {iolData.recommendations && (
-                  <div className="border-t pt-4">
-                    <p className="font-medium mb-2">Recommandations</p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      {iolData.recommendations.map((rec, index) => (
-                        <li key={index}>{rec}</li>
-                      ))}
-                    </ul>
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Recommandations</h3>
+                    <p className="text-sm text-muted-foreground">{iolData.recommendations}</p>
                   </div>
                 )}
               </CardContent>

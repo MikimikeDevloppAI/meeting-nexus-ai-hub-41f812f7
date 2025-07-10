@@ -29,16 +29,53 @@ async function loadPdfJs(): Promise<any> {
 }
 
 export interface IOLData {
-  patientName?: string;
-  patientAge?: string;
-  axialLength?: string;
-  keratometry?: string;
-  anteriorChamberDepth?: string;
-  lensThickness?: string;
-  recommendations?: string[];
-  rawText?: string;
-  error?: boolean;
-  message?: string;
+  patientInfo: {
+    name: string;
+    dateOfBirth: string;
+    patientId: string;
+  };
+  measurements: {
+    rightEye: {
+      axialLength?: number;
+      cct?: number;
+      ad?: number;
+      acd?: number;
+      lt?: number;
+      k1?: number;
+      k1_radius?: number;
+      k1_axis?: number;
+      k2?: number;
+      k2_radius?: number;
+      k2_axis?: number;
+      k_mean?: number;
+      k_mean_radius?: number;
+      astigmatism?: number;
+      astigmatism_axis?: number;
+      wtw?: number;
+    };
+    leftEye: {
+      axialLength?: number;
+      cct?: number;
+      ad?: number;
+      acd?: number;
+      lt?: number;
+      k1?: number;
+      k1_radius?: number;
+      k1_axis?: number;
+      k2?: number;
+      k2_radius?: number;
+      k2_axis?: number;
+      k_mean?: number;
+      k_mean_radius?: number;
+      astigmatism?: number;
+      astigmatism_axis?: number;
+      wtw?: number;
+    };
+  };
+  recommendations: string;
+  isScannedPdf: boolean;
+  hasError: boolean;
+  errorMessage: string;
 }
 
 export const extractTextFromPdf = async (file: File): Promise<string> => {
@@ -85,148 +122,148 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
 };
 
 export const parseIOLData = (rawText: string): IOLData => {
-  console.log('🔍 Parsing IOL data from extracted text');
-  
   const data: IOLData = {
-    rawText,
-    error: false,
-    recommendations: []
+    patientInfo: {
+      name: '',
+      dateOfBirth: '',
+      patientId: ''
+    },
+    measurements: {
+      rightEye: {},
+      leftEye: {}
+    },
+    recommendations: '',
+    isScannedPdf: false,
+    hasError: false,
+    errorMessage: ''
   };
 
-  try {
-    // Clean and normalize text
-    const text = rawText.toLowerCase().replace(/\s+/g, ' ');
+  // Nettoyer le texte
+  const cleanText = rawText.replace(/\s+/g, ' ').trim();
+  
+  if (cleanText.length < 50) {
+    data.hasError = true;
+    data.errorMessage = "Le texte extrait est trop court. Il s'agit peut-être d'un PDF scanné.";
+    data.isScannedPdf = true;
+    return data;
+  }
+
+  // Extraire la date du document
+  const dateMatch = cleanText.match(/(\d{2}\.\d{2}\.\d{4})/);
+  if (dateMatch) {
+    data.patientInfo.dateOfBirth = dateMatch[1];
+  }
+
+  // Extraire l'ID de calcul (CID)
+  const cidMatch = cleanText.match(/ID de calcul \(CID\):\s*(\d+)/);
+  if (cidMatch) {
+    data.patientInfo.patientId = cidMatch[1];
+  }
+
+  // Extraire le nom du test
+  const testMatch = cleanText.match(/^([^,]+),/);
+  if (testMatch) {
+    data.patientInfo.name = testMatch[1].trim();
+  }
+
+  // Extraire les données pour l'œil droit (OD)
+  const odSection = cleanText.match(/OD[\s\S]*?(?=OS|Phaque[\s\S]*?Pas de données|$)/);
+  if (odSection) {
+    const odText = odSection[0];
     
-    // Extract patient name - looking for patterns like "patient: john doe" or "nom: jean dupont"
-    const namePatterns = [
-      /(?:patient|nom|name)\s*:?\s*([a-zA-ZÀ-ÿ\s]+?)(?:\s|$|,|\n)/i,
-      /^([a-zA-ZÀ-ÿ\s]+)(?:\s|$|,)/
-    ];
+    // AL (Longueur axiale)
+    const alMatch = odText.match(/AL \[mm\]\s*(\d+\.\d+)/);
+    if (alMatch) {
+      data.measurements.rightEye.axialLength = parseFloat(alMatch[1]);
+    }
+
+    // CCT (Épaisseur cornéenne centrale)
+    const cctMatch = odText.match(/CCT \[μm\]\s*(\d+)/);
+    if (cctMatch) {
+      data.measurements.rightEye.cct = parseInt(cctMatch[1]);
+    }
+
+    // AD (Profondeur de chambre antérieure)
+    const adMatch = odText.match(/AD \[mm\]\s*(\d+\.\d+)/);
+    if (adMatch) {
+      data.measurements.rightEye.ad = parseFloat(adMatch[1]);
+    }
+
+    // ACD (Profondeur de chambre antérieure)
+    const acdMatch = odText.match(/ACD \[mm\]\s*(\d+\.\d+)/);
+    if (acdMatch) {
+      data.measurements.rightEye.acd = parseFloat(acdMatch[1]);
+    }
+
+    // LT (Épaisseur du cristallin)
+    const ltMatch = odText.match(/LT \[mm\]\s*(\d+\.\d+)/);
+    if (ltMatch) {
+      data.measurements.rightEye.lt = parseFloat(ltMatch[1]);
+    }
+
+    // K1 (Kératométrie)
+    const k1Match = odText.match(/K1 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
+    if (k1Match) {
+      data.measurements.rightEye.k1 = parseFloat(k1Match[1]);
+      data.measurements.rightEye.k1_radius = parseFloat(k1Match[2]);
+      data.measurements.rightEye.k1_axis = parseInt(k1Match[3]);
+    }
+
+    // K2 (Kératométrie)
+    const k2Match = odText.match(/K2 \[D\/mm\/°\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)\s*@\s*(\d+)/);
+    if (k2Match) {
+      data.measurements.rightEye.k2 = parseFloat(k2Match[1]);
+      data.measurements.rightEye.k2_radius = parseFloat(k2Match[2]);
+      data.measurements.rightEye.k2_axis = parseInt(k2Match[3]);
+    }
+
+    // K moyen
+    const kMatch = odText.match(/K \[D\/mm\]\s*(\d+\.\d+)\s*\/(\d+\.\d+)/);
+    if (kMatch) {
+      data.measurements.rightEye.k_mean = parseFloat(kMatch[1]);
+      data.measurements.rightEye.k_mean_radius = parseFloat(kMatch[2]);
+    }
+
+    // Astigmatisme
+    const astMatch = odText.match(/\+AST \[D\/°\]\s*(\d+\.\d+)\s*@\s*(\d+)/);
+    if (astMatch) {
+      data.measurements.rightEye.astigmatism = parseFloat(astMatch[1]);
+      data.measurements.rightEye.astigmatism_axis = parseInt(astMatch[2]);
+    }
+
+    // WTW (Distance blanc à blanc)
+    const wtwMatch = odText.match(/WTW \[mm\]\s*(\d+\.\d+)/);
+    if (wtwMatch) {
+      data.measurements.rightEye.wtw = parseFloat(wtwMatch[1]);
+    }
+  }
+
+  // Extraire les données pour l'œil gauche (OS) si présentes
+  const osSection = cleanText.match(/OS[\s\S]*?(?=Phaque[\s\S]*?Pas de données|$)/);
+  if (osSection) {
+    const osText = osSection[0];
     
-    for (const pattern of namePatterns) {
-      const nameMatch = text.match(pattern);
-      if (nameMatch && nameMatch[1] && nameMatch[1].trim().length > 2) {
-        data.patientName = nameMatch[1].trim();
-        break;
+    // Vérifier s'il y a des données pour l'œil gauche
+    if (!osText.includes('Pas de données de mesure')) {
+      // Même extraction que pour l'œil droit mais pour leftEye
+      const alMatch = osText.match(/AL \[mm\]\s*(\d+\.\d+)/);
+      if (alMatch) {
+        data.measurements.leftEye.axialLength = parseFloat(alMatch[1]);
       }
-    }
 
-    // Extract age - looking for patterns like "age: 65" or "65 ans"
-    const agePatterns = [
-      /(?:age|âge)\s*:?\s*(\d{1,3})/i,
-      /(\d{1,3})\s*(?:ans?|years?|y\.o\.)/i
-    ];
-    
-    for (const pattern of agePatterns) {
-      const ageMatch = text.match(pattern);
-      if (ageMatch && ageMatch[1]) {
-        const age = parseInt(ageMatch[1]);
-        if (age >= 0 && age <= 120) {
-          data.patientAge = age.toString();
-          break;
-        }
+      const cctMatch = osText.match(/CCT \[μm\]\s*(\d+)/);
+      if (cctMatch) {
+        data.measurements.leftEye.cct = parseInt(cctMatch[1]);
       }
-    }
 
-    // Extract axial length - looking for patterns like "AL: 23.45" or "longueur axiale: 23.45mm"
-    const axialPatterns = [
-      /(?:al|axial length|longueur axiale)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:axial|longueur)/i
-    ];
-    
-    for (const pattern of axialPatterns) {
-      const axialMatch = text.match(pattern);
-      if (axialMatch && axialMatch[1]) {
-        const length = parseFloat(axialMatch[1]);
-        if (length >= 15 && length <= 35) {
-          data.axialLength = `${length} mm`;
-          break;
-        }
-      }
+      // Continuer avec les autres mesures...
     }
+  }
 
-    // Extract keratometry - looking for patterns like "K1: 42.5" or "kératométrie: 42.5/43.2"
-    const keratoPatterns = [
-      /(?:k1?|keratometry|kératométrie)\s*:?\s*(\d{1,2}\.?\d{0,2}(?:\/\d{1,2}\.?\d{0,2})?)/i,
-      /(\d{1,2}\.\d{1,2}\/\d{1,2}\.\d{1,2}).*(?:d|dioptri)/i
-    ];
-    
-    for (const pattern of keratoPatterns) {
-      const keratoMatch = text.match(pattern);
-      if (keratoMatch && keratoMatch[1]) {
-        data.keratometry = keratoMatch[1];
-        break;
-      }
-    }
-
-    // Extract anterior chamber depth - looking for patterns like "ACD: 3.2" or "profondeur: 3.2mm"
-    const acdPatterns = [
-      /(?:acd|anterior chamber depth|profondeur.*chambre)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:chamber|chambre|profondeur)/i
-    ];
-    
-    for (const pattern of acdPatterns) {
-      const acdMatch = text.match(pattern);
-      if (acdMatch && acdMatch[1]) {
-        const depth = parseFloat(acdMatch[1]);
-        if (depth >= 1 && depth <= 6) {
-          data.anteriorChamberDepth = `${depth} mm`;
-          break;
-        }
-      }
-    }
-
-    // Extract lens thickness
-    const lensPatterns = [
-      /(?:lens thickness|épaisseur.*cristallin)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:lens|cristallin|thickness|épaisseur)/i
-    ];
-    
-    for (const pattern of lensPatterns) {
-      const lensMatch = text.match(pattern);
-      if (lensMatch && lensMatch[1]) {
-        const thickness = parseFloat(lensMatch[1]);
-        if (thickness >= 2 && thickness <= 8) {
-          data.lensThickness = `${thickness} mm`;
-          break;
-        }
-      }
-    }
-
-    // Look for IOL recommendations
-    const recommendationPatterns = [
-      /(?:iol|implant|lentille).*?(\d{1,2}\.?\d{0,2})\s*d/gi,
-      /recommand.*?(\d{1,2}\.?\d{0,2})\s*dioptri/gi
-    ];
-    
-    const recommendations: string[] = [];
-    for (const pattern of recommendationPatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        const power = parseFloat(match[1]);
-        if (power >= 5 && power <= 35) {
-          recommendations.push(`IOL ${power}D recommandé`);
-        }
-      }
-    }
-    
-    if (recommendations.length > 0) {
-      data.recommendations = [...new Set(recommendations)]; // Remove duplicates
-    }
-
-    console.log('✅ IOL data parsing completed');
-    console.log('📊 Extracted data:', {
-      patientName: data.patientName,
-      patientAge: data.patientAge,
-      axialLength: data.axialLength,
-      keratometry: data.keratometry,
-      recommendations: data.recommendations?.length
-    });
-
-  } catch (error) {
-    console.error('❌ Error parsing IOL data:', error);
-    data.error = true;
-    data.message = 'Erreur lors de l\'analyse des données IOL';
+  // Extraire les recommandations
+  const lensMatch = cleanText.match(/LS900 cône T (.*?)\s*-\s*\d+/);
+  if (lensMatch) {
+    data.recommendations = `Lentille recommandée: LS900 cône T ${lensMatch[1]}`;
   }
 
   return data;
@@ -238,18 +275,24 @@ export const extractIOLDataFromPdf = async (file: File): Promise<IOLData> => {
     
     if (!rawText || rawText.trim().length === 0) {
       return {
-        error: true,
-        message: 'Document scanné détecté - Aucun texte n\'a pu être extrait du PDF. Veuillez utiliser un service OCR pour traiter ce document.',
-        rawText: ''
+        patientInfo: { name: '', dateOfBirth: '', patientId: '' },
+        measurements: { rightEye: {}, leftEye: {} },
+        recommendations: '',
+        isScannedPdf: true,
+        hasError: true,
+        errorMessage: 'Document scanné détecté - Aucun texte n\'a pu être extrait du PDF. Veuillez utiliser un service OCR pour traiter ce document.'
       };
     }
 
     // Check if extracted text is very short (likely a scanned document)
     if (rawText.trim().length < 50) {
       return {
-        error: true,
-        message: 'Document scanné détecté - Le texte extrait est très court. Ce document semble être une image scannée nécessitant un service OCR.',
-        rawText
+        patientInfo: { name: '', dateOfBirth: '', patientId: '' },
+        measurements: { rightEye: {}, leftEye: {} },
+        recommendations: '',
+        isScannedPdf: true,
+        hasError: true,
+        errorMessage: 'Document scanné détecté - Le texte extrait est très court. Ce document semble être une image scannée nécessitant un service OCR.'
       };
     }
 
@@ -258,9 +301,12 @@ export const extractIOLDataFromPdf = async (file: File): Promise<IOLData> => {
   } catch (error) {
     console.error('❌ Error extracting IOL data from PDF:', error);
     return {
-      error: true,
-      message: `Erreur lors de l'extraction: ${error?.message || 'Erreur inconnue'}`,
-      rawText: ''
+      patientInfo: { name: '', dateOfBirth: '', patientId: '' },
+      measurements: { rightEye: {}, leftEye: {} },
+      recommendations: '',
+      isScannedPdf: false,
+      hasError: true,
+      errorMessage: `Erreur lors de l'extraction: ${error?.message || 'Erreur inconnue'}`
     };
   }
 };
