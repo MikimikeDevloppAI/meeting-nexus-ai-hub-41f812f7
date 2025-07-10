@@ -39,6 +39,33 @@ export default function IOLCalculator() {
     }
   };
 
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type === "application/pdf") {
+      setPdfFile(file);
+      setExtractedData(null);
+    } else {
+      toast({
+        title: "Format de fichier incorrect",
+        description: "Veuillez déposer un fichier PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleButtonClick = () => {
+    document.getElementById('pdf-upload')?.click();
+  };
+
   const handleUploadAndExtract = async () => {
     if (!pdfFile) return;
 
@@ -97,10 +124,16 @@ export default function IOLCalculator() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+            <div 
+              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onClick={handleButtonClick}
+            >
               <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <div className="space-y-2">
-                <p className="text-lg font-medium">Sélectionnez un fichier PDF</p>
+                <p className="text-lg font-medium">Glissez-déposez un fichier PDF ou cliquez pour sélectionner</p>
                 <p className="text-sm text-muted-foreground">
                   Formats acceptés: PDF uniquement
                 </p>
@@ -112,11 +145,9 @@ export default function IOLCalculator() {
                 className="hidden"
                 id="pdf-upload"
               />
-              <label htmlFor="pdf-upload">
-                <Button variant="outline" className="mt-4">
-                  Choisir un fichier
-                </Button>
-              </label>
+              <Button variant="outline" className="mt-4" type="button">
+                Choisir un fichier
+              </Button>
             </div>
 
             {pdfFile && (
