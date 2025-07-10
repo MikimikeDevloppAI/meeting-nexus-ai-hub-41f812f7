@@ -52,6 +52,45 @@ export default function IOLCalculator() {
     document.getElementById('pdf-upload')?.click();
   };
 
+  const testWebhook = async () => {
+    setIsUploading(true);
+    try {
+      console.log("Test du webhook:", webhookUrl);
+      
+      const testPayload = {
+        test: true,
+        message: "Test depuis IOL Calculator",
+        timestamp: new Date().toISOString()
+      };
+      
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(testPayload),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Test réussi",
+          description: "Le webhook n8n répond correctement.",
+        });
+      } else {
+        throw new Error(`Test failed: ${response.status}`);
+      }
+    } catch (error: any) {
+      console.error("Erreur test webhook:", error);
+      toast({
+        title: "Test échoué",
+        description: `Le webhook ne répond pas: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const sendToWebhook = async () => {
     if (!pdfFile) return;
 
@@ -80,6 +119,7 @@ export default function IOLCalculator() {
       };
 
       console.log("Payload à envoyer:", payload);
+      console.log("URL du webhook:", webhookUrl);
       
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -100,6 +140,8 @@ export default function IOLCalculator() {
           description: `Le PDF a été envoyé au webhook n8n (Status: ${response.status}). Vérifiez les logs de votre workflow.`,
         });
       } else {
+        const errorText = await response.text();
+        console.error("Erreur du webhook:", errorText);
         throw new Error(`Webhook a retourné le status ${response.status}: ${response.statusText}`);
       }
       
@@ -108,11 +150,19 @@ export default function IOLCalculator() {
       const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de l'envoi au webhook:", error);
+      
+      let errorMessage = "Erreur inconnue";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.name === "TypeError" && error.message?.includes("Failed to fetch")) {
+        errorMessage = "Impossible de contacter le webhook. Vérifiez que l'URL est accessible et que CORS est configuré.";
+      }
+      
       toast({
         title: "Erreur webhook",
-        description: "Impossible d'envoyer le PDF au webhook n8n.",
+        description: `Impossible d'envoyer le PDF au webhook n8n: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -183,9 +233,24 @@ export default function IOLCalculator() {
             </div>
           )}
           
-          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg space-y-2">
             <p><strong>Webhook configuré :</strong></p>
             <p className="font-mono text-xs break-all">{webhookUrl}</p>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={testWebhook}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Test en cours...
+                </>
+              ) : (
+                "Tester le webhook"
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
