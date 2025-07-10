@@ -25,7 +25,31 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     console.log('✅ File converted to array buffer');
 
-    // Load the PDF document
+    // Try using Supabase edge function for PDF text extraction
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/extract-pdf-text', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
+        },
+        body: formData
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.text) {
+          console.log('✅ PDF text extracted via Supabase edge function');
+          return result.text.trim();
+        }
+      }
+    } catch (edgeFunctionError) {
+      console.log('⚠️ Edge function failed, falling back to client-side extraction');
+    }
+
+    // Fallback to client-side PDF.js extraction
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
       verbosity: 0,
