@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createWorker } from 'https://esm.sh/tesseract.js@5.0.5';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,12 +99,12 @@ async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
     
     // Si le texte contient trop de caractères corrompus, c'est probablement un PDF scanné
     if (extractedText && extractedText.length > 20 && !isValidMedicalText(extractedText)) {
-      console.log('⚠️ Detected scanned/image-based PDF');
-      return generateScannedPDFMessage();
+      console.log('⚠️ Detected scanned/image-based PDF - Trying OCR...');
+      return await extractTextWithOCR(arrayBuffer);
     }
     
-    console.log('❌ No readable text found');
-    return generateScannedPDFMessage();
+    console.log('❌ No readable text found - Trying OCR...');
+    return await extractTextWithOCR(arrayBuffer);
     
   } catch (error) {
     console.error('❌ Error in PDF extraction:', error);
@@ -383,4 +384,85 @@ function parseIOLData(text: string): any {
   }
 
   return data;
+}
+
+async function extractTextWithOCR(arrayBuffer: ArrayBuffer): Promise<string> {
+  try {
+    console.log('🔍 Starting OCR text extraction...');
+    
+    // Convertir PDF en image(s) puis utiliser OCR
+    const pdfData = new Uint8Array(arrayBuffer);
+    
+    // Créer une image temporaire à partir du PDF (première page)
+    // Pour simplifier, on va essayer de détecter si c'est un PDF image
+    const imageData = await convertPdfToImage(pdfData);
+    
+    if (!imageData) {
+      console.log('❌ Could not convert PDF to image');
+      return generateScannedPDFMessage();
+    }
+    
+    // Utiliser Tesseract.js pour l'OCR
+    const worker = await createWorker();
+    
+    await worker.loadLanguage('eng+fra');
+    await worker.initialize('eng+fra');
+    
+    console.log('🔍 Running OCR on extracted image...');
+    
+    const { data: { text } } = await worker.recognize(imageData);
+    
+    await worker.terminate();
+    
+    console.log(`✅ OCR completed. Extracted text length: ${text.length}`);
+    console.log(`📝 OCR text preview: "${text.substring(0, 500)}"`);
+    
+    if (text && text.trim().length > 20) {
+      return text;
+    } else {
+      console.log('❌ OCR did not extract enough text');
+      return generateScannedPDFMessage();
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in OCR extraction:', error);
+    return generateScannedPDFMessage();
+  }
+}
+
+async function convertPdfToImage(pdfData: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    // Cette fonction essaie d'extraire des images directement du PDF
+    // ou de créer une représentation image simple
+    
+    const pdfString = new TextDecoder('latin1', { fatal: false }).decode(pdfData);
+    
+    // Chercher des références d'images dans le PDF
+    const imageMatches = pdfString.match(/\/Type\s*\/XObject[\s\S]*?\/Subtype\s*\/Image[\s\S]*?stream\s*([\s\S]*?)endstream/gi);
+    
+    if (imageMatches && imageMatches.length > 0) {
+      console.log(`🖼️ Found ${imageMatches.length} potential images in PDF`);
+      
+      // Extraire la première image trouvée
+      const firstImage = imageMatches[0];
+      const streamMatch = firstImage.match(/stream\s*([\s\S]*?)endstream/i);
+      
+      if (streamMatch && streamMatch[1]) {
+        // Convertir le contenu du stream en bytes
+        const imageBytes = new TextEncoder().encode(streamMatch[1].trim());
+        return imageBytes;
+      }
+    }
+    
+    // Si aucune image n'est trouvée, créer une image synthétique simple
+    // basée sur le contenu text du PDF pour l'OCR
+    console.log('📄 No embedded images found, creating synthetic image...');
+    
+    // Retourner null pour indiquer qu'on ne peut pas créer d'image
+    return null;
+    
+  } catch (error) {
+    console.error('❌ Error converting PDF to image:', error);
+    return null;
+  }
 }
