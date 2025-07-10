@@ -43,57 +43,30 @@ export interface IOLData {
 
 export const extractTextFromPdf = async (file: File): Promise<string> => {
   try {
-    console.log('🔄 Starting PDF text extraction');
+    console.log('🔄 Starting PDF text extraction with HTML approach');
     console.log('📄 File:', file.name, 'Size:', file.size);
 
-    // Convert file to array buffer
-    const arrayBuffer = await file.arrayBuffer();
-    console.log('✅ File converted to array buffer');
-
-    // Try using Supabase edge function for PDF text extraction
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/extract-pdf-text', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.text) {
-          console.log('✅ PDF text extracted via Supabase edge function');
-          return result.text.trim();
-        }
-      }
-    } catch (edgeFunctionError) {
-      console.log('⚠️ Edge function failed, falling back to client-side extraction');
-    }
-
-    // Load PDF.js dynamically and use exactly the same approach as the working HTML example
+    // Load PDF.js from CDN exactly like in the working HTML example
     const pdfjsLib = await loadPdfJs();
+    
+    // Convert file to array buffer exactly like in the HTML example
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Use exactly the same approach as the working HTML example
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
 
     let fullText = '';
 
-    // Extract text from all pages
+    // Extract text from all pages exactly like in the HTML example
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       console.log(`📖 Processing page ${pageNum}/${pdf.numPages}`);
       
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += `--- Page ${pageNum} ---\n${pageText}\n\n`;
       
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
       console.log(`✅ Page ${pageNum} text extracted (${pageText.length} chars)`);
     }
 
