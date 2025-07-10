@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getDocument } from 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,11 +48,11 @@ serve(async (req) => {
     // Convert blob to buffer for text extraction
     const arrayBuffer = await fileData.arrayBuffer();
     
-    // Extract text from PDF using pdf.js
+    // Extract text from PDF with improved methods
     const extractedText = await extractTextFromPDF(arrayBuffer);
     
     console.log(`📝 Extracted text length: ${extractedText.length} characters`);
-    console.log(`📝 First 500 characters: ${extractedText.substring(0, 500)}`);
+    console.log(`📝 First 1000 characters:`, extractedText.substring(0, 1000));
 
     // Parse IOL data from extracted text
     const iolData = parseIOLData(extractedText);
@@ -81,50 +80,131 @@ serve(async (req) => {
 
 async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    // Use pdf.js to properly extract text from PDF
-    const pdf = await getDocument({
-      data: new Uint8Array(arrayBuffer),
-      useSystemFonts: true,
-    }).promise;
-
-    let fullText = '';
+    console.log('🔍 Starting PDF text extraction...');
     
-    // Extract text from all pages
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
+    // Convertir en Uint8Array pour l'analyse
+    const pdfBytes = new Uint8Array(arrayBuffer);
+    
+    // Méthode 1: Chercher les objets de texte dans le PDF
+    const extractedText = extractTextFromPDFBytes(pdfBytes);
+    
+    if (extractedText && extractedText.length > 50) {
+      console.log('✅ Text extraction successful with method 1');
+      return extractedText;
     }
-
-    return fullText.trim();
-  } catch (error) {
-    console.error('❌ Error extracting text with pdf.js:', error);
     
-    // Fallback to basic extraction
-    return extractTextBasic(new Uint8Array(arrayBuffer));
+    // Méthode 2: Si pas de texte trouvé, essayer une approche différente
+    console.log('⚠️ Method 1 failed, trying alternative extraction...');
+    const alternativeText = extractTextAlternative(pdfBytes);
+    
+    if (alternativeText && alternativeText.length > 20) {
+      console.log('✅ Text extraction successful with method 2');
+      return alternativeText;
+    }
+    
+    // Si aucune méthode ne fonctionne, retourner un message d'erreur informatif
+    console.log('❌ No readable text found - PDF might be scanned or image-based');
+    return `ERREUR: Ce PDF semble être scanné ou basé sur des images. 
+Pour extraire les données IOL, veuillez utiliser un PDF contenant du texte sélectionnable.
+Si c'est un document scanné, essayez de le convertir avec un logiciel OCR d'abord.
+
+Informations techniques:
+- Taille du fichier: ${arrayBuffer.byteLength} bytes
+- Type détecté: PDF binaire
+- Suggestion: Utilisez un PDF généré électroniquement plutôt qu'un scan`;
+    
+  } catch (error) {
+    console.error('❌ Error in PDF extraction:', error);
+    return `ERREUR TECHNIQUE: ${error.message}`;
   }
 }
 
-async function extractTextBasic(pdfBuffer: Uint8Array): Promise<string> {
-  console.log('🔍 Using basic fallback extraction method');
+function extractTextFromPDFBytes(pdfBytes: Uint8Array): string {
+  // Convertir en string pour analyser la structure
+  let pdfString = '';
   
-  // Basic PDF text extraction as fallback
-  // Convert buffer to string and look for text patterns
-  const pdfString = new TextDecoder('latin1').decode(pdfBuffer);
+  // Utiliser différents encodages pour essayer de lire le texte
+  const encodings = ['utf-8', 'latin1', 'ascii'];
   
-  // Extract readable text by looking for text objects and streams
-  const textMatches = pdfString.match(/\((.*?)\)/g) || [];
-  const extractedTexts = textMatches
-    .map(match => match.slice(1, -1)) // Remove parentheses
-    .filter(text => text.length > 1 && /[a-zA-Z0-9]/.test(text)) // Filter meaningful text
-    .join(' ');
+  for (const encoding of encodings) {
+    try {
+      pdfString = new TextDecoder(encoding, { fatal: false }).decode(pdfBytes);
+      
+      // Chercher les flux de texte (streams)
+      const textMatches = [];
+      
+      // Patterns pour différents types de contenu texte PDF
+      const patterns = [
+        /BT\s+(.*?)\s+ET/gs,  // Text objects (BT...ET)
+        /\((.*?)\)\s*Tj/g,     // Text showing operators
+        /\[(.*?)\]\s*TJ/g,     // Array text showing
+        /\/F\d+\s+\d+\s+Tf\s+(.*?)(?=\/F\d+|$)/gs, // Font changes avec texte
+      ];
+      
+      for (const pattern of patterns) {
+        const matches = [...pdfString.matchAll(pattern)];
+        matches.forEach(match => {
+          if (match[1]) {
+            textMatches.push(match[1]);
+          }
+        });
+      }
+      
+      // Nettoyer et joindre le texte trouvé
+      let extractedText = textMatches
+        .join(' ')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (extractedText.length > 50 && isReadableText(extractedText)) {
+        return extractedText;
+      }
+      
+    } catch (e) {
+      continue;
+    }
+  }
+  
+  return '';
+}
 
-  return extractedTexts;
+function extractTextAlternative(pdfBytes: Uint8Array): string {
+  // Méthode alternative: chercher directement des patterns de texte
+  const pdfString = new TextDecoder('latin1', { fatal: false }).decode(pdfBytes);
+  
+  // Chercher des mots clés médicaux pour valider qu'on a le bon contenu
+  const medicalKeywords = [
+    'patient', 'biometrie', 'biométrie', 'axial', 'keratometry', 'kératométrie',
+    'IOL', 'lens', 'cristallin', 'diopter', 'dioptrie', 'mm', 'chamber',
+    'chambre', 'anterieur', 'anterior', 'depth', 'profondeur', 'age', 'âge'
+  ];
+  
+  // Extraire toutes les chaînes entre parenthèses qui pourraient être du texte
+  const textCandidates = pdfString.match(/\([^)]{2,100}\)/g) || [];
+  
+  const extractedParts = textCandidates
+    .map(text => text.slice(1, -1)) // Enlever les parenthèses
+    .filter(text => {
+      // Filtrer pour garder seulement le texte qui semble médical
+      const lowerText = text.toLowerCase();
+      return medicalKeywords.some(keyword => lowerText.includes(keyword)) ||
+             /\d+\.?\d*\s*(mm|d|diopter|dioptrie)/i.test(text) ||
+             /patient|nom|name|age|âge/i.test(text);
+    })
+    .join(' ');
+  
+  return extractedParts.trim();
+}
+
+function isReadableText(text: string): boolean {
+  // Vérifier si le texte contient principalement des caractères lisibles
+  const readableChars = text.match(/[a-zA-Z0-9\s.,;:()\-]/g) || [];
+  const readableRatio = readableChars.length / text.length;
+  return readableRatio > 0.7; // Au moins 70% de caractères lisibles
 }
 
 function parseIOLData(text: string): IOLData {
