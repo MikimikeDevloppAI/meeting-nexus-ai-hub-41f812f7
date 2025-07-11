@@ -91,6 +91,36 @@ export default function IOLCalculator() {
     }
   };
 
+  const exportForSelenium = () => {
+    if (!iolData) return;
+
+    const exportData = {
+      surgeon: "Tabibian",
+      gender: "Female",
+      patientInitials: "ME",
+      patientId: Date.now().toString(),
+      age: "45",
+      iolData: iolData
+    };
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "exported_iol_data.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export réussi",
+      description: "Les données IOL ont été exportées pour Selenium.",
+    });
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center space-x-2">
@@ -270,8 +300,19 @@ export default function IOLCalculator() {
                         </div>
                       </div>
                     )}
-                  </>
+                   </>
                 )}
+                
+                {/* Bouton d'export pour Selenium */}
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    onClick={exportForSelenium} 
+                    variant="secondary"
+                    className="w-full"
+                  >
+                    Exporter vers Selenium
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
