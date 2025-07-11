@@ -29,13 +29,38 @@ async function loadPdfJs(): Promise<any> {
 }
 
 export interface IOLData {
-  patientName?: string;
-  patientAge?: string;
-  axialLength?: string;
-  keratometry?: string;
-  anteriorChamberDepth?: string;
-  lensThickness?: string;
-  recommendations?: string[];
+  // Informations générales
+  surgeryType?: string;
+  measurementDate?: string;
+  
+  // Données pour œil droit (OD)
+  rightEye?: {
+    AL?: string; // AL [mm]
+    CCT?: string; // CCT [μm]
+    AD?: string; // AD [mm]
+    ACD?: string; // ACD [mm]
+    LT?: string; // LT [mm]
+    K1?: string; // K1 [D/mm/°]
+    K2?: string; // K2 [D/mm/°]
+    K?: string; // K [D/mm]
+    AST?: string; // Astigmatisme (AST) [D/°]
+    WTW?: string; // Distance blanc à blanc (WTW) [mm]
+  };
+  
+  // Données pour œil gauche (OS)
+  leftEye?: {
+    AL?: string; // AL [mm]
+    CCT?: string; // CCT [μm]
+    AD?: string; // AD [mm]
+    ACD?: string; // ACD [mm]
+    LT?: string; // LT [mm]
+    K1?: string; // K1 [D/mm/°]
+    K2?: string; // K2 [D/mm/°]
+    K?: string; // K [D/mm]
+    AST?: string; // Astigmatisme (AST) [D/°]
+    WTW?: string; // Distance blanc à blanc (WTW) [mm]
+  };
+  
   rawText?: string;
   error?: boolean;
   message?: string;
@@ -90,137 +115,94 @@ export const parseIOLData = (rawText: string): IOLData => {
   const data: IOLData = {
     rawText,
     error: false,
-    recommendations: []
+    rightEye: {},
+    leftEye: {}
   };
 
   try {
-    // Clean and normalize text
-    const text = rawText.toLowerCase().replace(/\s+/g, ' ');
-    
-    // Extract patient name - looking for patterns like "patient: john doe" or "nom: jean dupont"
-    const namePatterns = [
-      /(?:patient|nom|name)\s*:?\s*([a-zA-ZÀ-ÿ\s]+?)(?:\s|$|,|\n)/i,
-      /^([a-zA-ZÀ-ÿ\s]+)(?:\s|$|,)/
-    ];
-    
-    for (const pattern of namePatterns) {
-      const nameMatch = text.match(pattern);
-      if (nameMatch && nameMatch[1] && nameMatch[1].trim().length > 2) {
-        data.patientName = nameMatch[1].trim();
-        break;
+    // Fonction helper pour extraire une valeur par regex avec gestion des occurrences multiples
+    const extractValue = (pattern: RegExp, occurrence: number = 1): string | undefined => {
+      const matches = [...rawText.matchAll(new RegExp(pattern.source, 'g'))];
+      if (matches.length >= occurrence && matches[occurrence - 1]) {
+        return matches[occurrence - 1][1];
       }
-    }
+      return undefined;
+    };
 
-    // Extract age - looking for patterns like "age: 65" or "65 ans"
-    const agePatterns = [
-      /(?:age|âge)\s*:?\s*(\d{1,3})/i,
-      /(\d{1,3})\s*(?:ans?|years?|y\.o\.)/i
-    ];
-    
-    for (const pattern of agePatterns) {
-      const ageMatch = text.match(pattern);
-      if (ageMatch && ageMatch[1]) {
-        const age = parseInt(ageMatch[1]);
-        if (age >= 0 && age <= 120) {
-          data.patientAge = age.toString();
-          break;
+    // Fonction helper pour extraire des valeurs multiples (K1, K2, K, AST)
+    const extractMultipleValues = (pattern: RegExp, occurrence: number = 1): string | undefined => {
+      const matches = [...rawText.matchAll(new RegExp(pattern.source, 'g'))];
+      if (matches.length >= occurrence && matches[occurrence - 1]) {
+        const match = matches[occurrence - 1];
+        if (match.length === 4) { // K1, K2 avec angle: 45.17 /7.47 @ 178
+          return `${match[1]} / ${match[2]} @ ${match[3]}`;
+        } else if (match.length === 3 && pattern.source.includes('AST')) { // AST: 0.89 @ 88
+          return `${match[1]} @ ${match[2]}`;
+        } else if (match.length === 3) { // K sans angle: 45.62 /7.40
+          return `${match[1]} / ${match[2]}`;
         }
       }
+      return undefined;
+    };
+
+    // 1. Extraire le type de chirurgie
+    if (rawText.includes('Phaque')) {
+      data.surgeryType = 'Phaque';
     }
 
-    // Extract axial length - looking for patterns like "AL: 23.45" or "longueur axiale: 23.45mm"
-    const axialPatterns = [
-      /(?:al|axial length|longueur axiale)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:axial|longueur)/i
-    ];
-    
-    for (const pattern of axialPatterns) {
-      const axialMatch = text.match(pattern);
-      if (axialMatch && axialMatch[1]) {
-        const length = parseFloat(axialMatch[1]);
-        if (length >= 15 && length <= 35) {
-          data.axialLength = `${length} mm`;
-          break;
-        }
-      }
+    // 2. Extraire la date de mesure (LS900 cône T <date>)
+    const dateMatch = rawText.match(/LS900 cône T\s+(\d{1,2}\s+\w+\s+\d{4})/);
+    if (dateMatch) {
+      data.measurementDate = dateMatch[1];
     }
 
-    // Extract keratometry - looking for patterns like "K1: 42.5" or "kératométrie: 42.5/43.2"
-    const keratoPatterns = [
-      /(?:k1?|keratometry|kératométrie)\s*:?\s*(\d{1,2}\.?\d{0,2}(?:\/\d{1,2}\.?\d{0,2})?)/i,
-      /(\d{1,2}\.\d{1,2}\/\d{1,2}\.\d{1,2}).*(?:d|dioptri)/i
-    ];
-    
-    for (const pattern of keratoPatterns) {
-      const keratoMatch = text.match(pattern);
-      if (keratoMatch && keratoMatch[1]) {
-        data.keratometry = keratoMatch[1];
-        break;
-      }
-    }
+    // 3. Extraire les données pour les deux yeux
+    // AL [mm]
+    data.rightEye!.AL = extractValue(/AL \[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.AL = extractValue(/AL \[mm\]\s+([\d\.]+)/g, 2);
 
-    // Extract anterior chamber depth - looking for patterns like "ACD: 3.2" or "profondeur: 3.2mm"
-    const acdPatterns = [
-      /(?:acd|anterior chamber depth|profondeur.*chambre)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:chamber|chambre|profondeur)/i
-    ];
-    
-    for (const pattern of acdPatterns) {
-      const acdMatch = text.match(pattern);
-      if (acdMatch && acdMatch[1]) {
-        const depth = parseFloat(acdMatch[1]);
-        if (depth >= 1 && depth <= 6) {
-          data.anteriorChamberDepth = `${depth} mm`;
-          break;
-        }
-      }
-    }
+    // CCT [μm]
+    data.rightEye!.CCT = extractValue(/CCT \[μm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.CCT = extractValue(/CCT \[μm\]\s+([\d\.]+)/g, 2);
 
-    // Extract lens thickness
-    const lensPatterns = [
-      /(?:lens thickness|épaisseur.*cristallin)\s*:?\s*(\d{1,2}\.?\d{0,2})\s*mm?/i,
-      /(\d{1,2}\.\d{1,2})\s*mm.*(?:lens|cristallin|thickness|épaisseur)/i
-    ];
-    
-    for (const pattern of lensPatterns) {
-      const lensMatch = text.match(pattern);
-      if (lensMatch && lensMatch[1]) {
-        const thickness = parseFloat(lensMatch[1]);
-        if (thickness >= 2 && thickness <= 8) {
-          data.lensThickness = `${thickness} mm`;
-          break;
-        }
-      }
-    }
+    // AD [mm]
+    data.rightEye!.AD = extractValue(/AD \[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.AD = extractValue(/AD \[mm\]\s+([\d\.]+)/g, 2);
 
-    // Look for IOL recommendations
-    const recommendationPatterns = [
-      /(?:iol|implant|lentille).*?(\d{1,2}\.?\d{0,2})\s*d/gi,
-      /recommand.*?(\d{1,2}\.?\d{0,2})\s*dioptri/gi
-    ];
-    
-    const recommendations: string[] = [];
-    for (const pattern of recommendationPatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        const power = parseFloat(match[1]);
-        if (power >= 5 && power <= 35) {
-          recommendations.push(`IOL ${power}D recommandé`);
-        }
-      }
-    }
-    
-    if (recommendations.length > 0) {
-      data.recommendations = [...new Set(recommendations)]; // Remove duplicates
-    }
+    // ACD [mm]
+    data.rightEye!.ACD = extractValue(/ACD \[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.ACD = extractValue(/ACD \[mm\]\s+([\d\.]+)/g, 2);
+
+    // LT [mm]
+    data.rightEye!.LT = extractValue(/LT \[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.LT = extractValue(/LT \[mm\]\s+([\d\.]+)/g, 2);
+
+    // K1 [D/mm/°] - format: 45.17 /7.47 @ 178
+    data.rightEye!.K1 = extractMultipleValues(/K1 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.K1 = extractMultipleValues(/K1 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+
+    // K2 [D/mm/°] - format: 46.07 /7.33 @ 88
+    data.rightEye!.K2 = extractMultipleValues(/K2 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.K2 = extractMultipleValues(/K2 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+
+    // K [D/mm] - format: 45.62 /7.40
+    data.rightEye!.K = extractMultipleValues(/K \[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 1);
+    data.leftEye!.K = extractMultipleValues(/K \[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 2);
+
+    // +AST [D/°] - format: 0.89 @ 88
+    data.rightEye!.AST = extractMultipleValues(/\+AST \[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.AST = extractMultipleValues(/\+AST \[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 2);
+
+    // WTW [mm]
+    data.rightEye!.WTW = extractValue(/WTW \[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.WTW = extractValue(/WTW \[mm\]\s+([\d\.]+)/g, 2);
 
     console.log('✅ IOL data parsing completed');
     console.log('📊 Extracted data:', {
-      patientName: data.patientName,
-      patientAge: data.patientAge,
-      axialLength: data.axialLength,
-      keratometry: data.keratometry,
-      recommendations: data.recommendations?.length
+      surgeryType: data.surgeryType,
+      measurementDate: data.measurementDate,
+      rightEye: data.rightEye,
+      leftEye: data.leftEye
     });
 
   } catch (error) {
