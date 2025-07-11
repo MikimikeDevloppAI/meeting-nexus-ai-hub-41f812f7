@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Loader2 } from "lucide-react";
+import { Upload, FileText, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 
@@ -10,6 +10,11 @@ export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [iolData, setIolData] = useState<IOLData | null>(null);
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automationResult, setAutomationResult] = useState<{
+    screenshot: string;
+    patientData: any;
+  } | null>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +124,42 @@ export default function IOLCalculator() {
       title: "Export réussi",
       description: "Les données IOL ont été exportées pour Selenium.",
     });
+  };
+
+  const automateOnESCRS = async () => {
+    if (!iolData) return;
+    
+    setIsAutomating(true);
+    try {
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/iol-selenium-automation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ iolData }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setAutomationResult(result);
+        toast({
+          title: "Automatisation réussie",
+          description: "Le calcul IOL a été effectué sur ESCRS",
+        });
+      } else {
+        throw new Error(result.message || 'Erreur lors de l\'automatisation');
+      }
+    } catch (error) {
+      console.error('Automation error:', error);
+      toast({
+        title: "Erreur d'automatisation",
+        description: "Impossible de lancer l'automatisation sur ESCRS",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutomating(false);
+    }
   };
 
   return (
@@ -303,16 +344,70 @@ export default function IOLCalculator() {
                    </>
                 )}
                 
-                {/* Bouton d'export pour Selenium */}
-                <div className="flex justify-center pt-4">
+                {/* Boutons d'export et d'automatisation */}
+                <div className="flex gap-3 pt-4 flex-wrap">
                   <Button 
                     onClick={exportForSelenium} 
                     variant="secondary"
-                    className="w-full"
+                    className="flex items-center gap-2"
                   >
+                    <Download className="h-4 w-4" />
                     Exporter vers Selenium
                   </Button>
+                  <Button 
+                    onClick={automateOnESCRS} 
+                    disabled={isAutomating}
+                    className="flex items-center gap-2"
+                  >
+                    {isAutomating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <span>🤖</span>
+                    )}
+                    {isAutomating ? 'Automatisation...' : 'Automatiser sur ESCRS'}
+                  </Button>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {automationResult && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🤖 Résultat de l'automatisation ESCRS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">Patient:</p>
+                    <p className="text-muted-foreground">{automationResult.patientData.name}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">ID Patient:</p>
+                    <p className="text-muted-foreground">{automationResult.patientData.id}</p>
+                  </div>
+                </div>
+                <div className="border rounded-lg overflow-hidden bg-white">
+                  <img 
+                    src={automationResult.screenshot} 
+                    alt="Résultat ESCRS Calculator" 
+                    className="w-full h-auto"
+                  />
+                </div>
+                <Button 
+                  className="flex items-center gap-2"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = automationResult.screenshot;
+                    link.download = `escrs_result_${automationResult.patientData.id}.png`;
+                    link.click();
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger le screenshot
+                </Button>
               </CardContent>
             </Card>
           )}
