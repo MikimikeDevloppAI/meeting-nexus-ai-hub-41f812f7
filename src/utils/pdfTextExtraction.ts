@@ -156,46 +156,46 @@ export const parseIOLData = (rawText: string): IOLData => {
       data.measurementDate = dateMatch[1];
     }
 
-    // 3. Extraire les données pour les deux yeux
-    // AL [mm]
-    data.rightEye!.AL = extractValue(/AL \[mm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.AL = extractValue(/AL \[mm\]\s+([\d\.]+)/g, 2);
+    // 3. Extraire les données pour les deux yeux avec gestion des espaces multiples
+    // AL [mm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.AL = extractValue(/AL\s+\[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.AL = extractValue(/AL\s+\[mm\]\s+([\d\.]+)/g, 2);
 
-    // CCT [μm]
-    data.rightEye!.CCT = extractValue(/CCT \[μm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.CCT = extractValue(/CCT \[μm\]\s+([\d\.]+)/g, 2);
+    // CCT [μm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.CCT = extractValue(/CCT\s+\[μm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.CCT = extractValue(/CCT\s+\[μm\]\s+([\d\.]+)/g, 2);
 
-    // AD [mm]
-    data.rightEye!.AD = extractValue(/AD \[mm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.AD = extractValue(/AD \[mm\]\s+([\d\.]+)/g, 2);
+    // AD [mm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.AD = extractValue(/AD\s+\[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.AD = extractValue(/AD\s+\[mm\]\s+([\d\.]+)/g, 2);
 
-    // ACD [mm]
-    data.rightEye!.ACD = extractValue(/ACD \[mm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.ACD = extractValue(/ACD \[mm\]\s+([\d\.]+)/g, 2);
+    // ACD [mm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.ACD = extractValue(/ACD\s+\[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.ACD = extractValue(/ACD\s+\[mm\]\s+([\d\.]+)/g, 2);
 
-    // LT [mm]
-    data.rightEye!.LT = extractValue(/LT \[mm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.LT = extractValue(/LT \[mm\]\s+([\d\.]+)/g, 2);
+    // LT [mm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.LT = extractValue(/LT\s+\[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.LT = extractValue(/LT\s+\[mm\]\s+([\d\.]+)/g, 2);
 
-    // K1 [D/mm/°] - format: 45.17 /7.47 @ 178
-    data.rightEye!.K1 = extractMultipleValues(/K1 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
-    data.leftEye!.K1 = extractMultipleValues(/K1 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+    // K1 [D/mm/°] - format: 45.17 /7.47 @ 178 - pattern ajusté
+    data.rightEye!.K1 = extractMultipleValues(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.K1 = extractMultipleValues(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
 
-    // K2 [D/mm/°] - format: 46.07 /7.33 @ 88
-    data.rightEye!.K2 = extractMultipleValues(/K2 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
-    data.leftEye!.K2 = extractMultipleValues(/K2 \[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+    // K2 [D/mm/°] - format: 46.07 /7.33 @ 88 - pattern ajusté
+    data.rightEye!.K2 = extractMultipleValues(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.K2 = extractMultipleValues(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
 
-    // K [D/mm] - format: 45.62 /7.40
-    data.rightEye!.K = extractMultipleValues(/K \[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 1);
-    data.leftEye!.K = extractMultipleValues(/K \[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 2);
+    // K [D/mm] - format: 45.62 /7.40 - pattern ajusté
+    data.rightEye!.K = extractMultipleValues(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 1);
+    data.leftEye!.K = extractMultipleValues(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 2);
 
-    // +AST [D/°] - format: 0.89 @ 88
-    data.rightEye!.AST = extractMultipleValues(/\+AST \[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 1);
-    data.leftEye!.AST = extractMultipleValues(/\+AST \[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 2);
+    // +AST [D/°] - format: 0.89 @ 88 - pattern ajusté
+    data.rightEye!.AST = extractMultipleValues(/\+AST\s+\[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 1);
+    data.leftEye!.AST = extractMultipleValues(/\+AST\s+\[D\/°\]\s+([\d\.]+)\s+@\s*(\d+)/g, 2);
 
-    // WTW [mm]
-    data.rightEye!.WTW = extractValue(/WTW \[mm\]\s+([\d\.]+)/g, 1);
-    data.leftEye!.WTW = extractValue(/WTW \[mm\]\s+([\d\.]+)/g, 2);
+    // WTW [mm] - pattern ajusté pour gérer les espaces multiples
+    data.rightEye!.WTW = extractValue(/WTW\s+\[mm\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.WTW = extractValue(/WTW\s+\[mm\]\s+([\d\.]+)/g, 2);
 
     console.log('✅ IOL data parsing completed');
     console.log('📊 Extracted data:', {
