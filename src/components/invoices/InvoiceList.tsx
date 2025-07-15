@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
@@ -328,6 +329,49 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   };
 
+  // Organiser les factures par années et mois
+  const organizedInvoices = useMemo(() => {
+    if (!invoices) return {};
+    
+    const organized: Record<string, Record<string, Invoice[]>> = {};
+    
+    invoices.forEach(invoice => {
+      // Utiliser la date de facture si disponible, sinon la date de création
+      const dateToUse = invoice.invoice_date || invoice.created_at;
+      const date = new Date(dateToUse);
+      
+      // Vérifier que la date est valide
+      if (isNaN(date.getTime())) return;
+      
+      const year = date.getFullYear().toString();
+      const month = date.toLocaleDateString('fr-FR', { month: 'long' });
+      const monthKey = `${date.getMonth() + 1}-${month}`; // Pour le tri
+      
+      if (!organized[year]) {
+        organized[year] = {};
+      }
+      
+      if (!organized[year][monthKey]) {
+        organized[year][monthKey] = [];
+      }
+      
+      organized[year][monthKey].push(invoice);
+    });
+    
+    // Trier les années et mois
+    Object.keys(organized).forEach(year => {
+      Object.keys(organized[year]).forEach(monthKey => {
+        organized[year][monthKey].sort((a, b) => {
+          const dateA = new Date(a.invoice_date || a.created_at);
+          const dateB = new Date(b.invoice_date || b.created_at);
+          return dateB.getTime() - dateA.getTime(); // Plus récent en premier
+        });
+      });
+    });
+    
+    return organized;
+  }, [invoices]);
+
   const handleValidationComplete = () => {
     refetch();
   };
@@ -347,161 +391,212 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     );
   }
 
+  // Fonction pour afficher une facture individuelle
+  const renderInvoice = (invoice: Invoice) => (
+    <Card key={invoice.id} className="mb-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-blue-600" />
+            <div>
+              <CardTitle className="text-base">
+                {formatSupplierName(invoice.supplier_name)}
+              </CardTitle>
+              <div className="text-sm text-gray-500 mt-1">
+                Créé {formatDistanceToNow(new Date(invoice.created_at), { 
+                  addSuffix: true, 
+                  locale: fr 
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {getStatusBadge(invoice.status)}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Informations essentielles en format texte - SANS le montant HT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="font-medium text-gray-700">Compte:</span>
+            <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Date facture:</span>
+            <div className="text-gray-900">
+              {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Montant TTC:</span>
+            <div className="text-gray-900 font-semibold">
+              {invoice.total_amount ? (
+                <div className="space-y-1">
+                  <div>
+                    {invoice.total_amount.toFixed(2)} {invoice.currency || 'EUR'}
+                  </div>
+                  {invoice.original_amount_chf && invoice.currency !== 'CHF' && (
+                    <div className="text-sm text-blue-600">
+                      ≈ {invoice.original_amount_chf.toFixed(2)} CHF
+                      {invoice.exchange_rate && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          (taux: {invoice.exchange_rate.toFixed(4)})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : 'N/A'}
+            </div>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {invoice.status === 'error' && invoice.error_message && (
+          <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">Erreur de traitement</span>
+            </div>
+            <p>{invoice.error_message}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-2 border-t">
+          {invoice.file_path && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
+              className="flex items-center gap-1"
+            >
+              <Eye className="h-4 w-4" />
+              Visualiser
+            </Button>
+          )}
+          
+          {invoice.status === 'completed' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleValidateInvoice(invoice)}
+                className="flex items-center gap-1"
+              >
+                <Edit className="h-4 w-4" />
+                Modifier
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickValidate(invoice)}
+                className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <Check className="h-4 w-4" />
+                Valider
+              </Button>
+            </>
+          )}
+          
+          {invoice.status === 'validated' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleValidateInvoice(invoice)}
+              className="flex items-center gap-1"
+            >
+              <Edit className="h-4 w-4" />
+              Modifier
+            </Button>
+          )}
+          
+          {invoice.status === 'error' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Retry processing
+                supabase.functions.invoke('process-invoice', {
+                  body: { invoiceId: invoice.id }
+                }).then(() => {
+                  refetch();
+                });
+              }}
+            >
+              Réessayer
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => deleteInvoice(invoice)}
+            disabled={deletingInvoiceId === invoice.id}
+            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deletingInvoiceId === invoice.id ? 'Suppression...' : 'Supprimer'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <>
       <div className="space-y-4">
-        {invoices?.map((invoice) => (
-          <Card key={invoice.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <CardTitle className="text-base">
-                      {formatSupplierName(invoice.supplier_name)}
-                    </CardTitle>
-                    <div className="text-sm text-gray-500 mt-1">
-                      Créé {formatDistanceToNow(new Date(invoice.created_at), { 
-                        addSuffix: true, 
-                        locale: fr 
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Factures organisées par date</h2>
+        </div>
+        
+        <Accordion type="multiple" className="w-full space-y-4">
+          {Object.keys(organizedInvoices)
+            .sort((a, b) => parseInt(b) - parseInt(a)) // Années décroissantes
+            .map((year) => (
+              <AccordionItem key={year} value={year} className="border rounded-lg">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <span className="text-lg font-semibold">{year}</span>
+                    <Badge variant="secondary" className="ml-2">
+                      {Object.values(organizedInvoices[year]).reduce((sum, invoices) => sum + invoices.length, 0)} facture(s)
+                    </Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <Accordion type="multiple" className="w-full space-y-2">
+                    {Object.keys(organizedInvoices[year])
+                      .sort((a, b) => parseInt(b.split('-')[0]) - parseInt(a.split('-')[0])) // Mois décroissants
+                      .map((monthKey) => {
+                        const month = monthKey.split('-')[1];
+                        const invoicesList = organizedInvoices[year][monthKey];
+                        return (
+                          <AccordionItem key={`${year}-${monthKey}`} value={`${year}-${monthKey}`} className="border rounded-md">
+                            <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+                              <div className="flex items-center gap-2">
+                                <ChevronDown className="h-4 w-4" />
+                                <span className="font-medium capitalize">{month}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {invoicesList.length} facture(s)
+                                </Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-3 pb-3">
+                              <div className="space-y-4">
+                                {invoicesList.map((invoice) => renderInvoice(invoice))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
                       })}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(invoice.status)}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Informations essentielles en format texte - SANS le montant HT */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">Compte:</span>
-                  <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Date facture:</span>
-                  <div className="text-gray-900">
-                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Montant TTC:</span>
-                  <div className="text-gray-900 font-semibold">
-                    {invoice.total_amount ? (
-                      <div className="space-y-1">
-                        <div>
-                          {invoice.total_amount.toFixed(2)} {invoice.currency || 'EUR'}
-                        </div>
-                        {invoice.original_amount_chf && invoice.currency !== 'CHF' && (
-                          <div className="text-sm text-blue-600">
-                            ≈ {invoice.original_amount_chf.toFixed(2)} CHF
-                            {invoice.exchange_rate && (
-                              <span className="text-xs text-gray-500 ml-1">
-                                (taux: {invoice.exchange_rate.toFixed(4)})
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : 'N/A'}
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Error Message */}
-              {invoice.status === 'error' && invoice.error_message && (
-                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="font-medium">Erreur de traitement</span>
-                  </div>
-                  <p>{invoice.error_message}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-2 border-t">
-                {invoice.file_path && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
-                    className="flex items-center gap-1"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Visualiser
-                  </Button>
-                )}
-                
-                {invoice.status === 'completed' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleValidateInvoice(invoice)}
-                      className="flex items-center gap-1"
-                    >
-                      <Edit className="h-4 w-4" />
-                      Modifier
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickValidate(invoice)}
-                      className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                    >
-                      <Check className="h-4 w-4" />
-                      Valider
-                    </Button>
-                  </>
-                )}
-                
-                {invoice.status === 'validated' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleValidateInvoice(invoice)}
-                    className="flex items-center gap-1"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Modifier
-                  </Button>
-                )}
-                
-                {invoice.status === 'error' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Retry processing
-                      supabase.functions.invoke('process-invoice', {
-                        body: { invoiceId: invoice.id }
-                      }).then(() => {
-                        refetch();
-                      });
-                    }}
-                  >
-                    Réessayer
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteInvoice(invoice)}
-                  disabled={deletingInvoiceId === invoice.id}
-                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {deletingInvoiceId === invoice.id ? 'Suppression...' : 'Supprimer'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  </Accordion>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+        </Accordion>
       </div>
 
       {selectedInvoice && (
