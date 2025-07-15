@@ -74,10 +74,6 @@ const Invoices = () => {
       <div className="space-y-6">
         {/* Upload Form - Full Width */}
         <div className="w-full">
-          <div className="flex items-center gap-2 mb-4">
-            <Upload className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Upload automatique</h2>
-          </div>
           <InvoiceUploadForm onUploadSuccess={handleUploadSuccess} />
         </div>
 
