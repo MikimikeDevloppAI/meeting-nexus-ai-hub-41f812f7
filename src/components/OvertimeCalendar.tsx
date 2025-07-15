@@ -98,7 +98,7 @@ export function OvertimeCalendar({
     if (totalHours <= 0) return;
 
     const data = {
-      date: selectedDate.toISOString().split('T')[0],
+      date: format(selectedDate, 'yyyy-MM-dd'),
       hours: totalHours,
       description: description.trim() || undefined
     };
