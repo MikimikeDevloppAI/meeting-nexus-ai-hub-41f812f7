@@ -290,6 +290,66 @@ export default function TimeTracking() {
     }
   };
 
+  // Nouvelle fonction pour gérer les dates multiples du calendrier
+  const onSubmitVacationCalendar = async (data: { dates: string[]; vacation_type: string; description: string; }) => {
+    if (!user || data.dates.length === 0) return;
+
+    try {
+      // Trier les dates pour obtenir la première et la dernière
+      const sortedDates = data.dates.sort();
+      const startDate = sortedDates[0];
+      const endDate = sortedDates[sortedDates.length - 1];
+      const daysCount = data.dates.length;
+
+      if (editingVacation) {
+        const { error } = await supabase
+          .from('vacations')
+          .update({
+            start_date: startDate,
+            end_date: endDate,
+            days_count: daysCount,
+            vacation_type: data.vacation_type,
+            description: data.description
+          })
+          .eq('id', editingVacation.id);
+
+        if (error) throw error;
+        toast({
+          title: "Vacances modifiées",
+          description: "Les vacances ont été mises à jour",
+        });
+      } else {
+        const { error } = await supabase
+          .from('vacations')
+          .insert({
+            user_id: user.id,
+            start_date: startDate,
+            end_date: endDate,
+            days_count: daysCount,
+            vacation_type: data.vacation_type,
+            description: data.description
+          });
+
+        if (error) throw error;
+        toast({
+          title: "Vacances ajoutées",
+          description: `${daysCount} jour${daysCount > 1 ? 's' : ''} de vacances enregistré${daysCount > 1 ? 's' : ''}`,
+        });
+      }
+
+      fetchVacations();
+      setShowVacationCalendar(false);
+      setEditingVacation(null);
+    } catch (error: any) {
+      console.error('Error saving vacation:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer les vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteOvertime = async (id: string) => {
     try {
       const { error } = await supabase
@@ -707,7 +767,7 @@ export default function TimeTracking() {
             </DialogTitle>
           </DialogHeader>
           <VacationCalendar
-            onSubmit={onSubmitVacation}
+            onSubmit={onSubmitVacationCalendar}
             onCancel={() => {
               setShowVacationCalendar(false);
               setEditingVacation(null);

@@ -7,14 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, X } from "lucide-react";
-import { DateRange } from "react-day-picker";
-import { format, differenceInDays } from "date-fns";
+import { format, eachDayOfInterval, isWithinInterval } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface VacationCalendarProps {
   onSubmit: (data: {
-    start_date: string;
-    end_date: string;
+    dates: string[];
     vacation_type: string;
     description: string;
   }) => void;
@@ -28,38 +26,47 @@ interface VacationCalendarProps {
 }
 
 export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCalendarProps) {
-  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(() => {
+  const [selectedDates, setSelectedDates] = useState<Date[]>(() => {
     if (editingData) {
-      return {
-        from: new Date(editingData.start_date),
-        to: new Date(editingData.end_date)
-      };
+      // Convertir la plage en jours individuels pour l'édition
+      const startDate = new Date(editingData.start_date);
+      const endDate = new Date(editingData.end_date);
+      return eachDayOfInterval({ start: startDate, end: endDate });
     }
-    return undefined;
+    return [];
   });
   
   const [vacationType, setVacationType] = useState(editingData?.vacation_type || "annual");
   const [description, setDescription] = useState(editingData?.description || "");
 
+  const handleDateSelect = (dates: Date[] | undefined) => {
+    if (!dates) {
+      setSelectedDates([]);
+      return;
+    }
+    setSelectedDates(dates.sort((a, b) => a.getTime() - b.getTime()));
+  };
+
   const handleSubmit = () => {
-    if (!selectedRange?.from || !selectedRange?.to) {
+    if (selectedDates.length === 0) {
       return;
     }
 
-    const startDate = selectedRange.from.toISOString().split('T')[0];
-    const endDate = selectedRange.to.toISOString().split('T')[0];
+    const dates = selectedDates.map(date => date.toISOString().split('T')[0]);
 
     onSubmit({
-      start_date: startDate,
-      end_date: endDate,
+      dates,
       vacation_type: vacationType,
       description
     });
   };
 
   const getDaysCount = () => {
-    if (!selectedRange?.from || !selectedRange?.to) return 0;
-    return differenceInDays(selectedRange.to, selectedRange.from) + 1;
+    return selectedDates.length;
+  };
+
+  const clearSelection = () => {
+    setSelectedDates([]);
   };
 
   const getVacationTypeLabel = (type: string) => {
@@ -93,31 +100,39 @@ export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCa
         </CardHeader>
         <CardContent>
           <Calendar
-            mode="range"
-            selected={selectedRange}
-            onSelect={setSelectedRange}
+            mode="multiple"
+            selected={selectedDates}
+            onSelect={handleDateSelect}
             numberOfMonths={2}
             className="rounded-md border pointer-events-auto"
             locale={fr}
             disabled={(date) => date < new Date()}
           />
           
-          {selectedRange?.from && selectedRange?.to && (
+          {selectedDates.length > 0 && (
             <div className="mt-4 p-3 bg-blue-50 rounded-md">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">
-                    Du {format(selectedRange.from, "PPP", { locale: fr })} 
-                    au {format(selectedRange.to, "PPP", { locale: fr })}
+                    {selectedDates.length} jour{selectedDates.length > 1 ? 's' : ''} sélectionné{selectedDates.length > 1 ? 's' : ''}
                   </p>
-                  <p className="text-xs text-gray-600">
-                    {getDaysCount()} jour{getDaysCount() > 1 ? 's' : ''}
-                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {selectedDates.slice(0, 5).map((date, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {format(date, "dd/MM", { locale: fr })}
+                      </Badge>
+                    ))}
+                    {selectedDates.length > 5 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{selectedDates.length - 5} autres
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedRange(undefined)}
+                  onClick={clearSelection}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -170,7 +185,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCa
         </Button>
         <Button 
           onClick={handleSubmit}
-          disabled={!selectedRange?.from || !selectedRange?.to}
+          disabled={selectedDates.length === 0}
         >
           {editingData ? "Modifier" : "Confirmer"}
         </Button>
