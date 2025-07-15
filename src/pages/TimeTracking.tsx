@@ -1,0 +1,650 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { useForm } from "react-hook-form";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
+
+interface OvertimeHour {
+  id: string;
+  user_id: string;
+  date: string;
+  hours: number;
+  description?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Vacation {
+  id: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  description?: string;
+  vacation_type: 'annual' | 'sick' | 'personal' | 'other';
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+  users?: {
+    name: string;
+    email: string;
+  };
+}
+
+interface OvertimeFormData {
+  date: string;
+  hours: number;
+  description: string;
+}
+
+interface VacationFormData {
+  start_date: string;
+  end_date: string;
+  vacation_type: string;
+  description: string;
+}
+
+export default function TimeTracking() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [overtimeHours, setOvertimeHours] = useState<OvertimeHour[]>([]);
+  const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
+  const [showVacationDialog, setShowVacationDialog] = useState(false);
+  const [editingOvertime, setEditingOvertime] = useState<OvertimeHour | null>(null);
+  const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
+
+  const overtimeForm = useForm<OvertimeFormData>({
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      hours: 0,
+      description: ""
+    }
+  });
+
+  const vacationForm = useForm<VacationFormData>({
+    defaultValues: {
+      start_date: "",
+      end_date: "",
+      vacation_type: "annual",
+      description: ""
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
+
+  const fetchData = async () => {
+    await Promise.all([fetchOvertimeHours(), fetchVacations()]);
+    setLoading(false);
+  };
+
+  const fetchOvertimeHours = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('overtime_hours')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setOvertimeHours(data || []);
+    } catch (error: any) {
+      console.error('Error fetching overtime hours:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchVacations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vacations')
+        .select(`
+          *,
+          users(name, email)
+        `)
+        .order('start_date', { ascending: false });
+
+      if (error) throw error;
+      setVacations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching vacations:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const calculateDays = (startDate: string, endDate: string): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const onSubmitOvertime = async (data: OvertimeFormData) => {
+    if (!user) return;
+
+    try {
+      if (editingOvertime) {
+        const { error } = await supabase
+          .from('overtime_hours')
+          .update({
+            date: data.date,
+            hours: data.hours,
+            description: data.description
+          })
+          .eq('id', editingOvertime.id);
+
+        if (error) throw error;
+        toast({
+          title: "Heures supplémentaires modifiées",
+          description: "Les heures supplémentaires ont été mises à jour",
+        });
+      } else {
+        const { error } = await supabase
+          .from('overtime_hours')
+          .insert({
+            user_id: user.id,
+            date: data.date,
+            hours: data.hours,
+            description: data.description
+          });
+
+        if (error) throw error;
+        toast({
+          title: "Heures supplémentaires ajoutées",
+          description: "Les heures supplémentaires ont été enregistrées",
+        });
+      }
+
+      fetchOvertimeHours();
+      setShowOvertimeDialog(false);
+      setEditingOvertime(null);
+      overtimeForm.reset();
+    } catch (error: any) {
+      console.error('Error saving overtime:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onSubmitVacation = async (data: VacationFormData) => {
+    if (!user) return;
+
+    try {
+      const daysCount = calculateDays(data.start_date, data.end_date);
+
+      if (editingVacation) {
+        const { error } = await supabase
+          .from('vacations')
+          .update({
+            start_date: data.start_date,
+            end_date: data.end_date,
+            days_count: daysCount,
+            vacation_type: data.vacation_type,
+            description: data.description
+          })
+          .eq('id', editingVacation.id);
+
+        if (error) throw error;
+        toast({
+          title: "Vacances modifiées",
+          description: "Les vacances ont été mises à jour",
+        });
+      } else {
+        const { error } = await supabase
+          .from('vacations')
+          .insert({
+            user_id: user.id,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            days_count: daysCount,
+            vacation_type: data.vacation_type,
+            description: data.description
+          });
+
+        if (error) throw error;
+        toast({
+          title: "Vacances ajoutées",
+          description: "Les vacances ont été enregistrées",
+        });
+      }
+
+      fetchVacations();
+      setShowVacationDialog(false);
+      setEditingVacation(null);
+      vacationForm.reset();
+    } catch (error: any) {
+      console.error('Error saving vacation:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer les vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteOvertime = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('overtime_hours')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchOvertimeHours();
+      toast({
+        title: "Heures supprimées",
+        description: "Les heures supplémentaires ont été supprimées",
+      });
+    } catch (error: any) {
+      console.error('Error deleting overtime:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteVacation = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('vacations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchVacations();
+      toast({
+        title: "Vacances supprimées",
+        description: "Les vacances ont été supprimées",
+      });
+    } catch (error: any) {
+      console.error('Error deleting vacation:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const editOvertime = (overtime: OvertimeHour) => {
+    setEditingOvertime(overtime);
+    overtimeForm.reset({
+      date: overtime.date,
+      hours: overtime.hours,
+      description: overtime.description || ""
+    });
+    setShowOvertimeDialog(true);
+  };
+
+  const editVacation = (vacation: Vacation) => {
+    setEditingVacation(vacation);
+    vacationForm.reset({
+      start_date: vacation.start_date,
+      end_date: vacation.end_date,
+      vacation_type: vacation.vacation_type,
+      description: vacation.description || ""
+    });
+    setShowVacationDialog(true);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { 
+        icon: <AlertCircle className="h-3 w-3" />, 
+        className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+        label: "En attente"
+      },
+      approved: { 
+        icon: <CheckCircle className="h-3 w-3" />, 
+        className: "bg-green-100 text-green-800 border-green-200",
+        label: "Approuvé"
+      },
+      rejected: { 
+        icon: <XCircle className="h-3 w-3" />, 
+        className: "bg-red-100 text-red-800 border-red-200",
+        label: "Rejeté"
+      }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig];
+    return (
+      <Badge variant="outline" className={`flex items-center gap-1 ${config.className}`}>
+        {config.icon}
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const getVacationTypeLabel = (type: string) => {
+    const types = {
+      annual: "Congés annuels",
+      sick: "Congé maladie",
+      personal: "Congé personnel",
+      other: "Autre"
+    };
+    return types[type as keyof typeof types] || type;
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Chargement...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Gestion du temps</h1>
+          <p className="text-muted-foreground">Gérer vos heures supplémentaires et vacances</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overtime" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="overtime" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Heures supplémentaires
+          </TabsTrigger>
+          <TabsTrigger value="vacations" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Vacances
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overtime" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Mes heures supplémentaires</h2>
+            <Button onClick={() => setShowOvertimeDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter des heures
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {overtimeHours.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-gray-500">Aucune heure supplémentaire enregistrée</p>
+                </CardContent>
+              </Card>
+            ) : (
+              overtimeHours.map((overtime) => (
+                <Card key={overtime.id}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-medium">
+                            {new Date(overtime.date).toLocaleDateString('fr-FR')}
+                          </h3>
+                          <Badge variant="outline">
+                            {overtime.hours}h
+                          </Badge>
+                          {getStatusBadge(overtime.status)}
+                        </div>
+                        {overtime.description && (
+                          <p className="text-sm text-gray-600">{overtime.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Créé {formatDistanceToNow(new Date(overtime.created_at), { 
+                            addSuffix: true, 
+                            locale: fr 
+                          })}
+                        </p>
+                      </div>
+                      {overtime.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editOvertime(overtime)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteOvertime(overtime.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="vacations" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Vacances de l'équipe</h2>
+            <Button onClick={() => setShowVacationDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Demander des vacances
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {vacations.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-gray-500">Aucune vacance enregistrée</p>
+                </CardContent>
+              </Card>
+            ) : (
+              vacations.map((vacation) => (
+                <Card key={vacation.id}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-medium">
+                            {vacation.users?.name || 'Utilisateur'}
+                          </h3>
+                          <Badge variant="outline">
+                            {getVacationTypeLabel(vacation.vacation_type)}
+                          </Badge>
+                          <Badge variant="outline">
+                            {vacation.days_count} jour{vacation.days_count > 1 ? 's' : ''}
+                          </Badge>
+                          {getStatusBadge(vacation.status)}
+                        </div>
+                        <p className="text-sm">
+                          Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} 
+                          au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
+                        </p>
+                        {vacation.description && (
+                          <p className="text-sm text-gray-600">{vacation.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Créé {formatDistanceToNow(new Date(vacation.created_at), { 
+                            addSuffix: true, 
+                            locale: fr 
+                          })}
+                        </p>
+                      </div>
+                      {vacation.status === 'pending' && vacation.user_id === user?.id && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editVacation(vacation)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteVacation(vacation.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialog pour les heures supplémentaires */}
+      <Dialog open={showOvertimeDialog} onOpenChange={setShowOvertimeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingOvertime ? "Modifier les heures supplémentaires" : "Ajouter des heures supplémentaires"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={overtimeForm.handleSubmit(onSubmitOvertime)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                {...overtimeForm.register("date", { required: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hours">Nombre d'heures</Label>
+              <Input
+                id="hours"
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="24"
+                {...overtimeForm.register("hours", { required: true, valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (optionnel)</Label>
+              <Textarea
+                id="description"
+                {...overtimeForm.register("description")}
+                placeholder="Détails sur les heures supplémentaires..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowOvertimeDialog(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">
+                {editingOvertime ? "Modifier" : "Ajouter"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour les vacances */}
+      <Dialog open={showVacationDialog} onOpenChange={setShowVacationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingVacation ? "Modifier la demande de vacances" : "Demander des vacances"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={vacationForm.handleSubmit(onSubmitVacation)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">Date de début</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  {...vacationForm.register("start_date", { required: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_date">Date de fin</Label>
+                <Input
+                  id="end_date"
+                  type="date"
+                  {...vacationForm.register("end_date", { required: true })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vacation_type">Type de congé</Label>
+              <Select 
+                value={vacationForm.watch("vacation_type")} 
+                onValueChange={(value) => vacationForm.setValue("vacation_type", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner le type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annual">Congés annuels</SelectItem>
+                  <SelectItem value="sick">Congé maladie</SelectItem>
+                  <SelectItem value="personal">Congé personnel</SelectItem>
+                  <SelectItem value="other">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vacation_description">Description (optionnel)</Label>
+              <Textarea
+                id="vacation_description"
+                {...vacationForm.register("description")}
+                placeholder="Raison ou détails des vacances..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowVacationDialog(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">
+                {editingVacation ? "Modifier" : "Demander"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
