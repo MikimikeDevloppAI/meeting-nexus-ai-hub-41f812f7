@@ -9,6 +9,8 @@ import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { useState } from "react";
 import { TaskDeepSearch } from "@/components/TaskDeepSearch";
+import { Button } from "@/components/ui/button";
+import { MessageCircle } from "lucide-react";
 
 interface User {
   id: string;
@@ -20,6 +22,7 @@ export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const [summary, setSummary] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showSummaryChat, setShowSummaryChat] = useState(false);
 
   const { data: meeting, isLoading, error, refetch } = useQuery({
     queryKey: ["meeting", id, refreshKey],
@@ -124,7 +127,7 @@ export default function MeetingDetail() {
         </CardContent>
       </Card>
 
-      {/* Summary with Chat Inside */}
+      {/* Summary */}
       {summary && (
         <Card data-updated>
           <CardHeader>
@@ -136,13 +139,7 @@ export default function MeetingDetail() {
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Chat Résumé à l'intérieur */}
-            <div className="pl-0.5">
-              <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
-            </div>
-            
-            {/* Résumé */}
+          <CardContent>
             <div className="w-full min-w-0 overflow-hidden">
               <EditableContent
                 content={summary}
@@ -153,6 +150,32 @@ export default function MeetingDetail() {
               />
             </div>
           </CardContent>
+        </Card>
+      )}
+
+      {/* Assistant Résumé */}
+      {summary && (
+        <Card data-updated>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Assistant Résumé
+              </div>
+              <Button
+                onClick={() => setShowSummaryChat(!showSummaryChat)}
+                variant="outline"
+                size="sm"
+              >
+                {showSummaryChat ? "Fermer" : "Ouvrir"}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {showSummaryChat && (
+            <CardContent>
+              <SummaryChat meetingId={meeting.id} onSummaryUpdate={handleDataUpdate} />
+            </CardContent>
+          )}
         </Card>
       )}
 
