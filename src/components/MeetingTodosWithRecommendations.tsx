@@ -28,9 +28,17 @@ interface MeetingTodosWithRecommendationsProps {
 
 type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 
-// Étendre l'interface Todo pour inclure la priorité
+// Étendre l'interface Todo pour inclure la priorité et les utilisateurs
 interface TodoWithPriority extends Todo {
   priority?: 'high' | 'normal' | 'low';
+  todo_users?: Array<{
+    user_id: string;
+    users: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithRecommendationsProps) => {
@@ -55,9 +63,9 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         .from("todos")
         .select(`
           *,
-          todo_participants(
-            participant_id,
-            participants(id, name, email)
+          todo_users(
+            user_id,
+            users(id, name, email)
           )
         `)
         .eq("meeting_id", meetingId)
@@ -98,7 +106,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         description: t.description,
         status: t.status,
         priority: t.priority,
-        participants: t.todo_participants?.length || 0
+        participants: t.todo_users?.length || 0
       })));
       
       setTodos(allTodos as TodoWithPriority[]);
@@ -337,7 +345,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
                      <div className="flex items-center gap-2">
                       <TodoUserManager
                          todoId={todo.id}
-                         currentUsers={todo.todo_participants?.map(tp => tp.participants) || []}
+                         currentUsers={todo.todo_users?.map(tu => tu.users) || []}
                          onUsersUpdate={() => {}}
                          compact={true}
                        />
@@ -489,7 +497,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
             <TodoUserManager
               todoId={currentTodoId}
               currentUsers={
-                todos.find(todo => todo.id === currentTodoId)?.todo_participants?.map(tp => tp.participants) || []
+                todos.find(todo => todo.id === currentTodoId)?.todo_users?.map(tu => tu.users) || []
               }
               onUsersUpdate={() => handleParticipantsUpdated()}
               compact={false}
