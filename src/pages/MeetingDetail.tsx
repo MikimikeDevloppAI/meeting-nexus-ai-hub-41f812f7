@@ -10,7 +10,7 @@ import { SummaryChat } from "@/components/meeting/SummaryChat";
 import { useState } from "react";
 import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 
-interface Participant {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -30,8 +30,8 @@ export default function MeetingDetail() {
         .from("meetings")
         .select(`
           *,
-          meeting_participants(
-            participants(id, name, email)
+          meeting_users(
+            users(id, name, email)
           )
         `)
         .eq("id", id)
@@ -88,7 +88,7 @@ export default function MeetingDetail() {
     );
   }
 
-  const currentParticipants = meeting.meeting_participants?.map(mp => mp.participants) || [];
+  const currentParticipants = meeting.meeting_users?.map(mu => mu.users) || [];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
