@@ -269,13 +269,31 @@ export function OvertimeCalendar({
                         <span className="text-sm text-gray-600 truncate max-w-32">{overtime.description}</span>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDateClick(parseISO(overtime.date))}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDateClick(parseISO(overtime.date))}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      {overtime.status === 'pending' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await onDeleteOvertime(overtime.id);
+                            } catch (error) {
+                              console.error('Error deleting overtime:', error);
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
