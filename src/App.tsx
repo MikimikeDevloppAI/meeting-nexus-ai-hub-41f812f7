@@ -25,7 +25,7 @@ import Invoices from "./pages/Invoices";
 import UserManagement from "./pages/UserManagement";
 import PatientLetters from "./pages/PatientLetters";
 import IOLCalculator from "./pages/IOLCalculator";
-import AccessManager from "./pages/AccessManager";
+
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -102,11 +102,6 @@ const App = () => (
               <Route path="patient-letters" element={
                 <PermissionProtectedRoute requiredPermission="patient-letters">
                   <PatientLetters />
-                </PermissionProtectedRoute>
-              } />
-              <Route path="access-manager" element={
-                <PermissionProtectedRoute requiredPermission="access-manager">
-                  <AccessManager />
                 </PermissionProtectedRoute>
               } />
               <Route path="profile" element={

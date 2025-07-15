@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle, Settings, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { supabase } from "@/integrations/supabase/client";
 
 interface User {
@@ -18,30 +20,57 @@ interface User {
   created_at: string;
 }
 
+interface Page {
+  id: string;
+  name: string;
+  path: string;
+  description: string;
+}
+
+interface Permission {
+  user_id: string;
+  page_id: string;
+  granted: boolean;
+}
+
 const UserManagement = () => {
+  const { isAdmin, loading: permissionsLoading } = useUserPermissions();
   const [users, setUsers] = useState<User[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!permissionsLoading && isAdmin) {
+      fetchData();
+    } else if (!permissionsLoading && !isAdmin) {
+      setIsLoading(false);
+    }
+  }, [permissionsLoading, isAdmin]);
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [usersResponse, pagesResponse, permissionsResponse] = await Promise.all([
+        supabase.from('users').select('*').order('created_at', { ascending: false }),
+        supabase.from('pages').select('*').order('name'),
+        supabase.from('user_permissions').select('*')
+      ]);
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (usersResponse.error) throw usersResponse.error;
+      if (pagesResponse.error) throw pagesResponse.error;
+      if (permissionsResponse.error) throw permissionsResponse.error;
+
+      setUsers(usersResponse.data || []);
+      setPages(pagesResponse.data || []);
+      setPermissions(permissionsResponse.data || []);
     } catch (error: any) {
-      console.error("Error fetching users:", error);
+      console.error("Error fetching data:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger les utilisateurs",
+        description: "Impossible de charger les données",
         variant: "destructive",
       });
     } finally {
@@ -78,6 +107,67 @@ const UserManagement = () => {
     }
   };
 
+  const hasPermission = (userId: string, pageId: string): boolean => {
+    const permission = permissions.find(p => p.user_id === userId && p.page_id === pageId);
+    return permission?.granted ?? false;
+  };
+
+  const togglePermission = (userId: string, pageId: string) => {
+    const currentPermission = hasPermission(userId, pageId);
+    const existingPermissionIndex = permissions.findIndex(
+      p => p.user_id === userId && p.page_id === pageId
+    );
+
+    if (existingPermissionIndex >= 0) {
+      const updatedPermissions = [...permissions];
+      updatedPermissions[existingPermissionIndex].granted = !currentPermission;
+      setPermissions(updatedPermissions);
+    } else {
+      setPermissions([...permissions, {
+        user_id: userId,
+        page_id: pageId,
+        granted: !currentPermission
+      }]);
+    }
+  };
+
+  const savePermissions = async () => {
+    setSaving(true);
+    try {
+      // Supprimer toutes les permissions existantes puis les recréer
+      await supabase.from('user_permissions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      // Insérer les nouvelles permissions
+      const permissionsToInsert = permissions.map(p => ({
+        user_id: p.user_id,
+        page_id: p.page_id,
+        granted: p.granted
+      }));
+
+      if (permissionsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_permissions')
+          .insert(permissionsToInsert);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Succès",
+        description: "Les permissions ont été sauvegardées",
+      });
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder les permissions",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -86,13 +176,29 @@ const UserManagement = () => {
   const approvedUsers = users.filter(user => user.approved).length;
   const pendingUsers = users.filter(user => !user.approved).length;
 
-  if (isLoading) {
+  if (permissionsLoading || isLoading) {
     return (
       <div className="animate-fade-in h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Chargement des utilisateurs...</p>
+          <p className="text-muted-foreground">Chargement...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-96">
+          <CardHeader className="text-center">
+            <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <CardTitle>Accès refusé</CardTitle>
+            <CardDescription>
+              Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
@@ -100,129 +206,211 @@ const UserManagement = () => {
   return (
     <div className="animate-fade-in h-full flex flex-col">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Gestion des utilisateurs</h1>
+        <h1 className="text-2xl font-bold">Gestion des utilisateurs et accès</h1>
         <p className="text-muted-foreground">
-          Gérez les utilisateurs et leurs autorisations d'accès
+          Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
         </p>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total utilisateurs</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Utilisateurs approuvés</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{approvedUsers}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En attente d'approbation</CardTitle>
-            <XCircle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{pendingUsers}</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="users" className="flex-1 flex flex-col">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Utilisateurs
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Permissions
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Search and Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Rechercher des utilisateurs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Input
-              placeholder="Rechercher par nom ou email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
+        <TabsContent value="users" className="flex-1 flex flex-col space-y-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total utilisateurs</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{users.length}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Utilisateurs approuvés</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{approvedUsers}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">En attente d'approbation</CardTitle>
+                <XCircle className="h-4 w-4 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{pendingUsers}</div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Users Table */}
-      <Card className="flex-1">
-        <CardHeader>
-          <CardTitle>Liste des utilisateurs</CardTitle>
-          <CardDescription>
-            Gérez les autorisations et le statut des utilisateurs
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Utilisateur</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Date d'inscription</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {user.email}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {new Date(user.created_at).toLocaleDateString('fr-FR')}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.approved ? "default" : "secondary"}>
-                      {user.approved ? "Approuvé" : "En attente"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={user.approved}
-                        onCheckedChange={() => toggleUserApproval(user.id, user.approved)}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {user.approved ? "Approuvé" : "En attente"}
-                      </span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Aucun utilisateur trouvé</h3>
-              <p className="text-muted-foreground">
-                {searchTerm ? "Aucun utilisateur ne correspond à votre recherche." : "Aucun utilisateur n'est encore inscrit."}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Search and Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Rechercher des utilisateurs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <Input
+                  placeholder="Rechercher par nom ou email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Users Table */}
+          <Card className="flex-1">
+            <CardHeader>
+              <CardTitle>Liste des utilisateurs</CardTitle>
+              <CardDescription>
+                Gérez le statut d'approbation des utilisateurs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Utilisateur</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Date d'inscription</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {user.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {new Date(user.created_at).toLocaleDateString('fr-FR')}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.approved ? "default" : "secondary"}>
+                          {user.approved ? "Approuvé" : "En attente"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={user.approved}
+                            onCheckedChange={() => toggleUserApproval(user.id, user.approved)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {user.approved ? "Approuvé" : "En attente"}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {filteredUsers.length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Aucun utilisateur trouvé</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm ? "Aucun utilisateur ne correspond à votre recherche." : "Aucun utilisateur n'est encore inscrit."}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions" className="flex-1 flex flex-col">
+          <Card className="flex-1">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Permissions par Utilisateur</CardTitle>
+                  <CardDescription>
+                    Activez ou désactivez l'accès aux pages pour chaque utilisateur approuvé.
+                  </CardDescription>
+                </div>
+                <Button onClick={savePermissions} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Sauvegarder
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium">Utilisateur</th>
+                      {pages.map(page => (
+                        <th key={page.id} className="text-center p-3 font-medium min-w-[120px]">
+                          <div className="text-sm">{page.name}</div>
+                          <div className="text-xs text-muted-foreground">{page.path}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.filter(user => user.approved).map(user => (
+                      <tr key={user.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3">
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
+                        </td>
+                         {pages.map(page => (
+                           <td key={`${user.id}-${page.id}`} className="p-3 text-center">
+                             <Switch
+                               checked={hasPermission(user.id, page.id)}
+                               onCheckedChange={() => togglePermission(user.id, page.id)}
+                               disabled={saving}
+                             />
+                           </td>
+                         ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {users.filter(user => user.approved).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun utilisateur approuvé trouvé.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
