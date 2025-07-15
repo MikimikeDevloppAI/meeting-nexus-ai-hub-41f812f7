@@ -50,10 +50,13 @@ export const useUserPermissions = () => {
       setIsAdmin(adminStatus);
 
       // Récupérer les permissions
-      const { data: permissionsData } = await supabase
+      const { data: permissionsData, error: permError } = await supabase
         .from('user_permissions')
         .select('page_id, granted')
         .eq('user_id', user.id);
+
+      console.log('Permissions data for user:', user.id, permissionsData);
+      console.log('Permissions error:', permError);
 
       setPermissions(permissionsData || []);
     } catch (error) {

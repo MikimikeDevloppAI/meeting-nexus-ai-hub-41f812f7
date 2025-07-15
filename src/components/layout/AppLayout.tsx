@@ -79,7 +79,7 @@ const AppSidebar: React.FC = () => {
   const { signOut } = useAuth();
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
-  const { hasPermission, isAdmin, loading } = useUserPermissions();
+  const { hasPermission, isAdmin, loading, permissions } = useUserPermissions();
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -99,8 +99,13 @@ const AppSidebar: React.FC = () => {
           <SidebarGroupLabel className="text-gray-600 font-medium">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Menu items filtrés par permissions - debugging */}
               {menuItems
-                .filter(item => !loading && hasPermission(item.permission))
+                .filter(item => {
+                  const hasPerms = hasPermission(item.permission);
+                  console.log(`Permission for ${item.permission}:`, hasPerms);
+                  return !loading && hasPerms;
+                })
                 .map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
