@@ -23,6 +23,7 @@ interface Invoice {
   invoice_number?: string;
   invoice_date?: string;
   due_date?: string;
+  payment_date?: string;
   total_amount?: number;
   total_net?: number;
   total_tax?: number;
@@ -127,6 +128,7 @@ export function InvoiceValidationDialog({
         invoice_number: invoice.invoice_number || null,
         invoice_date: formatDateForInput(invoice.invoice_date),
         due_date: formatDateForInput(invoice.due_date),
+        payment_date: formatDateForInput(invoice.payment_date || invoice.invoice_date),
         total_amount: invoice.total_amount || 0,
         total_net: invoice.total_net || 0,
         total_tax: invoice.total_tax || 0,
@@ -543,6 +545,18 @@ export function InvoiceValidationDialog({
                   type="date"
                   value={formData.due_date || ''}
                   onChange={(e) => handleInputChange('due_date', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment_date">
+                  Date de paiement <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="payment_date"
+                  type="date"
+                  value={formData.payment_date || ''}
+                  onChange={(e) => handleInputChange('payment_date', e.target.value)}
                 />
               </div>
 

@@ -132,6 +132,7 @@ export type Database = {
           mindee_raw_response: Json | null
           original_amount_chf: number | null
           original_filename: string | null
+          payment_date: string
           payment_details: string | null
           processed_at: string | null
           purchase_category: string | null
@@ -172,6 +173,7 @@ export type Database = {
           mindee_raw_response?: Json | null
           original_amount_chf?: number | null
           original_filename?: string | null
+          payment_date: string
           payment_details?: string | null
           processed_at?: string | null
           purchase_category?: string | null
@@ -212,6 +214,7 @@ export type Database = {
           mindee_raw_response?: Json | null
           original_amount_chf?: number | null
           original_filename?: string | null
+          payment_date?: string
           payment_details?: string | null
           processed_at?: string | null
           purchase_category?: string | null

@@ -22,6 +22,7 @@ interface Invoice {
   invoice_number?: string;
   invoice_date?: string;
   due_date?: string;
+  payment_date?: string;
   total_amount?: number;
   total_net?: number;
   total_tax?: number;
@@ -474,9 +475,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             <div className="text-gray-900">{invoice.compte || 'Commun'}</div>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Date facture:</span>
+            <span className="font-medium text-gray-700">Date de paiement:</span>
             <div className="text-gray-900">
-              {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('fr-FR') : 'N/A'}
+              {invoice.payment_date ? new Date(invoice.payment_date).toLocaleDateString('fr-FR') : 'N/A'}
             </div>
           </div>
           <div>

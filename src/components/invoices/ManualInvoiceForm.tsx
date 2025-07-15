@@ -28,6 +28,7 @@ interface ManualInvoiceFormData {
   invoice_number: string;
   invoice_date: string;
   due_date: string;
+  payment_date: string;
   supplier_name: string;
   supplier_address: string;
   supplier_email: string;
@@ -75,6 +76,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
       compte: "Commun",
       line_items: [{ description: "", quantity: 1, unit_price: 0, total: 0 }],
       invoice_date: new Date().toISOString().split('T')[0],
+      payment_date: new Date().toISOString().split('T')[0],
       total_net: undefined,
       total_amount: undefined,
     },
@@ -88,6 +90,8 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
   const watchedLineItems = watch("line_items");
   const watchedTotalNet = watch("total_net");
   const watchedTotalTax = watch("total_tax");
+  const watchedInvoiceDate = watch("invoice_date");
+  const [documentType, setDocumentType] = useState<'recu' | 'facture'>('recu');
 
   // Calculer automatiquement les totaux
   React.useEffect(() => {
@@ -103,6 +107,19 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
     const totalAmount = (watchedTotalNet || 0) + (watchedTotalTax || 0);
     setValue("total_amount", totalAmount);
   }, [watchedTotalNet, watchedTotalTax, setValue]);
+
+  // Gérer la date de paiement selon le type de document
+  React.useEffect(() => {
+    if (documentType === 'recu') {
+      // Pour un reçu, date de paiement = date de facture
+      if (watchedInvoiceDate) {
+        setValue("payment_date", watchedInvoiceDate);
+      }
+    } else if (documentType === 'facture') {
+      // Pour une facture, date de paiement = aujourd'hui
+      setValue("payment_date", new Date().toISOString().split('T')[0]);
+    }
+  }, [documentType, watchedInvoiceDate, setValue]);
 
   const updateLineItemTotal = (index: number) => {
     const quantity = watchedLineItems[index]?.quantity || 0;
@@ -131,6 +148,11 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
     // Vérifier la date de facture
     if (!watchedFormData.invoice_date || watchedFormData.invoice_date === '') {
       errors.push('La date de facture est obligatoire');
+    }
+
+    // Vérifier la date de paiement
+    if (!watchedFormData.payment_date || watchedFormData.payment_date === '') {
+      errors.push('La date de paiement est obligatoire');
     }
 
     // Vérifier le montant TTC
@@ -242,6 +264,7 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
         invoice_number: data.invoice_number || null,
         invoice_date: data.invoice_date || null,
         due_date: data.due_date || null,
+        payment_date: data.payment_date || null,
         supplier_name: data.supplier_name,
         supplier_address: data.supplier_address || null,
         supplier_email: data.supplier_email || null,
@@ -366,6 +389,25 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
             <TabsContent value="document" className="space-y-4">
               <h3 className="font-semibold text-lg border-b pb-2">Informations du document</h3>
               
+              {/* Sélecteur de type de document */}
+              <div className="mb-4">
+                <Label className="text-base font-medium">Type de document</Label>
+                <RadioGroup
+                  value={documentType}
+                  onValueChange={(value: 'recu' | 'facture') => setDocumentType(value)}
+                  className="flex gap-6 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="recu" id="recu" />
+                    <Label htmlFor="recu" className="text-sm font-normal">Reçu (payé)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="facture" id="facture" />
+                    <Label htmlFor="facture" className="text-sm font-normal">Facture (à payer)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="supplier_name">
@@ -472,6 +514,17 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
                     id="due_date"
                     type="date"
                     {...register("due_date")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="payment_date">
+                    Date de paiement <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="payment_date"
+                    type="date"
+                    {...register("payment_date", { required: "Ce champ est requis" })}
                   />
                 </div>
 
