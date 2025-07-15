@@ -200,7 +200,7 @@ serve(async (req) => {
       // Invoice-specific data extraction with proper category handling
       extractedData = {
         invoice_number: prediction.invoice_number?.value || '',
-        invoice_date: prediction.invoice_date?.value || null,
+        invoice_date: prediction.date?.value || null,
         due_date: prediction.due_date?.value || null,
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
