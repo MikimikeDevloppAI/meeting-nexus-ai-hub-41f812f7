@@ -9,12 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { useForm } from "react-hook-form";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface OvertimeHour {
   id: string;
@@ -49,7 +52,7 @@ interface Vacation {
 }
 
 interface OvertimeFormData {
-  date: string;
+  date: Date | undefined;
   hours: number;
   description: string;
 }
@@ -74,7 +77,7 @@ export default function TimeTracking() {
 
   const overtimeForm = useForm<OvertimeFormData>({
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: new Date(),
       hours: 0,
       description: ""
     }
@@ -149,14 +152,16 @@ export default function TimeTracking() {
   };
 
   const onSubmitOvertime = async (data: OvertimeFormData) => {
-    if (!user) return;
+    if (!user || !data.date) return;
 
     try {
+      const dateString = data.date.toISOString().split('T')[0];
+      
       if (editingOvertime) {
         const { error } = await supabase
           .from('overtime_hours')
           .update({
-            date: data.date,
+            date: dateString,
             hours: data.hours,
             description: data.description
           })
@@ -172,7 +177,7 @@ export default function TimeTracking() {
           .from('overtime_hours')
           .insert({
             user_id: user.id,
-            date: data.date,
+            date: dateString,
             hours: data.hours,
             description: data.description
           });
@@ -303,7 +308,7 @@ export default function TimeTracking() {
   const editOvertime = (overtime: OvertimeHour) => {
     setEditingOvertime(overtime);
     overtimeForm.reset({
-      date: overtime.date,
+      date: new Date(overtime.date),
       hours: overtime.hours,
       description: overtime.description || ""
     });
@@ -544,12 +549,34 @@ export default function TimeTracking() {
           </DialogHeader>
           <form onSubmit={overtimeForm.handleSubmit(onSubmitOvertime)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                {...overtimeForm.register("date", { required: true })}
-              />
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !overtimeForm.watch("date") && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {overtimeForm.watch("date") ? (
+                      format(overtimeForm.watch("date") as Date, "PPP", { locale: fr })
+                    ) : (
+                      <span>Sélectionner une date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={overtimeForm.watch("date")}
+                    onSelect={(date) => overtimeForm.setValue("date", date)}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="hours">Nombre d'heures</Label>
