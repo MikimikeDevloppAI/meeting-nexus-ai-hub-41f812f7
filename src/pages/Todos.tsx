@@ -349,7 +349,15 @@ export default function Todos() {
         return bPriority - aPriority;
       }
       
-      // Puis par date de création (plus récent en premier)
+      // Puis par échéance (due_date) - les tâches sans date en dernier
+      const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+      const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+      
+      if (aDate !== bDate) {
+        return aDate - bDate; // Échéance la plus proche en premier
+      }
+      
+      // En dernier recours, par date de création (plus récent en premier)
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
