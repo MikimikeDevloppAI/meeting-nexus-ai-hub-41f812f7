@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string | null
+          id: string
+          user_email: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          user_email: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          user_email?: string
+        }
+        Relationships: []
+      }
       document_embeddings: {
         Row: {
           chunk_index: number
@@ -396,6 +414,30 @@ export type Database = {
         }
         Relationships: []
       }
+      pages: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          path: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id: string
+          name: string
+          path: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          path?: string
+        }
+        Relationships: []
+      }
       participants: {
         Row: {
           created_at: string
@@ -741,6 +783,41 @@ export type Database = {
           taxonomy?: Json | null
         }
         Relationships: []
+      }
+      user_permissions: {
+        Row: {
+          created_at: string | null
+          granted: boolean | null
+          id: string
+          page_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          granted?: boolean | null
+          id?: string
+          page_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          granted?: boolean | null
+          id?: string
+          page_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

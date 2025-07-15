@@ -25,6 +25,8 @@ import Invoices from "./pages/Invoices";
 import UserManagement from "./pages/UserManagement";
 import PatientLetters from "./pages/PatientLetters";
 import IOLCalculator from "./pages/IOLCalculator";
+import AccessManager from "./pages/AccessManager";
+import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -47,18 +49,71 @@ const App = () => (
                 <AppLayout />
               </ProtectedRoute>
             }>
-              <Route index element={<Todos />} />
-              <Route path="new-meeting" element={<NewMeeting />} />
-              <Route path="meetings/new" element={<NewMeeting />} />
-              <Route path="meetings" element={<Meetings />} />
-              <Route path="meetings/:id" element={<MeetingDetail />} />
-              <Route path="todos" element={<Todos />} />
-              <Route path="documents" element={<Documents />} />
-              <Route path="iol-calculator" element={<IOLCalculator />} />
-              <Route path="invoices" element={<Invoices />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="patient-letters" element={<PatientLetters />} />
-              <Route path="profile" element={<Profile />} />
+              <Route index element={
+                <PermissionProtectedRoute requiredPermission="todos">
+                  <Todos />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="new-meeting" element={
+                <PermissionProtectedRoute requiredPermission="new-meeting">
+                  <NewMeeting />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="meetings/new" element={
+                <PermissionProtectedRoute requiredPermission="new-meeting">
+                  <NewMeeting />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="meetings" element={
+                <PermissionProtectedRoute requiredPermission="meetings">
+                  <Meetings />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="meetings/:id" element={
+                <PermissionProtectedRoute requiredPermission="meetings">
+                  <MeetingDetail />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="todos" element={
+                <PermissionProtectedRoute requiredPermission="todos">
+                  <Todos />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="documents" element={
+                <PermissionProtectedRoute requiredPermission="documents">
+                  <Documents />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="iol-calculator" element={
+                <PermissionProtectedRoute requiredPermission="iol-calculator">
+                  <IOLCalculator />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="invoices" element={
+                <PermissionProtectedRoute requiredPermission="invoices">
+                  <Invoices />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="users" element={
+                <PermissionProtectedRoute requiredPermission="users">
+                  <UserManagement />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="patient-letters" element={
+                <PermissionProtectedRoute requiredPermission="patient-letters">
+                  <PatientLetters />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="access-manager" element={
+                <PermissionProtectedRoute requiredPermission="access-manager">
+                  <AccessManager />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="profile" element={
+                <PermissionProtectedRoute requiredPermission="profile">
+                  <Profile />
+                </PermissionProtectedRoute>
+              } />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

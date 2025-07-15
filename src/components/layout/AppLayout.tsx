@@ -13,7 +13,7 @@ import {
   SidebarHeader,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator } from "lucide-react";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -21,42 +21,56 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Logo } from "@/components/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 const menuItems = [
   {
     title: "À faire",
     url: "/todos",
     icon: CheckSquare,
+    permission: "todos",
   },
   {
     title: "Réunions",
     url: "/meetings",
     icon: Calendar,
+    permission: "meetings",
   },
   {
     title: "Documents",
     url: "/documents",
     icon: FileText,
+    permission: "documents",
   },
   {
     title: "IOL Calculator",
     url: "/iol-calculator",
     icon: Calculator,
+    permission: "iol-calculator",
   },
   {
     title: "Lettres Patient",
     url: "/patient-letters",
     icon: PenTool,
+    permission: "patient-letters",
   },
   {
     title: "Factures",
     url: "/invoices",
     icon: Receipt,
+    permission: "invoices",
+  },
+  {
+    title: "Gestion Utilisateurs",
+    url: "/users",
+    icon: User,
+    permission: "users",
   },
   {
     title: "Profil",
     url: "/profile",
     icon: User,
+    permission: "profile",
   },
 ];
 
@@ -65,6 +79,7 @@ const AppSidebar: React.FC = () => {
   const { signOut } = useAuth();
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
+  const { hasPermission, isAdmin, loading } = useUserPermissions();
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -84,17 +99,32 @@ const AppSidebar: React.FC = () => {
           <SidebarGroupLabel className="text-gray-600 font-medium">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+              {menuItems
+                .filter(item => !loading && hasPermission(item.permission))
+                .map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      onClick={() => handleNavigation(item.url)}
+                      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
+                    >
+                      <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                      <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              
+              {/* Access Manager - uniquement pour les admins */}
+              {!loading && isAdmin && (
+                <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => handleNavigation(item.url)}
+                    onClick={() => handleNavigation("/access-manager")}
                     className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
                   >
-                    <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-                    <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
+                    <Settings className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                    <span className="text-sm lg:text-base truncate font-medium">Gestion des Accès</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => signOut()}
