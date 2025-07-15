@@ -53,17 +53,22 @@ const UserManagement = () => {
 
   const fetchData = async () => {
     try {
-      const [usersResponse, pagesResponse, permissionsResponse] = await Promise.all([
+      const [usersResponse, pagesResponse, permissionsResponse, adminUsersResponse] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
-        supabase.from('pages').select('*').order('name'),
-        supabase.from('user_permissions').select('*')
+        supabase.from('pages').select('*').neq('id', 'access-manager').order('name'),
+        supabase.from('user_permissions').select('*'),
+        supabase.from('admin_users').select('user_email')
       ]);
 
       if (usersResponse.error) throw usersResponse.error;
       if (pagesResponse.error) throw pagesResponse.error;
       if (permissionsResponse.error) throw permissionsResponse.error;
+      if (adminUsersResponse.error) throw adminUsersResponse.error;
 
-      setUsers(usersResponse.data || []);
+      const adminEmails = new Set(adminUsersResponse.data?.map(admin => admin.user_email) || []);
+      const nonAdminUsers = usersResponse.data?.filter(user => !adminEmails.has(user.email)) || [];
+
+      setUsers(nonAdminUsers);
       setPages(pagesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
     } catch (error: any) {
