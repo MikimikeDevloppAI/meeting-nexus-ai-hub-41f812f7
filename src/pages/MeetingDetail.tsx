@@ -113,27 +113,11 @@ export default function MeetingDetail() {
             <div>
               <h3 className="font-medium mb-3">Participants</h3>
               {currentParticipants.length > 0 ? (
-                <div className="border rounded-md divide-y">
-                  {currentParticipants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center p-4"
-                    >
-                      <div className="ml-3 flex flex-col flex-1">
-                        <span className="text-sm font-medium">
-                          {participant.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {participant.email}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm">
+                  {currentParticipants.map((participant) => participant.name).join(', ')}
+                </p>
               ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p>Aucun participant</p>
-                </div>
+                <p className="text-sm text-muted-foreground">Aucun participant</p>
               )}
             </div>
           </div>
