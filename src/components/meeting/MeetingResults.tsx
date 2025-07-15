@@ -75,7 +75,11 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         {summary ? (
           <div className="bg-blue-50 p-4 rounded-lg w-full overflow-hidden">
             <FormattedText 
-              content={cleanedSummary.split('\n').slice(2).join('\n')} 
+              content={(() => {
+                const lines = cleanedSummary.split('\n');
+                const dateIndex = lines.findIndex(line => line.trim().startsWith('Date'));
+                return dateIndex !== -1 ? lines.slice(dateIndex).join('\n') : cleanedSummary;
+              })()} 
               className="text-gray-700 w-full min-w-0"
             />
           </div>
