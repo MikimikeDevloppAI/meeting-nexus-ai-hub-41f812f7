@@ -29,8 +29,8 @@ export const useSimpleRedirectOnTodos = (
         console.log('[SimpleRedirect] 🔍 Vérification des todos...');
         
         const { data: todos, error } = await supabase
-          .from('todos')
-          .select('id')
+          .from('todo_meetings')
+          .select('todo_id')
           .eq('meeting_id', meetingId);
 
         if (error) {

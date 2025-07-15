@@ -614,6 +614,42 @@ export type Database = {
           },
         ]
       }
+      todo_meetings: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          todo_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          todo_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          todo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_meetings_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todo_meetings_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todo_subtasks: {
         Row: {
           completed: boolean
@@ -695,7 +731,6 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
-          meeting_id: string | null
           priority: string | null
           status: string
         }
@@ -705,7 +740,6 @@ export type Database = {
           description: string
           due_date?: string | null
           id?: string
-          meeting_id?: string | null
           priority?: string | null
           status?: string
         }
@@ -715,19 +749,10 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
-          meeting_id?: string | null
           priority?: string | null
           status?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "todos_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       uploaded_documents: {
         Row: {
