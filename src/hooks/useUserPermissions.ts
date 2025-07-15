@@ -19,7 +19,12 @@ export const useUserPermissions = () => {
   };
 
   const checkIsAdmin = async () => {
-    if (!user?.email) return false;
+    if (!user?.email) {
+      console.log('No user email found');
+      return false;
+    }
+    
+    console.log('Checking admin status for:', user.email);
     
     const { data } = await supabase
       .from('admin_users')
@@ -27,6 +32,7 @@ export const useUserPermissions = () => {
       .eq('user_email', user.email)
       .single();
     
+    console.log('Admin check result:', data);
     return !!data;
   };
 
