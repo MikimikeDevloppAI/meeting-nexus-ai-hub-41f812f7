@@ -317,15 +317,8 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
 
   return (
     <div className="space-y-6">
-      <div className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+      <div className="text-sm text-muted-foreground mb-2">
         <span>{todos.length} tâche(s) trouvée(s) pour cette réunion</span>
-        <Button 
-          onClick={fetchTodos} 
-          variant="outline" 
-          size="sm"
-        >
-          🔄 Recharger
-        </Button>
       </div>
       
       {sortedTodos.map((todo) => {
