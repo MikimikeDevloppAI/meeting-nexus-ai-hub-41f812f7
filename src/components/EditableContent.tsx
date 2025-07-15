@@ -7,6 +7,7 @@ import { Save, X, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from 'react-markdown';
+import { FormattedText } from '@/utils/textFormatter';
 
 interface EditableContentProps {
   content: string;
@@ -190,21 +191,10 @@ export const EditableContent = ({
     <div className={`group w-full min-w-0 overflow-hidden ${className}`} onClick={handleStartEdit}>
       <div className="relative cursor-pointer hover:bg-gray-50 rounded p-1 -m-1 w-full min-w-0 overflow-hidden">
         {type === 'summary' ? (
-          <div className="prose prose-sm max-w-none w-full min-w-0 overflow-hidden break-all">
-            <ReactMarkdown 
-              components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-gray-900 break-all hyphens-auto">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-gray-800 break-all hyphens-auto">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-bold mb-2 text-gray-700 break-all hyphens-auto">{children}</h3>,
-                strong: ({ children }) => <strong className="font-semibold text-gray-900 break-all hyphens-auto">{children}</strong>,
-                ul: ({ children }) => <ul className="list-disc ml-6 mb-3 space-y-1 break-all">{children}</ul>,
-                li: ({ children }) => <li className="text-sm text-gray-700 break-all hyphens-auto">{children}</li>,
-                p: ({ children }) => <p className="mb-2 text-sm text-gray-700 break-all hyphens-auto">{children}</p>,
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
+          <FormattedText 
+            content={content} 
+            className="text-gray-700 w-full min-w-0"
+          />
         ) : (
           <span className="break-words overflow-wrap-anywhere word-break-break-word">{content}</span>
         )}

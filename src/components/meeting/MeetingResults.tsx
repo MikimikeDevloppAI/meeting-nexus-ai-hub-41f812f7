@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock } from "lucide-react";
 import { MeetingTodos } from "@/components/MeetingTodos";
 import ReactMarkdown from "react-markdown";
+import { FormattedText } from '@/utils/textFormatter';
 
 interface MeetingResultsProps {
   transcript?: string;
@@ -75,24 +76,11 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
           {summary && <Badge variant="outline" className="text-green-700">Prêt</Badge>}
         </div>
         {summary ? (
-          <div className="prose prose-sm max-w-none">
-            <div className="bg-blue-50 p-4 rounded-lg break-all overflow-hidden">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="text-sm break-all hyphens-auto max-w-full mb-2">{children}</p>,
-                  h1: ({ children }) => <h1 className="text-lg font-semibold break-all hyphens-auto max-w-full mb-2">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-base font-semibold break-all hyphens-auto max-w-full mb-2">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-semibold break-all hyphens-auto max-w-full mb-2">{children}</h3>,
-                  ul: ({ children }) => <ul className="list-disc list-inside mb-2 break-all max-w-full">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal list-inside mb-2 break-all max-w-full">{children}</ol>,
-                  li: ({ children }) => <li className="break-all hyphens-auto max-w-full">{children}</li>,
-                  strong: ({ children }) => <strong className="font-semibold break-all hyphens-auto">{children}</strong>,
-                  em: ({ children }) => <em className="italic break-all hyphens-auto">{children}</em>,
-                }}
-              >
-                {cleanedSummary}
-              </ReactMarkdown>
-            </div>
+          <div className="bg-blue-50 p-4 rounded-lg w-full overflow-hidden">
+            <FormattedText 
+              content={cleanedSummary} 
+              className="text-gray-700 w-full min-w-0"
+            />
           </div>
         ) : (
           <div className="text-gray-500 italic">
