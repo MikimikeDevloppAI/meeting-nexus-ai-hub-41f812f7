@@ -17,13 +17,15 @@ interface MeetingResultsProps {
 const cleanSummaryMarkdown = (summary: string): string => {
   if (!summary) return summary;
   
-  // Supprimer les balises de code markdown au début et à la fin (avec variations possibles)
-  let cleaned = summary.replace(/^\s*```\s*markdown\s*/i, '');
-  cleaned = cleaned.replace(/^\s*```markdown\s*/i, '');
-  cleaned = cleaned.replace(/^\s*````\s*markdown\s*/i, '');
-  cleaned = cleaned.replace(/^\s*````markdown\s*/i, '');
-  cleaned = cleaned.replace(/\s*```\s*$/i, '');
-  cleaned = cleaned.replace(/\s*````\s*$/i, '');
+  // Supprimer toutes les variations de balises de code markdown au début
+  let cleaned = summary;
+  
+  // Supprimer les balises de code avec 3 ou 4 backticks + markdown (case insensitive)
+  cleaned = cleaned.replace(/^`{3,4}\s*markdown\s*/i, '');
+  cleaned = cleaned.replace(/^`{3,4}\s*/i, '');
+  
+  // Supprimer les balises de fermeture à la fin
+  cleaned = cleaned.replace(/\s*`{3,4}\s*$/i, '');
   
   // Supprimer les titres markdown au début (# ## ### etc.)
   cleaned = cleaned.replace(/^#+\s+.*$/gm, '');
