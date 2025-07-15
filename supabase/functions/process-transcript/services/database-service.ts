@@ -138,27 +138,27 @@ const findBestParticipantMatch = (searchName: string, allParticipants: any[]): a
 };
 
 
-export const saveTask = async (supabaseClient: any, task: any, meetingId: string, meetingParticipants: any[]) => {
+export const saveTask = async (supabaseClient: any, task: any, meetingId: string, meetingUsers: any[]) => {
   console.log('💾 Saving task:', task.description?.substring(0, 50) + '...');
   console.log('📋 Task assignment data:', task.assigned_to);
   
   try {
-    // Récupérer TOUS les participants de la base de données, pas seulement ceux de la réunion
-    const { data: allParticipants, error: participantsError } = await supabaseClient
-      .from('participants')
+    // Récupérer TOUS les utilisateurs de la base de données, pas seulement ceux de la réunion
+    const { data: allUsers, error: usersError } = await supabaseClient
+      .from('users')
       .select('id, name, email')
       .order('name');
 
-    if (participantsError) {
-      console.error('❌ Error fetching all participants:', participantsError);
-      throw participantsError;
+    if (usersError) {
+      console.error('❌ Error fetching all users:', usersError);
+      throw usersError;
     }
 
-    console.log(`👥 Total participants disponibles: ${allParticipants?.length || 0}`);
+    console.log(`👥 Total users disponibles: ${allUsers?.length || 0}`);
     
     console.log('📝 Description originale:', task.description);
     
-    // Créer la tâche sans assigned_to puisque cette colonne n'existe plus
+    // Créer la tâche
     const { data: savedTask, error } = await supabaseClient
       .from('todos')
       .insert([{
@@ -179,35 +179,35 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
 
     // Traiter les assignations si spécifiées
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
-      console.log('👥 Assignation participants:', task.assigned_to);
+      console.log('👥 Assignation users:', task.assigned_to);
       
-      for (const participantName of task.assigned_to) {
-        if (!participantName || typeof participantName !== 'string') continue;
+      for (const userName of task.assigned_to) {
+        if (!userName || typeof userName !== 'string') continue;
         
-        // Chercher le participant dans TOUS les participants disponibles
-        const participant = findBestParticipantMatch(participantName.toString(), allParticipants || []);
+        // Chercher le user dans TOUS les users disponibles
+        const user = findBestUserMatch(userName.toString(), allUsers || []);
         
-        if (participant) {
-          // Créer la relation dans todo_participants
+        if (user) {
+          // Créer la relation dans todo_users
           const { error: assignError } = await supabaseClient
-            .from('todo_participants')
+            .from('todo_users')
             .insert([{
               todo_id: savedTask.id,
-              participant_id: participant.id
+              user_id: user.id
             }])
           
           if (assignError) {
-            console.error('❌ Error assigning participant:', assignError)
+            console.error('❌ Error assigning user:', assignError)
           } else {
-            console.log('✅ Participant assigné:', participant.name, 'to task:', savedTask.id)
+            console.log('✅ User assigné:', user.name, 'to task:', savedTask.id)
           }
         } else {
-          console.warn('⚠️ Participant non trouvé pour assignation:', participantName)
-          console.log('📋 Participants disponibles:', allParticipants?.map(p => ({ name: p.name, email: p.email })))
+          console.warn('⚠️ User non trouvé pour assignation:', userName)
+          console.log('📋 Users disponibles:', allUsers?.map(p => ({ name: p.name, email: p.email })))
         }
       }
     } else {
-      console.log('ℹ️ Pas de participants à assigner pour cette tâche')
+      console.log('ℹ️ Pas de users à assigner pour cette tâche')
     }
 
     return savedTask
@@ -216,3 +216,54 @@ export const saveTask = async (supabaseClient: any, task: any, meetingId: string
     throw error
   }
 }
+
+// Fonction pour trouver le meilleur user correspondant
+const findBestUserMatch = (searchName: string, allUsers: any[]): any | null => {
+  if (!searchName || !allUsers?.length) return null;
+
+  console.log(`🔍 Recherche correspondance pour: "${searchName}"`);
+  console.log(`👥 Users disponibles:`, allUsers.map(p => ({ id: p.id, name: p.name, email: p.email })));
+  
+  const variants = getNameVariants(searchName);
+  console.log(`🔄 Variantes testées:`, variants);
+  
+  // 1. Correspondance exacte avec variantes
+  for (const variant of variants) {
+    const normalizedVariant = normalizeUserName(variant);
+    
+    for (const user of allUsers) {
+      const normalizedUserName = normalizeUserName(user.name);
+      const normalizedEmail = normalizeUserName(user.email?.split('@')[0] || '');
+      
+      if (normalizedUserName === normalizedVariant || 
+          normalizedEmail === normalizedVariant ||
+          normalizedUserName.includes(normalizedVariant) ||
+          normalizedVariant.includes(normalizedUserName)) {
+        console.log(`✅ Correspondance trouvée: ${user.name} (${user.email})`);
+        return user;
+      }
+    }
+  }
+  
+  // 2. Correspondance partielle par prénom
+  const firstName = normalizeUserName(searchName.split(' ')[0]);
+  for (const user of allUsers) {
+    const userFirstName = normalizeUserName(user.name.split(' ')[0]);
+    if (userFirstName === firstName) {
+      console.log(`✅ Correspondance par prénom: ${user.name}`);
+      return user;
+    }
+  }
+  
+  console.log(`⚠️ Aucune correspondance trouvée pour: "${searchName}"`);
+  return null;
+};
+
+// Fonction pour normaliser les noms et améliorer la correspondance
+const normalizeUserName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+    .trim();
+};

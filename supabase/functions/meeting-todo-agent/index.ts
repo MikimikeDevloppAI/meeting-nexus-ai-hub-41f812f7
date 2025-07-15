@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -9,7 +8,7 @@ const corsHeaders = {
 };
 
 // Fonction pour normaliser les noms et améliorer la correspondance
-const normalizeParticipantName = (name: string): string => {
+const normalizeUserName = (name: string): string => {
   return name
     .toLowerCase()
     .normalize('NFD')
@@ -17,13 +16,13 @@ const normalizeParticipantName = (name: string): string => {
     .trim();
 };
 
-// Fonction pour trouver le meilleur participant correspondant
-const findBestParticipantMatch = (searchName: string, allParticipants: any[]): any | null => {
-  if (!searchName || !allParticipants?.length) return null;
+// Fonction pour trouver le meilleur utilisateur correspondant
+const findBestUserMatch = (searchName: string, allUsers: any[]): any | null => {
+  if (!searchName || !allUsers?.length) return null;
 
   console.log(`[TODO-AGENT] 🔍 Recherche correspondance pour: "${searchName}"`);
   
-  const normalizedSearch = normalizeParticipantName(searchName);
+  const normalizedSearch = normalizeUserName(searchName);
   
   // Variantes de noms connues
   const nameVariants: Record<string, string[]> = {
@@ -36,33 +35,33 @@ const findBestParticipantMatch = (searchName: string, allParticipants: any[]): a
   };
   
   // 1. Correspondance exacte avec variantes
-  for (const participant of allParticipants) {
-    const normalizedParticipantName = normalizeParticipantName(participant.name);
-    const normalizedEmail = normalizeParticipantName(participant.email?.split('@')[0] || '');
+  for (const user of allUsers) {
+    const normalizedUserName = normalizeUserName(user.name);
+    const normalizedEmail = normalizeUserName(user.email?.split('@')[0] || '');
     
     // Test direct
-    if (normalizedParticipantName === normalizedSearch || normalizedEmail === normalizedSearch) {
-      console.log(`[TODO-AGENT] ✅ Correspondance exacte: ${participant.name}`);
-      return participant;
+    if (normalizedUserName === normalizedSearch || normalizedEmail === normalizedSearch) {
+      console.log(`[TODO-AGENT] ✅ Correspondance exacte: ${user.name}`);
+      return user;
     }
     
     // Test avec variantes
     for (const [key, variants] of Object.entries(nameVariants)) {
-      if (variants.some(variant => normalizeParticipantName(variant) === normalizedSearch)) {
-        if (variants.some(variant => normalizeParticipantName(variant) === normalizedParticipantName)) {
-          console.log(`[TODO-AGENT] ✅ Correspondance variante: ${participant.name}`);
-          return participant;
+      if (variants.some(variant => normalizeUserName(variant) === normalizedSearch)) {
+        if (variants.some(variant => normalizeUserName(variant) === normalizedUserName)) {
+          console.log(`[TODO-AGENT] ✅ Correspondance variante: ${user.name}`);
+          return user;
         }
       }
     }
   }
   
   // 2. Correspondance partielle
-  for (const participant of allParticipants) {
-    const normalizedParticipantName = normalizeParticipantName(participant.name);
-    if (normalizedParticipantName.includes(normalizedSearch) || normalizedSearch.includes(normalizedParticipantName)) {
-      console.log(`[TODO-AGENT] ✅ Correspondance partielle: ${participant.name}`);
-      return participant;
+  for (const user of allUsers) {
+    const normalizedUserName = normalizeUserName(user.name);
+    if (normalizedUserName.includes(normalizedSearch) || normalizedSearch.includes(normalizedUserName)) {
+      console.log(`[TODO-AGENT] ✅ Correspondance partielle: ${user.name}`);
+      return user;
     }
   }
   
@@ -94,9 +93,9 @@ serve(async (req) => {
       .from('todos')
       .select(`
         *,
-        todo_participants(
-          participant_id,
-          participants(id, name, email)
+        todo_users(
+          user_id,
+          users(id, name, email)
         ),
         todo_ai_recommendations(*),
         todo_comments(*)
@@ -110,28 +109,28 @@ serve(async (req) => {
 
     console.log('[TODO-AGENT] ✅ Tâches actuelles:', todos.length);
 
-    // Récupérer TOUS les participants disponibles dans le système
-    const { data: allParticipants, error: allParticipantsError } = await supabase
-      .from('participants')
+    // Récupérer TOUS les utilisateurs disponibles dans le système
+    const { data: allUsers, error: allUsersError } = await supabase
+      .from('users')
       .select('id, name, email')
       .order('name');
 
-    if (allParticipantsError) {
-      throw allParticipantsError;
+    if (allUsersError) {
+      throw allUsersError;
     }
 
-    console.log('[TODO-AGENT] 👥 Total participants disponibles:', allParticipants.length);
+    console.log('[TODO-AGENT] 👥 Total utilisateurs disponibles:', allUsers.length);
 
     const systemPrompt = `Tu es un agent spécialisé dans la gestion des tâches (todos) pour les réunions.
 
 CONTEXTE ACTUEL :
 Meeting ID: ${meetingId}
-Participants disponibles dans TOUT le système: ${allParticipants.map(p => `${p.name} (${p.email})`).join(', ')}
+Utilisateurs disponibles dans TOUT le système: ${allUsers.map(p => `${p.name} (${p.email})`).join(', ')}
 
 TÂCHES EXISTANTES (${todos.length}) :
 ${todos.map((todo, i) => `
 ${i+1}. [ID: ${todo.id}] ${todo.description}
-   - Assigné à: ${todo.todo_participants?.map(tp => tp.participants.name).join(', ') || 'Non assigné'}
+   - Assigné à: ${todo.todo_users?.map(tu => tu.users.name).join(', ') || 'Non assigné'}
    - Statut: ${todo.status}
    - Commentaires: ${todo.todo_comments?.length || 0} commentaire(s)
 `).join('')}
@@ -142,19 +141,19 @@ CAPACITÉS :
 - Créer de nouvelles tâches
 - Modifier des tâches existantes (description, assignation)
 - Supprimer des tâches
-- Assigner/réassigner des tâches à N'IMPORTE QUEL participant du système (même s'il n'était pas à la réunion)
+- Assigner/réassigner des tâches à N'IMPORTE QUEL utilisateur du système (même s'il n'était pas à la réunion)
 - Modifier le statut des tâches
 
 RÈGLES D'ASSIGNATION :
-- Tu peux assigner à N'IMPORTE QUEL participant de la liste complète
-- Utilise les noms EXACTS de la liste des participants
+- Tu peux assigner à N'IMPORTE QUEL utilisateur de la liste complète
+- Utilise les noms EXACTS de la liste des utilisateurs
 - Variantes acceptées : Leïla/leila, Émilie/emilie, David/david, Parmice/parmis, etc.
 
 INSTRUCTIONS :
 1. Analyse la demande utilisateur dans le contexte des tâches
 2. Détermine les actions à effectuer (créer, modifier, supprimer, assigner)
 3. Sois précis sur les IDs des tâches à modifier
-4. Assure-toi que les assignations utilisent des participants valides de la liste complète
+4. Assure-toi que les assignations utilisent des utilisateurs valides de la liste complète
 5. Explique clairement chaque action
 
 Réponds UNIQUEMENT en JSON avec cette structure :
@@ -228,26 +227,20 @@ Réponds UNIQUEMENT en JSON avec cette structure :
             
             if (createError) throw createError;
             
-            // Assigner si spécifié - utilise tous les participants disponibles
+            // Assigner si spécifié - utilise tous les utilisateurs disponibles
             if (action.data.assigned_to && newTodo) {
-              const participant = findBestParticipantMatch(action.data.assigned_to, allParticipants);
+              const user = findBestUserMatch(action.data.assigned_to, allUsers);
               
-              if (participant) {
-                // Mettre à jour assigned_to
-                await supabase
-                  .from('todos')
-                  .update({ assigned_to: participant.id })
-                  .eq('id', newTodo.id);
-                
-                // Créer relation todo_participants
-                await supabase.from('todo_participants').insert({
+              if (user) {
+                // Créer relation todo_users
+                await supabase.from('todo_users').insert({
                   todo_id: newTodo.id,
-                  participant_id: participant.id
+                  user_id: user.id
                 });
                 
-                console.log('[TODO-AGENT] ✅ Participant assigné:', participant.name);
+                console.log('[TODO-AGENT] ✅ Utilisateur assigné:', user.name);
               } else {
-                console.log('[TODO-AGENT] ⚠️ Participant non trouvé:', action.data.assigned_to);
+                console.log('[TODO-AGENT] ⚠️ Utilisateur non trouvé:', action.data.assigned_to);
               }
             }
             
@@ -278,7 +271,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
             
           case 'delete_todo':
             // Supprimer d'abord les assignations
-            await supabase.from('todo_participants').delete().eq('todo_id', action.data.id);
+            await supabase.from('todo_users').delete().eq('todo_id', action.data.id);
             await supabase.from('todo_ai_recommendations').delete().eq('todo_id', action.data.id);
             await supabase.from('todo_comments').delete().eq('todo_id', action.data.id);
             

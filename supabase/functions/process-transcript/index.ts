@@ -47,19 +47,19 @@ serve(async (req) => {
     const meetingData = await getMeetingData(supabaseClient, meetingId);
     console.log(`✅ [PROCESS-TRANSCRIPT] Meeting data fetched:`, { title: meetingData.title, created_at: meetingData.created_at });
 
-    // Récupérer TOUS les participants de la base de données
-    console.log(`👥 [PROCESS-TRANSCRIPT] Fetching all participants from database...`);
-    const { data: allParticipants, error: participantsError } = await supabaseClient
-      .from('participants')
+    // Récupérer TOUS les utilisateurs de la base de données
+    console.log(`👥 [PROCESS-TRANSCRIPT] Fetching all users from database...`);
+    const { data: allUsers, error: usersError } = await supabaseClient
+      .from('users')
       .select('*')
       .order('name');
 
-    if (participantsError) {
-      console.error('❌ [PROCESS-TRANSCRIPT] Error fetching all participants:', participantsError);
-      throw participantsError;
+    if (usersError) {
+      console.error('❌ [PROCESS-TRANSCRIPT] Error fetching all users:', usersError);
+      throw usersError;
     }
 
-    console.log(`👥 [PROCESS-TRANSCRIPT] Total participants disponibles dans la base: ${allParticipants?.length || 0}`);
+    console.log(`👥 [PROCESS-TRANSCRIPT] Total users disponibles dans la base: ${allUsers?.length || 0}`);
 
     const participantNames = meetingParticipants?.map(p => p.name).join(', ') || '';
 
@@ -94,7 +94,7 @@ serve(async (req) => {
         (async () => {
           console.log('📋 [PARALLEL] TRAITEMENT UNIFIÉ todos + recommandations avec gpt-4.1...');
           const startTime = Date.now();
-          const unifiedResult = await processTasksWithRecommendations(cleanedTranscript, meetingData, allParticipants);
+          const unifiedResult = await processTasksWithRecommendations(cleanedTranscript, meetingData, allUsers);
           console.log(`✅ [PARALLEL] Traitement unifié terminé (${Date.now() - startTime}ms)`);
           return unifiedResult;
         })(),
