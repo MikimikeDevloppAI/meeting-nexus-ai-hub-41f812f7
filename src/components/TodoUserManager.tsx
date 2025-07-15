@@ -209,20 +209,6 @@ export const TodoUserManager = ({
           </div>
         )}
         
-        {availableUsersForSelection.length > 0 && (
-          <Select onValueChange={addSingleUser} disabled={isLoading}>
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="+" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableUsersForSelection.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
     );
   }
