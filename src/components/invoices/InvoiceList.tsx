@@ -387,6 +387,23 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     return organized;
   }, [validatedInvoices]);
 
+  // Calculer les totaux par compte
+  const calculateTotals = (invoicesList: Invoice[]) => {
+    const communTotal = invoicesList
+      .filter(inv => inv.compte === 'Commun')
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
+    
+    const davidTotal = invoicesList
+      .filter(inv => inv.compte === 'David Tabibian')
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
+    
+    return { communTotal, davidTotal };
+  };
+
+  const formatAmount = (amount: number): string => {
+    return `${Math.round(amount).toLocaleString('fr-CH')} CHF`;
+  };
+
   const handleValidationComplete = () => {
     refetch();
   };
@@ -565,12 +582,29 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         {/* Section: Factures à valider */}
         {invoicesToValidate.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <AlertCircle className="h-5 w-5 text-orange-600" />
               <h2 className="text-lg font-semibold text-orange-600">À valider</h2>
               <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
                 {invoicesToValidate.length} facture(s)
               </Badge>
+              {(() => {
+                const { communTotal, davidTotal } = calculateTotals(invoicesToValidate);
+                return (
+                  <>
+                    {communTotal > 0 && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        Commun: {formatAmount(communTotal)}
+                      </Badge>
+                    )}
+                    {davidTotal > 0 && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        David: {formatAmount(davidTotal)}
+                      </Badge>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             
             <div className="space-y-4">
@@ -582,12 +616,29 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         {/* Section: Factures validées avec organisation par date */}
         {validatedInvoices.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <FileText className="h-5 w-5" />
               <h2 className="text-lg font-semibold">Factures validées</h2>
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                 {validatedInvoices.length} facture(s)
               </Badge>
+              {(() => {
+                const { communTotal, davidTotal } = calculateTotals(validatedInvoices);
+                return (
+                  <>
+                    {communTotal > 0 && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        Commun: {formatAmount(communTotal)}
+                      </Badge>
+                    )}
+                    {davidTotal > 0 && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        David: {formatAmount(davidTotal)}
+                      </Badge>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             
             <Accordion type="multiple" className="w-full space-y-4">
