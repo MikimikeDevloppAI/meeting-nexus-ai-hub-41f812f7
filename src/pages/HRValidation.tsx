@@ -392,19 +392,6 @@ export default function HRValidation() {
         </Button>
       </div>
 
-      {/* Sélecteur d'année */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-medium">Année d'analyse :</label>
-        <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="2024">2024</SelectItem>
-            <SelectItem value="2025">2025</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
@@ -476,6 +463,20 @@ export default function HRValidation() {
               </Card>
             ))
           )}
+
+          {/* Sélecteur d'année pour les heures supplémentaires */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Année d'analyse :</label>
+            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2024">2024</SelectItem>
+                <SelectItem value="2025">2025</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Tableau mensuel des heures supplémentaires */}
           <Card>
@@ -608,6 +609,20 @@ export default function HRValidation() {
               </Card>
             ))
           )}
+
+          {/* Sélecteur d'année pour les vacances */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Année d'analyse :</label>
+            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2024">2024</SelectItem>
+                <SelectItem value="2025">2025</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Décompte des vacances par utilisateur */}
           <Card>
