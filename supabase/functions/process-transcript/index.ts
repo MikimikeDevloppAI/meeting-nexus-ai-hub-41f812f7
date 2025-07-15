@@ -47,21 +47,25 @@ serve(async (req) => {
     const meetingData = await getMeetingData(supabaseClient, meetingId);
     console.log(`✅ [PROCESS-TRANSCRIPT] Meeting data fetched:`, { title: meetingData.title, created_at: meetingData.created_at });
 
-    // Récupérer TOUS les utilisateurs de la base de données
-    console.log(`👥 [PROCESS-TRANSCRIPT] Fetching all users from database...`);
-    const { data: allUsers, error: usersError } = await supabaseClient
-      .from('users')
-      .select('*')
-      .order('name');
+    // Récupérer UNIQUEMENT les utilisateurs participants à cette réunion
+    console.log(`👥 [PROCESS-TRANSCRIPT] Fetching meeting participants from database...`);
+    const { data: meetingUsers, error: meetingUsersError } = await supabaseClient
+      .from('meeting_users')
+      .select(`
+        user_id,
+        users(id, name, email)
+      `)
+      .eq('meeting_id', meetingId);
 
-    if (usersError) {
-      console.error('❌ [PROCESS-TRANSCRIPT] Error fetching all users:', usersError);
-      throw usersError;
+    if (meetingUsersError) {
+      console.error('❌ [PROCESS-TRANSCRIPT] Error fetching meeting users:', meetingUsersError);
+      throw meetingUsersError;
     }
 
-    console.log(`👥 [PROCESS-TRANSCRIPT] Total users disponibles dans la base: ${allUsers?.length || 0}`);
+    const actualParticipants = meetingUsers?.map(mu => mu.users) || [];
+    console.log(`👥 [PROCESS-TRANSCRIPT] Participants de cette réunion: ${actualParticipants?.length || 0}`);
 
-    const participantNames = meetingParticipants?.map(p => p.name).join(', ') || '';
+    const participantNames = actualParticipants?.map(p => p.name).join(', ') || '';
 
     // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry et 16384 tokens
     const cleaningStartTime = Date.now();
@@ -94,7 +98,7 @@ serve(async (req) => {
         (async () => {
           console.log('📋 [PARALLEL] TRAITEMENT UNIFIÉ todos + recommandations avec gpt-4.1...');
           const startTime = Date.now();
-          const unifiedResult = await processTasksWithRecommendations(cleanedTranscript, meetingData, allUsers);
+          const unifiedResult = await processTasksWithRecommendations(cleanedTranscript, meetingData, actualParticipants);
           console.log(`✅ [PARALLEL] Traitement unifié terminé (${Date.now() - startTime}ms)`);
           return unifiedResult;
         })(),
