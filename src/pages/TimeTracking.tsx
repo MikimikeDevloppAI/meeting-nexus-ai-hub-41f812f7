@@ -126,16 +126,31 @@ export default function TimeTracking() {
 
   const fetchVacations = async () => {
     try {
-      const { data, error } = await supabase
+      // D'abord récupérer les vacances sans le join
+      const { data: vacationsData, error: vacationsError } = await supabase
         .from('vacations')
-        .select(`
-          *,
-          users!vacations_user_id_fkey(name, email)
-        `)
+        .select('*')
         .order('start_date', { ascending: false });
 
-      if (error) throw error;
-      setVacations(data || []);
+      if (vacationsError) throw vacationsError;
+
+      // Ensuite récupérer les infos utilisateurs séparément
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, email');
+
+      if (usersError) throw usersError;
+
+      // Combiner les données
+      const vacationsWithUsers = (vacationsData || []).map(vacation => {
+        const user = usersData?.find(u => u.id === vacation.user_id);
+        return {
+          ...vacation,
+          users: user ? { name: user.name, email: user.email } : null
+        };
+      });
+
+      setVacations(vacationsWithUsers);
     } catch (error: any) {
       console.error('Error fetching vacations:', error);
       toast({
