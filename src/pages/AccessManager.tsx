@@ -209,14 +209,18 @@ export default function AccessManager() {
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </td>
-                    {pages.map(page => (
-                      <td key={`${user.id}-${page.id}`} className="p-3 text-center">
-                        <Switch
-                          checked={hasPermission(user.id, page.id)}
-                          onCheckedChange={() => togglePermission(user.id, page.id)}
-                        />
-                      </td>
-                    ))}
+                     {pages.map(page => (
+                       <td key={`${user.id}-${page.id}`} className="p-3 text-center">
+                         <Switch
+                           checked={hasPermission(user.id, page.id)}
+                           onCheckedChange={() => {
+                             console.log(`Toggling permission for user ${user.id} on page ${page.id}`);
+                             togglePermission(user.id, page.id);
+                           }}
+                           disabled={saving}
+                         />
+                       </td>
+                     ))}
                   </tr>
                 ))}
               </tbody>
