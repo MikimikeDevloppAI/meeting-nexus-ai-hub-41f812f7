@@ -326,7 +326,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         
         return (
           <Card key={todo.id} className={`hover:shadow-sm transition-shadow ${
-            todo.priority === 'high' ? 'ring-2 ring-orange-200 bg-orange-50/30' : ''
+            todo.priority === 'high' ? 'ring-2 ring-orange-200' : ''
           }`}>
              <CardContent className="p-6">
                <div className="space-y-4">
