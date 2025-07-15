@@ -85,8 +85,8 @@ export default function TimeTracking() {
 
   const vacationForm = useForm<VacationFormData>({
     defaultValues: {
-      start_date: "",
-      end_date: "",
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: new Date().toISOString().split('T')[0],
       vacation_type: "annual",
       description: ""
     }
@@ -205,6 +205,19 @@ export default function TimeTracking() {
 
   const onSubmitVacation = async (data: VacationFormData) => {
     if (!user) return;
+
+    // Validation côté client
+    const startDate = new Date(data.start_date);
+    const endDate = new Date(data.end_date);
+    
+    if (endDate < startDate) {
+      toast({
+        title: "Erreur de dates",
+        description: "La date de fin doit être postérieure à la date de début",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const daysCount = calculateDays(data.start_date, data.end_date);
