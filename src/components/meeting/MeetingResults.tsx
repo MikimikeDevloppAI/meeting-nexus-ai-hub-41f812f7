@@ -18,13 +18,25 @@ const cleanSummaryMarkdown = (summary: string): string => {
   if (!summary) return summary;
   
   let cleaned = summary.trim();
-  
-  // Supprimer la première ligne si elle contient des backticks ou "markdown"
   const lines = cleaned.split('\n');
-  if (lines.length > 0 && (lines[0].includes('`') || lines[0].toLowerCase().includes('markdown'))) {
-    lines.shift(); // Enlever la première ligne
-    cleaned = lines.join('\n');
+  
+  // Supprimer toutes les lignes d'artefacts markdown au début
+  let startIndex = 0;
+  while (startIndex < lines.length) {
+    const line = lines[startIndex].trim();
+    
+    // Si la ligne contient des backticks, "markdown", ou est vide, on la supprime
+    if (line === '' || 
+        line.includes('`') || 
+        line.toLowerCase().includes('markdown')) {
+      startIndex++;
+    } else {
+      break; // On a trouvé la première ligne utile
+    }
   }
+  
+  // Reconstituer le texte à partir de la première ligne utile
+  cleaned = lines.slice(startIndex).join('\n');
   
   // Supprimer les balises de fermeture à la fin
   cleaned = cleaned.replace(/\s*`{3,4}\s*$/i, '');
