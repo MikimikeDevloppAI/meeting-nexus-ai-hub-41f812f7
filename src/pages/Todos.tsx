@@ -12,6 +12,8 @@ import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationCo
 import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
 import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
 import { TodoPriorityButton } from "@/components/TodoPriorityButton";
+import { TodoSubtasks } from "@/components/TodoSubtasks";
+import { TodoAttachments } from "@/components/TodoAttachments";
 import { Todo } from "@/types/meeting";
 import {
   Dialog,
@@ -412,19 +414,34 @@ export default function Todos() {
               }`}>
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {/* Task header with priority, complete and delete buttons */}
-                    <div className="flex justify-between items-start">
-                      <div className="text-lg flex-grow mr-2">
-                        <EditableContent
-                          content={todo.description}
-                          onSave={(newContent) => handleTodoSave(todo.id, newContent)}
-                          type="todo"
-                          id={todo.id}
-                          isEditing={editingTodoId === todo.id}
-                          onStartEdit={() => setEditingTodoId(todo.id)}
-                          onStopEdit={() => setEditingTodoId(null)}
-                        />
+                    {/* Status, priority, and participants header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getStatusBadge(todo.status)}
+                        {todo.meetings?.[0] && (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {todo.meetings[0].title}
+                          </Badge>
+                        )}
+                        <div className="text-xs text-gray-600 flex items-center gap-2">
+                          <TodoParticipantManager
+                            todoId={todo.id}
+                            currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
+                            onParticipantsUpdate={fetchTodos}
+                            compact={true}
+                          />
+                          <Button 
+                            onClick={() => openParticipantManager(todo.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
+                      
                       <div className="flex items-center gap-2 shrink-0">
                         <TodoPriorityButton
                           todoId={todo.id}
@@ -454,34 +471,24 @@ export default function Todos() {
                         </Button>
                       </div>
                     </div>
-                    
-                    {/* Status, meeting and participants */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {getStatusBadge(todo.status)}
-                        {todo.meetings?.[0] && (
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {todo.meetings[0].title}
-                          </Badge>
-                        )}
-                        <div className="text-xs text-gray-600 flex items-center gap-2">
-                          <TodoParticipantManager
-                            todoId={todo.id}
-                            currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                            onParticipantsUpdate={fetchTodos}
-                            compact={true}
-                          />
-                          <Button 
-                            onClick={() => openParticipantManager(todo.id)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-800 rounded-full flex items-center justify-center"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+
+                    {/* Task description */}
+                    <div className="border-l-4 border-gray-200 pl-4">
+                      <EditableContent
+                        content={todo.description}
+                        onSave={(newContent) => handleTodoSave(todo.id, newContent)}
+                        type="todo"
+                        id={todo.id}
+                        isEditing={editingTodoId === todo.id}
+                        onStartEdit={() => setEditingTodoId(todo.id)}
+                        onStopEdit={() => setEditingTodoId(null)}
+                      />
+                    </div>
+
+                    {/* Subtasks and Attachments */}
+                    <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                      <TodoSubtasks todoId={todo.id} />
+                      <TodoAttachments todoId={todo.id} />
                     </div>
 
                     {/* AI Tools - Style professionnel sans background coloré */}
