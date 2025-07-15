@@ -150,7 +150,7 @@ export const SummaryChat = ({ meetingId, onSummaryUpdate }: SummaryChatProps) =>
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col gap-3 p-4">
+      <CardContent className="flex-1 flex flex-col gap-2 p-3">
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-3">
             {messages.length === 0 && (
