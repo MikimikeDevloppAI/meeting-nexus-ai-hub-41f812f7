@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { VacationCalendar } from "@/components/VacationCalendar";
 import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -72,6 +73,7 @@ export default function TimeTracking() {
   const [loading, setLoading] = useState(true);
   const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
   const [showVacationDialog, setShowVacationDialog] = useState(false);
+  const [showVacationCalendar, setShowVacationCalendar] = useState(false);
   const [editingOvertime, setEditingOvertime] = useState<OvertimeHour | null>(null);
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
 
@@ -128,7 +130,7 @@ export default function TimeTracking() {
         .from('vacations')
         .select(`
           *,
-          users(name, email)
+          users!vacations_user_id_fkey(name, email)
         `)
         .order('start_date', { ascending: false });
 
@@ -260,6 +262,7 @@ export default function TimeTracking() {
 
       fetchVacations();
       setShowVacationDialog(false);
+      setShowVacationCalendar(false);
       setEditingVacation(null);
       vacationForm.reset();
     } catch (error: any) {
@@ -330,13 +333,7 @@ export default function TimeTracking() {
 
   const editVacation = (vacation: Vacation) => {
     setEditingVacation(vacation);
-    vacationForm.reset({
-      start_date: vacation.start_date,
-      end_date: vacation.end_date,
-      vacation_type: vacation.vacation_type,
-      description: vacation.description || ""
-    });
-    setShowVacationDialog(true);
+    setShowVacationCalendar(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -479,7 +476,7 @@ export default function TimeTracking() {
         <TabsContent value="vacations" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Vacances de l'équipe</h2>
-            <Button onClick={() => setShowVacationDialog(true)}>
+            <Button onClick={() => setShowVacationCalendar(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Demander des vacances
             </Button>
@@ -683,6 +680,30 @@ export default function TimeTracking() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Calendrier interactif pour les vacances */}
+      <Dialog open={showVacationCalendar} onOpenChange={setShowVacationCalendar}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingVacation ? "Modifier les vacances" : "Demander des vacances"}
+            </DialogTitle>
+          </DialogHeader>
+          <VacationCalendar
+            onSubmit={onSubmitVacation}
+            onCancel={() => {
+              setShowVacationCalendar(false);
+              setEditingVacation(null);
+            }}
+            editingData={editingVacation ? {
+              start_date: editingVacation.start_date,
+              end_date: editingVacation.end_date,
+              vacation_type: editingVacation.vacation_type,
+              description: editingVacation.description || ""
+            } : undefined}
+          />
         </DialogContent>
       </Dialog>
     </div>
