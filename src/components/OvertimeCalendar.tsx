@@ -71,7 +71,12 @@ export function OvertimeCalendar({
     const existingOvertime = getOvertimeForDate(date);
     
     if (existingOvertime) {
-      // Modifier les heures existantes
+      // Vérifier si les heures sont validées (ne pas permettre la modification)
+      if (existingOvertime.status === 'approved') {
+        return; // Ne pas ouvrir le dialog pour les heures validées
+      }
+      
+      // Modifier les heures existantes (seulement si pending ou rejected)
       setEditingOvertime(existingOvertime);
       const totalMinutes = existingOvertime.hours * 60;
       const hrs = Math.floor(totalMinutes / 60);
@@ -270,13 +275,15 @@ export function OvertimeCalendar({
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDateClick(parseISO(overtime.date))}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      {overtime.status !== 'approved' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDateClick(parseISO(overtime.date))}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
                       {overtime.status === 'pending' && (
                         <Button
                           variant="ghost"
