@@ -13,7 +13,7 @@ import {
   SidebarHeader,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings } from "lucide-react";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings, Clock, UserCheck } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,18 @@ const menuItems = [
     url: "/invoices",
     icon: Receipt,
     permission: "invoices",
+  },
+  {
+    title: "Gestion du temps",
+    url: "/time-tracking",
+    icon: Clock,
+    permission: "time-tracking",
+  },
+  {
+    title: "Validation RH",
+    url: "/hr-validation",
+    icon: UserCheck,
+    permission: "hr-validation",
   },
   {
     title: "Gestion Utilisateurs",

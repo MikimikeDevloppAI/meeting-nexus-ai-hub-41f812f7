@@ -25,6 +25,8 @@ import Invoices from "./pages/Invoices";
 import UserManagement from "./pages/UserManagement";
 import PatientLetters from "./pages/PatientLetters";
 import IOLCalculator from "./pages/IOLCalculator";
+import TimeTracking from "./pages/TimeTracking";
+import HRValidation from "./pages/HRValidation";
 
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 
@@ -102,6 +104,16 @@ const App = () => (
               <Route path="patient-letters" element={
                 <PermissionProtectedRoute requiredPermission="patient-letters">
                   <PatientLetters />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="time-tracking" element={
+                <PermissionProtectedRoute requiredPermission="time-tracking">
+                  <TimeTracking />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="hr-validation" element={
+                <PermissionProtectedRoute requiredPermission="hr-validation">
+                  <HRValidation />
                 </PermissionProtectedRoute>
               } />
               <Route path="profile" element={

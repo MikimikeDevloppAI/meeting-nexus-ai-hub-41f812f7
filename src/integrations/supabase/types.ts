@@ -960,6 +960,22 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      get_all_overtime_hours: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          user_id: string
+          date: string
+          hours: number
+          description: string
+          status: string
+          approved_by: string
+          approved_at: string
+          created_at: string
+          updated_at: string
+          users: Json
+        }[]
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
