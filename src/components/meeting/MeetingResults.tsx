@@ -75,7 +75,7 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
         {summary ? (
           <div className="bg-blue-50 p-4 rounded-lg w-full overflow-hidden">
             <FormattedText 
-              content={cleanedSummary.split('\n').slice(1).join('\n')} 
+              content={cleanedSummary.split('\n').slice(2).join('\n')} 
               className="text-gray-700 w-full min-w-0"
             />
           </div>
