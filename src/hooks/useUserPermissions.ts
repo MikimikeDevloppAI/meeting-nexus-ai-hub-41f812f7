@@ -18,24 +18,6 @@ export const useUserPermissions = () => {
     return permission?.granted ?? false;
   };
 
-  const checkIsAdmin = async () => {
-    if (!user?.email) {
-      console.log('No user email found');
-      return false;
-    }
-    
-    console.log('Checking admin status for:', user.email);
-    
-    const { data } = await supabase
-      .from('admin_users')
-      .select('user_email')
-      .eq('user_email', user.email)
-      .single();
-    
-    console.log('Admin check result:', data);
-    return !!data;
-  };
-
   const fetchPermissions = async () => {
     if (!user) {
       setPermissions([]);
@@ -45,10 +27,6 @@ export const useUserPermissions = () => {
     }
 
     try {
-      // Vérifier si l'utilisateur est admin
-      const adminStatus = await checkIsAdmin();
-      setIsAdmin(adminStatus);
-
       // Récupérer les permissions
       const { data: permissionsData, error: permError } = await supabase
         .from('user_permissions')
@@ -59,6 +37,10 @@ export const useUserPermissions = () => {
       console.log('Permissions error:', permError);
 
       setPermissions(permissionsData || []);
+      
+      // Vérifier si l'utilisateur a la permission "users" (équivalent admin)
+      const hasUsersPermission = permissionsData?.some(p => p.page_id === 'users' && p.granted) || false;
+      setIsAdmin(hasUsersPermission);
     } catch (error) {
       console.error('Error fetching permissions:', error);
       setPermissions([]);

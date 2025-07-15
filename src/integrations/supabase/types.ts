@@ -14,24 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_users: {
-        Row: {
-          created_at: string | null
-          id: string
-          user_email: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          user_email: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          user_email?: string
-        }
-        Relationships: []
-      }
       document_embeddings: {
         Row: {
           chunk_index: number
@@ -852,10 +834,6 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
-      get_current_user_email: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
@@ -887,10 +865,6 @@ export type Database = {
       hnswhandler: {
         Args: { "": unknown }
         Returns: unknown
-      }
-      is_admin_user: {
-        Args: { user_email: string }
-        Returns: boolean
       }
       ivfflat_bit_support: {
         Args: { "": unknown }
@@ -956,6 +930,10 @@ export type Database = {
           p_uploaded_document_id?: string
         }
         Returns: string
+      }
+      user_has_permission: {
+        Args: { user_id_param: string; page_id_param: string }
+        Returns: boolean
       }
       vector_avg: {
         Args: { "": number[] }
