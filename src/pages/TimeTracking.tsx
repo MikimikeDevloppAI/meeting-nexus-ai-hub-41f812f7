@@ -17,7 +17,7 @@ import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle,
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { useForm } from "react-hook-form";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -584,6 +584,44 @@ export default function TimeTracking() {
               Demander des vacances
             </Button>
           </div>
+
+          {/* Décompte des vacances pour l'année en cours */}
+          {(() => {
+            const currentYear = new Date().getFullYear();
+            const yearStart = startOfYear(new Date(currentYear, 0, 1));
+            const yearEnd = endOfYear(new Date(currentYear, 11, 31));
+            
+            const userVacations = vacations.filter(vacation => 
+              vacation.user_id === user?.id && 
+              vacation.status === 'approved' &&
+              isWithinInterval(parseISO(vacation.start_date), { start: yearStart, end: yearEnd })
+            );
+            
+            const totalDays = userVacations.reduce((sum, vacation) => sum + vacation.days_count, 0);
+            
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Décompte des vacances {currentYear}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Jours de vacances approuvés depuis le début de l'année
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl font-bold text-primary">{totalDays}</div>
+                    <div className="text-sm text-muted-foreground">
+                      jours approuvés<br />
+                      sur {userVacations.length} demande{userVacations.length > 1 ? 's' : ''}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           <div className="grid gap-4">
             {vacations.filter(vacation => vacation.user_id === user?.id).length === 0 ? (
