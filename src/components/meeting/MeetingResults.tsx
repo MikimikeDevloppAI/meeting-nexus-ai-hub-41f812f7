@@ -15,20 +15,10 @@ interface MeetingResultsProps {
 
 // Fonction pour nettoyer le markdown superflu au début du résumé
 const cleanSummaryMarkdown = (summary: string): string => {
-  if (!summary) return summary;
+  if (!summary || summary.length <= 14) return summary;
   
-  // Solution robuste : supprimer tous les artefacts markdown avec une seule regex
-  let cleaned = summary
-    // Supprimer les blocs de code markdown au début (avec ou sans "markdown")
-    .replace(/^[\s\n]*`{3,}[\s]*(?:markdown[\s]*)?/gi, '')
-    // Supprimer les blocs de code markdown à la fin
-    .replace(/`{3,}[\s]*$/gi, '')
-    // Supprimer les lignes vides au début
-    .replace(/^\s*\n+/, '')
-    // Nettoyer les espaces en fin
-    .trim();
-  
-  return cleaned;
+  // Solution simple : supprimer les 11 premiers caractères et les 3 derniers
+  return summary.slice(11, -3).trim();
 };
 
 export const MeetingResults = ({ transcript, summary, tasks, meetingId }: MeetingResultsProps) => {
