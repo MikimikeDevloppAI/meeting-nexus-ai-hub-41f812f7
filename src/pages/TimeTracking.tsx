@@ -550,7 +550,7 @@ export default function TimeTracking() {
 
         <TabsContent value="vacations" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Vacances de l'équipe</h2>
+            <h2 className="text-lg font-semibold">Mes vacances</h2>
             <Button onClick={() => setShowVacationCalendar(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Demander des vacances
@@ -558,14 +558,14 @@ export default function TimeTracking() {
           </div>
 
           <div className="grid gap-4">
-            {vacations.length === 0 ? (
+            {vacations.filter(vacation => vacation.user_id === user?.id).length === 0 ? (
               <Card>
                 <CardContent className="text-center py-8">
-                  <p className="text-gray-500">Aucune vacance enregistrée</p>
+                  <p className="text-gray-500">Aucune demande de vacances trouvée</p>
                 </CardContent>
               </Card>
             ) : (
-              vacations.map((vacation) => (
+              vacations.filter(vacation => vacation.user_id === user?.id).map((vacation) => (
                 <Card key={vacation.id}>
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start">
@@ -778,7 +778,7 @@ export default function TimeTracking() {
               vacation_type: editingVacation.vacation_type,
               description: editingVacation.description || ""
             } : undefined}
-            existingVacations={vacations}
+            existingVacations={vacations.filter(vacation => vacation.user_id === user?.id)}
           />
         </DialogContent>
       </Dialog>
