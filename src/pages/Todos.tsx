@@ -96,40 +96,54 @@ export default function Todos() {
 
   const fetchTodos = async () => {
     try {
-      // Requête mise à jour pour utiliser todo_users au lieu de todo_participants
+      console.log('🔍 Fetching todos from main todos page...');
+      
+      // Requête mise à jour pour utiliser la nouvelle structure avec todo_meetings
       const { data, error } = await supabase
         .from("todos")
         .select(`
           *,
-          meetings(title),
           todo_users(
             user_id,
             users(id, name, email)
+          ),
+          todo_meetings(
+            meeting_id,
+            meetings(title)
           )
         `)
         .order("priority", { ascending: false }) // Tri par priorité d'abord
         .order("created_at", { ascending: false }); // Puis par date
 
       if (error) {
-        console.error("Error fetching todos:", error);
+        console.error("❌ Error fetching todos:", error);
         throw error;
       }
 
+      console.log('📋 Raw todos data from main page:', data);
+
       // Convert any 'pending' status to 'confirmed' and filter to only 'confirmed' and 'completed'
       const updatedTodos = data?.map(todo => {
+        // Adapter les meetings pour la compatibilité
+        const adaptedTodo = {
+          ...todo,
+          meetings: todo.todo_meetings?.map((tm: any) => tm.meetings).filter(Boolean) || []
+        };
+        
         if (todo.status === 'pending') {
-          return { ...todo, status: 'confirmed' };
+          return { ...adaptedTodo, status: 'confirmed' };
         }
-        return todo;
+        return adaptedTodo;
       }).filter(todo => todo.status === 'confirmed' || todo.status === 'completed') || [];
 
-      console.log("Fetched todos:", updatedTodos);
+      console.log("📊 Processed todos:", updatedTodos);
+      console.log(`📈 Total todos count: ${updatedTodos.length}`);
       setTodos(updatedTodos as TodoWithPriority[]);
       
       // Check for existing deep search results
       checkDeepSearchResults(updatedTodos.map(todo => todo.id));
     } catch (error: any) {
-      console.error("Error:", error);
+      console.error("❌ Error in fetchTodos:", error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les tâches",
