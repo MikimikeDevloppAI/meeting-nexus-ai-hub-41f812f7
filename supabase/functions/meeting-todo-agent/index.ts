@@ -161,12 +161,23 @@ Réponds UNIQUEMENT en JSON avec cette structure :
   "actions": [
     {
       "type": "create_todo | update_todo | delete_todo | assign_todo",
-      "data": {},
+      "data": {
+        "description": "description de la tâche",
+        "assigned_to": "nom d'utilisateur exact ou null",
+        "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
+        "id": "UUID pour update/delete"
+      },
       "explanation": "explication détaillée"
     }
   ],
   "summary": "résumé des actions à effectuer"
-}`;
+}
+
+**RÈGLES POUR LES DATES D'ÉCHÉANCE:**
+- Si une date ou délai est mentionné ("dans 2 semaines", "avant le 15", "urgent"), calcule la date d'échéance correspondante
+- Utilise le format ISO : YYYY-MM-DDTHH:MM:SSZ pour les dates avec heure, ou YYYY-MM-DD pour les dates simples
+- Date de référence : ${new Date().toISOString().split('T')[0]} (aujourd'hui)
+- Si aucune échéance n'est mentionnée, laisse due_date à null`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -220,7 +231,8 @@ Réponds UNIQUEMENT en JSON avec cette structure :
               .insert({
                 meeting_id: meetingId,
                 description: action.data.description,
-                status: 'confirmed'
+                status: 'confirmed',
+                due_date: action.data.due_date || null
               })
               .select()
               .single();
@@ -256,7 +268,8 @@ Réponds UNIQUEMENT en JSON avec cette structure :
               .from('todos')
               .update({ 
                 description: action.data.description,
-                status: action.data.status || 'confirmed'
+                status: action.data.status || 'confirmed',
+                due_date: action.data.due_date || null
               })
               .eq('id', action.data.id);
             

@@ -138,12 +138,24 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       "existing_todo_id": "UUID existant si action update/link",
       "description": "Action concise et claire avec contexte ",
       "assigned_to": ["Nom exact de l'utilisateur tel qu'il apparaît dans la liste"] ou null,
+      "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
       "hasRecommendation": true/false,
       "recommendation": "Recommandation détaillée ou 'Aucune recommandation nécessaire.'",
       "emailDraft": "Email COMPLET (optionnel)" ou null
     }
   ]
-}`;
+}
+
+**RÈGLES POUR LES DATES D'ÉCHÉANCE:**
+- Si une date ou délai est mentionné dans la discussion ("dans 2 semaines", "avant le 15", "d'ici vendredi", "urgent"), calcule la date d'échéance correspondante
+- Utilise le format ISO standard : YYYY-MM-DDTHH:MM:SSZ pour les dates avec heure, ou YYYY-MM-DD pour les dates simples
+- Date de référence : ${new Date().toISOString().split('T')[0]} (aujourd'hui)
+- Si aucune échéance n'est mentionnée, laisse due_date à null
+- Exemples de calculs :
+  * "dans 2 semaines" → ajouter 14 jours à aujourd'hui
+  * "avant vendredi" → calculer le prochain vendredi
+  * "fin du mois" → dernier jour du mois actuel
+  * "urgent" → dans 2-3 jours selon le contexte`;
 
     console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-4.1`);
     
