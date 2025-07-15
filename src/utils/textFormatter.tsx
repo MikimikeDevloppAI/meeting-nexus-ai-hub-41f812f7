@@ -43,8 +43,8 @@ export const FormattedText = ({ content, className = "" }: FormattedTextProps) =
       const text = trimmedLine.replace(/^[-*+]\s+/, '');
       return (
         <div key={index} className="flex items-start gap-2 mb-1">
-          <span className="text-gray-600 mt-1">•</span>
-          <span className="break-words overflow-wrap-break-word hyphens-auto flex-1 text-sm">
+          <span className="text-gray-600 mt-0.5 text-sm leading-none">•</span>
+          <span className="break-words overflow-wrap-break-word hyphens-auto flex-1 text-sm leading-relaxed">
             {formatInlineText(text)}
           </span>
         </div>
@@ -57,8 +57,8 @@ export const FormattedText = ({ content, className = "" }: FormattedTextProps) =
       const text = trimmedLine.replace(/^\d+\.\s+/, '');
       return (
         <div key={index} className="flex items-start gap-2 mb-1">
-          <span className="text-gray-600 mt-1">{number}.</span>
-          <span className="break-words overflow-wrap-break-word hyphens-auto flex-1 text-sm">
+          <span className="text-gray-600 mt-0.5 text-sm leading-none">{number}.</span>
+          <span className="break-words overflow-wrap-break-word hyphens-auto flex-1 text-sm leading-relaxed">
             {formatInlineText(text)}
           </span>
         </div>
