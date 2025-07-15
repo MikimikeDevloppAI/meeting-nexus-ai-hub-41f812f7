@@ -645,9 +645,6 @@ export default function HRValidation() {
                       <p className="text-sm text-gray-600">{user.email}</p>
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-2xl font-bold">{summary.totalDays}</span>
-                        <span className="text-sm text-gray-500">
-                          {summary.count} période{summary.count > 1 ? 's' : ''}
-                        </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">jours de vacances</p>
                     </div>
