@@ -17,30 +17,17 @@ interface MeetingResultsProps {
 const cleanSummaryMarkdown = (summary: string): string => {
   if (!summary) return summary;
   
-  // Supprimer toutes les variations de balises de code markdown au début
-  let cleaned = summary;
+  let cleaned = summary.trim();
   
-  // Supprimer les balises de code avec 3 ou 4 backticks + markdown (case insensitive)
-  cleaned = cleaned.replace(/^`{3,4}\s*markdown\s*/i, '');
-  cleaned = cleaned.replace(/^`{3,4}\s*/i, '');
+  // Supprimer la première ligne si elle contient des backticks ou "markdown"
+  const lines = cleaned.split('\n');
+  if (lines.length > 0 && (lines[0].includes('`') || lines[0].toLowerCase().includes('markdown'))) {
+    lines.shift(); // Enlever la première ligne
+    cleaned = lines.join('\n');
+  }
   
   // Supprimer les balises de fermeture à la fin
   cleaned = cleaned.replace(/\s*`{3,4}\s*$/i, '');
-  
-  // Supprimer les titres markdown au début (# ## ### etc.)
-  cleaned = cleaned.replace(/^#+\s+.*$/gm, '');
-  
-  // Supprimer le mot "markdown" au début (case insensitive)
-  cleaned = cleaned.replace(/^\s*markdown\s*/i, '');
-  
-  // Supprimer les lignes vides au début
-  cleaned = cleaned.replace(/^\s*\n+/, '');
-  
-  // Supprimer les marqueurs de liste au début s'ils sont isolés
-  cleaned = cleaned.replace(/^[-*+]\s*$/gm, '');
-  
-  // Nettoyer les espaces multiples
-  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
   
   return cleaned.trim();
 };
