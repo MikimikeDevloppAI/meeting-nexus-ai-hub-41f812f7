@@ -87,6 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Vérifier la session actuelle
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
+        console.log("Session data:", session);
+        console.log("Session error:", sessionError);
+        console.log("User from session:", session?.user);
+        
         if (sessionError) {
           console.error("Erreur de session:", sessionError);
           if (mounted) {
