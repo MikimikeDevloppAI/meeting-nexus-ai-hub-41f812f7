@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Paperclip, Download, Trash2, FileText, Image, File } from 'lucide-react';
+import { Paperclip, Download, Trash2, FileText, Image, File, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Attachment {
   id: string;
@@ -22,6 +28,8 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -193,6 +201,35 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
+  const previewFile = async (attachment: Attachment) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('todo-attachments')
+        .download(attachment.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      setPreviewUrl(url);
+      setPreviewAttachment(attachment);
+    } catch (error) {
+      console.error('Error previewing file:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de prévisualiser le fichier',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const closePreview = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    setPreviewAttachment(null);
+  };
+
   if (loading) {
     return <div className="text-sm text-muted-foreground">Chargement des pièces jointes...</div>;
   }
@@ -248,8 +285,18 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => previewFile(attachment)}
+                  className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+                  title="Prévisualiser"
+                >
+                  <Eye className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => downloadFile(attachment)}
                   className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600"
+                  title="Télécharger"
                 >
                   <Download className="h-3 w-3" />
                 </Button>
@@ -258,6 +305,7 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
                   size="sm"
                   onClick={() => deleteAttachment(attachment)}
                   className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                  title="Supprimer"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -266,6 +314,61 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
           ))}
         </div>
       )}
+
+      {/* Dialog de prévisualisation */}
+      <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && closePreview()}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="truncate">
+              {previewAttachment?.file_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex items-center justify-center p-4 max-h-[70vh] overflow-auto">
+            {previewUrl && previewAttachment && (
+              <div className="w-full h-full">
+                {previewAttachment.content_type?.startsWith('image/') ? (
+                  <img 
+                    src={previewUrl} 
+                    alt={previewAttachment.file_name}
+                    className="max-w-full max-h-full object-contain mx-auto"
+                  />
+                ) : previewAttachment.content_type?.includes('pdf') ? (
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-[60vh] border-0"
+                    title={previewAttachment.file_name}
+                  />
+                ) : previewAttachment.content_type?.startsWith('text/') ? (
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-[60vh] border border-gray-200 rounded"
+                    title={previewAttachment.file_name}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <File className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      Prévisualisation non disponible pour ce type de fichier
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Type: {previewAttachment.content_type || 'Inconnu'}
+                    </p>
+                    <Button
+                      onClick={() => downloadFile(previewAttachment)}
+                      className="mt-4"
+                      variant="outline"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Télécharger
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

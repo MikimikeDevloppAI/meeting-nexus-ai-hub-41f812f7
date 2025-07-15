@@ -485,10 +485,10 @@ export default function Todos() {
                       />
                     </div>
 
-                    {/* Subtasks and Attachments */}
-                    <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-                      <TodoSubtasks todoId={todo.id} />
+                    {/* Attachments and Subtasks */}
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
                       <TodoAttachments todoId={todo.id} />
+                      <TodoSubtasks todoId={todo.id} />
                     </div>
 
                     {/* AI Tools - Style professionnel sans background coloré */}
