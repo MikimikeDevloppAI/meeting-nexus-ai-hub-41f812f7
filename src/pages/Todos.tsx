@@ -29,10 +29,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface NewTodoForm {
   description: string;
-  participant_id?: string;
+  user_id?: string;
 }
 
-interface Participant {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -40,9 +40,17 @@ interface Participant {
 
 type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 
-// Étendre l'interface Todo pour inclure la priorité
+// Étendre l'interface Todo pour inclure la priorité et les utilisateurs
 interface TodoWithPriority extends Todo {
   priority?: 'high' | 'normal' | 'low';
+  todo_users?: Array<{
+    user_id: string;
+    users: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 export default function Todos() {
@@ -53,7 +61,7 @@ export default function Todos() {
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
@@ -62,40 +70,41 @@ export default function Todos() {
   const form = useForm<NewTodoForm>({
     defaultValues: {
       description: "",
-      participant_id: undefined
+      user_id: undefined
     }
   });
 
   useEffect(() => {
     fetchTodos();
-    fetchParticipants();
+    fetchUsers();
   }, []);
 
-  const fetchParticipants = async () => {
+  const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from("participants")
+        .from("users")
         .select("id, name, email")
+        .eq('approved', true)
         .order("name");
 
       if (error) throw error;
-      setParticipants(data || []);
+      setUsers(data || []);
     } catch (error: any) {
-      console.error("Error fetching participants:", error);
+      console.error("Error fetching users:", error);
     }
   };
 
   const fetchTodos = async () => {
     try {
-      // Requête corrigée : utiliser todo_participants au lieu de participants directement
+      // Requête mise à jour pour utiliser todo_users au lieu de todo_participants
       const { data, error } = await supabase
         .from("todos")
         .select(`
           *,
           meetings(title),
-          todo_participants(
-            participant_id,
-            participants(id, name, email)
+          todo_users(
+            user_id,
+            users(id, name, email)
           )
         `)
         .order("priority", { ascending: false }) // Tri par priorité d'abord
@@ -244,17 +253,17 @@ export default function Todos() {
         
       if (error) throw error;
       
-      // Si un participant est sélectionné, l'ajouter à la tâche
-      if (data.participant_id) {
-        const { error: participantError } = await supabase
-          .from("todo_participants")
+      // Si un utilisateur est sélectionné, l'ajouter à la tâche
+      if (data.user_id) {
+        const { error: userError } = await supabase
+          .from("todo_users")
           .insert({
             todo_id: newTodo.id,
-            participant_id: data.participant_id
+            user_id: data.user_id
           });
           
-        if (participantError) {
-          console.error("Error assigning participant:", participantError);
+        if (userError) {
+          console.error("Error assigning user:", userError);
           // On continue même si l'attribution échoue
         }
       }
@@ -310,7 +319,7 @@ export default function Todos() {
       const statusMatch = statusFilter === "all" || effectiveStatus === statusFilter;
       
       const participantMatch = participantFilter === "all" || 
-        todo.todo_participants?.some(tp => tp.participant_id === participantFilter);
+        todo.todo_users?.some(tu => tu.user_id === participantFilter);
       
       return statusMatch && participantMatch;
     })
@@ -376,9 +385,9 @@ export default function Todos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les participants</SelectItem>
-              {participants.map((participant) => (
-                <SelectItem key={participant.id} value={participant.id}>
-                  {participant.name}
+              {users.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -427,7 +436,7 @@ export default function Todos() {
                         <div className="text-xs text-gray-600 flex items-center gap-2">
                     <TodoUserManager
                             todoId={todo.id}
-                            currentUsers={todo.todo_participants?.map(tp => tp.participants) || []}
+                            currentUsers={todo.todo_users?.map(tu => tu.users) || []}
                             onUsersUpdate={() => {}}
                             compact={true}
                           />
@@ -574,7 +583,7 @@ export default function Todos() {
             <TodoUserManager
               todoId={currentTodoId}
               currentUsers={
-                todos.find(todo => todo.id === currentTodoId)?.todo_participants?.map(tp => tp.participants) || []
+                todos.find(todo => todo.id === currentTodoId)?.todo_users?.map(tu => tu.users) || []
               }
               onUsersUpdate={() => handleParticipantsUpdated()}
               compact={false}
@@ -606,7 +615,7 @@ export default function Todos() {
               
               <FormField
                 control={form.control}
-                name="participant_id"
+                name="user_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Participant assigné</FormLabel>
@@ -620,9 +629,9 @@ export default function Todos() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {participants.map((participant) => (
-                          <SelectItem key={participant.id} value={participant.id}>
-                            {participant.name} ({participant.email})
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
                           </SelectItem>
                         ))}
                       </SelectContent>
