@@ -217,7 +217,7 @@ export const TodoUserManager = ({
             <SelectContent>
               {availableUsersForSelection.map((user) => (
                 <SelectItem key={user.id} value={user.id}>
-                  {user.name} ({user.email})
+                  {user.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -253,7 +253,7 @@ export const TodoUserManager = ({
             <div key={user.id} className="flex items-center justify-between p-2 border rounded">
               <div>
                 <span className="font-medium">{user.name}</span>
-                <span className="text-sm text-muted-foreground ml-2">({user.email})</span>
+                <span className="text-sm text-muted-foreground ml-2"></span>
               </div>
               <Button
                 variant="ghost"
@@ -280,7 +280,7 @@ export const TodoUserManager = ({
                   onChange={() => toggleUserSelection(user.id)}
                   className="rounded"
                 />
-                <span>{user.name} ({user.email})</span>
+                <span>{user.name}</span>
               </label>
             ))}
           </div>

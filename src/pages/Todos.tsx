@@ -631,7 +631,7 @@ export default function Todos() {
                       <SelectContent>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.email})
+                            {user.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -420,47 +420,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pending_task_actions: {
-        Row: {
-          action_type: string
-          created_at: string
-          created_by: string | null
-          id: string
-          task_data: Json
-          task_id: string | null
-          validated: boolean | null
-          validation_message: string | null
-        }
-        Insert: {
-          action_type: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          task_data: Json
-          task_id?: string | null
-          validated?: boolean | null
-          validation_message?: string | null
-        }
-        Update: {
-          action_type?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          task_data?: Json
-          task_id?: string | null
-          validated?: boolean | null
-          validation_message?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pending_task_actions_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "todos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       task_deep_search_followups: {
         Row: {
           answer: string
