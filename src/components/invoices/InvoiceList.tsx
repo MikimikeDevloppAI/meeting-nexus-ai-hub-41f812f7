@@ -43,14 +43,6 @@ interface Invoice {
 
 interface InvoiceListProps {
   refreshKey: number;
-  filters?: {
-    dateFrom?: string;
-    dateTo?: string;
-    compte?: string;
-    supplier?: string;
-    year?: string;
-    month?: string;
-  };
 }
 
 // Helper function to properly decode and display supplier names
@@ -109,7 +101,7 @@ const formatSupplierName = (supplierName?: string): string => {
   }
 };
 
-export function InvoiceList({ refreshKey, filters }: InvoiceListProps) {
+export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
@@ -132,39 +124,6 @@ export function InvoiceList({ refreshKey, filters }: InvoiceListProps) {
       return data as Invoice[];
     }
   });
-
-  // Appliquer les filtres côté client
-  const filteredInvoices = invoices?.filter(invoice => {
-    if (!filters) return true;
-
-    // Filtre par date de facture
-    if (filters.dateFrom && invoice.invoice_date) {
-      const invoiceDate = new Date(invoice.invoice_date);
-      const fromDate = new Date(filters.dateFrom);
-      if (invoiceDate < fromDate) return false;
-    }
-
-    if (filters.dateTo && invoice.invoice_date) {
-      const invoiceDate = new Date(invoice.invoice_date);
-      const toDate = new Date(filters.dateTo);
-      if (invoiceDate > toDate) return false;
-    }
-
-    // Filtre par compte
-    if (filters.compte && invoice.compte !== filters.compte) {
-      return false;
-    }
-
-    // Filtre par fournisseur
-    if (filters.supplier && invoice.supplier_name) {
-      const normalizedSupplier = invoice.supplier_name.toUpperCase();
-      if (normalizedSupplier !== filters.supplier) {
-        return false;
-      }
-    }
-
-    return true;
-  }) || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -388,34 +347,10 @@ export function InvoiceList({ refreshKey, filters }: InvoiceListProps) {
     );
   }
 
-  if (filteredInvoices.length === 0 && filters && Object.values(filters).some(v => v)) {
-    return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">Aucune facture trouvée avec ces filtres</p>
-          <p className="text-sm text-gray-500 mt-2">
-            {invoices.length} facture(s) au total
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <>
-      {/* Affichage du nombre de résultats */}
-      {filters && Object.values(filters).some(v => v) && (
-        <div className="mb-4 text-sm text-gray-600">
-          <span className="font-medium">{filteredInvoices.length}</span> facture(s) trouvée(s)
-          {filteredInvoices.length !== invoices.length && (
-            <span> sur {invoices.length} au total</span>
-          )}
-        </div>
-      )}
-
       <div className="space-y-4">
-        {filteredInvoices?.map((invoice) => (
+        {invoices?.map((invoice) => (
           <Card key={invoice.id}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
