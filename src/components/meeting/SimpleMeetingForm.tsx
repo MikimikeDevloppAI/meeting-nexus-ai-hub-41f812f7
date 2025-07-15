@@ -12,7 +12,7 @@ import { AudioRecordingSection } from "./AudioRecordingSection";
 import { NewParticipantDialog } from "./NewParticipantDialog";
 import { SimpleLoadingScreen } from "./SimpleLoadingScreen";
 
-interface Participant {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -26,8 +26,8 @@ interface SimpleMeetingFormProps {
     title: string,
     audioBlob: Blob | null,
     audioFile: File | null,
-    participants: Participant[],
-    selectedParticipantIds: string[]
+    users: User[],
+    selectedUserIds: string[]
   ) => void;
 }
 
@@ -44,8 +44,8 @@ export const SimpleMeetingForm = ({
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isNewParticipantDialogOpen, setIsNewParticipantDialogOpen] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   
@@ -65,23 +65,24 @@ export const SimpleMeetingForm = ({
     const fetchParticipants = async () => {
       try {
         const { data, error } = await supabase
-          .from("participants")
+          .from("users")
           .select("*")
+          .eq('approved', true)
           .order('name', { ascending: true });
 
         if (error) throw error;
         
-        const participantsList = data || [];
-        setParticipants(participantsList);
+        const usersList = data || [];
+        setUsers(usersList);
         
-        // Automatiquement sélectionner tous les participants
-        const allParticipantIds = participantsList.map(p => p.id);
-        setSelectedParticipantIds(allParticipantIds);
-        console.log('[SimpleMeetingForm] Auto-selected participants:', allParticipantIds);
+        // Automatiquement sélectionner tous les utilisateurs
+        const allUserIds = usersList.map(u => u.id);
+        setSelectedUserIds(allUserIds);
+        console.log('[SimpleMeetingForm] Auto-selected users:', allUserIds);
       } catch (error: any) {
-        console.error("Error fetching participants:", error);
+        console.error("Error fetching users:", error);
         toast({
-          title: "Error loading participants",
+          title: "Error loading users",
           description: error.message || "Please try again later",
           variant: "destructive",
         });
@@ -91,17 +92,17 @@ export const SimpleMeetingForm = ({
     fetchParticipants();
   }, [toast]);
 
-  const toggleParticipantSelection = (id: string) => {
-    setSelectedParticipantIds(prev =>
+  const toggleUserSelection = (id: string) => {
+    setSelectedUserIds(prev =>
       prev.includes(id)
-        ? prev.filter(participantId => participantId !== id)
+        ? prev.filter(userId => userId !== id)
         : [...prev, id]
     );
   };
 
-  const handleParticipantAdded = (newParticipant: Participant) => {
-    setParticipants(prev => [...prev, newParticipant]);
-    setSelectedParticipantIds(prev => [...prev, newParticipant.id]);
+  const handleUserAdded = (newUser: User) => {
+    setUsers(prev => [...prev, newUser]);
+    setSelectedUserIds(prev => [...prev, newUser.id]);
   };
 
   const handleViewMeeting = () => {
@@ -115,7 +116,7 @@ export const SimpleMeetingForm = ({
     console.log('[SimpleMeetingForm] Form state:', { 
       title: title?.trim() || 'EMPTY', 
       hasAudio: !!(audioBlob || audioFile), 
-      participantCount: selectedParticipantIds.length,
+      participantCount: selectedUserIds.length,
       isSubmitting 
     });
     
@@ -130,11 +131,11 @@ export const SimpleMeetingForm = ({
       return;
     }
 
-    if (selectedParticipantIds.length === 0) {
+    if (selectedUserIds.length === 0) {
       console.log('[SimpleMeetingForm] Validation failed: no participants');
       toast({
         title: "Participants requis",
-        description: "Veuillez sélectionner au moins un participant",
+        description: "Veuillez sélectionner au moins un utilisateur",
         variant: "destructive",
       });
       return;
@@ -155,12 +156,12 @@ export const SimpleMeetingForm = ({
       title: title.trim(),
       hasAudioBlob: !!audioBlob,
       hasAudioFile: !!audioFile,
-      participantsCount: participants.length,
-      selectedParticipantsCount: selectedParticipantIds.length
+      participantsCount: users.length,
+      selectedParticipantsCount: selectedUserIds.length
     });
     
     try {
-      onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
+      onSubmit(title, audioBlob, audioFile, users, selectedUserIds);
       console.log('[SimpleMeetingForm] onSubmit called successfully');
     } catch (error) {
       console.error('[SimpleMeetingForm] Error calling onSubmit:', error);
@@ -194,10 +195,9 @@ export const SimpleMeetingForm = ({
         </div>
 
         <ParticipantsSection
-          participants={participants}
-          selectedParticipantIds={selectedParticipantIds}
-          onToggleParticipant={toggleParticipantSelection}
-          onOpenNewParticipantDialog={() => setIsNewParticipantDialogOpen(true)}
+          users={users}
+          selectedUserIds={selectedUserIds}
+          onToggleUser={toggleUserSelection}
         />
 
         <AudioRecordingSection
@@ -222,11 +222,6 @@ export const SimpleMeetingForm = ({
         </Button>
       </div>
 
-      <NewParticipantDialog
-        isOpen={isNewParticipantDialogOpen}
-        onClose={() => setIsNewParticipantDialogOpen(false)}
-        onParticipantAdded={handleParticipantAdded}
-      />
     </Card>
   );
 };

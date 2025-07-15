@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Calendar, Trash2, Pen, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
-import { TodoParticipantManager } from "@/components/TodoParticipantManager";
+import { TodoUserManager } from "@/components/TodoUserManager";
 import { EditableContent } from "@/components/EditableContent";
 import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationContent";
 import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
@@ -418,10 +418,10 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
                           </Badge>
                         )}
                         <div className="text-xs text-gray-600 flex items-center gap-2">
-                          <TodoParticipantManager
+                    <TodoUserManager
                             todoId={todo.id}
-                            currentParticipants={todo.todo_participants?.map(tp => tp.participants) || []}
-                            onParticipantsUpdate={fetchTodos}
+                            currentUsers={todo.todo_participants?.map(tp => tp.participants) || []}
+                            onUsersUpdate={() => {}}
                             compact={true}
                           />
                           <Button 
@@ -546,12 +546,12 @@ export const MeetingTodos = ({ meetingId }: MeetingTodosProps) => {
             <DialogTitle>Gérer les participants</DialogTitle>
           </DialogHeader>
           {currentTodoId && (
-            <TodoParticipantManager
+            <TodoUserManager
               todoId={currentTodoId}
-              currentParticipants={
+              currentUsers={
                 todos.find(todo => todo.id === currentTodoId)?.todo_participants?.map(tp => tp.participants) || []
               }
-              onParticipantsUpdate={handleParticipantsUpdated}
+              onUsersUpdate={() => handleParticipantsUpdated()}
               compact={false}
             />
           )}

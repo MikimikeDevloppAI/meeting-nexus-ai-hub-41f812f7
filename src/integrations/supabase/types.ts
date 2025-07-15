@@ -259,36 +259,6 @@ export type Database = {
         }
         Relationships: []
       }
-      meeting_participants: {
-        Row: {
-          meeting_id: string
-          participant_id: string
-        }
-        Insert: {
-          meeting_id: string
-          participant_id: string
-        }
-        Update: {
-          meeting_id?: string
-          participant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meeting_participants_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "meeting_participants_participant_id_fkey"
-            columns: ["participant_id"]
-            isOneToOne: false
-            referencedRelation: "participants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       meeting_preparation_custom_points: {
         Row: {
           created_at: string
@@ -363,6 +333,36 @@ export type Database = {
           },
         ]
       }
+      meeting_users: {
+        Row: {
+          meeting_id: string
+          user_id: string
+        }
+        Insert: {
+          meeting_id: string
+          user_id: string
+        }
+        Update: {
+          meeting_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_users_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           audio_url: string | null
@@ -417,30 +417,6 @@ export type Database = {
           id?: string
           name?: string
           path?: string
-        }
-        Relationships: []
-      }
-      participants: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          email: string
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          email: string
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          email?: string
-          id?: string
-          name?: string
         }
         Relationships: []
       }
@@ -679,42 +655,6 @@ export type Database = {
           },
         ]
       }
-      todo_participants: {
-        Row: {
-          created_at: string
-          id: string
-          participant_id: string
-          todo_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          participant_id: string
-          todo_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          participant_id?: string
-          todo_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "todo_participants_participant_id_fkey"
-            columns: ["participant_id"]
-            isOneToOne: false
-            referencedRelation: "participants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "todo_participants_todo_id_fkey"
-            columns: ["todo_id"]
-            isOneToOne: false
-            referencedRelation: "todos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       todo_subtasks: {
         Row: {
           completed: boolean
@@ -749,6 +689,42 @@ export type Database = {
             columns: ["todo_id"]
             isOneToOne: false
             referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      todo_users: {
+        Row: {
+          created_at: string
+          id: string
+          todo_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          todo_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          todo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_users_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todo_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

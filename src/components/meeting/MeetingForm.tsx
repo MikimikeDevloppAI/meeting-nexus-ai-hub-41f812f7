@@ -12,7 +12,7 @@ import { AudioRecordingSection } from "./AudioRecordingSection";
 import { NewParticipantDialog } from "./NewParticipantDialog";
 import { MeetingResults } from "./MeetingResults";
 
-interface Participant {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -47,8 +47,8 @@ interface MeetingFormProps {
     title: string,
     audioBlob: Blob | null,
     audioFile: File | null,
-    participants: Participant[],
-    selectedParticipantIds: string[]
+    users: User[],
+    selectedUserIds: string[]
   ) => void;
 }
 
@@ -60,8 +60,8 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isNewParticipantDialogOpen, setIsNewParticipantDialogOpen] = useState(false);
   const [meetingResults, setMeetingResults] = useState<{
     transcript?: string;
@@ -88,26 +88,27 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
   }, [isSubmitting]);
 
   useEffect(() => {
-    const fetchParticipants = async () => {
+    const fetchUsers = async () => {
       try {
         const { data, error } = await supabase
-          .from("participants")
+          .from("users")
           .select("*")
+          .eq('approved', true)
           .order('name', { ascending: true });
 
         if (error) throw error;
-        setParticipants(data || []);
+        setUsers(data || []);
       } catch (error: any) {
-        console.error("Error fetching participants:", error);
+        console.error("Error fetching users:", error);
         toast({
-          title: "Error loading participants",
+          title: "Error loading users",
           description: error.message || "Please try again later",
           variant: "destructive",
         });
       }
     };
 
-    fetchParticipants();
+    fetchUsers();
   }, [toast]);
 
   useEffect(() => {
@@ -146,24 +147,24 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
     checkForUpdates();
   }, [isSubmitting, processingSteps, meetingResults]);
 
-  const toggleParticipantSelection = (id: string) => {
-    setSelectedParticipantIds(prev =>
+  const toggleUserSelection = (id: string) => {
+    setSelectedUserIds(prev =>
       prev.includes(id)
-        ? prev.filter(participantId => participantId !== id)
+        ? prev.filter(userId => userId !== id)
         : [...prev, id]
     );
   };
 
-  const handleParticipantAdded = (newParticipant: Participant) => {
-    setParticipants(prev => [...prev, newParticipant]);
-    setSelectedParticipantIds(prev => [...prev, newParticipant.id]);
+  const handleUserAdded = (newUser: User) => {
+    setUsers(prev => [...prev, newUser]);
+    setSelectedUserIds(prev => [...prev, newUser.id]);
   };
 
   const handleSubmit = () => {
     console.log('[MeetingForm] handleSubmit called with:', { 
       title, 
       hasAudio: !!(audioBlob || audioFile), 
-      participantCount: selectedParticipantIds.length 
+      participantCount: selectedUserIds.length 
     });
     
     // Basic validation before calling onSubmit
@@ -176,10 +177,10 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
       return;
     }
 
-    if (selectedParticipantIds.length === 0) {
+    if (selectedUserIds.length === 0) {
       toast({
         title: "Participants requis",
-        description: "Veuillez sélectionner au moins un participant",
+        description: "Veuillez sélectionner au moins un utilisateur",
         variant: "destructive",
       });
       return;
@@ -197,7 +198,7 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
     console.log('[MeetingForm] Validation passed, calling onSubmit');
     // Reset results et appeler directement onSubmit
     setMeetingResults({});
-    onSubmit(title, audioBlob, audioFile, participants, selectedParticipantIds);
+    onSubmit(title, audioBlob, audioFile, users, selectedUserIds);
   };
 
   return (
@@ -217,10 +218,9 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
             </div>
 
             <ParticipantsSection
-              participants={participants}
-              selectedParticipantIds={selectedParticipantIds}
-              onToggleParticipant={toggleParticipantSelection}
-              onOpenNewParticipantDialog={() => setIsNewParticipantDialogOpen(true)}
+              users={users}
+              selectedUserIds={selectedUserIds}
+              onToggleUser={toggleUserSelection}
             />
 
             <AudioRecordingSection
@@ -245,11 +245,6 @@ export const MeetingForm = ({ isSubmitting, processingSteps, onSubmit }: Meeting
             </Button>
           </div>
 
-          <NewParticipantDialog
-            isOpen={isNewParticipantDialogOpen}
-            onClose={() => setIsNewParticipantDialogOpen(false)}
-            onParticipantAdded={handleParticipantAdded}
-          />
         </Card>
       )}
 
