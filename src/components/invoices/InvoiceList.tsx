@@ -548,8 +548,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     <>
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
-          <Calendar className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Factures organisées par date</h2>
+          <FileText className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Factures validées</h2>
         </div>
         
         <Accordion type="multiple" className="w-full space-y-4">
