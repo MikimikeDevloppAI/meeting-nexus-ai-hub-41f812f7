@@ -17,11 +17,13 @@ export const PermissionProtectedRoute = ({
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log(`PermissionProtectedRoute - Loading: ${loading}, Permission: ${hasPermission(requiredPermission)}, Required: ${requiredPermission}`);
+    
     if (!loading && !hasPermission(requiredPermission)) {
       console.log(`Permission denied for ${requiredPermission}, redirecting to ${fallbackPath}`);
       navigate(fallbackPath, { replace: true });
     }
-  }, [loading]); // Ne dépendre que du loading pour éviter les boucles
+  }, [loading, hasPermission(requiredPermission), requiredPermission, navigate, fallbackPath]);
 
   if (loading) {
     return (
