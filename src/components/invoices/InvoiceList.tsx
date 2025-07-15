@@ -329,13 +329,28 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   };
 
-  // Organiser les factures par années et mois
-  const organizedInvoices = useMemo(() => {
-    if (!invoices) return {};
+  // Séparer les factures en deux groupes: à valider et validées
+  const { invoicesToValidate, validatedInvoices } = useMemo(() => {
+    if (!invoices) return { invoicesToValidate: [], validatedInvoices: [] };
+    
+    const toValidate = invoices.filter(invoice => 
+      invoice.status === 'completed' || invoice.status === 'pending' || invoice.status === 'processing' || invoice.status === 'error'
+    );
+    
+    const validated = invoices.filter(invoice => 
+      invoice.status === 'validated'
+    );
+    
+    return { invoicesToValidate: toValidate, validatedInvoices: validated };
+  }, [invoices]);
+
+  // Organiser les factures validées par années et mois
+  const organizedValidatedInvoices = useMemo(() => {
+    if (!validatedInvoices.length) return {};
     
     const organized: Record<string, Record<string, Invoice[]>> = {};
     
-    invoices.forEach(invoice => {
+    validatedInvoices.forEach(invoice => {
       // Utiliser la date de facture si disponible, sinon la date de création
       const dateToUse = invoice.invoice_date || invoice.created_at;
       const date = new Date(dateToUse);
@@ -370,7 +385,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     });
     
     return organized;
-  }, [invoices]);
+  }, [validatedInvoices]);
 
   const handleValidationComplete = () => {
     refetch();
@@ -546,57 +561,82 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   return (
     <>
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Factures validées</h2>
-        </div>
-        
-        <Accordion type="multiple" className="w-full space-y-4">
-          {Object.keys(organizedInvoices)
-            .sort((a, b) => parseInt(b) - parseInt(a)) // Années décroissantes
-            .map((year) => (
-              <AccordionItem key={year} value={year} className="border rounded-lg">
-                <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <span className="text-lg font-semibold">{year}</span>
-                    <Badge variant="secondary" className="ml-2">
-                      {Object.values(organizedInvoices[year]).reduce((sum, invoices) => sum + invoices.length, 0)} facture(s)
-                    </Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <Accordion type="multiple" className="w-full space-y-2">
-                    {Object.keys(organizedInvoices[year])
-                      .sort((a, b) => parseInt(b.split('-')[0]) - parseInt(a.split('-')[0])) // Mois décroissants
-                      .map((monthKey) => {
-                        const month = monthKey.split('-')[1];
-                        const invoicesList = organizedInvoices[year][monthKey];
-                        return (
-                          <AccordionItem key={`${year}-${monthKey}`} value={`${year}-${monthKey}`} className="border rounded-md">
-                            <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
-                              <div className="flex items-center gap-2">
-                                <ChevronDown className="h-4 w-4" />
-                                <span className="font-medium capitalize">{month}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {invoicesList.length} facture(s)
-                                </Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-3 pb-3">
-                              <div className="space-y-4">
-                                {invoicesList.map((invoice) => renderInvoice(invoice))}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                  </Accordion>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-        </Accordion>
+      <div className="space-y-6">
+        {/* Section: Factures à valider */}
+        {invoicesToValidate.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              <h2 className="text-lg font-semibold text-orange-600">À valider</h2>
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                {invoicesToValidate.length} facture(s)
+              </Badge>
+            </div>
+            
+            <div className="space-y-4">
+              {invoicesToValidate.map((invoice) => renderInvoice(invoice))}
+            </div>
+          </div>
+        )}
+
+        {/* Section: Factures validées avec organisation par date */}
+        {validatedInvoices.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="h-5 w-5" />
+              <h2 className="text-lg font-semibold">Factures validées</h2>
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                {validatedInvoices.length} facture(s)
+              </Badge>
+            </div>
+            
+            <Accordion type="multiple" className="w-full space-y-4">
+              {Object.keys(organizedValidatedInvoices)
+                .sort((a, b) => parseInt(b) - parseInt(a)) // Années décroissantes
+                .map((year) => (
+                  <AccordionItem key={year} value={year} className="border rounded-lg">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        <span className="text-lg font-semibold">{year}</span>
+                        <Badge variant="secondary" className="ml-2">
+                          {Object.values(organizedValidatedInvoices[year]).reduce((sum, invoices) => sum + invoices.length, 0)} facture(s)
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4">
+                      <Accordion type="multiple" className="w-full space-y-2">
+                        {Object.keys(organizedValidatedInvoices[year])
+                          .sort((a, b) => parseInt(b.split('-')[0]) - parseInt(a.split('-')[0])) // Mois décroissants
+                          .map((monthKey) => {
+                            const month = monthKey.split('-')[1];
+                            const invoicesList = organizedValidatedInvoices[year][monthKey];
+                            return (
+                              <AccordionItem key={`${year}-${monthKey}`} value={`${year}-${monthKey}`} className="border rounded-md">
+                                <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+                                  <div className="flex items-center gap-2">
+                                    <ChevronDown className="h-4 w-4" />
+                                    <span className="font-medium capitalize">{month}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {invoicesList.length} facture(s)
+                                    </Badge>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-3 pb-3">
+                                  <div className="space-y-4">
+                                    {invoicesList.map((invoice) => renderInvoice(invoice))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                      </Accordion>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+            </Accordion>
+          </div>
+        )}
       </div>
 
       {selectedInvoice && (
