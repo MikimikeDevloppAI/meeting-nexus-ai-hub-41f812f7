@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Calendar, Check, X, AlertCircle, CheckCircle, XCircle, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -54,6 +55,7 @@ export default function HRValidation() {
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     if (user) {
@@ -245,10 +247,9 @@ export default function HRValidation() {
     { name: "Leila Burnier-Framboret", email: "leila.eyung@gmail.com" }
   ];
 
-  // Calculer les décomptes de vacances pour l'année en cours
-  const currentYear = new Date().getFullYear();
-  const yearStart = startOfYear(new Date(currentYear, 0, 1));
-  const yearEnd = endOfYear(new Date(currentYear, 11, 31));
+  // Calculer les décomptes de vacances pour l'année sélectionnée
+  const yearStart = startOfYear(new Date(selectedYear, 0, 1));
+  const yearEnd = endOfYear(new Date(selectedYear, 11, 31));
 
   const getVacationSummaryForUser = (userEmail: string) => {
     const userVacations = vacations.filter(v => 
@@ -391,6 +392,20 @@ export default function HRValidation() {
         </Button>
       </div>
 
+      {/* Sélecteur d'année */}
+      <div className="flex items-center gap-4">
+        <label className="text-sm font-medium">Année d'analyse :</label>
+        <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2024">2024</SelectItem>
+            <SelectItem value="2025">2025</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
@@ -462,6 +477,73 @@ export default function HRValidation() {
               </Card>
             ))
           )}
+
+          {/* Tableau mensuel des heures supplémentaires */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Heures supplémentaires par mois {selectedYear}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Heures supplémentaires approuvées par mois pour chaque utilisateur
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Utilisateur</TableHead>
+                      {monthsOfYear.map((month) => (
+                        <TableHead key={format(month, 'yyyy-MM')} className="text-center min-w-20">
+                          {format(month, 'MMM', { locale: fr })}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center font-bold">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {specificUsers.map((user) => {
+                      const userOvertimes = overtimeByUserAndMonth[user.email] || {};
+                      const yearTotal = Object.values(userOvertimes).reduce((sum: number, hours) => sum + (hours as number), 0);
+                      
+                      return (
+                        <TableRow key={user.email}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <div>{user.name}</div>
+                              <div className="text-xs text-gray-500">{user.email}</div>
+                            </div>
+                          </TableCell>
+                          {monthsOfYear.map((month) => {
+                            const monthKey = format(month, 'yyyy-MM');
+                            const hours = userOvertimes[monthKey] || 0;
+                            return (
+                              <TableCell key={monthKey} className="text-center">
+                                {hours > 0 ? (
+                                  <Badge variant="outline" className="font-mono">
+                                    {hours.toFixed(1)}h
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center">
+                            <Badge variant="default" className="font-mono font-bold">
+                              {yearTotal.toFixed(1)}h
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="vacations" className="space-y-4">
@@ -527,108 +609,41 @@ export default function HRValidation() {
               </Card>
             ))
           )}
-        </TabsContent>
-      </Tabs>
 
-      {/* Décompte des vacances par utilisateur */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Décompte des vacances {currentYear}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Nombre de jours de vacances approuvés depuis le début de l'année
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {specificUsers.map((user) => {
-              const summary = getVacationSummaryForUser(user.email);
-              return (
-                <div key={user.email} className="p-4 border rounded-lg">
-                  <h3 className="font-medium">{user.name}</h3>
-                  <p className="text-sm text-gray-600">{user.email}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-2xl font-bold">{summary.totalDays}</span>
-                    <span className="text-sm text-gray-500">
-                      {summary.count} période{summary.count > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">jours de vacances</p>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tableau mensuel des heures supplémentaires */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Heures supplémentaires par mois {currentYear}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Heures supplémentaires approuvées par mois pour chaque utilisateur
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Utilisateur</TableHead>
-                  {monthsOfYear.map((month) => (
-                    <TableHead key={format(month, 'yyyy-MM')} className="text-center min-w-20">
-                      {format(month, 'MMM', { locale: fr })}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center font-bold">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          {/* Décompte des vacances par utilisateur */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Décompte des vacances {selectedYear}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Nombre de jours de vacances approuvés depuis le début de l'année
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {specificUsers.map((user) => {
-                  const userOvertimes = overtimeByUserAndMonth[user.email] || {};
-                  const yearTotal = Object.values(userOvertimes).reduce((sum: number, hours) => sum + (hours as number), 0);
-                  
+                  const summary = getVacationSummaryForUser(user.email);
                   return (
-                    <TableRow key={user.email}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <div>{user.name}</div>
-                          <div className="text-xs text-gray-500">{user.email}</div>
-                        </div>
-                      </TableCell>
-                      {monthsOfYear.map((month) => {
-                        const monthKey = format(month, 'yyyy-MM');
-                        const hours = userOvertimes[monthKey] || 0;
-                        return (
-                          <TableCell key={monthKey} className="text-center">
-                            {hours > 0 ? (
-                              <Badge variant="outline" className="font-mono">
-                                {hours.toFixed(1)}h
-                              </Badge>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center">
-                        <Badge variant="default" className="font-mono font-bold">
-                          {yearTotal.toFixed(1)}h
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+                    <div key={user.email} className="p-4 border rounded-lg">
+                      <h3 className="font-medium">{user.name}</h3>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-2xl font-bold">{summary.totalDays}</span>
+                        <span className="text-sm text-gray-500">
+                          {summary.count} période{summary.count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">jours de vacances</p>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
