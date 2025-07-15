@@ -596,6 +596,47 @@ export type Database = {
           },
         ]
       }
+      todo_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          created_by: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          todo_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          todo_id: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          todo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_attachments_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todo_comments: {
         Row: {
           comment: string
@@ -667,6 +708,44 @@ export type Database = {
           },
           {
             foreignKeyName: "todo_participants_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      todo_subtasks: {
+        Row: {
+          completed: boolean
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          todo_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          todo_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          todo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_subtasks_todo_id_fkey"
             columns: ["todo_id"]
             isOneToOne: false
             referencedRelation: "todos"
