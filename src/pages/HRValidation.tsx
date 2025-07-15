@@ -405,7 +405,6 @@ export default function HRValidation() {
           </SelectContent>
         </Select>
       </div>
-
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
