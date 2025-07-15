@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, X } from "lucide-react";
-import { format, eachDayOfInterval, isWithinInterval } from "date-fns";
+import { format, eachDayOfInterval, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface VacationCalendarProps {
@@ -23,9 +23,17 @@ interface VacationCalendarProps {
     vacation_type: string;
     description: string;
   };
+  existingVacations?: Array<{
+    id: string;
+    start_date: string;
+    end_date: string;
+    vacation_type: string;
+    status: string;
+    users?: { name: string; email: string; } | null;
+  }>;
 }
 
-export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCalendarProps) {
+export function VacationCalendar({ onSubmit, onCancel, editingData, existingVacations = [] }: VacationCalendarProps) {
   const [selectedDates, setSelectedDates] = useState<Date[]>(() => {
     if (editingData) {
       // Convertir la plage en jours individuels pour l'édition
@@ -67,6 +75,24 @@ export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCa
 
   const clearSelection = () => {
     setSelectedDates([]);
+  };
+
+  // Créer la liste des jours de vacances existantes
+  const existingVacationDates = existingVacations.flatMap(vacation => {
+    try {
+      const startDate = parseISO(vacation.start_date);
+      const endDate = parseISO(vacation.end_date);
+      return eachDayOfInterval({ start: startDate, end: endDate });
+    } catch {
+      return [];
+    }
+  });
+
+  // Fonction pour vérifier si une date est déjà en vacances
+  const isVacationDate = (date: Date) => {
+    return existingVacationDates.some(vacDate => 
+      date.toISOString().split('T')[0] === vacDate.toISOString().split('T')[0]
+    );
   };
 
   const getVacationTypeLabel = (type: string) => {
@@ -112,6 +138,16 @@ export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCa
               const isPast = date < new Date();
               return isPast || isWeekend;
             }}
+            modifiers={{
+              vacation: existingVacationDates
+            }}
+            modifiersStyles={{
+              vacation: { 
+                backgroundColor: 'hsl(var(--destructive))',
+                color: 'hsl(var(--destructive-foreground))',
+                opacity: 0.7
+              }
+            }}
           />
           
           {selectedDates.length > 0 && (
@@ -141,6 +177,31 @@ export function VacationCalendar({ onSubmit, onCancel, editingData }: VacationCa
                 >
                   <X className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+          )}
+          
+          {existingVacations.length > 0 && (
+            <div className="mt-4 p-3 bg-orange-50 rounded-md">
+              <p className="text-sm font-medium text-orange-800 mb-2">
+                Vacances existantes (en rouge sur le calendrier)
+              </p>
+              <div className="space-y-1">
+                {existingVacations.slice(0, 3).map((vacation, index) => (
+                  <div key={vacation.id} className="text-xs text-orange-700">
+                    Du {format(parseISO(vacation.start_date), "dd/MM/yyyy", { locale: fr })} 
+                    au {format(parseISO(vacation.end_date), "dd/MM/yyyy", { locale: fr })} 
+                    ({vacation.vacation_type === 'annual' ? 'Congés annuels' : 
+                      vacation.vacation_type === 'sick' ? 'Congé maladie' : 
+                      vacation.vacation_type === 'personal' ? 'Congé personnel' : 'Autre'})
+                    {vacation.users && ` - ${vacation.users.name}`}
+                  </div>
+                ))}
+                {existingVacations.length > 3 && (
+                  <div className="text-xs text-orange-600">
+                    +{existingVacations.length - 3} autre{existingVacations.length - 3 > 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -778,6 +778,7 @@ export default function TimeTracking() {
               vacation_type: editingVacation.vacation_type,
               description: editingVacation.description || ""
             } : undefined}
+            existingVacations={vacations}
           />
         </DialogContent>
       </Dialog>
