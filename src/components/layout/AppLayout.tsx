@@ -63,7 +63,7 @@ const menuItems = [
   {
     title: "Gestion Utilisateurs",
     url: "/users",
-    icon: User,
+    icon: Settings,
     permission: "users",
   },
   {
@@ -118,25 +118,6 @@ const AppSidebar: React.FC = () => {
                   </SidebarMenuItem>
                 ))}
               
-              {/* Access Manager - uniquement pour les admins */}
-              {!loading && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      console.log("Admin status:", isAdmin);
-                      console.log("Loading status:", loading);
-                      console.log("Navigating to /access-manager");
-                      handleNavigation("/access-manager");
-                    }}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
-                  >
-                    <Settings className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-                    <span className="text-sm lg:text-base truncate font-medium">
-                      Gestion des Accès {!isAdmin && "(Debug)"}
-                    </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => signOut()}
