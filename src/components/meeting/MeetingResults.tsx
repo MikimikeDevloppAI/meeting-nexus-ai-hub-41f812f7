@@ -77,8 +77,17 @@ export const MeetingResults = ({ transcript, summary, tasks, meetingId }: Meetin
             <FormattedText 
               content={(() => {
                 const lines = cleanedSummary.split('\n');
-                const dateIndex = lines.findIndex(line => line.trim().startsWith('Date'));
-                return dateIndex !== -1 ? lines.slice(dateIndex).join('\n') : cleanedSummary;
+                
+                // Find first useful line (not markdown artifacts)
+                const startIndex = lines.findIndex(line => {
+                  const trimmed = line.trim();
+                  return trimmed && 
+                         !trimmed.includes('```') && 
+                         !trimmed.toLowerCase().includes('markdown') &&
+                         (trimmed.startsWith('Date') || trimmed.startsWith('**') || trimmed.length > 10);
+                });
+                
+                return startIndex !== -1 ? lines.slice(startIndex).join('\n') : cleanedSummary;
               })()} 
               className="text-gray-700 w-full min-w-0"
             />
