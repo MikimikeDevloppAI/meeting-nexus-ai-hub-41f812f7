@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoUserManager } from "@/components/TodoUserManager";
 import { EditableContent } from "@/components/EditableContent";
+import { EditableDueDate } from "@/components/EditableDueDate";
 import { TodoAIRecommendationContent } from "@/components/TodoAIRecommendationContent";
 import { TodoAssistantContent } from "@/components/meeting/TodoAssistantContent";
 import { TaskDeepSearchContent } from "@/components/TaskDeepSearchContent";
@@ -43,6 +44,7 @@ type ActiveAITool = 'none' | 'recommendation' | 'assistant' | 'search';
 // Étendre l'interface Todo pour inclure la priorité et les utilisateurs
 interface TodoWithPriority extends Todo {
   priority?: 'high' | 'normal' | 'low';
+  due_date?: string | null;
   todo_users?: Array<{
     user_id: string;
     users: {
@@ -437,10 +439,14 @@ export default function Todos() {
               }`}>
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {/* Status, priority, and participants header */}
+                    {/* Due date, priority, and participants header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {getStatusBadge(todo.status)}
+                        <EditableDueDate 
+                          todoId={todo.id}
+                          dueDate={todo.due_date}
+                          onUpdate={fetchTodos}
+                        />
                         {todo.meetings?.[0] && (
                           <Badge variant="outline" className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
