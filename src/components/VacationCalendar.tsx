@@ -180,31 +180,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               </div>
             </div>
           )}
-          
-          {existingVacations.length > 0 && (
-            <div className="mt-4 p-3 bg-orange-50 rounded-md">
-              <p className="text-sm font-medium text-orange-800 mb-2">
-                Vacances existantes (en rouge sur le calendrier)
-              </p>
-              <div className="space-y-1">
-                {existingVacations.slice(0, 3).map((vacation, index) => (
-                  <div key={vacation.id} className="text-xs text-orange-700">
-                    Du {format(parseISO(vacation.start_date), "dd/MM/yyyy", { locale: fr })} 
-                    au {format(parseISO(vacation.end_date), "dd/MM/yyyy", { locale: fr })} 
-                    ({vacation.vacation_type === 'annual' ? 'Congés annuels' : 
-                      vacation.vacation_type === 'sick' ? 'Congé maladie' : 
-                      vacation.vacation_type === 'personal' ? 'Congé personnel' : 'Autre'})
-                    {vacation.users && ` - ${vacation.users.name}`}
-                  </div>
-                ))}
-                {existingVacations.length > 3 && (
-                  <div className="text-xs text-orange-600">
-                    +{existingVacations.length - 3} autre{existingVacations.length - 3 > 1 ? 's' : ''}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
