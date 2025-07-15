@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { VacationCalendar } from "@/components/VacationCalendar";
+import { OvertimeCalendar } from "@/components/OvertimeCalendar";
 import { Clock, Calendar, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -350,6 +351,92 @@ export default function TimeTracking() {
     }
   };
 
+  // Fonctions pour le calendrier des heures supplémentaires
+  const onAddOvertime = async (data: { date: string; hours: number; description?: string; }) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('overtime_hours')
+        .insert({
+          user_id: user.id,
+          date: data.date,
+          hours: data.hours,
+          description: data.description
+        });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Heures ajoutées",
+        description: `${data.hours}h d'heures supplémentaires enregistrées`,
+      });
+      
+      fetchOvertimeHours();
+    } catch (error: any) {
+      console.error('Error adding overtime:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onEditOvertime = async (id: string, data: { date: string; hours: number; description?: string; }) => {
+    try {
+      const { error } = await supabase
+        .from('overtime_hours')
+        .update({
+          date: data.date,
+          hours: data.hours,
+          description: data.description
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Heures modifiées",
+        description: "Les heures supplémentaires ont été mises à jour",
+      });
+      
+      fetchOvertimeHours();
+    } catch (error: any) {
+      console.error('Error editing overtime:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onDeleteOvertimeCalendar = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('overtime_hours')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Heures supprimées",
+        description: "Les heures supplémentaires ont été supprimées",
+      });
+      
+      fetchOvertimeHours();
+    } catch (error: any) {
+      console.error('Error deleting overtime:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les heures supplémentaires",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteOvertime = async (id: string) => {
     try {
       const { error } = await supabase
@@ -481,71 +568,12 @@ export default function TimeTracking() {
         </TabsList>
 
         <TabsContent value="overtime" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Mes heures supplémentaires</h2>
-            <Button onClick={() => setShowOvertimeDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter des heures
-            </Button>
-          </div>
-
-          <div className="grid gap-4">
-            {overtimeHours.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <p className="text-gray-500">Aucune heure supplémentaire enregistrée</p>
-                </CardContent>
-              </Card>
-            ) : (
-              overtimeHours.map((overtime) => (
-                <Card key={overtime.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-medium">
-                            {new Date(overtime.date).toLocaleDateString('fr-FR')}
-                          </h3>
-                          <Badge variant="outline">
-                            {overtime.hours}h
-                          </Badge>
-                          {getStatusBadge(overtime.status)}
-                        </div>
-                        {overtime.description && (
-                          <p className="text-sm text-gray-600">{overtime.description}</p>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          Créé {formatDistanceToNow(new Date(overtime.created_at), { 
-                            addSuffix: true, 
-                            locale: fr 
-                          })}
-                        </p>
-                      </div>
-                      {overtime.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => editOvertime(overtime)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteOvertime(overtime.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+          <OvertimeCalendar
+            overtimeHours={overtimeHours.filter(overtime => overtime.user_id === user?.id)}
+            onAddOvertime={onAddOvertime}
+            onEditOvertime={onEditOvertime}
+            onDeleteOvertime={onDeleteOvertimeCalendar}
+          />
         </TabsContent>
 
         <TabsContent value="vacations" className="space-y-6">
