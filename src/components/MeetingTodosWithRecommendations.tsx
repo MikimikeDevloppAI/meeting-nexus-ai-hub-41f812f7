@@ -60,31 +60,37 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
       console.log('🔍 Fetching todos for meeting:', meetingId);
       
       const { data, error } = await supabase
-        .from("todos")
+        .from("todo_meetings")
         .select(`
-          *,
-          todo_users(
-            user_id,
-            users(id, name, email)
+          todo_id,
+          todos(
+            *,
+            todo_users(
+              user_id,
+              users(id, name, email)
+            )
           )
         `)
         .eq("meeting_id", meetingId)
-        .order("priority", { ascending: false }) // Tri par priorité d'abord
-        .order("created_at", { ascending: false }); // Puis par date
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("❌ Error fetching todos:", error);
         throw error;
       }
 
-      console.log('📋 Raw todos data:', data);
-      console.log('📊 Todos count by status:', data?.reduce((acc, todo) => {
+      console.log('📋 Raw todo_meetings data:', data);
+      
+      // Extraire les todos depuis la structure de liaison
+      const rawTodos = data?.map(item => item.todos).filter(Boolean) || [];
+      
+      console.log('📊 Todos count by status:', rawTodos.reduce((acc, todo: any) => {
         acc[todo.status] = (acc[todo.status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>));
       
       // Convertir tous les statuts 'pending' en 'confirmed' et afficher TOUTES les tâches
-      const allTodos = data?.map(todo => {
+      const allTodos = rawTodos.map((todo: any) => {
         if (todo.status === 'pending') {
           console.log(`🔄 Converting todo ${todo.id} from pending to confirmed`);
           // Mettre à jour en base de données aussi
@@ -98,7 +104,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
           return { ...todo, status: 'confirmed' };
         }
         return todo;
-      }) || [];
+      });
       
       console.log(`📊 Total todos found: ${allTodos.length} for meeting ${meetingId}`);
       console.log('📋 Todos details:', allTodos.map(t => ({
