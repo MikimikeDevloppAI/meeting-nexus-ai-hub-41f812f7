@@ -161,10 +161,12 @@ serve(async (req) => {
     
     if (documentType === 'receipt') {
       // Receipt-specific data extraction
+      const invoiceDate = prediction.date?.value || null;
       extractedData = {
         invoice_number: prediction.receipt_number?.value || '',
-        invoice_date: prediction.date?.value || null,
+        invoice_date: invoiceDate,
         due_date: null, // Receipts typically don't have due dates
+        payment_date: invoiceDate || new Date().toISOString(), // Règle: reçu = invoice_date, sinon aujourd'hui
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
@@ -202,6 +204,7 @@ serve(async (req) => {
         invoice_number: prediction.invoice_number?.value || '',
         invoice_date: prediction.date?.value || null,
         due_date: prediction.due_date?.value || null,
+        payment_date: new Date().toISOString(), // Règle: facture = aujourd'hui
         total_amount: prediction.total_amount?.value || 0,
         total_net: prediction.total_net?.value || 0,
         total_tax: prediction.total_tax?.value || 0,
