@@ -94,8 +94,8 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
               file_size: file.size,
               content_type: file.type,
               compte: compte,
-              status: 'pending',
-              payment_date: new Date().toISOString() // Valeur temporaire, sera mise à jour par le traitement
+              status: 'pending'
+              // payment_date sera défini lors du traitement automatique selon le type de document
             })
             .select()
             .single();
