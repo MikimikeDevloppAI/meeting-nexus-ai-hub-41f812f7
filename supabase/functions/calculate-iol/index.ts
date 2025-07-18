@@ -21,7 +21,7 @@ serve(async (req) => {
     console.log('Request data:', JSON.stringify(requestData, null, 2));
 
     // Validate required fields
-    if (!requestData.top_fields || !requestData.right_eye || !requestData.left_eye) {
+    if (!requestData.gender || !requestData.top_fields || !requestData.right_eye || !requestData.left_eye) {
       throw new Error('Missing required fields');
     }
 
