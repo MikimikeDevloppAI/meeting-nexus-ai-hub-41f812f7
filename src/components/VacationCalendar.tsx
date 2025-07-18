@@ -135,10 +135,9 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             className="rounded-md border pointer-events-auto"
             locale={fr}
             disabled={(date) => {
-              // Désactiver les dates passées et les week-ends (samedi = 6, dimanche = 0)
+              // Désactiver seulement les week-ends (samedi = 6, dimanche = 0)
               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-              const isPast = date < new Date();
-              return isPast || isWeekend;
+              return isWeekend;
             }}
             modifiers={{
               vacation: existingVacationDates
