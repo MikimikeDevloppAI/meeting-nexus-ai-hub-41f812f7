@@ -17,6 +17,8 @@ export default function IOLCalculator() {
     patientData: any;
   } | null>(null);
   const [calculatedImage, setCalculatedImage] = useState<string | null>(null);
+  const [apiRequestData, setApiRequestData] = useState<any>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,6 +114,8 @@ export default function IOLCalculator() {
 
         // Stocker les données formatées pour affichage
         data.extractedDataForAPI = calculateIOLData;
+        setApiRequestData(calculateIOLData);
+        setIsCalculating(true);
 
         console.log("Calling calculate-iol edge function with data:", calculateIOLData);
 
@@ -147,6 +151,7 @@ export default function IOLCalculator() {
         }
 
         setIolData(data);
+        setIsCalculating(false);
 
         toast({
           title: "Extraction et calcul réussis",
@@ -158,6 +163,7 @@ export default function IOLCalculator() {
       
     } catch (error: any) {
       console.error("Erreur lors de l'extraction IOL:", error);
+      setIsCalculating(false);
       
       toast({
         title: "Erreur d'extraction",
@@ -296,6 +302,31 @@ export default function IOLCalculator() {
                 )}
               </Button>
             </div>
+          )}
+
+          {/* API Request Status */}
+          {isCalculating && apiRequestData && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-800">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Envoi des données à l'API IOL Calculator...
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <p className="text-orange-700 text-sm">
+                    Requête en cours d'envoi vers le serveur de calcul IOL
+                  </p>
+                  <div className="bg-white p-3 rounded-lg border">
+                    <h4 className="font-medium text-sm mb-2">Données envoyées:</h4>
+                    <pre className="text-xs overflow-auto max-h-40 text-gray-600">
+                      {JSON.stringify(apiRequestData, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
           
           {iolData && (
