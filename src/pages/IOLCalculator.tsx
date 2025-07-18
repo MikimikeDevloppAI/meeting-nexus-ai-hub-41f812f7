@@ -81,7 +81,6 @@ export default function IOLCalculator() {
       } else {
         // Format data for calculate-iol edge function
         const calculateIOLData = {
-          gender: "Female", // Default - could be extracted from PDF later
           top_fields: {
             surgeon: "David Tabibian",
             patient_initials: data.patientInitials || "JS",
