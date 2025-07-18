@@ -204,9 +204,9 @@ export const parseIOLData = (rawText: string): IOLData => {
         if (isNaN(birthDate.getTime())) return undefined;
         
         let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const monthDiff = today.getMonth() - (month - 1); // Corriger la comparaison des mois
         
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
           age--;
         }
         
