@@ -64,6 +64,7 @@ export interface IOLData {
   rawText?: string;
   error?: boolean;
   message?: string;
+  calculatedResults?: any; // Results from calculate-iol edge function
 }
 
 export const extractTextFromPdf = async (file: File): Promise<string> => {

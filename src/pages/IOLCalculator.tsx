@@ -68,18 +68,69 @@ export default function IOLCalculator() {
       const data = await extractIOLDataFromPdf(pdfFile);
       
       console.log("Données IOL extraites:", data);
-      setIolData(data);
 
       if (data.error) {
+        setIolData(data);
         toast({
           title: "Document scanné détecté",
           description: data.message || "Le PDF semble être une image scannée.",
           variant: "destructive",
         });
       } else {
+        // Format data for calculate-iol edge function
+        const calculateIOLData = {
+          gender: "Female", // Default - could be extracted from PDF later
+          top_fields: {
+            surgeon: "Dr. Smith", // Default - could be extracted from PDF later
+            patient_initials: "JS", // Default - could be extracted from PDF later
+            id: Date.now().toString(),
+            age: "65" // Default - could be extracted from PDF later
+          },
+          right_eye: {
+            AL: data.rightEye?.AL || "",
+            ACD: data.rightEye?.ACD || "",
+            LT: data.rightEye?.LT || "",
+            CCT: data.rightEye?.CCT || "",
+            "CD (WTW)": data.rightEye?.WTW || "",
+            K1: data.rightEye?.K1 || "",
+            K2: data.rightEye?.K2 || ""
+          },
+          left_eye: {
+            AL: data.leftEye?.AL || "",
+            ACD: data.leftEye?.ACD || "",
+            LT: data.leftEye?.LT || "",
+            CCT: data.leftEye?.CCT || "",
+            "CD (WTW)": data.leftEye?.WTW || "",
+            K1: data.leftEye?.K1 || "",
+            K2: data.leftEye?.K2 || ""
+          }
+        };
+
+        console.log("Calling calculate-iol edge function with data:", calculateIOLData);
+
+        // Call the calculate-iol edge function
+        const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(calculateIOLData),
+        });
+
+        const result = await response.json();
+        console.log("Calculate-IOL result:", result);
+
+        // Update the extracted data with calculated results
+        const enhancedData = {
+          ...data,
+          calculatedResults: result
+        };
+
+        setIolData(enhancedData);
+
         toast({
-          title: "Extraction réussie",
-          description: "Le texte a été extrait avec succès du PDF.",
+          title: "Extraction et calcul réussis",
+          description: "Le texte a été extrait et les calculs IOL ont été effectués.",
         });
       }
       
@@ -332,6 +383,18 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
+                    {/* Résultats du calcul IOL */}
+                    {iolData.calculatedResults && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">Résultats du calcul IOL</h3>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <pre className="text-sm text-green-800 whitespace-pre-wrap">
+                            {JSON.stringify(iolData.calculatedResults, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Texte brut pour débogage */}
                     {iolData.rawText && (
                       <div className="bg-muted p-4 rounded-lg">
@@ -342,7 +405,7 @@ export default function IOLCalculator() {
                       </div>
                     )}
                    </>
-                )}
+                 )}
                 
                 {/* Boutons d'export et d'automatisation */}
                 <div className="flex gap-3 pt-4 flex-wrap">
