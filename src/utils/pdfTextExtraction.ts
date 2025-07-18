@@ -45,6 +45,7 @@ export interface IOLData {
     K?: string; // K [D/mm]
     AST?: string; // Astigmatisme (AST) [D/°]
     WTW?: string; // Distance blanc à blanc (WTW) [mm]
+    targetRefraction?: string; // Réfraction cible
   };
   
   // Données pour œil gauche (OS)
@@ -59,12 +60,14 @@ export interface IOLData {
     K?: string; // K [D/mm]
     AST?: string; // Astigmatisme (AST) [D/°]
     WTW?: string; // Distance blanc à blanc (WTW) [mm]
+    targetRefraction?: string; // Réfraction cible
   };
   
   rawText?: string;
   error?: boolean;
   message?: string;
   calculatedResults?: any; // Results from calculate-iol edge function
+  extractedDataForAPI?: any; // Données formatées pour l'API
 }
 
 export const extractTextFromPdf = async (file: File): Promise<string> => {
@@ -146,6 +149,16 @@ export const parseIOLData = (rawText: string): IOLData => {
       return undefined;
     };
 
+    // Fonction helper pour extraire la réfraction cible après "refraction cible:"
+    const extractTargetRefraction = (occurrence: number = 1): string | undefined => {
+      const pattern = /refraction\s+cible\s*:\s*([-\+]?[\d\.]+(?:\s*[-\+]?\s*[\d\.]+)?[^\s]*)/gi;
+      const matches = [...rawText.matchAll(pattern)];
+      if (matches.length >= occurrence && matches[occurrence - 1]) {
+        return matches[occurrence - 1][1].trim();
+      }
+      return undefined;
+    };
+
     // 1. Extraire le type de chirurgie
     if (rawText.includes('Phaque')) {
       data.surgeryType = 'Phaque';
@@ -197,6 +210,10 @@ export const parseIOLData = (rawText: string): IOLData => {
     // WTW [mm] - pattern ajusté pour gérer les espaces multiples
     data.rightEye!.WTW = extractValue(/WTW\s+\[mm\]\s+([\d\.]+)/g, 1);
     data.leftEye!.WTW = extractValue(/WTW\s+\[mm\]\s+([\d\.]+)/g, 2);
+
+    // Extraction de la réfraction cible pour chaque œil
+    data.rightEye!.targetRefraction = extractTargetRefraction(1);
+    data.leftEye!.targetRefraction = extractTargetRefraction(2);
 
     console.log('✅ IOL data parsing completed');
     console.log('📊 Extracted data:', {

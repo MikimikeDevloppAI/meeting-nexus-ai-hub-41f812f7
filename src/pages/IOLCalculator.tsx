@@ -95,7 +95,8 @@ export default function IOLCalculator() {
             CCT: data.rightEye?.CCT || "",
             "CD (WTW)": data.rightEye?.WTW || "",
             K1: data.rightEye?.K1 || "",
-            K2: data.rightEye?.K2 || ""
+            K2: data.rightEye?.K2 || "",
+            "Target Refraction": data.rightEye?.targetRefraction || ""
           },
           left_eye: {
             AL: data.leftEye?.AL || "",
@@ -104,9 +105,13 @@ export default function IOLCalculator() {
             CCT: data.leftEye?.CCT || "",
             "CD (WTW)": data.leftEye?.WTW || "",
             K1: data.leftEye?.K1 || "",
-            K2: data.leftEye?.K2 || ""
+            K2: data.leftEye?.K2 || "",
+            "Target Refraction": data.leftEye?.targetRefraction || ""
           }
         };
+
+        // Stocker les données formatées pour affichage
+        data.extractedDataForAPI = calculateIOLData;
 
         console.log("Calling calculate-iol edge function with data:", calculateIOLData);
 
@@ -309,6 +314,18 @@ export default function IOLCalculator() {
                   </div>
                 ) : (
                   <>
+                    {/* Données envoyées à l'API */}
+                    {iolData.extractedDataForAPI && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">Données envoyées à l'API</h3>
+                        <div className="bg-muted p-4 rounded-lg">
+                          <pre className="text-xs overflow-auto max-h-60">
+                            {JSON.stringify(iolData.extractedDataForAPI, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Informations générales */}
                     {(iolData.surgeryType || iolData.measurementDate) && (
                       <div className="space-y-3">
@@ -393,6 +410,11 @@ export default function IOLCalculator() {
                                 <TableCell className="font-medium">Distance blanc à blanc (WTW) [mm]</TableCell>
                                 <TableCell className="text-center">{iolData.rightEye?.WTW || '-'}</TableCell>
                                 <TableCell className="text-center">{iolData.leftEye?.WTW || '-'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell className="font-medium">Réfraction cible</TableCell>
+                                <TableCell className="text-center">{iolData.rightEye?.targetRefraction || '-'}</TableCell>
+                                <TableCell className="text-center">{iolData.leftEye?.targetRefraction || '-'}</TableCell>
                               </TableRow>
                             </TableBody>
                           </Table>
