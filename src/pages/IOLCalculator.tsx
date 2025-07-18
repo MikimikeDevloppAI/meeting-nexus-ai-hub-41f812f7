@@ -117,7 +117,8 @@ export default function IOLCalculator() {
           CCT: data.rightEye?.CCT || "",
           "CD (WTW)": data.rightEye?.WTW || "",
           K1: extractNumberBeforeSlash(data.rightEye?.K1 || ""),
-          K2: extractNumberBeforeSlash(data.rightEye?.K2 || "")
+          K2: extractNumberBeforeSlash(data.rightEye?.K2 || ""),
+          "Hoffer® pACD": data.rightEye?.ACD || "5.0" // Use ACD value or default
         },
         left_eye: {
           AL: data.leftEye?.AL || "",
@@ -126,7 +127,8 @@ export default function IOLCalculator() {
           CCT: data.leftEye?.CCT || "",
           "CD (WTW)": data.leftEye?.WTW || "",
           K1: extractNumberBeforeSlash(data.leftEye?.K1 || ""),
-          K2: extractNumberBeforeSlash(data.leftEye?.K2 || "")
+          K2: extractNumberBeforeSlash(data.leftEye?.K2 || ""),
+          "Hoffer® pACD": data.leftEye?.ACD || "5.0" // Use ACD value or default
         }
       };
 
