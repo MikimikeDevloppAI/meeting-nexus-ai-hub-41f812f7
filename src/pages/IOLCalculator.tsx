@@ -345,17 +345,6 @@ export default function IOLCalculator() {
                   </div>
                 ) : (
                   <>
-                    {/* Données envoyées à l'API */}
-                    {iolData.extractedDataForAPI && (
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">Données envoyées à l'API</h3>
-                        <div className="bg-muted p-4 rounded-lg">
-                          <pre className="text-xs overflow-auto max-h-60">
-                            {JSON.stringify(iolData.extractedDataForAPI, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
 
 
                     {/* Informations personnelles du patient */}
