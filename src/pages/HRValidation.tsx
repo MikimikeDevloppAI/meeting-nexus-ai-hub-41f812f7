@@ -341,6 +341,32 @@ export default function HRValidation() {
   const yearStart = startOfYear(new Date(selectedYear, 0, 1));
   const yearEnd = endOfYear(new Date(selectedYear, 11, 31));
 
+  const getQuotaForUser = (userId: string, year: number) => {
+    // Quota de base pour l'année
+    const baseQuota = vacationQuotas.find(q => q.user_id === userId && q.year === year)?.quota_days || 0;
+    
+    // Si c'est 2026 ou après, on ajoute le quota non utilisé de l'année précédente
+    if (year >= 2026) {
+      const previousYear = year - 1;
+      const previousQuota = vacationQuotas.find(q => q.user_id === userId && q.year === previousYear)?.quota_days || 0;
+      
+      // Calculer les jours utilisés l'année précédente
+      const previousYearVacations = vacations.filter(vacation => {
+        const vacationYear = new Date(vacation.start_date).getFullYear();
+        return vacation.user_id === userId && 
+               vacationYear === previousYear && 
+               vacation.status === 'approved';
+      });
+      
+      const usedDaysPreviousYear = previousYearVacations.reduce((sum, v) => sum + v.days_count, 0);
+      const remainingFromPreviousYear = Math.max(0, previousQuota - usedDaysPreviousYear);
+      
+      return baseQuota + remainingFromPreviousYear;
+    }
+    
+    return baseQuota;
+  };
+
   const getVacationSummaryForUser = (userEmail: string) => {
     const userVacations = vacations.filter(v => 
       v.users.email === userEmail && 
@@ -733,14 +759,31 @@ export default function HRValidation() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {specificUsers.map((user) => {
                   const summary = getVacationSummaryForUser(user.email);
+                  // Trouver l'utilisateur dans la table users pour obtenir son ID
+                  const userRecord = users.find(u => u.email === user.email);
+                  const quota = userRecord ? getQuotaForUser(userRecord.id, selectedYear) : 0;
+                  const remaining = Math.max(0, quota - summary.totalDays);
+                  
                   return (
                     <div key={user.email} className="p-4 border rounded-lg">
                       <h3 className="font-medium">{user.name}</h3>
                       <p className="text-sm text-gray-600">{user.email}</p>
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-2xl font-bold">{summary.totalDays}</span>
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-2xl font-bold">{summary.totalDays} / {quota}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>jours pris / quota disponible</p>
+                          <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {remaining > 0 ? `${remaining} jours restants` : 'Quota dépassé'}
+                          </p>
+                          {selectedYear >= 2026 && quota > 0 && (
+                            <p className="text-blue-600 text-xs">
+                              (inclut report année précédente)
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">jours de vacances</p>
                     </div>
                   );
                 })}
