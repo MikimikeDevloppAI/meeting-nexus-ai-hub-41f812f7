@@ -15,8 +15,6 @@ export default function IOLCalculator() {
     screenshot: string;
     patientData: any;
   } | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [calculationImage, setCalculationImage] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,141 +56,11 @@ export default function IOLCalculator() {
     document.getElementById('pdf-upload')?.click();
   };
 
-  const extractPatientName = (rawText: string) => {
-    // Extract patient name from rawText - look for pattern after "SID:" and before comma
-    const nameMatch = rawText.match(/SID:\s*\d+\s+([^,]+),/);
-    return nameMatch ? nameMatch[1].trim() : "Patient Inconnu";
-  };
-
-  const extractBirthDate = (rawText: string) => {
-    // Extract birth date - look for pattern like "26.02.1983"
-    const birthMatch = rawText.match(/(\d{2}\.\d{2}\.\d{4})/);
-    return birthMatch ? birthMatch[1] : null;
-  };
-
-  const calculateAge = (birthDateStr: string) => {
-    // Parse birth date in format DD.MM.YYYY
-    const [day, month, year] = birthDateStr.split('.').map(Number);
-    const birthDate = new Date(year, month - 1, day);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      return age - 1;
-    }
-    return age;
-  };
-
-  const extractNumberBeforeSlash = (value: string) => {
-    if (!value) return "";
-    const beforeSlash = value.split('/')[0].trim();
-    return beforeSlash;
-  };
-
-  const callIOLCalculationAPI = async (data: IOLData) => {
-    setIsCalculating(true);
-    try {
-      const patientName = extractPatientName(data.rawText || "");
-      const birthDateStr = extractBirthDate(data.rawText || "");
-      const age = birthDateStr ? calculateAge(birthDateStr) : 45;
-      
-      // Extract patient initials - first letter of first and last name
-      const nameParts = patientName.split(' ');
-      const initials = nameParts.length >= 2 
-        ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
-        : nameParts[0] ? `${nameParts[0][0]}X`.toUpperCase() : "XX";
-
-      const requestData = {
-        gender: "Female", // Default value as not specified in extracted data
-        top_fields: {
-          surgeon: "David Tabibian",
-          patient_initials: initials,
-          id: Math.floor(Math.random() * 10000).toString(),
-          age: age.toString()
-        },
-        right_eye: {
-          AL: data.rightEye?.AL || "",
-          ACD: data.rightEye?.ACD || "",
-          LT: data.rightEye?.LT || "",
-          CCT: data.rightEye?.CCT || "",
-          "CD (WTW)": data.rightEye?.WTW || "",
-          K1: extractNumberBeforeSlash(data.rightEye?.K1 || ""),
-          K2: extractNumberBeforeSlash(data.rightEye?.K2 || ""),
-          "Hoffer® pACD": data.rightEye?.ACD || "5.0" // Use ACD value or default
-        },
-        left_eye: {
-          AL: data.leftEye?.AL || "",
-          ACD: data.leftEye?.ACD || "",
-          LT: data.leftEye?.LT || "",
-          CCT: data.leftEye?.CCT || "",
-          "CD (WTW)": data.leftEye?.WTW || "",
-          K1: extractNumberBeforeSlash(data.leftEye?.K1 || ""),
-          K2: extractNumberBeforeSlash(data.leftEye?.K2 || ""),
-          "Hoffer® pACD": data.leftEye?.ACD || "5.0" // Use ACD value or default
-        }
-      };
-
-      console.log("Calling IOL API with data:", requestData);
-
-      // Call our Supabase edge function instead of the external API directly
-      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      });
-
-      console.log("Edge function response status:", response.status);
-      console.log("Edge function response headers:", Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Edge function error response:", errorText);
-        throw new Error(`Edge function error: ${response.status} - ${errorText}`);
-      }
-
-      const blob = await response.blob();
-      const imageUrl = URL.createObjectURL(blob);
-      setCalculationImage(imageUrl);
-
-      toast({
-        title: "Calcul IOL réussi",
-        description: "L'image de calcul IOL a été générée avec succès.",
-      });
-
-    } catch (error: any) {
-      console.error("Detailed error information:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause
-      });
-      
-      // Provide more specific error messages
-      let errorMessage = error.message;
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = "Erreur de connexion: Impossible de contacter le service de calcul IOL";
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMessage = "Impossible de contacter le service de calcul IOL. Vérifiez votre connexion Internet.";
-      }
-      
-      toast({
-        title: "Erreur de calcul IOL",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsCalculating(false);
-    }
-  };
-
   const extractIOLData = async () => {
     if (!pdfFile) return;
 
     setIsProcessing(true);
     setIolData(null);
-    setCalculationImage(null);
     
     try {
       console.log("Extraction directe du PDF:", pdfFile.name, "Taille:", pdfFile.size);
@@ -213,9 +81,6 @@ export default function IOLCalculator() {
           title: "Extraction réussie",
           description: "Le texte a été extrait avec succès du PDF.",
         });
-        
-        // Automatically call the IOL calculation API
-        await callIOLCalculationAPI(data);
       }
       
     } catch (error: any) {
@@ -347,16 +212,11 @@ export default function IOLCalculator() {
                   ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
                 </span>
               </div>
-              <Button onClick={extractIOLData} disabled={isProcessing || isCalculating}>
+              <Button onClick={extractIOLData} disabled={isProcessing}>
                 {isProcessing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Extraction en cours...
-                  </>
-                ) : isCalculating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Calcul IOL en cours...
                   </>
                 ) : (
                   "Extraire le texte du PDF"
@@ -547,37 +407,6 @@ export default function IOLCalculator() {
                 >
                   <Download className="h-4 w-4" />
                   Télécharger le screenshot
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {calculationImage && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  📊 Résultat du calcul IOL
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-lg overflow-hidden bg-white">
-                  <img 
-                    src={calculationImage} 
-                    alt="Résultat du calcul IOL" 
-                    className="w-full h-auto"
-                  />
-                </div>
-                <Button 
-                  className="flex items-center gap-2"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = calculationImage;
-                    link.download = `iol_calculation_result.png`;
-                    link.click();
-                  }}
-                >
-                  <Download className="h-4 w-4" />
-                  Télécharger le résultat
                 </Button>
               </CardContent>
             </Card>
