@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Upload, FileText, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -108,17 +110,17 @@ export default function IOLCalculator() {
 
         console.log("Calling calculate-iol edge function with data:", calculateIOLData);
 
-        // Call the calculate-iol edge function
-        const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(calculateIOLData),
+        // Call the calculate-iol edge function using supabase.functions.invoke
+        const { data: result, error } = await supabase.functions.invoke('calculate-iol', {
+          body: calculateIOLData,
         });
 
-        const result = await response.json();
         console.log("Calculate-IOL result:", result);
+        console.log("Calculate-IOL error:", error);
+
+        if (error) {
+          throw new Error(`Edge function error: ${error.message}`);
+        }
 
         // Update the extracted data with calculated results
         const enhancedData = {
