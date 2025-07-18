@@ -530,18 +530,6 @@ export default function IOLCalculator() {
                     <Download className="h-4 w-4" />
                     Exporter vers Selenium
                   </Button>
-                  <Button 
-                    onClick={automateOnESCRS} 
-                    disabled={isAutomating}
-                    className="flex items-center gap-2"
-                  >
-                    {isAutomating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <span>🤖</span>
-                    )}
-                    {isAutomating ? 'Automatisation...' : 'Automatiser sur ESCRS'}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
