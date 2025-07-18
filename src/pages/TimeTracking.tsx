@@ -145,12 +145,13 @@ export default function TimeTracking() {
       const previousYear = year - 1;
       const previousQuota = vacationQuotas.find(q => q.year === previousYear)?.quota_days || 0;
       
-      // Calculer les jours utilisés l'année précédente
+      // Calculer les jours utilisés l'année précédente (SEULEMENT les congés annuels)
       const previousYearVacations = vacations.filter(vacation => {
         const vacationYear = new Date(vacation.start_date).getFullYear();
         return vacation.user_id === user?.id && 
                vacationYear === previousYear && 
-               vacation.status === 'approved';
+               vacation.status === 'approved' &&
+               vacation.vacation_type === 'annual'; // SEULEMENT les congés annuels
       });
       
       const usedDaysPreviousYear = previousYearVacations.reduce((sum, v) => sum + v.days_count, 0);
@@ -650,6 +651,7 @@ export default function TimeTracking() {
             const userVacations = vacations.filter(vacation => 
               vacation.user_id === user?.id && 
               vacation.status === 'approved' &&
+              vacation.vacation_type === 'annual' && // SEULEMENT les congés annuels
               isWithinInterval(parseISO(vacation.start_date), { start: yearStart, end: yearEnd })
             );
             
