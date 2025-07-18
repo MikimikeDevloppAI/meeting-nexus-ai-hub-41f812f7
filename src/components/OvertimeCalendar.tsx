@@ -22,8 +22,19 @@ interface OvertimeHour {
   updated_at: string;
 }
 
+interface Vacation {
+  id: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  vacation_type: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 interface OvertimeCalendarProps {
   overtimeHours: OvertimeHour[];
+  vacations?: Vacation[];
   onAddOvertime: (data: {
     date: string;
     hours: number;
@@ -39,6 +50,7 @@ interface OvertimeCalendarProps {
 
 export function OvertimeCalendar({ 
   overtimeHours, 
+  vacations = [],
   onAddOvertime, 
   onEditOvertime, 
   onDeleteOvertime 
@@ -171,6 +183,47 @@ export function OvertimeCalendar({
       return isWithinInterval(overtimeDate, { start: monthStart, end: monthEnd });
     });
     
+    // Calculer les heures de récupération utilisées (vacances type "overtime_recovery" approuvées)
+    const recoveryVacations = vacations.filter(vacation => {
+      if (vacation.vacation_type !== 'overtime_recovery' || vacation.status !== 'approved') {
+        return false;
+      }
+      
+      // Vérifier si les dates de vacances chevauchent avec le mois
+      const vacationStart = parseISO(vacation.start_date);
+      const vacationEnd = parseISO(vacation.end_date);
+      
+      return isWithinInterval(vacationStart, { start: monthStart, end: monthEnd }) ||
+             isWithinInterval(vacationEnd, { start: monthStart, end: monthEnd }) ||
+             (vacationStart <= monthStart && vacationEnd >= monthEnd);
+    });
+    
+    const recoveryHours = recoveryVacations.reduce((sum, vacation) => {
+      // Calculer le nombre de jours de récupération dans ce mois
+      const vacationStart = parseISO(vacation.start_date);
+      const vacationEnd = parseISO(vacation.end_date);
+      
+      // Prendre l'intersection avec le mois
+      const effectiveStart = vacationStart > monthStart ? vacationStart : monthStart;
+      const effectiveEnd = vacationEnd < monthEnd ? vacationEnd : monthEnd;
+      
+      if (effectiveStart > effectiveEnd) return sum;
+      
+      // Calculer les jours ouvrables dans cette période
+      let daysInMonth = 0;
+      let currentDate = new Date(effectiveStart);
+      
+      while (currentDate <= effectiveEnd) {
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclure week-ends
+          daysInMonth += vacation.days_count > 1 ? 1 : 0.5; // Jour complet ou demi-journée
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      return sum + (daysInMonth * 8); // 8h par jour ou 4h par demi-journée
+    }, 0);
+    
     const totalHours = monthlyOvertimes.reduce((sum, overtime) => sum + overtime.hours, 0);
     const approvedHours = monthlyOvertimes
       .filter(overtime => overtime.status === 'approved')
@@ -181,9 +234,10 @@ export function OvertimeCalendar({
 
     return {
       month,
-      totalHours,
-      approvedHours,
+      totalHours: totalHours - recoveryHours, // Soustraire les heures de récupération
+      approvedHours: approvedHours - recoveryHours,
       pendingHours,
+      recoveryHours,
       count: monthlyOvertimes.length
     };
   });
@@ -340,12 +394,17 @@ export function OvertimeCalendar({
                     <div className="text-xs space-x-2">
                       {stat.approvedHours > 0 && (
                         <span className="text-green-600">
-                          ✓ {stat.approvedHours.toFixed(1)}h
+                          ✓ {(stat.approvedHours + (stat.recoveryHours || 0)).toFixed(1)}h
                         </span>
                       )}
                       {stat.pendingHours > 0 && (
                         <span className="text-orange-600">
                           ⏳ {stat.pendingHours.toFixed(1)}h
+                        </span>
+                      )}
+                      {(stat.recoveryHours || 0) > 0 && (
+                        <span className="text-blue-600">
+                          🔄 -{stat.recoveryHours.toFixed(1)}h
                         </span>
                       )}
                     </div>
@@ -362,9 +421,16 @@ export function OvertimeCalendar({
                   {monthlyStats.reduce((sum, stat) => sum + stat.totalHours, 0).toFixed(1)}h
                 </span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600 mt-1">
-                <span>Approuvées: {monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0).toFixed(1)}h</span>
-                <span>En attente: {monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0).toFixed(1)}h</span>
+              <div className="grid grid-cols-1 gap-1 text-sm text-gray-600 mt-1">
+                <div className="flex justify-between">
+                  <span>Approuvées: {monthlyStats.reduce((sum, stat) => sum + (stat.approvedHours + (stat.recoveryHours || 0)), 0).toFixed(1)}h</span>
+                  <span>En attente: {monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0).toFixed(1)}h</span>
+                </div>
+                {monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0) > 0 && (
+                  <div className="text-blue-600">
+                    Récupération utilisée: -{monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0).toFixed(1)}h
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

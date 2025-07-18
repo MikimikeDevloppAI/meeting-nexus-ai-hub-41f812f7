@@ -41,7 +41,7 @@ interface Vacation {
   end_date: string;
   days_count: number;
   description?: string;
-  vacation_type: 'annual' | 'sick' | 'personal' | 'other';
+  vacation_type: 'annual' | 'sick' | 'personal' | 'overtime_recovery' | 'other';
   status: 'pending' | 'approved' | 'rejected';
   approved_by?: string;
   approved_at?: string;
@@ -349,7 +349,7 @@ export default function TimeTracking() {
   };
 
   // Nouvelle fonction pour gérer les dates multiples du calendrier
-  const onSubmitVacationCalendar = async (data: { dates: string[]; vacation_type: string; description: string; }) => {
+  const onSubmitVacationCalendar = async (data: { dates: string[]; vacation_type: string; description: string; isHalfDay: boolean; }) => {
     if (!user || data.dates.length === 0) return;
 
     try {
@@ -357,7 +357,7 @@ export default function TimeTracking() {
       const sortedDates = data.dates.sort();
       const startDate = sortedDates[0];
       const endDate = sortedDates[sortedDates.length - 1];
-      const daysCount = data.dates.length;
+      const daysCount = data.isHalfDay ? data.dates.length * 0.5 : data.dates.length;
 
       if (editingVacation) {
         const { error } = await supabase
@@ -389,9 +389,13 @@ export default function TimeTracking() {
           });
 
         if (error) throw error;
+        const description = data.isHalfDay ? 
+          `${data.dates.length} demi-journée${data.dates.length > 1 ? 's' : ''} de vacances enregistrée${data.dates.length > 1 ? 's' : ''}` :
+          `${data.dates.length} jour${data.dates.length > 1 ? 's' : ''} de vacances enregistré${data.dates.length > 1 ? 's' : ''}`;
+        
         toast({
           title: "Vacances ajoutées",
-          description: `${daysCount} jour${daysCount > 1 ? 's' : ''} de vacances enregistré${daysCount > 1 ? 's' : ''}`,
+          description,
         });
       }
 
@@ -588,6 +592,7 @@ export default function TimeTracking() {
       annual: "Congés annuels",
       sick: "Congé maladie",
       personal: "Congé personnel",
+      overtime_recovery: "Récupération heures supplémentaires",
       other: "Autre"
     };
     return types[type as keyof typeof types] || type;
@@ -627,6 +632,7 @@ export default function TimeTracking() {
         <TabsContent value="overtime" className="space-y-6">
           <OvertimeCalendar
             overtimeHours={overtimeHours.filter(overtime => overtime.user_id === user?.id)}
+            vacations={vacations.filter(vacation => vacation.user_id === user?.id)}
             onAddOvertime={onAddOvertime}
             onEditOvertime={onEditOvertime}
             onDeleteOvertime={onDeleteOvertimeCalendar}
@@ -745,7 +751,10 @@ export default function TimeTracking() {
                             {getVacationTypeLabel(vacation.vacation_type)}
                           </Badge>
                           <Badge variant="outline">
-                            {vacation.days_count} jour{vacation.days_count > 1 ? 's' : ''}
+                            {vacation.days_count % 1 === 0 ? 
+                              `${vacation.days_count} jour${vacation.days_count > 1 ? 's' : ''}` :
+                              `${vacation.days_count} jour${vacation.days_count > 1 ? 's' : ''} (${vacation.days_count * 2} demi-journées)`
+                            }
                           </Badge>
                           {getStatusBadge(vacation.status)}
                         </div>
@@ -943,7 +952,8 @@ export default function TimeTracking() {
               start_date: editingVacation.start_date,
               end_date: editingVacation.end_date,
               vacation_type: editingVacation.vacation_type,
-              description: editingVacation.description || ""
+              description: editingVacation.description || "",
+              days_count: editingVacation.days_count
             } : undefined}
             existingVacations={vacations.filter(vacation => vacation.user_id === user?.id)}
           />

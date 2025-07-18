@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarDays, X } from "lucide-react";
 import { format, eachDayOfInterval, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -15,6 +16,7 @@ interface VacationCalendarProps {
     dates: string[];
     vacation_type: string;
     description: string;
+    isHalfDay: boolean;
   }) => void;
   onCancel: () => void;
   editingData?: {
@@ -22,6 +24,7 @@ interface VacationCalendarProps {
     end_date: string;
     vacation_type: string;
     description: string;
+    days_count: number;
   };
   existingVacations?: Array<{
     id: string;
@@ -29,6 +32,7 @@ interface VacationCalendarProps {
     end_date: string;
     vacation_type: string;
     status: string;
+    days_count: number;
     users?: { name: string; email: string; } | null;
   }>;
 }
@@ -46,6 +50,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
   
   const [vacationType, setVacationType] = useState(editingData?.vacation_type || "annual");
   const [description, setDescription] = useState(editingData?.description || "");
+  const [isHalfDay, setIsHalfDay] = useState(editingData?.days_count === 0.5 || false);
 
   const handleDateSelect = (dates: Date[] | undefined) => {
     if (!dates) {
@@ -65,7 +70,8 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     onSubmit({
       dates,
       vacation_type: vacationType,
-      description
+      description,
+      isHalfDay
     });
   };
 
@@ -156,7 +162,10 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">
-                    {selectedDates.length} jour{selectedDates.length > 1 ? 's' : ''} sélectionné{selectedDates.length > 1 ? 's' : ''}
+                    {isHalfDay ? 
+                      `${selectedDates.length} demi-journée${selectedDates.length > 1 ? 's' : ''} sélectionnée${selectedDates.length > 1 ? 's' : ''}` :
+                      `${selectedDates.length} jour${selectedDates.length > 1 ? 's' : ''} sélectionné${selectedDates.length > 1 ? 's' : ''}`
+                    }
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {selectedDates.slice(0, 5).map((date, index) => (
@@ -210,15 +219,29 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Description (optionnel)</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Raison ou détails des vacances..."
-              rows={3}
-            />
-          </div>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="halfDay"
+                  checked={isHalfDay}
+                  onCheckedChange={(checked) => setIsHalfDay(checked as boolean)}
+                />
+                <Label htmlFor="halfDay">Demi-journée</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cochez cette case si vous souhaitez poser des demi-journées
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description (optionnel)</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Raison ou détails des vacances..."
+                rows={3}
+              />
+            </div>
         </CardContent>
       </Card>
 
