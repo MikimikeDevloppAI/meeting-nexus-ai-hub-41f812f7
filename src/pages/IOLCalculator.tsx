@@ -517,15 +517,6 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
-                    {/* Texte brut pour débogage */}
-                    {iolData.rawText && (
-                      <div className="bg-muted p-4 rounded-lg">
-                        <h3 className="font-medium mb-2">Texte complet extrait (pour débogage) :</h3>
-                        <div className="max-h-96 overflow-y-auto border bg-background p-3 rounded text-sm">
-                          <pre className="whitespace-pre-wrap font-mono">{iolData.rawText}</pre>
-                        </div>
-                      </div>
-                    )}
                    </>
                  )}
                 
