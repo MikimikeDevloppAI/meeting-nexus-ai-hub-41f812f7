@@ -191,13 +191,13 @@ export const parseIOLData = (rawText: string): IOLData => {
     data.rightEye!.LT = extractValue(/LT\s+\[mm\]\s+([\d\.]+)/g, 1);
     data.leftEye!.LT = extractValue(/LT\s+\[mm\]\s+([\d\.]+)/g, 2);
 
-    // K1 [D/mm/°] - format: 45.17 /7.47 @ 178 - pattern ajusté
-    data.rightEye!.K1 = extractMultipleValues(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
-    data.leftEye!.K1 = extractMultipleValues(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+    // K1 [D/mm/°] - on ne prend que le nombre avant le / 
+    data.rightEye!.K1 = extractValue(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.K1 = extractValue(/K1\s+\[D\/mm\/°\]\s+([\d\.]+)/g, 2);
 
-    // K2 [D/mm/°] - format: 46.07 /7.33 @ 88 - pattern ajusté
-    data.rightEye!.K2 = extractMultipleValues(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 1);
-    data.leftEye!.K2 = extractMultipleValues(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)\s*\/\s*([\d\.]+)\s+@\s*(\d+)/g, 2);
+    // K2 [D/mm/°] - on ne prend que le nombre avant le /
+    data.rightEye!.K2 = extractValue(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)/g, 1);
+    data.leftEye!.K2 = extractValue(/K2\s+\[D\/mm\/°\]\s+([\d\.]+)/g, 2);
 
     // K [D/mm] - format: 45.62 /7.40 - pattern ajusté
     data.rightEye!.K = extractMultipleValues(/K\s+\[D\/mm\]\s+([\d\.]+)\s*\/\s*([\d\.]+)/g, 1);
