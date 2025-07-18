@@ -209,19 +209,27 @@ export function OvertimeCalendar({
       
       if (effectiveStart > effectiveEnd) return sum;
       
-      // Calculer les jours ouvrables dans cette période
-      let daysInMonth = 0;
+      // Calculer les jours ouvrables dans cette période et appliquer le bon calcul d'heures
+      let totalRecoveryHours = 0;
       let currentDate = new Date(effectiveStart);
       
       while (currentDate <= effectiveEnd) {
         const dayOfWeek = currentDate.getDay();
         if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclure week-ends
-          daysInMonth += vacation.days_count > 1 ? 1 : 0.5; // Jour complet ou demi-journée
+          // Si vacation.days_count est un entier (ex: 1), c'est une journée complète = 8h
+          // Si vacation.days_count est un décimal (ex: 0.5), c'est une demi-journée = 4h
+          if (vacation.days_count % 1 === 0) {
+            // Journée complète : 8h par jour
+            totalRecoveryHours += 8;
+          } else {
+            // Demi-journée : 4h
+            totalRecoveryHours += 4;
+          }
         }
         currentDate.setDate(currentDate.getDate() + 1);
       }
       
-      return sum + (daysInMonth * 8); // 8h par jour ou 4h par demi-journée
+      return sum + totalRecoveryHours;
     }, 0);
     
     const totalHours = monthlyOvertimes.reduce((sum, overtime) => sum + overtime.hours, 0);
