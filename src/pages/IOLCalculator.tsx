@@ -379,25 +379,6 @@ export default function IOLCalculator() {
                         </div>
                       </div>
                     )}
-                    {(iolData.surgeryType || iolData.measurementDate) && (
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">Informations générales</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                          {iolData.surgeryType && (
-                            <div>
-                              <p className="font-medium">Type de chirurgie</p>
-                              <p className="text-muted-foreground">{iolData.surgeryType}</p>
-                            </div>
-                          )}
-                          {iolData.measurementDate && (
-                            <div>
-                              <p className="font-medium">Date de mesure</p>
-                              <p className="text-muted-foreground">{iolData.measurementDate}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Tableau des données IOL */}
                     {(iolData.rightEye || iolData.leftEye) && (
