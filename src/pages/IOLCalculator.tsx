@@ -83,10 +83,10 @@ export default function IOLCalculator() {
         const calculateIOLData = {
           gender: "Female", // Default - could be extracted from PDF later
           top_fields: {
-            surgeon: "Dr. Smith", // Default - could be extracted from PDF later
-            patient_initials: "JS", // Default - could be extracted from PDF later
+            surgeon: "David Tabibian",
+            patient_initials: data.patientInitials || "JS",
             id: Date.now().toString(),
-            age: "65" // Default - could be extracted from PDF later
+            age: data.age?.toString() || "65"
           },
           right_eye: {
             AL: data.rightEye?.AL || "",
@@ -326,7 +326,50 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
-                    {/* Informations générales */}
+                    {/* Texte brut extrait */}
+                    {iolData.rawText && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">Texte extrait du PDF</h3>
+                        <div className="bg-muted p-4 rounded-lg">
+                          <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                            {iolData.rawText}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Informations personnelles du patient */}
+                    {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">Informations patient</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          {iolData.patientName && (
+                            <div>
+                              <p className="font-medium">Nom du patient</p>
+                              <p className="text-muted-foreground">{iolData.patientName}</p>
+                            </div>
+                          )}
+                          {iolData.patientInitials && (
+                            <div>
+                              <p className="font-medium">Initiales</p>
+                              <p className="text-muted-foreground">{iolData.patientInitials}</p>
+                            </div>
+                          )}
+                          {iolData.dateOfBirth && (
+                            <div>
+                              <p className="font-medium">Date de naissance</p>
+                              <p className="text-muted-foreground">{iolData.dateOfBirth}</p>
+                            </div>
+                          )}
+                          {iolData.age && (
+                            <div>
+                              <p className="font-medium">Âge</p>
+                              <p className="text-muted-foreground">{iolData.age} ans</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {(iolData.surgeryType || iolData.measurementDate) && (
                       <div className="space-y-3">
                         <h3 className="font-semibold text-lg">Informations générales</h3>

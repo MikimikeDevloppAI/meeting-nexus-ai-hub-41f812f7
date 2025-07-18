@@ -32,6 +32,10 @@ export interface IOLData {
   // Informations générales
   surgeryType?: string;
   measurementDate?: string;
+  patientName?: string;
+  patientInitials?: string;
+  dateOfBirth?: string;
+  age?: number;
   
   // Données pour œil droit (OD)
   rightEye?: {
@@ -149,9 +153,9 @@ export const parseIOLData = (rawText: string): IOLData => {
       return undefined;
     };
 
-    // Fonction helper pour extraire la réfraction cible après "refraction cible:"
+    // Fonction helper pour extraire la réfraction cible après "Réfraction cible:"
     const extractTargetRefraction = (occurrence: number = 1): string | undefined => {
-      const pattern = /refraction\s+cible\s*:\s*([-\+]?[\d\.]+(?:\s*[-\+]?\s*[\d\.]+)?[^\s]*)/gi;
+      const pattern = /Réfraction\s+cible\s*:\s*([-\+]?[\d\.]+(?:\s*[-\+]?\s*[\d\.]+)*)/gi;
       const matches = [...rawText.matchAll(pattern)];
       if (matches.length >= occurrence && matches[occurrence - 1]) {
         return matches[occurrence - 1][1].trim();
@@ -159,18 +163,87 @@ export const parseIOLData = (rawText: string): IOLData => {
       return undefined;
     };
 
-    // 1. Extraire le type de chirurgie
+    // Fonction pour extraire le nom du patient (première ligne du document)
+    const extractPatientName = (): string | undefined => {
+      const lines = rawText.split('\n').filter(line => line.trim().length > 0);
+      if (lines.length > 0) {
+        const firstLine = lines[0].trim();
+        // Extraire le nom, en excluant les éléments qui ne sont clairement pas un nom
+        const nameMatch = firstLine.match(/^([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)+)/);
+        return nameMatch ? nameMatch[1] : firstLine;
+      }
+      return undefined;
+    };
+
+    // Fonction pour extraire les initiales du patient
+    const extractPatientInitials = (name: string): string => {
+      const nameParts = name.split(/\s+/);
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+      }
+      return name[0]?.toUpperCase() || '';
+    };
+
+    // Fonction pour extraire la date de naissance
+    const extractDateOfBirth = (): string | undefined => {
+      const dobPattern = /(?:né|née|birth|naissance)\s*:?\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/gi;
+      const match = rawText.match(dobPattern);
+      if (match) {
+        const dateStr = match[0].replace(/.*:?\s*/, '');
+        return dateStr;
+      }
+      return undefined;
+    };
+
+    // Fonction pour calculer l'âge
+    const calculateAge = (dateOfBirth: string): number | undefined => {
+      try {
+        // Normaliser le format de date (accepter . - /)
+        const normalizedDate = dateOfBirth.replace(/[\.\-]/g, '/');
+        const birthDate = new Date(normalizedDate);
+        const today = new Date();
+        
+        if (isNaN(birthDate.getTime())) return undefined;
+        
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        
+        return age > 0 && age < 150 ? age : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    // 1. Extraire les informations personnelles du patient
+    const patientName = extractPatientName();
+    if (patientName) {
+      data.patientName = patientName;
+      data.patientInitials = extractPatientInitials(patientName);
+    }
+
+    // 2. Extraire la date de naissance et calculer l'âge
+    const dateOfBirth = extractDateOfBirth();
+    if (dateOfBirth) {
+      data.dateOfBirth = dateOfBirth;
+      data.age = calculateAge(dateOfBirth);
+    }
+
+    // 3. Extraire le type de chirurgie
     if (rawText.includes('Phaque')) {
       data.surgeryType = 'Phaque';
     }
 
-    // 2. Extraire la date de mesure (LS900 cône T <date>)
+    // 4. Extraire la date de mesure (LS900 cône T <date>)
     const dateMatch = rawText.match(/LS900 cône T\s+(\d{1,2}\s+\w+\s+\d{4})/);
     if (dateMatch) {
       data.measurementDate = dateMatch[1];
     }
 
-    // 3. Extraire les données pour les deux yeux avec gestion des espaces multiples
+    // 5. Extraire les données pour les deux yeux avec gestion des espaces multiples
     // AL [mm] - pattern ajusté pour gérer les espaces multiples
     data.rightEye!.AL = extractValue(/AL\s+\[mm\]\s+([\d\.]+)/g, 1);
     data.leftEye!.AL = extractValue(/AL\s+\[mm\]\s+([\d\.]+)/g, 2);
