@@ -503,9 +503,16 @@ export default function IOLCalculator() {
                               variant="outline" 
                               size="sm"
                               onClick={() => {
+                                // Créer un nom de fichier avec les initiales et date de naissance
+                                const initials = iolData?.patientInitials || 'Patient';
+                                const dateOfBirth = iolData?.dateOfBirth || '';
+                                // Nettoyer la date pour enlever les caractères spéciaux
+                                const cleanDate = dateOfBirth.replace(/[^0-9]/g, '');
+                                const fileName = `${initials}${cleanDate}.png`;
+                                
                                 const link = document.createElement('a');
                                 link.href = calculatedImage;
-                                link.download = 'calcul-iol-result.png';
+                                link.download = fileName;
                                 link.click();
                               }}
                             >
