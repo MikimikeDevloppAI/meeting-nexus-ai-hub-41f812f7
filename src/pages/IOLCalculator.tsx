@@ -134,62 +134,52 @@ export default function IOLCalculator() {
 
       console.log("Calling IOL API with data:", requestData);
 
-      try {
-        const response = await fetch('https://api.srv758474.hstgr.cloud/calculate-iol', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData)
-        });
+      // Call our Supabase edge function instead of the external API directly
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
 
-        console.log("Response status:", response.status);
-        console.log("Response headers:", response.headers);
+      console.log("Edge function response status:", response.status);
+      console.log("Edge function response headers:", Object.fromEntries(response.headers.entries()));
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("API Error Response:", errorText);
-          throw new Error(`API Error: ${response.status} - ${errorText}`);
-        }
-
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-        setCalculationImage(imageUrl);
-
-        toast({
-          title: "Calcul IOL réussi",
-          description: "L'image de calcul IOL a été générée avec succès.",
-        });
-
-      } catch (error: any) {
-        console.error("Detailed error information:", {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          cause: error.cause
-        });
-        
-        // Provide more specific error messages
-        let errorMessage = error.message;
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-          errorMessage = "Erreur de connexion: L'API IOL n'est pas accessible depuis ce domaine (problème CORS)";
-        } else if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Impossible de contacter l'API IOL. Vérifiez votre connexion Internet ou contactez l'administrateur.";
-        }
-        
-        toast({
-          title: "Erreur de calcul IOL",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } finally {
-        setIsCalculating(false);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Edge function error response:", errorText);
+        throw new Error(`Edge function error: ${response.status} - ${errorText}`);
       }
+
+      const blob = await response.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      setCalculationImage(imageUrl);
+
+      toast({
+        title: "Calcul IOL réussi",
+        description: "L'image de calcul IOL a été générée avec succès.",
+      });
+
     } catch (error: any) {
-      console.error("Erreur lors du calcul IOL:", error);
+      console.error("Detailed error information:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = error.message;
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = "Erreur de connexion: Impossible de contacter le service de calcul IOL";
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = "Impossible de contacter le service de calcul IOL. Vérifiez votre connexion Internet.";
+      }
+      
       toast({
         title: "Erreur de calcul IOL",
-        description: `Impossible de calculer IOL: ${error.message}`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
