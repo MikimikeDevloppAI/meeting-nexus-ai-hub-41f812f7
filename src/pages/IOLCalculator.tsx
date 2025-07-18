@@ -522,14 +522,6 @@ export default function IOLCalculator() {
                 
                 {/* Boutons d'export et d'automatisation */}
                 <div className="flex gap-3 pt-4 flex-wrap">
-                  <Button 
-                    onClick={exportForSelenium} 
-                    variant="secondary"
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Exporter vers Selenium
-                  </Button>
                 </div>
               </CardContent>
             </Card>
