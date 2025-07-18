@@ -64,6 +64,7 @@ export default function HRValidation() {
   const [overtimeHours, setOvertimeHours] = useState<OvertimeHour[]>([]);
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [vacationQuotas, setVacationQuotas] = useState<VacationQuota[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -77,8 +78,27 @@ export default function HRValidation() {
   }, [user]);
 
   const fetchData = async () => {
-    await Promise.all([fetchOvertimeHours(), fetchVacations(), fetchVacationQuotas()]);
+    await Promise.all([fetchOvertimeHours(), fetchVacations(), fetchVacationQuotas(), fetchUsers()]);
     setLoading(false);
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('email', ['contacto@eyung.ch', 'emilie.eyung@gmail.com', 'leila.eyung@gmail.com']);
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les utilisateurs",
+        variant: "destructive",
+      });
+    }
   };
 
   const fetchVacationQuotas = async () => {
@@ -769,20 +789,12 @@ export default function HRValidation() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Récupérer d'abord les user_id pour les utilisateurs spécifiques */}
-              {specificUsers.map((user) => {
-                // Trouver l'user_id à partir des données de vacances ou heures supplémentaires
-                const userRecord = [...vacations, ...overtimeHours].find(record => 
-                  record.users?.email === user.email
-                );
-                
-                if (!userRecord) return null;
-                
-                const userId = userRecord.user_id;
-                const currentQuota = quotaValues[userId] || 0;
+              {/* Utiliser directement les données de la table users */}
+              {users.map((user) => {
+                const currentQuota = quotaValues[user.id] || 0;
                 
                 return (
-                  <div key={userId} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
                       <h3 className="font-medium">{user.name}</h3>
                       <p className="text-sm text-gray-600">{user.email}</p>
@@ -798,7 +810,7 @@ export default function HRValidation() {
                           const newValue = parseInt(e.target.value) || 0;
                           setQuotaValues(prev => ({
                             ...prev,
-                            [userId]: newValue
+                            [user.id]: newValue
                           }));
                         }}
                         className="w-20 text-center"
@@ -806,7 +818,7 @@ export default function HRValidation() {
                       <span className="text-sm text-gray-500">jours</span>
                       <Button
                         size="sm"
-                        onClick={() => updateVacationQuota(userId, quotaValues[userId] || 0)}
+                        onClick={() => updateVacationQuota(user.id, quotaValues[user.id] || 0)}
                         className="ml-2"
                       >
                         Sauvegarder
@@ -826,12 +838,7 @@ export default function HRValidation() {
                     {vacationQuotas
                       .filter(quota => quota.year === quotaYear)
                       .map((quota) => {
-                        const user = specificUsers.find(u => {
-                          const userRecord = [...vacations, ...overtimeHours].find(record => 
-                            record.users?.email === u.email && record.user_id === quota.user_id
-                          );
-                          return !!userRecord;
-                        });
+                        const user = users.find(u => u.id === quota.user_id);
                         
                         if (!user) return null;
                         
