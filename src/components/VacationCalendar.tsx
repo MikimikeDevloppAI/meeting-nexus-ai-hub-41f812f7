@@ -100,6 +100,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
       annual: "Congés annuels",
       sick: "Congé maladie", 
       personal: "Congé personnel",
+      overtime_recovery: "Récupération heures supplémentaires",
       other: "Autre"
     };
     return types[type as keyof typeof types] || type;
@@ -109,7 +110,8 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     const colors = {
       annual: "bg-blue-100 text-blue-800 border-blue-200",
       sick: "bg-red-100 text-red-800 border-red-200",
-      personal: "bg-green-100 text-green-800 border-green-200", 
+      personal: "bg-green-100 text-green-800 border-green-200",
+      overtime_recovery: "bg-orange-100 text-orange-800 border-orange-200",
       other: "bg-purple-100 text-purple-800 border-purple-200"
     };
     return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800 border-gray-200";
@@ -198,6 +200,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
                 <SelectItem value="annual">Congés annuels</SelectItem>
                 <SelectItem value="sick">Congé maladie</SelectItem>
                 <SelectItem value="personal">Congé personnel</SelectItem>
+                <SelectItem value="overtime_recovery">Récupération heures supplémentaires</SelectItem>
                 <SelectItem value="other">Autre</SelectItem>
               </SelectContent>
             </Select>
