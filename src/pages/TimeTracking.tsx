@@ -59,6 +59,15 @@ interface OvertimeFormData {
   description: string;
 }
 
+interface VacationQuota {
+  id: string;
+  user_id: string;
+  year: number;
+  quota_days: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface VacationFormData {
   start_date: string;
   end_date: string;
@@ -71,6 +80,7 @@ export default function TimeTracking() {
   const { toast } = useToast();
   const [overtimeHours, setOvertimeHours] = useState<OvertimeHour[]>([]);
   const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [vacationQuotas, setVacationQuotas] = useState<VacationQuota[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
   const [showVacationDialog, setShowVacationDialog] = useState(false);
@@ -102,8 +112,54 @@ export default function TimeTracking() {
   }, [user]);
 
   const fetchData = async () => {
-    await Promise.all([fetchOvertimeHours(), fetchVacations()]);
+    await Promise.all([fetchOvertimeHours(), fetchVacations(), fetchVacationQuotas()]);
     setLoading(false);
+  };
+
+  const fetchVacationQuotas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vacation_quotas')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('year', { ascending: false });
+
+      if (error) throw error;
+      setVacationQuotas(data || []);
+    } catch (error: any) {
+      console.error('Error fetching vacation quotas:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les quotas de vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getQuotaForUser = (year: number) => {
+    // Quota de base pour l'année
+    const baseQuota = vacationQuotas.find(q => q.year === year)?.quota_days || 0;
+    
+    // Si c'est 2026 ou après, on ajoute le quota non utilisé de l'année précédente
+    if (year >= 2026) {
+      const previousYear = year - 1;
+      const previousQuota = vacationQuotas.find(q => q.year === previousYear)?.quota_days || 0;
+      
+      // Calculer les jours utilisés l'année précédente
+      const previousYearVacations = vacations.filter(vacation => {
+        const vacationYear = new Date(vacation.start_date).getFullYear();
+        return vacation.user_id === user?.id && 
+               vacationYear === previousYear && 
+               vacation.status === 'approved';
+      });
+      
+      const usedDaysPreviousYear = previousYearVacations.reduce((sum, v) => sum + v.days_count, 0);
+      const remainingFromPreviousYear = Math.max(0, previousQuota - usedDaysPreviousYear);
+      
+      return baseQuota + remainingFromPreviousYear;
+    }
+    
+    return baseQuota;
   };
 
   const fetchOvertimeHours = async () => {
@@ -598,6 +654,8 @@ export default function TimeTracking() {
             );
             
             const totalDays = userVacations.reduce((sum, vacation) => sum + vacation.days_count, 0);
+            const quota = getQuotaForUser(currentYear);
+            const remainingDays = Math.max(0, quota - totalDays);
             
             return (
               <Card>
@@ -607,16 +665,55 @@ export default function TimeTracking() {
                     Décompte des vacances {currentYear}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Jours de vacances approuvés depuis le début de l'année
+                    Jours de vacances approuvés / quota disponible
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">{totalDays}</div>
-                    <div className="text-sm text-muted-foreground">
-                      jours approuvés<br />
-                      sur {userVacations.length} demande{userVacations.length > 1 ? 's' : ''}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-primary">{totalDays}</div>
+                      <div className="text-sm text-muted-foreground">jours pris</div>
                     </div>
+                    
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-gray-600">{quota}</div>
+                      <div className="text-sm text-muted-foreground">quota total</div>
+                      {currentYear >= 2026 && quota > 0 && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          (inclut report année précédente)
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-center">
+                      <div className={`text-3xl font-bold ${remainingDays > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {remainingDays}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {remainingDays > 0 ? 'jours restants' : 'quota dépassé'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {quota > 0 && (
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                        <span>Progression</span>
+                        <span>{totalDays} / {quota}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            totalDays <= quota ? 'bg-blue-600' : 'bg-red-600'
+                          }`}
+                          style={{ width: `${Math.min(100, (totalDays / quota) * 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 text-xs text-muted-foreground">
+                    {userVacations.length} demande{userVacations.length > 1 ? 's' : ''} approuvée{userVacations.length > 1 ? 's' : ''}
                   </div>
                 </CardContent>
               </Card>
