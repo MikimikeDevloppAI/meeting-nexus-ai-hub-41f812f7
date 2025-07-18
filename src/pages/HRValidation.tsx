@@ -37,7 +37,7 @@ interface Vacation {
   end_date: string;
   days_count: number;
   description?: string;
-  vacation_type: 'annual' | 'sick' | 'personal' | 'other';
+  vacation_type: 'annual' | 'sick' | 'personal' | 'other' | 'overtime_recovery';
   status: 'pending' | 'approved' | 'rejected';
   approved_by?: string;
   approved_at?: string;
@@ -303,7 +303,8 @@ export default function HRValidation() {
       annual: "Congés annuels",
       sick: "Congé maladie",
       personal: "Congé personnel",
-      other: "Autre"
+      other: "Autre",
+      overtime_recovery: "Récupération heures supplémentaires"
     };
     return types[type as keyof typeof types] || type;
   };
@@ -316,11 +317,26 @@ export default function HRValidation() {
     statusFilter === "all" || vacation.status === statusFilter
   );
 
+  // Calculer les heures de récupération à partir des vacances de type "overtime_recovery"
+  const recoveryHours = vacations
+    .filter(vacation => 
+      vacation.vacation_type === 'overtime_recovery' && 
+      vacation.status === 'approved'
+    )
+    .reduce((sum, vacation) => {
+      // Si c'est un nombre entier (ex: 1), c'est une journée complète = 8h
+      // Si c'est un décimal (ex: 0.5), c'est une demi-journée = 4h
+      const hoursPerDay = vacation.days_count % 1 === 0 ? 8 : 4;
+      return sum + hoursPerDay;
+    }, 0);
+
   const overtimeStats = {
     pending: overtimeHours.filter(o => o.status === 'pending').length,
     approved: overtimeHours.filter(o => o.status === 'approved').length,
     rejected: overtimeHours.filter(o => o.status === 'rejected').length,
-    totalHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + o.hours, 0)
+    totalHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + o.hours, 0),
+    recoveryHours: recoveryHours,
+    balanceHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + o.hours, 0) - recoveryHours
   };
 
   const vacationStats = {
@@ -432,7 +448,7 @@ export default function HRValidation() {
       </div>
 
       {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Heures en attente</CardTitle>
@@ -474,6 +490,21 @@ export default function HRValidation() {
           <CardContent>
             <div className="text-2xl font-bold">{vacationStats.totalDays}</div>
             <p className="text-xs text-muted-foreground">jours total</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Solde heures sup.</CardTitle>
+            <Clock className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${overtimeStats.balanceHours >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {overtimeStats.balanceHours.toFixed(1)}h
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {overtimeStats.totalHours.toFixed(1)}h - {overtimeStats.recoveryHours.toFixed(1)}h
+            </p>
           </CardContent>
         </Card>
       </div>
