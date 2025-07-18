@@ -3,10 +3,9 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Loader2, Download } from "lucide-react";
+import { Upload, FileText, Loader2, Download, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,6 +16,7 @@ export default function IOLCalculator() {
     screenshot: string;
     patientData: any;
   } | null>(null);
+  const [calculatedImage, setCalculatedImage] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,29 +110,44 @@ export default function IOLCalculator() {
 
         console.log("Calling calculate-iol edge function with data:", calculateIOLData);
 
-        // Call the calculate-iol edge function using supabase.functions.invoke
-        const { data: result, error } = await supabase.functions.invoke('calculate-iol', {
-          body: calculateIOLData,
+        // Call the calculate-iol edge function directly with fetch to handle image response
+        const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
+          },
+          body: JSON.stringify(calculateIOLData)
         });
 
-        console.log("Calculate-IOL result:", result);
-        console.log("Calculate-IOL error:", error);
+        console.log("Calculate-IOL response status:", response.status);
 
-        if (error) {
-          throw new Error(`Edge function error: ${error.message}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Edge function error: ${response.status} - ${errorText}`);
         }
 
-        // Update the extracted data with calculated results
-        const enhancedData = {
-          ...data,
-          calculatedResults: result
-        };
+        // Check if response is an image
+        const contentType = response.headers.get('content-type');
+        if (contentType?.startsWith('image/')) {
+          // Handle image response
+          const imageBlob = await response.blob();
+          const imageUrl = URL.createObjectURL(imageBlob);
+          setCalculatedImage(imageUrl);
+          console.log("Image received and set");
+        } else {
+          // Handle JSON response (fallback)
+          const result = await response.json();
+          console.log("JSON result received:", result);
+        }
 
-        setIolData(enhancedData);
+        setIolData(data);
 
         toast({
           title: "Extraction et calcul réussis",
-          description: "Le texte a été extrait et les calculs IOL ont été effectués.",
+          description: calculatedImage 
+            ? "Le texte a été extrait et l'image de calcul IOL a été générée."
+            : "Le texte a été extrait et les calculs IOL ont été effectués.",
         });
       }
       
@@ -385,14 +400,34 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
-                    {/* Résultats du calcul IOL */}
-                    {iolData.calculatedResults && (
+                    {/* Image du calcul IOL */}
+                    {calculatedImage && (
                       <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">Résultats du calcul IOL</h3>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <pre className="text-sm text-green-800 whitespace-pre-wrap">
-                            {JSON.stringify(iolData.calculatedResults, null, 2)}
-                          </pre>
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Image className="h-5 w-5" />
+                          Résultat du calcul IOL
+                        </h3>
+                        <div className="border border-border rounded-lg p-4 bg-card">
+                          <img 
+                            src={calculatedImage} 
+                            alt="Résultat du calcul IOL"
+                            className="max-w-full h-auto rounded border"
+                          />
+                          <div className="flex gap-2 mt-4">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = calculatedImage;
+                                link.download = 'calcul-iol-result.png';
+                                link.click();
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Télécharger l'image
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     )}
