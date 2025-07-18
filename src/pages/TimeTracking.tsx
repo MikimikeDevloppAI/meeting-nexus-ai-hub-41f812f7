@@ -657,7 +657,7 @@ export default function TimeTracking() {
             
             const totalDays = userVacations.reduce((sum, vacation) => sum + vacation.days_count, 0);
             const quota = getQuotaForUser(currentYear);
-            const remainingDays = Math.max(0, quota - totalDays);
+            const remainingDays = currentYear === 2025 ? quota - totalDays : Math.max(0, quota - totalDays);
             
             return (
               <Card>
@@ -671,31 +671,33 @@ export default function TimeTracking() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-primary">{totalDays}</div>
-                      <div className="text-sm text-muted-foreground">jours pris</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-600">{quota}</div>
-                      <div className="text-sm text-muted-foreground">quota total</div>
-                      {currentYear >= 2026 && quota > 0 && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          (inclut report année précédente)
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className={`text-3xl font-bold ${remainingDays > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {remainingDays}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {remainingDays > 0 ? 'jours restants' : 'quota dépassé'}
-                      </div>
-                    </div>
-                  </div>
+                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'} gap-6`}>
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-primary">{totalDays}</div>
+                       <div className="text-sm text-muted-foreground">jours pris</div>
+                     </div>
+                     
+                     {currentYear !== 2025 && (
+                       <div className="text-center">
+                         <div className="text-3xl font-bold text-gray-600">{quota}</div>
+                         <div className="text-sm text-muted-foreground">quota total</div>
+                         {currentYear >= 2026 && quota > 0 && (
+                           <div className="text-xs text-blue-600 mt-1">
+                             (inclut report année précédente)
+                           </div>
+                         )}
+                       </div>
+                     )}
+                     
+                     <div className="text-center">
+                       <div className={`text-3xl font-bold ${remainingDays > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                         {remainingDays}
+                       </div>
+                       <div className="text-sm text-muted-foreground">
+                         jours restants
+                       </div>
+                     </div>
+                   </div>
                   
                   {quota > 0 && (
                     <div className="mt-4">
