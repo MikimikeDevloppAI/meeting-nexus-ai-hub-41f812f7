@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Calendar, Check, X, AlertCircle, CheckCircle, XCircle, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Clock, Calendar, Check, X, AlertCircle, CheckCircle, XCircle, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow, format, startOfYear, endOfYear, isWithinInterval, parseISO, eachMonthOfInterval, startOfMonth, endOfMonth } from "date-fns";
@@ -48,14 +49,26 @@ interface Vacation {
   };
 }
 
+interface VacationQuota {
+  id: string;
+  user_id: string;
+  year: number;
+  quota_days: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function HRValidation() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [overtimeHours, setOvertimeHours] = useState<OvertimeHour[]>([]);
   const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [vacationQuotas, setVacationQuotas] = useState<VacationQuota[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [quotaYear, setQuotaYear] = useState<number>(new Date().getFullYear());
+  const [quotaValues, setQuotaValues] = useState<{ [userId: string]: number }>({});
 
   useEffect(() => {
     if (user) {
@@ -64,8 +77,65 @@ export default function HRValidation() {
   }, [user]);
 
   const fetchData = async () => {
-    await Promise.all([fetchOvertimeHours(), fetchVacations()]);
+    await Promise.all([fetchOvertimeHours(), fetchVacations(), fetchVacationQuotas()]);
     setLoading(false);
+  };
+
+  const fetchVacationQuotas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vacation_quotas')
+        .select('*')
+        .order('year', { ascending: false });
+
+      if (error) throw error;
+      setVacationQuotas(data || []);
+      
+      // Initialiser les valeurs de quota pour l'interface
+      const quotasMap: { [userId: string]: number } = {};
+      data?.forEach(quota => {
+        if (quota.year === quotaYear) {
+          quotasMap[quota.user_id] = quota.quota_days;
+        }
+      });
+      setQuotaValues(quotasMap);
+    } catch (error: any) {
+      console.error('Error fetching vacation quotas:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les quotas de vacances",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateVacationQuota = async (userId: string, quotaDays: number) => {
+    try {
+      const { error } = await supabase
+        .from('vacation_quotas')
+        .upsert({
+          user_id: userId,
+          year: quotaYear,
+          quota_days: quotaDays
+        }, {
+          onConflict: 'user_id,year'
+        });
+
+      if (error) throw error;
+
+      fetchVacationQuotas();
+      toast({
+        title: "Quota mis à jour",
+        description: `Le quota de vacances a été défini à ${quotaDays} jours pour ${quotaYear}`,
+      });
+    } catch (error: any) {
+      console.error('Error updating vacation quota:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le quota",
+        variant: "destructive",
+      });
+    }
   };
 
   const fetchOvertimeHours = async () => {
@@ -393,7 +463,7 @@ export default function HRValidation() {
       </div>
 
       <Tabs defaultValue="overtime" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Heures supplémentaires ({filteredOvertimeHours.length})
@@ -401,6 +471,10 @@ export default function HRValidation() {
           <TabsTrigger value="vacations" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Vacances ({filteredVacations.length})
+          </TabsTrigger>
+          <TabsTrigger value="quotas" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Quotas de vacances
           </TabsTrigger>
         </TabsList>
 
@@ -650,6 +724,129 @@ export default function HRValidation() {
                     </div>
                   );
                 })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quotas" className="space-y-4">
+          {/* Sélecteur d'année pour les quotas */}
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Année de gestion des quotas :</label>
+            <Select value={quotaYear.toString()} onValueChange={(value) => {
+              const newYear = parseInt(value);
+              setQuotaYear(newYear);
+              
+              // Mettre à jour les valeurs de quota pour la nouvelle année
+              const quotasMap: { [userId: string]: number } = {};
+              vacationQuotas.forEach(quota => {
+                if (quota.year === newYear) {
+                  quotasMap[quota.user_id] = quota.quota_days;
+                }
+              });
+              setQuotaValues(quotasMap);
+            }}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2025">2025</SelectItem>
+                <SelectItem value="2026">2026</SelectItem>
+                <SelectItem value="2027">2027</SelectItem>
+                <SelectItem value="2028">2028</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Quotas de vacances {quotaYear}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Définir le nombre de jours de vacances autorisés par année pour chaque employé
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Récupérer d'abord les user_id pour les utilisateurs spécifiques */}
+              {specificUsers.map((user) => {
+                // Trouver l'user_id à partir des données de vacances ou heures supplémentaires
+                const userRecord = [...vacations, ...overtimeHours].find(record => 
+                  record.users?.email === user.email
+                );
+                
+                if (!userRecord) return null;
+                
+                const userId = userRecord.user_id;
+                const currentQuota = quotaValues[userId] || 0;
+                
+                return (
+                  <div key={userId} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-medium">{user.name}</h3>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm">Quota:</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={currentQuota}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value) || 0;
+                          setQuotaValues(prev => ({
+                            ...prev,
+                            [userId]: newValue
+                          }));
+                        }}
+                        className="w-20 text-center"
+                      />
+                      <span className="text-sm text-gray-500">jours</span>
+                      <Button
+                        size="sm"
+                        onClick={() => updateVacationQuota(userId, quotaValues[userId] || 0)}
+                        className="ml-2"
+                      >
+                        Sauvegarder
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Affichage des quotas existants pour l'année sélectionnée */}
+              <div className="mt-6">
+                <h4 className="font-medium mb-3">Quotas configurés pour {quotaYear}</h4>
+                {vacationQuotas.filter(quota => quota.year === quotaYear).length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">Aucun quota configuré pour cette année</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {vacationQuotas
+                      .filter(quota => quota.year === quotaYear)
+                      .map((quota) => {
+                        const user = specificUsers.find(u => {
+                          const userRecord = [...vacations, ...overtimeHours].find(record => 
+                            record.users?.email === u.email && record.user_id === quota.user_id
+                          );
+                          return !!userRecord;
+                        });
+                        
+                        if (!user) return null;
+                        
+                        return (
+                          <div key={quota.id} className="p-3 bg-gray-50 rounded border">
+                            <div className="text-sm font-medium">{user.name}</div>
+                            <div className="text-lg font-bold text-blue-600">{quota.quota_days} jours</div>
+                            <div className="text-xs text-gray-500">
+                              Mis à jour le {new Date(quota.updated_at).toLocaleDateString('fr-FR')}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
