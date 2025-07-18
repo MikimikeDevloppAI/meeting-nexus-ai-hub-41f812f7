@@ -357,17 +357,6 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
-                    {/* Texte brut extrait */}
-                    {iolData.rawText && (
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">Texte extrait du PDF</h3>
-                        <div className="bg-muted p-4 rounded-lg">
-                          <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
-                            {iolData.rawText}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Informations personnelles du patient */}
                     {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
