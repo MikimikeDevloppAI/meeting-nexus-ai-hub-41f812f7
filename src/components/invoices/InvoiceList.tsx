@@ -601,17 +601,17 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
           <div className="space-y-2">
             <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Montant HT</span>
+              <span className="text-sm font-medium text-gray-700">Montant TTC</span>
               <span className="text-red-500">*</span>
-              {(!invoice.total_net || invoice.total_net <= 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
+              {(!invoice.total_amount || invoice.total_amount === 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
             </div>
             <Input
               type="number"
               step="0.01"
-              value={invoice.total_net || ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'total_net', parseFloat(e.target.value) || 0)}
+              value={invoice.total_amount || ''}
+              onChange={(e) => updateInvoiceField(invoice.id, 'total_amount', parseFloat(e.target.value) || 0)}
               placeholder="0.00"
-              className={`h-8 ${(!invoice.total_net || invoice.total_net <= 0) ? 'border-red-300 bg-red-50' : ''}`}
+              className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
             />
           </div>
 
