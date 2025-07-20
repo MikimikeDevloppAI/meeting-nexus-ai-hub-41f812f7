@@ -614,7 +614,12 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               type="number"
               step="0.01"
               value={invoice.total_amount || ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'total_amount', parseFloat(e.target.value) || 0)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Si le champ est vide, on met null, sinon on parse la valeur
+                const numericValue = value === '' ? null : parseFloat(value);
+                updateInvoiceField(invoice.id, 'total_amount', numericValue);
+              }}
               placeholder="0.00"
               className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
             />
