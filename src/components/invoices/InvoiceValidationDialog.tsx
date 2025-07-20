@@ -44,6 +44,7 @@ interface Invoice {
   customer_vat_number?: string;
   payment_details?: string;
   line_items?: any;
+  invoice_type?: string;
 }
 
 interface InvoiceValidationDialogProps {
@@ -151,6 +152,7 @@ export function InvoiceValidationDialog({
         customer_company_registration: invoice.customer_company_registration || null,
         customer_vat_number: invoice.customer_vat_number || null,
         payment_details: invoice.payment_details || null,
+        invoice_type: invoice.invoice_type || 'non assigné',
       });
     }
   }, [invoice]);
@@ -416,6 +418,107 @@ export function InvoiceValidationDialog({
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Section principale avec les champs demandés */}
+        <div className="space-y-4 border-b pb-6">
+          <h3 className="font-semibold text-lg">Informations principales</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplier_name_main">
+                Fournisseur <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="supplier_name_main"
+                value={formData.supplier_name || ''}
+                onChange={(e) => handleInputChange('supplier_name', e.target.value)}
+                placeholder="Nom du fournisseur"
+                className={validationErrors.some(e => e.includes('fournisseur')) ? 'border-red-500' : ''}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment_date_main">
+                Date de paiement <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="payment_date_main"
+                type="date"
+                value={formData.payment_date || ''}
+                onChange={(e) => handleInputChange('payment_date', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currency_main">
+                Devise <span className="text-red-500">*</span>
+              </Label>
+              <Select value={formData.currency || ''} onValueChange={(value) => handleInputChange('currency', value)}>
+                <SelectTrigger className={validationErrors.some(e => e.includes('devise')) ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Sélectionner une devise" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CHF">CHF</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="GBP">GBP</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="JPY">JPY</SelectItem>
+                  <SelectItem value="CNY">CNY</SelectItem>
+                  <SelectItem value="AUD">AUD</SelectItem>
+                  <SelectItem value="CAD">CAD</SelectItem>
+                  <SelectItem value="SEK">SEK</SelectItem>
+                  <SelectItem value="NOK">NOK</SelectItem>
+                  <SelectItem value="DKK">DKK</SelectItem>
+                  <SelectItem value="INR">INR</SelectItem>
+                  <SelectItem value="BRL">BRL</SelectItem>
+                  <SelectItem value="MXN">MXN</SelectItem>
+                  <SelectItem value="ZAR">ZAR</SelectItem>
+                  <SelectItem value="SGD">SGD</SelectItem>
+                  <SelectItem value="HKD">HKD</SelectItem>
+                  <SelectItem value="NZD">NZD</SelectItem>
+                  <SelectItem value="KRW">KRW</SelectItem>
+                  <SelectItem value="TRY">TRY</SelectItem>
+                  <SelectItem value="RUB">RUB</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="total_net_main">Montant HT</Label>
+              <Input
+                id="total_net_main"
+                type="number"
+                step="0.01"
+                value={formData.total_net || ''}
+                onChange={(e) => handleInputChange('total_net', parseFloat(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="invoice_type_main">Catégorie</Label>
+              <Select value={formData.invoice_type || 'non assigné'} onValueChange={(value) => handleInputChange('invoice_type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
+                  <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
+                  <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
+                  <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
+                  <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
+                  <SelectItem value="télécommunication">Télécommunication</SelectItem>
+                  <SelectItem value="assurance/cotisations sociales">Assurance/cotisations sociales</SelectItem>
+                  <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
+                  <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
+                  <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                  <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                  <SelectItem value="nourritures">Nourritures</SelectItem>
+                  <SelectItem value="non assigné">Non assigné</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
 
         <Tabs defaultValue="document" className="w-full">
           <TabsList className="grid w-full grid-cols-5">
