@@ -573,7 +573,30 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             </div>
             <Select 
               value={invoice.currency || 'EUR'} 
-              onValueChange={(value) => updateInvoiceField(invoice.id, 'currency', value)}
+              onValueChange={async (value) => {
+                updateInvoiceField(invoice.id, 'currency', value);
+                
+                // Si on a un montant et une date, calculer automatiquement le taux de change
+                if (invoice.total_amount && (invoice.invoice_date || invoice.payment_date)) {
+                  try {
+                    const dateToUse = invoice.payment_date || invoice.invoice_date;
+                    const currencyConversion = await convertCurrency(
+                      value, 
+                      invoice.total_amount, 
+                      dateToUse ? new Date(dateToUse).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                    );
+                    
+                    if (currencyConversion.exchange_rate !== null) {
+                      updateInvoiceField(invoice.id, 'exchange_rate', currencyConversion.exchange_rate);
+                      updateInvoiceField(invoice.id, 'original_amount_chf', currencyConversion.original_amount_chf);
+                      toast.success(`Taux de change mis à jour: 1 ${value} = ${currencyConversion.exchange_rate?.toFixed(4)} CHF`);
+                    }
+                  } catch (error) {
+                    console.error('Erreur lors du calcul du taux de change:', error);
+                    toast.error('Erreur lors du calcul du taux de change');
+                  }
+                }
+              }}
             >
               <SelectTrigger className={`h-8 ${!invoice.currency ? 'border-red-300 bg-red-50' : ''}`}>
                 <SelectValue />
