@@ -25,7 +25,7 @@ export function DonutCategoryChart({ invoices }: InvoiceTypeBarChartProps) {
     const dataMap = new Map<string, number>();
 
     invoices.forEach(invoice => {
-      if (!invoice.original_amount_chf) return;
+      if (!invoice.original_amount_chf || invoice.original_amount_chf <= 0) return;
       
       let typeName = invoice.invoice_type || 'NON ASSIGNÉ';
       typeName = typeName.toUpperCase();
@@ -35,7 +35,7 @@ export function DonutCategoryChart({ invoices }: InvoiceTypeBarChartProps) {
 
     return Array.from(dataMap.entries())
       .map(([name, amount]) => ({ 
-        name: name.length > 12 ? name.substring(0, 12) + '...' : name, 
+        name: name.length > 20 ? name.substring(0, 20) + '...' : name, 
         amount: Math.round(amount)
       }))
       .sort((a, b) => b.amount - a.amount);
