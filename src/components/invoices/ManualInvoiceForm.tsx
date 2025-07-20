@@ -155,9 +155,9 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
       errors.push('La date de paiement est obligatoire');
     }
 
-    // Vérifier le montant TTC
-    if (!watchedFormData.total_amount || watchedFormData.total_amount <= 0) {
-      errors.push('Le montant TTC doit être supérieur à 0');
+    // Vérifier le montant total (doit être différent de 0 et non null)
+    if (!watchedFormData.total_amount || watchedFormData.total_amount === 0) {
+      errors.push('Le montant total ne peut pas être égal à 0');
     }
 
     // Vérifier la devise

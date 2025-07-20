@@ -294,9 +294,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       errors.push('La devise est obligatoire');
     }
 
-    // Vérifier le montant HT
-    if (!invoice.total_net || invoice.total_net <= 0) {
-      errors.push('Le montant HT doit être supérieur à 0');
+    // Vérifier le montant total (doit être différent de 0 et non null)
+    if (!invoice.total_amount || invoice.total_amount === 0) {
+      errors.push('Le montant total ne peut pas être égal à 0');
     }
 
     // Vérifier la catégorie
