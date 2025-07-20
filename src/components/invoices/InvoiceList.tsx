@@ -616,9 +616,11 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               value={invoice.total_amount || ''}
               onChange={(e) => {
                 const value = e.target.value;
-                // Si le champ est vide, on met null, sinon on parse la valeur
-                const numericValue = value === '' ? null : parseFloat(value);
-                updateInvoiceField(invoice.id, 'total_amount', numericValue);
+                // Permettre la saisie en cours (avec point decimal)
+                if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
+                  const numericValue = value === '' || value === '.' ? null : parseFloat(value);
+                  updateInvoiceField(invoice.id, 'total_amount', numericValue || null);
+                }
               }}
               placeholder="0.00"
               className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
