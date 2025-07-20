@@ -514,7 +514,10 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   // Fonctions pour gérer l'édition des factures validées
   const startEditingInvoice = (invoice: Invoice) => {
-    console.log('Starting edit for invoice:', invoice.id, 'compte value:', invoice.compte);
+    console.log('Starting edit for invoice:', invoice.id);
+    console.log('Current compte value:', `"${invoice.compte}"`);
+    console.log('Compte type:', typeof invoice.compte);
+    console.log('Full invoice data:', invoice);
     setEditingInvoiceId(invoice.id);
     setOriginalInvoiceData(invoice);
   };
@@ -1108,7 +1111,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   }}
                 >
                   <SelectTrigger className="h-8 mt-1">
-                    <SelectValue placeholder="Sélectionner un compte" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Commun">Commun</SelectItem>
