@@ -231,6 +231,11 @@ export function InvoiceValidationDialog({
       errors.push('La devise est obligatoire');
     }
 
+    // Vérifier le montant total (doit être différent de 0 et non null)
+    if (!formData.total_amount || formData.total_amount === 0) {
+      errors.push('Le montant total ne peut pas être égal à 0');
+    }
+
     // Vérifier le compte
     if (!formData.compte || formData.compte === '') {
       errors.push('Le compte est obligatoire');
