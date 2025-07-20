@@ -294,9 +294,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       errors.push('La devise est obligatoire');
     }
 
-    // Vérifier le montant total (doit être différent de 0 et non null)
-    if (!invoice.total_amount || invoice.total_amount === 0) {
-      errors.push('Le montant total ne peut pas être égal à 0');
+    // Vérifier le compte
+    if (!invoice.compte || invoice.compte === '') {
+      errors.push('Le compte est obligatoire');
     }
 
     // Vérifier la catégorie
