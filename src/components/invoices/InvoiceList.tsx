@@ -650,6 +650,26 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Compte</span>
+              <span className="text-red-500">*</span>
+              {!invoice.compte && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Select 
+              value={invoice.compte || 'Commun'} 
+              onValueChange={(value) => updateInvoiceField(invoice.id, 'compte', value)}
+            >
+              <SelectTrigger className={`h-8 ${!invoice.compte ? 'border-red-300 bg-red-50' : ''}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Commun">Commun</SelectItem>
+                <SelectItem value="David">David</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Informations supplémentaires en lecture seule */}
@@ -762,7 +782,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     </Card>
   );
 
-  // Fonction pour afficher une facture validée (avec les mêmes champs que les factures à valider)
+  // Fonction pour afficher une facture validée (lecture seule)
   const renderValidatedInvoice = (invoice: Invoice) => (
     <Card key={invoice.id} className="mb-4">
       <CardHeader className="pb-3">
@@ -787,134 +807,64 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Champs modifiables directement */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Fournisseur</span>
+        {/* Informations en lecture seule */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="font-medium text-gray-700">Fournisseur:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
+              {invoice.supplier_name || 'N/A'}
             </div>
-            <Input
-              value={invoice.supplier_name || ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'supplier_name', e.target.value)}
-              placeholder="Nom du fournisseur"
-              className="h-8"
-            />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Date de paiement</span>
+          <div>
+            <span className="font-medium text-gray-700">Date de paiement:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
+              {invoice.payment_date ? new Date(invoice.payment_date).toLocaleDateString('fr-FR') : 'N/A'}
             </div>
-            <Input
-              type="date"
-              value={invoice.payment_date ? new Date(invoice.payment_date).toISOString().split('T')[0] : ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'payment_date', e.target.value)}
-              className="h-8"
-            />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Devise</span>
+          <div>
+            <span className="font-medium text-gray-700">Devise:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
+              {invoice.currency || 'EUR'}
             </div>
-            <Select 
-              value={invoice.currency || 'EUR'} 
-              onValueChange={(value) => updateInvoiceField(invoice.id, 'currency', value)}
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CHF">CHF</SelectItem>
-                <SelectItem value="EUR">EUR</SelectItem>
-                <SelectItem value="GBP">GBP</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-                <SelectItem value="JPY">JPY</SelectItem>
-                <SelectItem value="CNY">CNY</SelectItem>
-                <SelectItem value="AUD">AUD</SelectItem>
-                <SelectItem value="CAD">CAD</SelectItem>
-                <SelectItem value="SEK">SEK</SelectItem>
-                <SelectItem value="NOK">NOK</SelectItem>
-                <SelectItem value="DKK">DKK</SelectItem>
-                <SelectItem value="INR">INR</SelectItem>
-                <SelectItem value="BRL">BRL</SelectItem>
-                <SelectItem value="MXN">MXN</SelectItem>
-                <SelectItem value="ZAR">ZAR</SelectItem>
-                <SelectItem value="SGD">SGD</SelectItem>
-                <SelectItem value="HKD">HKD</SelectItem>
-                <SelectItem value="NZD">NZD</SelectItem>
-                <SelectItem value="KRW">KRW</SelectItem>
-                <SelectItem value="TRY">TRY</SelectItem>
-                <SelectItem value="RUB">RUB</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Montant TTC</span>
+          <div>
+            <span className="font-medium text-gray-700">Montant TTC:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border font-semibold">
+              {invoice.total_amount ? (
+                <div className="space-y-1">
+                  <div>
+                    {invoice.total_amount.toFixed(2)} {invoice.currency || 'EUR'}
+                  </div>
+                  {invoice.original_amount_chf && invoice.currency !== 'CHF' && (
+                    <div className="text-sm text-blue-600">
+                      ≈ {invoice.original_amount_chf.toFixed(2)} CHF
+                      {invoice.exchange_rate && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          (taux: {invoice.exchange_rate.toFixed(4)})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : 'N/A'}
             </div>
-            <Input
-              type="number"
-              step="0.01"
-              value={invoice.total_amount || ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'total_amount', parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              className="h-8"
-            />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Catégorie</span>
+          <div>
+            <span className="font-medium text-gray-700">Catégorie:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
+              {invoice.invoice_type || 'Non assigné'}
             </div>
-            <Select 
-              value={invoice.invoice_type || 'non assigné'} 
-              onValueChange={(value) => updateInvoiceField(invoice.id, 'invoice_type', value)}
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="non assigné">Non assigné</SelectItem>
-                <SelectItem value="Fourniture de bureau">Fourniture de bureau</SelectItem>
-                <SelectItem value="Ordinateur et logiciel">Ordinateur et logiciel</SelectItem>
-                <SelectItem value="Matériel médical">Matériel médical</SelectItem>
-                <SelectItem value="Équipement cabinet">Équipement cabinet</SelectItem>
-                <SelectItem value="Formation">Formation</SelectItem>
-                <SelectItem value="Abonnement">Abonnement</SelectItem>
-                <SelectItem value="Assurance">Assurance</SelectItem>
-                <SelectItem value="Entretien et réparation">Entretien et réparation</SelectItem>
-                <SelectItem value="Publicité et marketing">Publicité et marketing</SelectItem>
-                <SelectItem value="Frais bancaires">Frais bancaires</SelectItem>
-                <SelectItem value="Frais de voyage">Frais de voyage</SelectItem>
-                <SelectItem value="Restaurants et repas">Restaurants et repas</SelectItem>
-                <SelectItem value="Électricité et énergie">Électricité et énergie</SelectItem>
-                <SelectItem value="Télécommunications">Télécommunications</SelectItem>
-                <SelectItem value="Location">Location</SelectItem>
-                <SelectItem value="Carburant">Carburant</SelectItem>
-                <SelectItem value="Services professionnels">Services professionnels</SelectItem>
-                <SelectItem value="Autre">Autre</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Compte</span>
+          <div>
+            <span className="font-medium text-gray-700">Compte:</span>
+            <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
+              {invoice.compte || 'Commun'}
             </div>
-            <Select 
-              value={invoice.compte || 'Commun'} 
-              onValueChange={(value) => updateInvoiceField(invoice.id, 'compte', value)}
-            >
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Commun">Commun</SelectItem>
-                <SelectItem value="David">David</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
