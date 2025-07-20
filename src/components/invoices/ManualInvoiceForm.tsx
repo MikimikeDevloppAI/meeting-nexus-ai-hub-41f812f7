@@ -140,14 +140,14 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
   const validateRequiredFields = (): boolean => {
     const errors: string[] = [];
 
+    // Vérifier le compte
+    if (!watchedFormData.compte || watchedFormData.compte === '') {
+      errors.push('Le compte est obligatoire');
+    }
+
     // Vérifier le nom du fournisseur
     if (!watchedFormData.supplier_name || watchedFormData.supplier_name.trim() === '') {
       errors.push('Le nom du fournisseur est obligatoire');
-    }
-
-    // Vérifier la date de facture
-    if (!watchedFormData.invoice_date || watchedFormData.invoice_date === '') {
-      errors.push('La date de facture est obligatoire');
     }
 
     // Vérifier la date de paiement
@@ -155,14 +155,19 @@ export const ManualInvoiceForm: React.FC<ManualInvoiceFormProps> = ({
       errors.push('La date de paiement est obligatoire');
     }
 
-    // Vérifier le montant total (doit être différent de 0 et non null)
-    if (!watchedFormData.total_amount || watchedFormData.total_amount === 0) {
-      errors.push('Le montant total ne peut pas être égal à 0');
-    }
-
     // Vérifier la devise
     if (!watchedFormData.currency || watchedFormData.currency.trim() === '') {
       errors.push('La devise est obligatoire');
+    }
+
+    // Vérifier le montant HT (doit être différent de 0)
+    if (!watchedFormData.total_net || watchedFormData.total_net === 0) {
+      errors.push('Le montant HT ne peut pas être égal à 0');
+    }
+
+    // Vérifier la catégorie
+    if (!watchedFormData.purchase_category || watchedFormData.purchase_category.trim() === '') {
+      errors.push('La catégorie doit être assignée');
     }
 
     setValidationErrors(errors);
