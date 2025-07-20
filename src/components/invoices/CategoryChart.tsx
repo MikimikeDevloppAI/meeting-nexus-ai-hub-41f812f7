@@ -1,72 +1,67 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
-  purchase_category?: string;
-  total_amount?: number;
+  invoice_type?: string;
+  original_amount_chf?: number;
 }
 
-interface CategoryChartProps {
+interface InvoiceTypeChartProps {
   invoices: Invoice[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658'];
+const chartConfig = {
+  amount: {
+    label: "Montant",
+    color: "hsl(var(--chart-1))",
+  },
+};
 
-export function CategoryChart({ invoices }: CategoryChartProps) {
-  const categoryData = useMemo(() => {
-    const categoryMap = new Map<string, number>();
+export function CategoryChart({ invoices }: InvoiceTypeChartProps) {
+  const invoiceTypeData = useMemo(() => {
+    const typeMap = new Map<string, number>();
 
     invoices.forEach(invoice => {
-      if (!invoice.total_amount) return;
+      if (!invoice.original_amount_chf) return;
       
-      const category = invoice.purchase_category || 'Non catégorisé';
-      categoryMap.set(category, (categoryMap.get(category) || 0) + invoice.total_amount);
+      const type = invoice.invoice_type || 'Non assigné';
+      typeMap.set(type, (typeMap.get(type) || 0) + invoice.original_amount_chf);
     });
 
-    return Array.from(categoryMap.entries())
+    return Array.from(typeMap.entries())
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 7); // Top 7 catégories
+      .sort((a, b) => b.value - a.value);
   }, [invoices]);
-
-  const chartConfig = useMemo(() => {
-    const config: any = {};
-    categoryData.forEach((item, index) => {
-      config[item.name] = {
-        label: item.name,
-        color: COLORS[index % COLORS.length],
-      };
-    });
-    return config;
-  }, [categoryData]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Répartition par Catégorie</CardTitle>
+        <CardTitle>Répartition par Type de Facture</CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[300px]">
-          <PieChart>
-            <Pie
-              data={categoryData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              outerRadius={80}
-              fill="#8884d8"
-              dataKey="value"
-            >
-              {categoryData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <ChartTooltip content={<ChartTooltipContent />} />
-          </PieChart>
+          <BarChart data={invoiceTypeData}>
+            <XAxis 
+              dataKey="name" 
+              angle={-45}
+              textAnchor="end"
+              height={80}
+              interval={0}
+            />
+            <YAxis />
+            <Bar 
+              dataKey="value" 
+              fill="var(--color-amount)"
+              radius={[4, 4, 0, 0]}
+            />
+            <ChartTooltip 
+              content={<ChartTooltipContent />}
+              formatter={(value: number) => [`${value.toFixed(2)} CHF`, 'Montant']}
+            />
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
