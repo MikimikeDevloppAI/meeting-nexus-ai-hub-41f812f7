@@ -611,22 +611,36 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               {(!invoice.total_amount || invoice.total_amount === 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
             </div>
             <Input
-              type="number"
-              step="0.01"
-              value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Remplacer le point par virgule automatiquement
-                const displayValue = value.replace('.', ',');
-                
-                // Permettre la saisie avec virgule ou point
-                if (displayValue === '' || displayValue === ',' || /^\d*,?\d*$/.test(displayValue)) {
-                  // Pour parseFloat, on reconvertit la virgule en point
-                  const valueForParsing = displayValue.replace(',', '.');
-                  const numericValue = valueForParsing === '' || valueForParsing === '.' ? null : parseFloat(valueForParsing);
-                  updateInvoiceField(invoice.id, 'total_amount', numericValue || null);
-                }
-              }}
+               type="text"
+               step="0.01"
+               value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
+               onChange={(e) => {
+                 const value = e.target.value;
+                 console.log('Input value:', value);
+                 
+                 // Permettre point et virgule, convertir point en virgule pour l'affichage français
+                 let processedValue = value.replace('.', ',');
+                 console.log('Processed value:', processedValue);
+                 
+                 // Vérifier si la valeur est valide (vide, virgule seule, ou nombre avec virgule)
+                 if (processedValue === '' || processedValue === ',' || /^\d*,?\d*$/.test(processedValue)) {
+                   console.log('Value is valid, processing...');
+                   
+                   // Pour le parsing, reconvertir en format anglais (point)
+                   const valueForParsing = processedValue.replace(',', '.');
+                   console.log('Value for parsing:', valueForParsing);
+                   
+                   let numericValue = null;
+                   if (valueForParsing !== '' && valueForParsing !== '.') {
+                     numericValue = parseFloat(valueForParsing);
+                     console.log('Parsed numeric value:', numericValue);
+                   }
+                   
+                   updateInvoiceField(invoice.id, 'total_amount', numericValue);
+                 } else {
+                   console.log('Value rejected:', processedValue);
+                 }
+               }}
               placeholder="0.00"
               className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
             />
