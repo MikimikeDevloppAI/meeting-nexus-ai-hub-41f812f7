@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,7 @@ interface InvoiceDashboardProps {
 interface Invoice {
   id: string;
   compte: string;
-  invoice_date?: string;
+  payment_date?: string;
   total_amount?: number;
   total_net?: number;
   currency?: string;
@@ -74,7 +75,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         .from('invoices')
         .select('*')
         .in('status', ['completed', 'validated'])
-        .order('invoice_date', { ascending: false });
+        .order('payment_date', { ascending: false });
 
       if (error) throw error;
       return data as Invoice[];
@@ -134,12 +135,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     if (!invoices) return [];
     
     return invoices.filter(invoice => {
-      // Filtre par date
-      if (filters.dateFrom && invoice.invoice_date) {
-        if (new Date(invoice.invoice_date) < new Date(filters.dateFrom)) return false;
+      // Filtre par date - utilise payment_date au lieu de invoice_date
+      if (filters.dateFrom && invoice.payment_date) {
+        if (new Date(invoice.payment_date) < new Date(filters.dateFrom)) return false;
       }
-      if (filters.dateTo && invoice.invoice_date) {
-        if (new Date(invoice.invoice_date) > new Date(filters.dateTo)) return false;
+      if (filters.dateTo && invoice.payment_date) {
+        if (new Date(invoice.payment_date) > new Date(filters.dateTo)) return false;
       }
       
       // Filtre par compte

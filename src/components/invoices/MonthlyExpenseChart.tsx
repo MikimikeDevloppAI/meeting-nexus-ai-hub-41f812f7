@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
@@ -5,7 +6,7 @@ import { useMemo } from "react";
 
 interface Invoice {
   compte: string;
-  invoice_date?: string;
+  payment_date?: string;
   total_amount?: number;
   original_amount_chf?: number;
 }
@@ -35,11 +36,11 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
   const monthlyData = useMemo(() => {
     const dataMap = new Map<string, { month: string; monthKey: string; commun: number; david: number }>();
 
-    // Filtrer les factures selon la période
+    // Filtrer les factures selon la période - utilise payment_date au lieu de invoice_date
     const filteredInvoices = invoices.filter(invoice => {
-      if (!invoice.invoice_date) return false;
+      if (!invoice.payment_date) return false;
       
-      const invoiceDate = new Date(invoice.invoice_date);
+      const invoiceDate = new Date(invoice.payment_date);
       
       if (dateFrom && invoiceDate < new Date(dateFrom)) return false;
       if (dateTo && invoiceDate > new Date(dateTo)) return false;
@@ -48,9 +49,9 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
     });
 
     filteredInvoices.forEach(invoice => {
-      if (!invoice.invoice_date || !invoice.original_amount_chf) return;
+      if (!invoice.payment_date || !invoice.original_amount_chf) return;
 
-      const date = new Date(invoice.invoice_date);
+      const date = new Date(invoice.payment_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
 
@@ -66,9 +67,9 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
       }
     });
 
-    // Créer une série de mois pour la période sélectionnée
-    const startDate = dateFrom ? new Date(dateFrom) : new Date(Math.min(...filteredInvoices.map(inv => new Date(inv.invoice_date!).getTime())));
-    const endDate = dateTo ? new Date(dateTo) : new Date(Math.max(...filteredInvoices.map(inv => new Date(inv.invoice_date!).getTime())));
+    // Créer une série de mois pour la période sélectionnée - utilise payment_date au lieu de invoice_date
+    const startDate = dateFrom ? new Date(dateFrom) : new Date(Math.min(...filteredInvoices.map(inv => new Date(inv.payment_date!).getTime())));
+    const endDate = dateTo ? new Date(dateTo) : new Date(Math.max(...filteredInvoices.map(inv => new Date(inv.payment_date!).getTime())));
     
     const completeData = [];
     const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
