@@ -128,6 +128,7 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          invoice_type: string | null
           line_items: Json | null
           mindee_raw_response: Json | null
           original_amount_chf: number | null
@@ -169,6 +170,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          invoice_type?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
           original_amount_chf?: number | null
@@ -210,6 +212,7 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          invoice_type?: string | null
           line_items?: Json | null
           mindee_raw_response?: Json | null
           original_amount_chf?: number | null
