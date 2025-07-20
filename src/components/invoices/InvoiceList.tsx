@@ -514,6 +514,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   // Fonctions pour gérer l'édition des factures validées
   const startEditingInvoice = (invoice: Invoice) => {
+    console.log('Starting edit for invoice:', invoice.id, 'compte value:', invoice.compte);
     setEditingInvoiceId(invoice.id);
     setOriginalInvoiceData(invoice);
   };
@@ -1101,10 +1102,13 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               {isEditing ? (
                 <Select 
                   value={invoice.compte || 'Commun'} 
-                  onValueChange={(value) => updateInvoiceField(invoice.id, 'compte', value)}
+                  onValueChange={(value) => {
+                    console.log('Changing compte from', invoice.compte, 'to', value);
+                    updateInvoiceField(invoice.id, 'compte', value);
+                  }}
                 >
                   <SelectTrigger className="h-8 mt-1">
-                    <SelectValue />
+                    <SelectValue placeholder="Sélectionner un compte" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Commun">Commun</SelectItem>
