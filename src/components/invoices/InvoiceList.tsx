@@ -613,12 +613,17 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             <Input
               type="number"
               step="0.01"
-              value={invoice.total_amount || ''}
+              value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
               onChange={(e) => {
                 const value = e.target.value;
-                // Permettre la saisie en cours (avec point decimal)
-                if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
-                  const numericValue = value === '' || value === '.' ? null : parseFloat(value);
+                // Remplacer le point par virgule automatiquement
+                const displayValue = value.replace('.', ',');
+                
+                // Permettre la saisie avec virgule ou point
+                if (displayValue === '' || displayValue === ',' || /^\d*,?\d*$/.test(displayValue)) {
+                  // Pour parseFloat, on reconvertit la virgule en point
+                  const valueForParsing = displayValue.replace(',', '.');
+                  const numericValue = valueForParsing === '' || valueForParsing === '.' ? null : parseFloat(valueForParsing);
                   updateInvoiceField(invoice.id, 'total_amount', numericValue || null);
                 }
               }}
