@@ -85,7 +85,7 @@ export function DonutCategoryChart({ invoices }: InvoiceTypeBarChartProps) {
       </CardHeader>
       <CardContent>
         <div className="w-full overflow-x-auto">
-          <ChartContainer config={chartConfig} className="h-[400px]" style={{ minWidth: `${minWidth}px` }}>
+          <ChartContainer config={chartConfig} className="h-[600px]" style={{ minWidth: `${minWidth}px` }}>
             <BarChart data={chartData} margin={{ top: 40, right: 30, left: 20, bottom: 80 }}>
               <XAxis 
                 dataKey="name" 
