@@ -45,7 +45,7 @@ export function DonutCategoryChart({ invoices }: InvoiceTypeBarChartProps) {
   const CustomLabel = ({ x, y, width, value }: any) => {
     const labelX = x + width / 2;
     const labelY = y - 8;
-    const formattedValue = value.toLocaleString('fr-CH');
+    const formattedValue = value.toLocaleString('fr-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const textWidth = formattedValue.length * 6;
     
     return (
