@@ -275,7 +275,50 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   };
 
+  // Fonction pour valider les champs obligatoires
+  const validateRequiredFields = (invoice: Invoice): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    // Vérifier le nom du fournisseur
+    if (!invoice.supplier_name || invoice.supplier_name.trim() === '') {
+      errors.push('Le nom du fournisseur est obligatoire');
+    }
+
+    // Vérifier la date de paiement
+    if (!invoice.payment_date || invoice.payment_date === '') {
+      errors.push('La date de paiement est obligatoire');
+    }
+
+    // Vérifier la devise
+    if (!invoice.currency || invoice.currency.trim() === '') {
+      errors.push('La devise est obligatoire');
+    }
+
+    // Vérifier le montant HT
+    if (!invoice.total_net || invoice.total_net <= 0) {
+      errors.push('Le montant HT doit être supérieur à 0');
+    }
+
+    // Vérifier la catégorie
+    if (!invoice.invoice_type || invoice.invoice_type.trim() === '' || invoice.invoice_type === 'non assigné') {
+      errors.push('La catégorie doit être assignée');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
+
   const handleQuickValidate = async (invoice: Invoice) => {
+    // Vérifier les champs obligatoires
+    const validation = validateRequiredFields(invoice);
+    
+    if (!validation.isValid) {
+      toast.error('Validation impossible : ' + validation.errors.join(', '));
+      return;
+    }
+
     try {
       // Convert currency ONLY if no valid exchange rate exists
       let updateData: any = { 
@@ -490,32 +533,44 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         {/* Champs modifiables directement */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">Fournisseur</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Fournisseur</span>
+              <span className="text-red-500">*</span>
+              {!invoice.supplier_name && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
             <Input
               value={invoice.supplier_name || ''}
               onChange={(e) => updateInvoiceField(invoice.id, 'supplier_name', e.target.value)}
               placeholder="Nom du fournisseur"
-              className="h-8"
+              className={`h-8 ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
             />
           </div>
 
           <div className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">Date de paiement</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Date de paiement</span>
+              <span className="text-red-500">*</span>
+              {!invoice.payment_date && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
             <Input
               type="date"
               value={invoice.payment_date ? new Date(invoice.payment_date).toISOString().split('T')[0] : ''}
               onChange={(e) => updateInvoiceField(invoice.id, 'payment_date', e.target.value)}
-              className="h-8"
+              className={`h-8 ${!invoice.payment_date ? 'border-red-300 bg-red-50' : ''}`}
             />
           </div>
 
           <div className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">Devise</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Devise</span>
+              <span className="text-red-500">*</span>
+              {!invoice.currency && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
             <Select 
               value={invoice.currency || 'EUR'} 
               onValueChange={(value) => updateInvoiceField(invoice.id, 'currency', value)}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger className={`h-8 ${!invoice.currency ? 'border-red-300 bg-red-50' : ''}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -545,24 +600,32 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
           </div>
 
           <div className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">Montant HT</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Montant HT</span>
+              <span className="text-red-500">*</span>
+              {(!invoice.total_net || invoice.total_net <= 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
             <Input
               type="number"
               step="0.01"
               value={invoice.total_net || ''}
               onChange={(e) => updateInvoiceField(invoice.id, 'total_net', parseFloat(e.target.value) || 0)}
               placeholder="0.00"
-              className="h-8"
+              className={`h-8 ${(!invoice.total_net || invoice.total_net <= 0) ? 'border-red-300 bg-red-50' : ''}`}
             />
           </div>
 
           <div className="space-y-2">
-            <span className="text-sm font-medium text-gray-700">Catégorie</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Catégorie</span>
+              <span className="text-red-500">*</span>
+              {(!invoice.invoice_type || invoice.invoice_type === 'non assigné') && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
             <Select 
               value={invoice.invoice_type || 'non assigné'} 
               onValueChange={(value) => updateInvoiceField(invoice.id, 'invoice_type', value)}
             >
-              <SelectTrigger className="h-8">
+              <SelectTrigger className={`h-8 ${(!invoice.invoice_type || invoice.invoice_type === 'non assigné') ? 'border-red-300 bg-red-50' : ''}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -221,19 +221,24 @@ export function InvoiceValidationDialog({
       errors.push('Le nom du fournisseur est obligatoire');
     }
 
-    // Vérifier la date de facture
-    if (!formData.invoice_date || formData.invoice_date === '') {
-      errors.push('La date de facture est obligatoire');
-    }
-
-    // Vérifier le montant TTC
-    if (!formData.total_amount || formData.total_amount <= 0) {
-      errors.push('Le montant TTC doit être supérieur à 0');
+    // Vérifier la date de paiement
+    if (!formData.payment_date || formData.payment_date === '') {
+      errors.push('La date de paiement est obligatoire');
     }
 
     // Vérifier la devise
     if (!formData.currency || formData.currency.trim() === '') {
       errors.push('La devise est obligatoire');
+    }
+
+    // Vérifier le montant HT
+    if (!formData.total_net || formData.total_net <= 0) {
+      errors.push('Le montant HT doit être supérieur à 0');
+    }
+
+    // Vérifier la catégorie
+    if (!formData.invoice_type || formData.invoice_type.trim() === '' || formData.invoice_type === 'non assigné') {
+      errors.push('La catégorie doit être assignée');
     }
 
     setValidationErrors(errors);
