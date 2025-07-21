@@ -22,6 +22,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Logo } from "@/components/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useTodoCounter } from "@/hooks/useTodoCounter";
+import { Badge } from "@/components/ui/badge";
 
 const menuItems = [
   {
@@ -92,6 +94,7 @@ const AppSidebar: React.FC = () => {
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
   const { hasPermission, isAdmin, loading, permissions } = useUserPermissions();
+  const todoCount = useTodoCounter();
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -126,6 +129,15 @@ const AppSidebar: React.FC = () => {
                     >
                       <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
                       <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
+                      {/* Badge pour les tâches en cours */}
+                      {item.permission === "todos" && todoCount > 0 && (
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-red-500 text-white font-medium text-xs px-2 py-0.5 rounded-full ml-auto"
+                        >
+                          {todoCount}
+                        </Badge>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
