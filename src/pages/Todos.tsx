@@ -28,6 +28,7 @@ import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
+import { useTodoCounter } from "@/hooks/useTodoCounter";
 
 interface NewTodoForm {
   description: string;
@@ -71,6 +72,7 @@ export default function Todos() {
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { user } = useAuth();
+  const todoCount = useTodoCounter();
   
   const form = useForm<NewTodoForm>({
     defaultValues: {
@@ -386,7 +388,17 @@ export default function Todos() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Mes Tâches</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Mes Tâches</h1>
+            {todoCount > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="bg-red-500 text-white font-medium text-sm px-2 py-1 rounded-full"
+              >
+                {todoCount}
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
         <div className="flex items-center gap-2">
