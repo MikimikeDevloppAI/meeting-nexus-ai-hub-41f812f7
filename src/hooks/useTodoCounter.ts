@@ -9,9 +9,12 @@ export const useTodoCounter = () => {
   const fetchPendingTodos = async () => {
     try {
       if (!user?.id) {
+        console.log('TodoCounter: No user ID, setting count to 0');
         setPendingCount(0);
         return;
       }
+
+      console.log('TodoCounter: Fetching pending todos for user:', user.id);
 
       // Compter seulement les tâches en cours (confirmed) qui sont attribuées à l'utilisateur connecté
       const { data, error } = await supabase
@@ -28,7 +31,9 @@ export const useTodoCounter = () => {
         return;
       }
 
-      setPendingCount(data?.length || 0);
+      const count = data?.length || 0;
+      console.log('TodoCounter: Setting pending count to:', count);
+      setPendingCount(count);
     } catch (error) {
       console.error('Error fetching pending todos:', error);
     }
@@ -48,6 +53,7 @@ export const useTodoCounter = () => {
           table: 'todos'
         },
         () => {
+          console.log('TodoCounter: Real-time update - todos table changed');
           fetchPendingTodos();
         }
       )
@@ -59,6 +65,7 @@ export const useTodoCounter = () => {
           table: 'todo_users'
         },
         () => {
+          console.log('TodoCounter: Real-time update - todo_users table changed');
           fetchPendingTodos();
         }
       )
@@ -74,8 +81,11 @@ export const useTodoCounter = () => {
     const baseTitle = 'IOL Management';
     
     if (pendingCount > 0) {
-      document.title = `(${pendingCount}) ${baseTitle}`;
+      const newTitle = `(${pendingCount}) ${baseTitle}`;
+      console.log('TodoCounter: Updating page title to:', newTitle);
+      document.title = newTitle;
     } else {
+      console.log('TodoCounter: Updating page title to:', baseTitle);
       document.title = baseTitle;
     }
   }, [pendingCount]);
