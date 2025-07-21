@@ -29,7 +29,7 @@ import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
 
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
-import { useTodoCounter } from "./hooks/useTodoCounter";
+import { TodoCounterWrapper } from "./components/layout/TodoCounterWrapper";
 
 const queryClient = new QueryClient();
 
