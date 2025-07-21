@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/lib/auth";
 
 interface NewTodoForm {
   description: string;
@@ -68,6 +69,7 @@ export default function Todos() {
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const form = useForm<NewTodoForm>({
     defaultValues: {
@@ -80,6 +82,13 @@ export default function Todos() {
     fetchTodos();
     fetchUsers();
   }, []);
+
+  // Définir le filtre par défaut sur l'utilisateur connecté
+  useEffect(() => {
+    if (user?.id && users.length > 0 && participantFilter === "all") {
+      setParticipantFilter(user.id);
+    }
+  }, [user?.id, users, participantFilter]);
 
   const fetchUsers = async () => {
     try {
