@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -29,15 +28,15 @@ export const useSimpleMeetingCreation = () => {
     title: string,
     audioBlob: Blob | null,
     audioFile: File | null,
-    participants: MeetingCreationData['participants'],
-    selectedParticipantIds: string[]
+    users: MeetingCreationData['participants'],
+    selectedUserIds: string[]
   ) => {
     console.log('[useSimpleMeetingCreation] ========== STARTING MEETING CREATION ==========');
     console.log('[useSimpleMeetingCreation] Input received:', { 
       title: title?.trim() || 'EMPTY', 
       hasAudioBlob: !!audioBlob,
       hasAudioFile: !!audioFile,
-      participantCount: selectedParticipantIds.length,
+      userCount: selectedUserIds.length,
       userId: user?.id || 'NO USER'
     });
     
@@ -70,11 +69,11 @@ export const useSimpleMeetingCreation = () => {
       console.log('[CREATE] ✅ Meeting created:', meetingId);
       setCurrentMeetingId(meetingId);
       
-      // Add participants
-      if (selectedParticipantIds.length > 0) {
-        console.log('[CREATE] Adding participants:', selectedParticipantIds);
-        await MeetingService.addParticipants(meetingId, selectedParticipantIds);
-        console.log('[CREATE] ✅ Participants added');
+      // Add users to meeting
+      if (selectedUserIds.length > 0) {
+        console.log('[CREATE] Adding users to meeting:', selectedUserIds);
+        await MeetingService.addParticipants(meetingId, selectedUserIds);
+        console.log('[CREATE] ✅ Users added');
       }
 
       // Step 2: Process audio if provided
@@ -91,7 +90,7 @@ export const useSimpleMeetingCreation = () => {
           console.log('[UPLOAD] ✅ Audio URL saved');
 
           // Transcribe audio
-          const participantCount = Math.max(selectedParticipantIds.length, 2);
+          const participantCount = Math.max(selectedUserIds.length, 2);
           const transcript = await AudioProcessingService.transcribeAudio(
             audioFileUrl, 
             participantCount, 
@@ -101,8 +100,8 @@ export const useSimpleMeetingCreation = () => {
           console.log('[TRANSCRIBE] ✅ Transcription completed');
           
           // Start AI processing (runs in background)
-          const selectedParticipants = participants.filter(p => 
-            selectedParticipantIds.includes(p.id)
+          const selectedUsers = users.filter(u => 
+            selectedUserIds.includes(u.id)
           );
 
           console.log('[PROCESS] Starting AI processing in background...');
@@ -111,7 +110,7 @@ export const useSimpleMeetingCreation = () => {
           // Start AI processing without waiting (let it run in background)
           AudioProcessingService.processTranscriptWithAI(
             transcript,
-            selectedParticipants,
+            selectedUsers,
             meetingId
           ).then(result => {
             console.log('[PROCESS] ✅ AI processing completed:', result);
