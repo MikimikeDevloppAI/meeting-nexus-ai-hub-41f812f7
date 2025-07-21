@@ -42,6 +42,10 @@ serve(async (req) => {
     const internet = new InternetAgent(perplexityApiKey || '');
 
     console.log('[AI-AGENT-CABINET-MEDICAL] ✉️ Message reçu:', message.substring(0, 100));
+    console.log('[AI-AGENT-CABINET-MEDICAL] 📎 Message complet length:', message.length);
+    if (message.includes('FICHIER JOINT')) {
+      console.log('[AI-AGENT-CABINET-MEDICAL] 📎 ATTACHMENTS DETECTED dans le message!');
+    }
     console.log('[AI-AGENT-CABINET-MEDICAL] 👤 Context utilisateur:', context.userId || 'Non fourni');
     console.log('[AI-AGENT-CABINET-MEDICAL] 🔧 Fonctionnalités activées:', {
       database: context.databaseSearch !== false,
