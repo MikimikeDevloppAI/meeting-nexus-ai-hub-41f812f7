@@ -4,7 +4,14 @@ import { Badge } from "@/components/ui/badge";
 export const TodoSidebarBadge = () => {
   const todoCount = useTodoCounter();
   
-  if (todoCount === 0) return null;
+  console.log('🔵 TodoSidebarBadge render - count:', todoCount);
+  
+  if (todoCount === 0) {
+    console.log('🔵 TodoSidebarBadge - hiding badge (count is 0)');
+    return null;
+  }
+  
+  console.log('🔵 TodoSidebarBadge - showing badge with count:', todoCount);
   
   return (
     <Badge 
