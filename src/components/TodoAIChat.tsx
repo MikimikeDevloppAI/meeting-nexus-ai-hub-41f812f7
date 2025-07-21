@@ -98,7 +98,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
       console.log('[TODO_AI_CHAT] 🔤 Contexte attachments final length:', attachmentsContext.length);
       console.log('[TODO_AI_CHAT] 🔤 Contexte attachments:', attachmentsContext.substring(0, 200) + '...');
 
-      // Message contextualisé pour assistance tâche OphtaCare
+      // Message contextualisé pour l'ai-agent
       const contextualizedMessage = `ASSISTANCE SPÉCIALISÉE TÂCHE OPHTACARE
 
 CONTEXTE TÂCHE SPÉCIFIQUE :
@@ -111,7 +111,7 @@ DEMANDE UTILISATEUR :
 ${currentMessage}
 
 INSTRUCTIONS ASSISTANT :
-Tu es l'assistant IA spécialisé pour le cabinet ophtalmologique de geneve OphtaCare pour aider à accomplir cette tâche spécifique.
+Tu es l'assistant IA spécialisé pour le cabinet ophtalmologique OphtaCare de Genève pour aider à accomplir cette tâche spécifique.
 Concentre-toi sur l'aide pratique en utilisant toutes les données internes disponibles.
 Si des fichiers sont joints, utilise leur contenu pour enrichir tes réponses.
 Si des sous-tâches existent, prends-les en compte dans tes conseils.
@@ -119,11 +119,9 @@ Fournis des conseils concrets, des étapes détaillées et des suggestions conte
 Reste dans le contexte du cabinet d'ophtalmologie OphtaCare.
 Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle-ci.`;
 
-      const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
+      const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
-          todoId: todoId,
-          todoDescription: todoDescription,
-          userMessage: currentMessage,
+          message: contextualizedMessage,
           conversationHistory: getFormattedHistory()
         }
       });
