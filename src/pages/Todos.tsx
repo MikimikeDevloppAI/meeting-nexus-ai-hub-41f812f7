@@ -60,7 +60,8 @@ export default function Todos() {
   const [todos, setTodos] = useState<TodoWithPriority[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("confirmed"); // Filtre par défaut sur "En cours"
-  const [participantFilter, setParticipantFilter] = useState<string>("all");
+  const [participantFilter, setParticipantFilter] = useState<string>(""); // Vide au début, sera initialisé avec l'utilisateur connecté
+  const [participantFilterInitialized, setParticipantFilterInitialized] = useState(false);
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
@@ -83,12 +84,13 @@ export default function Todos() {
     fetchUsers();
   }, []);
 
-  // Définir le filtre par défaut sur l'utilisateur connecté
+  // Définir le filtre par défaut sur l'utilisateur connecté (une seule fois)
   useEffect(() => {
-    if (user?.id && users.length > 0 && participantFilter === "all") {
+    if (user?.id && users.length > 0 && !participantFilterInitialized) {
       setParticipantFilter(user.id);
+      setParticipantFilterInitialized(true);
     }
-  }, [user?.id, users, participantFilter]);
+  }, [user?.id, users, participantFilterInitialized]);
 
   const fetchUsers = async () => {
     try {
