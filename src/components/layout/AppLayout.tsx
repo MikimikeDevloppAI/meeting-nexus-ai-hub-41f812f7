@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { Badge } from "@/components/ui/badge";
 import { TodoSidebarBadge } from "./TodoSidebarBadge";
+import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
 
 const menuItems = [
   {
@@ -130,6 +131,8 @@ const AppSidebar: React.FC = () => {
                       <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
                       {/* Badge pour les tâches en cours - toujours monté pour garantir la mise à jour temps réel */}
                       {item.permission === "todos" && <TodoSidebarBadge />}
+                      {/* Badge pour les validations RH en attente */}
+                      {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
