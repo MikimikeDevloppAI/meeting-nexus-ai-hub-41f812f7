@@ -30,14 +30,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
     storageKey: `todo-chat-${todoId}`,
     initialMessage: `Je suis votre assistant IA spécialisé OphtaCare pour vous aider avec cette tâche : "${todoDescription}". 
 
-**Je peux vous assister pour :**
-• Analyser les étapes nécessaires pour accomplir cette tâche
-• Vous fournir des informations contextuelles du cabinet
-• Vous suggérer des ressources ou contacts pertinents
-• Vous donner des conseils pratiques basés sur les données OphtaCare
-• Répondre à vos questions spécifiques sur cette tâche
-
-Comment puis-je vous aider à accomplir cette tâche efficacement ?`,
+`,
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
@@ -108,7 +101,7 @@ DEMANDE UTILISATEUR :
 ${currentMessage}
 
 INSTRUCTIONS ASSISTANT :
-Tu es l'assistant IA spécialisé OphtaCare pour aider à accomplir cette tâche spécifique.
+Tu es l'assistant IA spécialisé pour le cabinet ophtalmologique de geneve OphtaCare pour aider à accomplir cette tâche spécifique.
 Concentre-toi sur l'aide pratique en utilisant toutes les données internes disponibles.
 Si des fichiers sont joints, utilise leur contenu pour enrichir tes réponses.
 Si des sous-tâches existent, prends-les en compte dans tes conseils.
