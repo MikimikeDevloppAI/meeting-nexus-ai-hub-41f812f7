@@ -119,19 +119,12 @@ Fournis des conseils concrets, des étapes détaillées et des suggestions conte
 Reste dans le contexte du cabinet d'ophtalmologie OphtaCare.
 Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle-ci.`;
 
-      const { data, error } = await supabase.functions.invoke('ai-agent', {
+      const { data, error } = await supabase.functions.invoke('todo-assistant-enhanced', {
         body: { 
-          message: contextualizedMessage,
           todoId: todoId,
-          conversationHistory: getFormattedHistory(),
-          taskContext: {
-            todoId,
-            description: todoDescription,
-            type: 'task_assistance',
-            cabinet: 'OphtaCare',
-            subtasks: subtasks || [],
-            attachments: attachments || []
-          }
+          todoDescription: todoDescription,
+          userMessage: currentMessage,
+          conversationHistory: getFormattedHistory()
         }
       });
 
