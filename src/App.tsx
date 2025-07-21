@@ -29,10 +29,15 @@ import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
 
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
+import { useTodoCounter } from "./hooks/useTodoCounter";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  // Hook pour compter les tâches en cours et mettre à jour le titre
+  useTodoCounter();
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -128,6 +133,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
