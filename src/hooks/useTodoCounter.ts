@@ -28,7 +28,9 @@ export const useTodoCounter = () => {
         return;
       }
 
-      setPendingCount(data?.length || 0);
+      const count = data?.length || 0;
+      setPendingCount(count);
+      console.log('📈 Sidebar todos count:', count);
     } catch (error) {
       console.error('Error fetching pending todos:', error);
     }
@@ -39,7 +41,7 @@ export const useTodoCounter = () => {
 
     // Écouter les changements en temps réel sur les todos et les assignations
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('todo-counter-sidebar')
       .on(
         'postgres_changes',
         {
@@ -48,6 +50,7 @@ export const useTodoCounter = () => {
           table: 'todos'
         },
         () => {
+          console.log('🔄 Sidebar: Todos table changed - refetching count');
           fetchPendingTodos();
         }
       )
@@ -59,6 +62,7 @@ export const useTodoCounter = () => {
           table: 'todo_users'
         },
         () => {
+          console.log('🔄 Sidebar: Todo_users table changed - refetching count');
           fetchPendingTodos();
         }
       )
@@ -69,16 +73,7 @@ export const useTodoCounter = () => {
     };
   }, [user?.id]);
 
-  // Mettre à jour le titre de la page avec le badge
-  useEffect(() => {
-    const baseTitle = 'IOL Management';
-    
-    if (pendingCount > 0) {
-      document.title = `(${pendingCount}) ${baseTitle}`;
-    } else {
-      document.title = baseTitle;
-    }
-  }, [pendingCount]);
+  // Ce hook ne gère que le badge de la sidebar, pas le titre de la page
 
   return pendingCount;
 };
