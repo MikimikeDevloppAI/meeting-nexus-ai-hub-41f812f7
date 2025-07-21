@@ -60,6 +60,41 @@ Comment puis-je vous aider à accomplir cette tâche efficacement ?`,
     try {
       console.log('[TODO_AI_CHAT] 📤 Envoi avec historique:', getFormattedHistory().length, 'messages');
 
+      // Récupérer les subtasks
+      const { data: subtasks } = await supabase
+        .from('todo_subtasks')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: true });
+
+      // Récupérer les pièces jointes avec texte extrait
+      const { data: attachments } = await supabase
+        .from('todo_attachments')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: false });
+
+      // Construire le contexte des subtasks
+      let subtasksContext = '';
+      if (subtasks && subtasks.length > 0) {
+        subtasksContext = '\n\nSOUS-TÂCHES ASSOCIÉES :\n';
+        subtasks.forEach((subtask, index) => {
+          const status = subtask.completed ? '✅ Terminée' : '⏳ En cours';
+          subtasksContext += `${index + 1}. ${subtask.description} (${status})\n`;
+        });
+      }
+
+      // Construire le contexte des fichiers joints
+      let attachmentsContext = '';
+      if (attachments && attachments.length > 0) {
+        attachments.forEach((attachment) => {
+          if (attachment.extracted_text && attachment.extracted_text.trim()) {
+            attachmentsContext += `\n\nFICHIER JOINT À LA TÂCHE - ${attachment.file_name} :\n`;
+            attachmentsContext += `Voici son contenu :\n${attachment.extracted_text}\n`;
+          }
+        });
+      }
+
       // Message contextualisé pour assistance tâche OphtaCare
       const contextualizedMessage = `ASSISTANCE SPÉCIALISÉE TÂCHE OPHTACARE
 
@@ -67,7 +102,7 @@ CONTEXTE TÂCHE SPÉCIFIQUE :
 - ID tâche : ${todoId}
 - Description : "${todoDescription}"
 - Cabinet : OphtaCare (Dr Tabibian, Genève)
-- Type : Assistance administrative pour accomplissement
+- Type : Assistance administrative pour accomplissement${subtasksContext}${attachmentsContext}
 
 DEMANDE UTILISATEUR :
 ${currentMessage}
@@ -75,6 +110,8 @@ ${currentMessage}
 INSTRUCTIONS ASSISTANT :
 Tu es l'assistant IA spécialisé OphtaCare pour aider à accomplir cette tâche spécifique.
 Concentre-toi sur l'aide pratique en utilisant toutes les données internes disponibles.
+Si des fichiers sont joints, utilise leur contenu pour enrichir tes réponses.
+Si des sous-tâches existent, prends-les en compte dans tes conseils.
 Fournis des conseils concrets, des étapes détaillées et des suggestions contextuelles.
 Reste dans le contexte du cabinet d'ophtalmologie OphtaCare.
 Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle-ci.`;
@@ -88,7 +125,9 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
             todoId,
             description: todoDescription,
             type: 'task_assistance',
-            cabinet: 'OphtaCare'
+            cabinet: 'OphtaCare',
+            subtasks: subtasks || [],
+            attachments: attachments || []
           }
         }
       });

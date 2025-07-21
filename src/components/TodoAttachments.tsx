@@ -18,6 +18,7 @@ interface Attachment {
   content_type: string | null;
   created_at: string;
   created_by: string | null;
+  extracted_text?: string | null;
 }
 
 interface TodoAttachmentsProps {
@@ -100,6 +101,10 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
         title: 'Fichier ajouté',
         description: `${file.name} a été ajouté avec succès`,
       });
+
+      // Lancer l'extraction de texte en arrière-plan
+      extractTextFromAttachment(data.id, file.type);
+
     } catch (error) {
       console.error('Error uploading file:', error);
       toast({
@@ -109,6 +114,37 @@ export function TodoAttachments({ todoId }: TodoAttachmentsProps) {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const extractTextFromAttachment = async (attachmentId: string, contentType: string) => {
+    try {
+      console.log('🔍 Starting text extraction for attachment:', attachmentId);
+      
+      const { data, error } = await supabase.functions.invoke('extract-attachment-text', {
+        body: { attachmentId }
+      });
+
+      if (error) {
+        console.error('Text extraction error:', error);
+        return;
+      }
+
+      if (data.success) {
+        console.log('✅ Text extraction completed:', data.message);
+        
+        // Refresh attachments to get the updated extracted_text
+        fetchAttachments();
+        
+        if (data.extractedText && data.extractedText.length > 0) {
+          toast({
+            title: 'Texte extrait',
+            description: `Texte extrait du fichier (${data.textLength} caractères)`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error calling text extraction function:', error);
     }
   };
 

@@ -589,6 +589,7 @@ export type Database = {
           content_type: string | null
           created_at: string
           created_by: string | null
+          extracted_text: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -599,6 +600,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -609,6 +611,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
