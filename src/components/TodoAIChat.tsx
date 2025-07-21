@@ -61,11 +61,16 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
         .order('created_at', { ascending: true });
 
       // Récupérer les pièces jointes avec texte extrait
-      const { data: attachments } = await supabase
+      const { data: attachments, error: attachmentsError } = await supabase
         .from('todo_attachments')
         .select('*')
         .eq('todo_id', todoId)
         .order('created_at', { ascending: false });
+
+      console.log('[TODO_AI_CHAT] 📎 Attachments récupérés:', attachments);
+      if (attachmentsError) {
+        console.error('[TODO_AI_CHAT] ❌ Erreur attachments:', attachmentsError);
+      }
 
       // Construire le contexte des subtasks
       let subtasksContext = '';
@@ -80,13 +85,18 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
       // Construire le contexte des fichiers joints
       let attachmentsContext = '';
       if (attachments && attachments.length > 0) {
+        console.log('[TODO_AI_CHAT] 📎 Traitement de', attachments.length, 'attachments');
         attachments.forEach((attachment) => {
+          console.log('[TODO_AI_CHAT] 📄 Attachment:', attachment.file_name, 'extractedText length:', attachment.extracted_text?.length || 0);
           if (attachment.extracted_text && attachment.extracted_text.trim()) {
             attachmentsContext += `\n\nFICHIER JOINT À LA TÂCHE - ${attachment.file_name} :\n`;
             attachmentsContext += `Voici son contenu :\n${attachment.extracted_text}\n`;
           }
         });
       }
+      
+      console.log('[TODO_AI_CHAT] 🔤 Contexte attachments final length:', attachmentsContext.length);
+      console.log('[TODO_AI_CHAT] 🔤 Contexte attachments:', attachmentsContext.substring(0, 200) + '...');
 
       // Message contextualisé pour assistance tâche OphtaCare
       const contextualizedMessage = `ASSISTANCE SPÉCIALISÉE TÂCHE OPHTACARE
