@@ -128,11 +128,22 @@ const AppSidebar: React.FC = () => {
                     >
                       <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
                       <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
-                      {/* Badge pour les tâches en cours - géré par TodoSidebarBadge */}
+                      {/* Badge pour les tâches en cours - toujours monté pour garantir la mise à jour temps réel */}
                       {item.permission === "todos" && <TodoSidebarBadge />}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+              
+              {/* Badge todos toujours monté pour garantir la mise à jour en temps réel même pendant le chargement des permissions */}
+              {loading && menuItems.find(item => item.permission === "todos") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700">
+                    <CheckSquare className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                    <span className="text-sm lg:text-base truncate font-medium">À faire</span>
+                    <TodoSidebarBadge />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               
               <SidebarMenuItem>
                 <SidebarMenuButton
