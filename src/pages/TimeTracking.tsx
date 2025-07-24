@@ -895,7 +895,8 @@ export default function TimeTracking() {
                   min="0"
                   max="23"
                   placeholder="0"
-                  {...overtimeForm.register("overtime_hours", { valueAsNumber: true, min: 0, required: false })}
+                  defaultValue="0"
+                  {...overtimeForm.register("overtime_hours", { required: false })}
                 />
               </div>
               <div className="space-y-2">
@@ -903,7 +904,8 @@ export default function TimeTracking() {
                 <select
                   id="overtime_minutes"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  {...overtimeForm.register("overtime_minutes", { valueAsNumber: true, required: false })}
+                  defaultValue="0"
+                  {...overtimeForm.register("overtime_minutes", { required: false })}
                 >
                   <option value="0">0</option>
                   <option value="15">15</option>
@@ -927,9 +929,10 @@ export default function TimeTracking() {
               <Button 
                 type="submit" 
                 disabled={(() => {
-                  const hasDate = !!overtimeForm.watch("date");
-                  const hours = overtimeForm.watch("overtime_hours") || 0;
-                  const minutes = overtimeForm.watch("overtime_minutes") || 0;
+                  const formValues = overtimeForm.getValues();
+                  const hasDate = !!formValues.date;
+                  const hours = Number(formValues.overtime_hours) || 0;
+                  const minutes = Number(formValues.overtime_minutes) || 0;
                   const totalHours = hours + (minutes / 60);
                   const hasValidTime = totalHours >= 0.25;
                   
