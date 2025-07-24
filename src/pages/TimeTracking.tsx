@@ -184,10 +184,17 @@ export default function TimeTracking() {
 
   const fetchVacations = async () => {
     try {
-      // D'abord récupérer les vacances sans le join
+      // D'abord récupérer les vacances avec les jours détaillés
       const { data: vacationsData, error: vacationsError } = await supabase
         .from('vacations')
-        .select('*')
+        .select(`
+          *,
+          vacation_days (
+            vacation_date,
+            is_half_day,
+            half_day_period
+          )
+        `)
         .order('start_date', { ascending: false });
 
       if (vacationsError) throw vacationsError;
@@ -359,6 +366,8 @@ export default function TimeTracking() {
       const endDate = sortedDates[sortedDates.length - 1];
       const daysCount = data.isHalfDay ? data.dates.length * 0.5 : data.dates.length;
 
+      let vacationId: string;
+
       if (editingVacation) {
         const { error } = await supabase
           .from('vacations')
@@ -372,12 +381,20 @@ export default function TimeTracking() {
           .eq('id', editingVacation.id);
 
         if (error) throw error;
+        vacationId = editingVacation.id;
+
+        // Supprimer les anciens jours de vacances
+        await supabase
+          .from('vacation_days')
+          .delete()
+          .eq('vacation_id', vacationId);
+
         toast({
           title: "Vacances modifiées",
           description: "Les vacances ont été mises à jour",
         });
       } else {
-        const { error } = await supabase
+        const { data: vacation, error } = await supabase
           .from('vacations')
           .insert({
             user_id: user.id,
@@ -386,9 +403,13 @@ export default function TimeTracking() {
             days_count: daysCount,
             vacation_type: data.vacation_type,
             description: data.description
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
+        vacationId = vacation.id;
+
         const description = data.isHalfDay ? 
           `${data.dates.length} demi-journée${data.dates.length > 1 ? 's' : ''} de vacances enregistrée${data.dates.length > 1 ? 's' : ''}` :
           `${data.dates.length} jour${data.dates.length > 1 ? 's' : ''} de vacances enregistré${data.dates.length > 1 ? 's' : ''}`;
@@ -398,6 +419,20 @@ export default function TimeTracking() {
           description,
         });
       }
+
+      // Créer les entrées vacation_days pour chaque date
+      const vacationDaysData = data.dates.map(date => ({
+        vacation_id: vacationId,
+        vacation_date: date,
+        is_half_day: data.isHalfDay,
+        half_day_period: data.isHalfDay ? 'morning' : null
+      }));
+
+      const { error: daysError } = await supabase
+        .from('vacation_days')
+        .insert(vacationDaysData);
+
+      if (daysError) throw daysError;
 
       fetchVacations();
       setShowVacationCalendar(false);
