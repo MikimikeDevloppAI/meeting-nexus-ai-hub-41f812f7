@@ -3,31 +3,16 @@ import { useToast } from "@/hooks/use-toast";
 import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
 import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
-import { LetterActionsCard } from "@/components/patient-letters/LetterActionsCard";
-import { LetterTemplateUpload } from "@/components/patient-letters/LetterTemplateUpload";
 
 
-interface TextPosition {
-  x: number;
-  y: number;
-  fontSize: number;
-  color: string;
-}
 
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [patientAddress, setPatientAddress] = useState("");
   const [letterContent, setLetterContent] = useState("");
-  const [templateUrl, setTemplateUrl] = useState("");
-  const [originalWordUrl, setOriginalWordUrl] = useState(""); // URL du Word original pour la génération
-  const [textPosition, setTextPosition] = useState<TextPosition>({
-    x: 8, // Position fixe avec marge gauche
-    y: 15, // Position fixe avec marge haute
-    fontSize: 12,
-    color: "#000000"
-  });
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRewriting, setIsRewriting] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
@@ -148,12 +133,17 @@ const PatientLetters = () => {
 
       if (data?.success && data?.text) {
         const transcription = data.text;
+        
+        // Ajouter le transcript brut d'abord
         setLetterContent(prev => prev + (prev ? "\n\n" : "") + transcription);
 
         toast({
           title: "Transcription réussie",
-          description: "Le texte a été ajouté à votre lettre",
+          description: "Réécriture avec Llama en cours...",
         });
+
+        // Lancer la réécriture avec Llama
+        await rewriteWithLlama(transcription);
       } else {
         throw new Error(data?.error || "Erreur de transcription");
       }
@@ -166,6 +156,50 @@ const PatientLetters = () => {
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const rewriteWithLlama = async (transcript: string) => {
+    setIsRewriting(true);
+
+    try {
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/rewrite-medical-letter', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcript }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data?.success && data?.rewrittenContent) {
+        // Remplacer le contenu par la version réécrite
+        setLetterContent(data.rewrittenContent);
+
+        toast({
+          title: "Réécriture terminée",
+          description: "La lettre a été réécrite et corrigée par Llama",
+        });
+      } else {
+        throw new Error(data?.error || "Erreur de réécriture");
+      }
+    } catch (error) {
+      console.error("Error rewriting with Llama:", error);
+      toast({
+        title: "Erreur de réécriture",
+        description: error.message || "Impossible de réécrire avec Llama",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewriting(false);
     }
   };
 
@@ -191,8 +225,6 @@ const PatientLetters = () => {
     const letterData = {
       patientName,
       letterContent,
-      templateUrl,
-      textPosition,
       createdAt: new Date().toISOString(),
     };
 
@@ -247,9 +279,6 @@ const PatientLetters = () => {
     setPatientName("");
     setPatientAddress("");
     setLetterContent("");
-    setTemplateUrl("");
-    setOriginalWordUrl("");
-    setTextPosition({ x: 10, y: 20, fontSize: 12, color: "#000000" });
     toast({
       title: "Formulaire vidé",
       description: "Une nouvelle lettre peut être créée",
@@ -261,22 +290,12 @@ const PatientLetters = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres professionnelles avec template Word, dictée vocale et export Word
+          Créez des lettres médicales avec dictée vocale et réécriture intelligente
         </p>
       </div>
 
       <div className="grid gap-6">
-        {/* 1. Sélection du template Word en premier */}
-        <LetterTemplateUpload 
-          onTemplateUploaded={(url, wordUrl) => {
-            console.log('🚀 Template uploaded callback with URL:', url, 'Word URL:', wordUrl);
-            setTemplateUrl(url);
-            setOriginalWordUrl(wordUrl || url);
-          }}
-          currentTemplate={templateUrl}
-        />
-        
-        {/* 2. Informations patient avec nom et adresse */}
+        {/* 1. Informations patient */}
         <PatientInfoCard 
           patientName={patientName} 
           setPatientName={setPatientName}
@@ -284,32 +303,47 @@ const PatientLetters = () => {
           setPatientAddress={setPatientAddress}
         />
         
-        {/* 3. Dictée vocale */}
+        {/* 2. Dictée vocale */}
         <VoiceRecordingCard 
           isRecording={isRecording}
-          isProcessing={isProcessing}
+          isProcessing={isProcessing || isRewriting}
           startRecording={startRecording}
           stopRecording={stopRecording}
           onAudioFileUpload={handleAudioFileUpload}
         />
         
-        {/* 4. Contenu de la lettre */}
+        {/* Indicateur de réécriture */}
+        {isRewriting && (
+          <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-sm text-blue-700 mt-2">
+              Réécriture avec Llama en cours...
+            </p>
+          </div>
+        )}
+        
+        {/* 3. Contenu de la lettre */}
         <LetterContentCard 
           letterContent={letterContent}
           setLetterContent={setLetterContent}
         />
 
-        
-        <LetterActionsCard 
-          patientName={patientName}
-          patientAddress={patientAddress}
-          letterContent={letterContent}
-          templateUrl={originalWordUrl || templateUrl} // Utiliser le Word original pour la génération
-          textPosition={textPosition}
-          saveLetterLocally={saveLetterLocally}
-          exportAsText={exportAsText}
-          clearForm={clearForm}
-        />
+        {/* 4. Actions simples */}
+        <div className="flex gap-3">
+          <button 
+            onClick={exportAsText}
+            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            disabled={!patientName.trim() || !letterContent.trim()}
+          >
+            Exporter en TXT
+          </button>
+          <button 
+            onClick={clearForm}
+            className="flex-1 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            Nouvelle lettre
+          </button>
+        </div>
       </div>
     </div>
   );
