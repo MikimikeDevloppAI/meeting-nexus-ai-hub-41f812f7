@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoUserManager } from "@/components/TodoUserManager";
@@ -71,6 +71,7 @@ export default function Todos() {
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
   const [newTodoSubtasks, setNewTodoSubtasks] = useState<string[]>([]);
   const [newTodoAttachments, setNewTodoAttachments] = useState<File[]>([]);
+  const [newTodoPriority, setNewTodoPriority] = useState<'high' | 'normal' | 'low'>('normal');
   const [users, setUsers] = useState<User[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
@@ -283,7 +284,7 @@ export default function Todos() {
         .insert([{ 
           description: data.description,
           status: 'confirmed',
-          priority: data.priority || 'normal',
+          priority: newTodoPriority,
           due_date: data.due_date || null
         }])
         .select()
@@ -369,6 +370,7 @@ export default function Todos() {
       form.reset();
       setNewTodoSubtasks([]);
       setNewTodoAttachments([]);
+      setNewTodoPriority('normal');
       
       toast({
         title: "Tâche créée",
@@ -732,37 +734,12 @@ export default function Todos() {
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priorité</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Priorité normale" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="high">Haute</SelectItem>
-                          <SelectItem value="normal">Normale</SelectItem>
-                          <SelectItem value="low">Basse</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-
+              <div className="flex items-center gap-4">
                 <FormField
                   control={form.control}
                   name="due_date"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex-1">
                       <FormLabel>Date d'échéance</FormLabel>
                       <FormControl>
                         <Input
@@ -774,6 +751,23 @@ export default function Todos() {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex flex-col items-center">
+                  <FormLabel className="mb-2">Priorité</FormLabel>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNewTodoPriority(newTodoPriority === 'high' ? 'normal' : 'high')}
+                    className={`h-10 w-10 p-0 ${
+                      newTodoPriority === 'high' 
+                        ? 'text-orange-500 hover:text-orange-600' 
+                        : 'text-gray-400 hover:text-orange-500'
+                    }`}
+                  >
+                    <Star className={`h-5 w-5 ${newTodoPriority === 'high' ? 'fill-current' : ''}`} />
+                  </Button>
+                </div>
               </div>
               
               <FormField
@@ -889,6 +883,7 @@ export default function Todos() {
                   setShowNewTodoDialog(false);
                   setNewTodoSubtasks([]);
                   setNewTodoAttachments([]);
+                  setNewTodoPriority('normal');
                   form.reset();
                 }}>
                   Annuler
