@@ -335,7 +335,7 @@ export default function Todos() {
             const filePath = `todo-attachments/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
-              .from('attachments')
+              .from('todo-attachments')
               .upload(filePath, file);
 
             if (uploadError) {
