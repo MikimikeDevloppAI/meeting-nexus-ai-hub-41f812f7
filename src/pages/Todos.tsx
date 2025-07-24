@@ -33,6 +33,9 @@ import { useTodoCounter } from "@/hooks/useTodoCounter";
 interface NewTodoForm {
   description: string;
   user_id?: string;
+  due_date?: string;
+  priority?: 'high' | 'normal' | 'low';
+  subtasks?: string[];
 }
 
 interface User {
@@ -66,6 +69,8 @@ export default function Todos() {
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
+  const [newTodoSubtasks, setNewTodoSubtasks] = useState<string[]>([]);
+  const [newTodoAttachments, setNewTodoAttachments] = useState<File[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
@@ -77,7 +82,10 @@ export default function Todos() {
   const form = useForm<NewTodoForm>({
     defaultValues: {
       description: "",
-      user_id: undefined
+      user_id: undefined,
+      due_date: undefined,
+      priority: 'normal',
+      subtasks: []
     }
   });
 
@@ -275,7 +283,8 @@ export default function Todos() {
         .insert([{ 
           description: data.description,
           status: 'confirmed',
-          priority: 'normal' // Priorité normale par défaut
+          priority: data.priority || 'normal',
+          due_date: data.due_date || null
         }])
         .select()
         .single();
@@ -296,11 +305,70 @@ export default function Todos() {
           // On continue même si l'attribution échoue
         }
       }
+
+      // Ajouter les sous-tâches
+      if (newTodoSubtasks.length > 0) {
+        const subtasksToInsert = newTodoSubtasks.map(description => ({
+          todo_id: newTodo.id,
+          description,
+          completed: false,
+          created_by: user?.id
+        }));
+
+        const { error: subtasksError } = await supabase
+          .from("todo_subtasks")
+          .insert(subtasksToInsert);
+          
+        if (subtasksError) {
+          console.error("Error creating subtasks:", subtasksError);
+        }
+      }
+
+      // Gérer les attachements
+      if (newTodoAttachments.length > 0) {
+        for (const file of newTodoAttachments) {
+          try {
+            // Upload du fichier vers le storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
+            const filePath = `todo-attachments/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('attachments')
+              .upload(filePath, file);
+
+            if (uploadError) {
+              console.error('Error uploading file:', uploadError);
+              continue;
+            }
+
+            // Créer l'enregistrement de l'attachement
+            const { error: attachmentError } = await supabase
+              .from("todo_attachments")
+              .insert({
+                todo_id: newTodo.id,
+                file_name: file.name,
+                file_path: filePath,
+                content_type: file.type,
+                file_size: file.size,
+                created_by: user?.id
+              });
+
+            if (attachmentError) {
+              console.error('Error creating attachment record:', attachmentError);
+            }
+          } catch (error) {
+            console.error('Error processing attachment:', error);
+          }
+        }
+      }
       
       // Recharger les tâches pour obtenir les participants
       fetchTodos();
       setShowNewTodoDialog(false);
       form.reset();
+      setNewTodoSubtasks([]);
+      setNewTodoAttachments([]);
       
       toast({
         title: "Tâche créée",
@@ -645,7 +713,7 @@ export default function Todos() {
       
       {/* Dialog for creating new todo with participant selection */}
       <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Créer une nouvelle tâche</DialogTitle>
           </DialogHeader>
@@ -663,6 +731,50 @@ export default function Todos() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priorité</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Priorité normale" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="high">Haute</SelectItem>
+                          <SelectItem value="normal">Normale</SelectItem>
+                          <SelectItem value="low">Basse</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="due_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date d'échéance</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <FormField
                 control={form.control}
@@ -690,9 +802,95 @@ export default function Todos() {
                   </FormItem>
                 )}
               />
+
+              {/* Sous-tâches */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Sous-tâches</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewTodoSubtasks([...newTodoSubtasks, ''])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter
+                  </Button>
+                </div>
+                {newTodoSubtasks.map((subtask, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Description de la sous-tâche..."
+                      value={subtask}
+                      onChange={(e) => {
+                        const updated = [...newTodoSubtasks];
+                        updated[index] = e.target.value;
+                        setNewTodoSubtasks(updated);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const updated = newTodoSubtasks.filter((_, i) => i !== index);
+                        setNewTodoSubtasks(updated);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Attachements */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Fichiers joints</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.multiple = true;
+                      input.onchange = (e) => {
+                        const files = Array.from((e.target as HTMLInputElement).files || []);
+                        setNewTodoAttachments([...newTodoAttachments, ...files]);
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter des fichiers
+                  </Button>
+                </div>
+                {newTodoAttachments.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const updated = newTodoAttachments.filter((_, i) => i !== index);
+                        setNewTodoAttachments(updated);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowNewTodoDialog(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowNewTodoDialog(false);
+                  setNewTodoSubtasks([]);
+                  setNewTodoAttachments([]);
+                  form.reset();
+                }}>
                   Annuler
                 </Button>
                 <Button type="submit">Créer</Button>
