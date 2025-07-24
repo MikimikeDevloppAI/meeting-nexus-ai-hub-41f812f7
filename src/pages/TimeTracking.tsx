@@ -933,14 +933,12 @@ export default function TimeTracking() {
                   const hasDate = !!formValues.date;
                   const hours = Number(formValues.overtime_hours) || 0;
                   const minutes = Number(formValues.overtime_minutes) || 0;
-                  const totalHours = hours + (minutes / 60);
-                  const hasValidTime = totalHours >= 0.25;
+                  const hasValidTime = hours > 0 || minutes > 0;
                   
                   console.log("Form validation:", { 
                     hasDate, 
                     hours, 
                     minutes,
-                    totalHours,
                     hasValidTime,
                     disabled: !hasDate || !hasValidTime
                   });
