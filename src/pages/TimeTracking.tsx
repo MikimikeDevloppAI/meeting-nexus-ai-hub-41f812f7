@@ -20,6 +20,7 @@ import { useForm } from "react-hook-form";
 import { formatDistanceToNow, format, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { formatHoursToHoursMinutes } from "@/utils/timeFormatter";
 
 interface OvertimeHour {
   id: string;
@@ -465,7 +466,7 @@ export default function TimeTracking() {
       
       toast({
         title: "Heures ajoutées",
-        description: `${data.hours}h d'heures supplémentaires enregistrées`,
+        description: `${formatHoursToHoursMinutes(data.hours)} d'heures supplémentaires enregistrées`,
       });
       
       fetchOvertimeHours();
@@ -875,15 +876,19 @@ export default function TimeTracking() {
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="hours">Nombre d'heures</Label>
+              <Label htmlFor="hours">Nombre d'heures (minimum 15 minutes)</Label>
               <Input
                 id="hours"
                 type="number"
-                step="0.5"
-                min="0.5"
+                step="0.25"
+                min="0.25"
                 max="24"
+                placeholder="0.25 (15 min), 0.5 (30 min), 1 (1h)..."
                 {...overtimeForm.register("hours", { required: true, valueAsNumber: true })}
               />
+              <p className="text-xs text-gray-500">
+                Utilisez 0.25 pour 15 minutes, 0.5 pour 30 minutes, 1 pour 1 heure, etc.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (optionnel)</Label>
