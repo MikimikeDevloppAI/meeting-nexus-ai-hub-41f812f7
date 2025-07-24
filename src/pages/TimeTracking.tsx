@@ -904,7 +904,22 @@ export default function TimeTracking() {
               </Button>
               <Button 
                 type="submit" 
-                disabled={!overtimeForm.formState.isValid || !overtimeForm.watch("date") || !overtimeForm.watch("hours") || (overtimeForm.watch("hours") < 0.25)}
+                disabled={(() => {
+                  const isValid = overtimeForm.formState.isValid;
+                  const hasDate = !!overtimeForm.watch("date");
+                  const hours = overtimeForm.watch("hours");
+                  const hasValidHours = hours >= 0.25;
+                  
+                  console.log("Form validation:", { 
+                    isValid, 
+                    hasDate, 
+                    hours, 
+                    hasValidHours,
+                    errors: overtimeForm.formState.errors 
+                  });
+                  
+                  return !isValid || !hasDate || !hasValidHours;
+                })()}
               >
                 {editingOvertime ? "Modifier" : "Ajouter"}
               </Button>
