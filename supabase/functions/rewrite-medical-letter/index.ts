@@ -50,7 +50,7 @@ Réponds UNIQUEMENT avec la lettre médicale réécrite, sans commentaires.`
 
     console.log('Sending request to Infomaniak API...')
 
-    const response = await fetch('https://api.infomaniak.com/1/ai/openai/chat/completions', {
+    const response = await fetch('https://api.infomaniak.com/1/ai/deepseek/openai/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${INFOMANIAK_API_KEY}`,
