@@ -884,7 +884,7 @@ export default function TimeTracking() {
                 min="0.25"
                 max="24"
                 placeholder="0.25 (15 min), 0.5 (30 min), 1 (1h)..."
-                {...overtimeForm.register("hours", { required: true, valueAsNumber: true })}
+                {...overtimeForm.register("hours", { required: true, valueAsNumber: true, min: 0.25 })}
               />
               <p className="text-xs text-gray-500">
                 Utilisez 0.25 pour 15 minutes, 0.5 pour 30 minutes, 1 pour 1 heure, etc.
