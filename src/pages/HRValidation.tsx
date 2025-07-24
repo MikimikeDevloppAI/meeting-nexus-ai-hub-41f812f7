@@ -754,8 +754,7 @@ export default function HRValidation() {
                           {getStatusBadge(vacation.status)}
                         </div>
                         <p className="text-sm">
-                          Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} 
-                           au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
+                          Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
                         </p>
                         
                         {/* Affichage détaillé des jours */}
