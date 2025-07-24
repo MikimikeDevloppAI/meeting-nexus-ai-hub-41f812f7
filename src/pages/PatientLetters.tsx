@@ -2,7 +2,8 @@ import React, { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
-import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
+import { MedicalLetterChat } from "@/components/patient-letters/MedicalLetterChat";
+import { Textarea } from "@/components/ui/textarea";
 
 
 
@@ -57,7 +58,7 @@ const PatientLetters = () => {
       mediaRecorder.onstop = async () => {
         // Utiliser le type MIME détecté au lieu de forcer audio/wav
         const audioBlob = new Blob(audioChunksRef.current, { type: options.mimeType });
-        await processAudioWithWhisper(audioBlob);
+        await processAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -96,10 +97,10 @@ const PatientLetters = () => {
     }
 
     console.log('📁 Audio file selected:', file.name, file.type, file.size);
-    await processAudioWithWhisper(file);
+    await processAudio(file);
   };
 
-  const processAudioWithWhisper = async (audioBlob: Blob) => {
+  const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
 
     try {
@@ -140,11 +141,11 @@ const PatientLetters = () => {
 
         toast({
           title: "Transcription réussie",
-          description: "Réécriture avec Llama en cours...",
+          description: "Traitement de la lettre en cours...",
         });
 
-        // Lancer la réécriture avec Llama
-        await rewriteWithLlama(transcription);
+        // Lancer la réécriture
+        await rewriteWithAI(transcription);
       } else {
         throw new Error(data?.error || "Erreur de transcription");
       }
@@ -160,7 +161,7 @@ const PatientLetters = () => {
     }
   };
 
-  const rewriteWithLlama = async (transcript: string) => {
+  const rewriteWithAI = async (transcript: string) => {
     setIsRewriting(true);
 
     try {
@@ -187,7 +188,7 @@ const PatientLetters = () => {
 
         toast({
           title: "Réécriture terminée",
-          description: "La lettre a été réécrite et corrigée par Llama",
+          description: "La lettre a été réécrite et corrigée",
         });
       } else {
         throw new Error(data?.error || "Erreur de réécriture");
@@ -195,8 +196,8 @@ const PatientLetters = () => {
     } catch (error) {
       console.error("Error rewriting with Llama:", error);
       toast({
-        title: "Erreur de réécriture",
-        description: error.message || "Impossible de réécrire avec Llama",
+        title: "Erreur de traitement",
+        description: error.message || "Impossible de traiter la lettre",
         variant: "destructive",
       });
     } finally {
@@ -237,7 +238,7 @@ const PatientLetters = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres médicales avec dictée vocale et réécriture intelligente
+          Créez des lettres médicales avec dictée vocale et assistance IA
         </p>
       </div>
 
@@ -259,22 +260,22 @@ const PatientLetters = () => {
           onAudioFileUpload={handleAudioFileUpload}
         />
         
-        {/* Indicateur de réécriture */}
+        {/* Indicateur de traitement */}
         {isRewriting && (
           <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-sm text-blue-700 mt-2">
-              Réécriture avec Llama en cours...
+              Traitement de la lettre en cours...
             </p>
           </div>
         )}
         
-        {/* 3. Transcript brut de Whisper */}
+        {/* 3. Transcript brut éditable */}
         {rawTranscript && (
           <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Transcript Brut (Whisper)</h3>
+                <h3 className="text-lg font-semibold">Transcript Brut</h3>
                 <button 
                   onClick={() => copyToClipboard(rawTranscript, "Transcript brut")}
                   className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
@@ -284,19 +285,22 @@ const PatientLetters = () => {
               </div>
             </div>
             <div className="p-6 pt-0">
-              <div className="bg-muted rounded-md p-4 max-h-60 overflow-y-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap">{rawTranscript}</pre>
-              </div>
+              <Textarea
+                value={rawTranscript}
+                onChange={(e) => setRawTranscript(e.target.value)}
+                className="min-h-[200px] font-mono text-sm"
+                placeholder="Le transcript de l'audio apparaîtra ici et pourra être modifié..."
+              />
             </div>
           </div>
         )}
 
-        {/* 4. Contenu réécrit par Llama */}
+        {/* 4. Contenu de la lettre médicale éditable */}
         {letterContent && (
           <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Lettre Médicale (Llama)</h3>
+                <h3 className="text-lg font-semibold">Lettre Médicale</h3>
                 <button 
                   onClick={() => copyToClipboard(letterContent, "Lettre médicale")}
                   className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
@@ -306,14 +310,26 @@ const PatientLetters = () => {
               </div>
             </div>
             <div className="p-6 pt-0">
-              <div className="bg-muted rounded-md p-4 max-h-60 overflow-y-auto">
-                <pre className="text-sm whitespace-pre-wrap font-serif">{letterContent}</pre>
-              </div>
+              <Textarea
+                value={letterContent}
+                onChange={(e) => setLetterContent(e.target.value)}
+                className="min-h-[200px] font-serif text-sm"
+                placeholder="La lettre médicale apparaîtra ici et pourra être modifiée..."
+              />
             </div>
           </div>
         )}
 
-        {/* 5. Action de reset */}
+        {/* 5. Chat d'assistance pour modification */}
+        {(rawTranscript || letterContent) && (
+          <MedicalLetterChat
+            rawTranscript={rawTranscript}
+            letterContent={letterContent}
+            onLetterUpdate={setLetterContent}
+          />
+        )}
+
+        {/* 6. Action de reset */}
         <div className="flex justify-center">
           <button 
             onClick={clearForm}
