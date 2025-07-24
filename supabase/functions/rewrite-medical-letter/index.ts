@@ -57,7 +57,7 @@ Réponds UNIQUEMENT avec la lettre médicale réécrite, sans commentaires.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'DeepSeek-R1-distilled-qwen-32B',
+        model: 'llama3',
         messages: [
           {
             role: 'user',
