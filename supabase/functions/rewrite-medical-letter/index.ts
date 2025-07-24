@@ -30,11 +30,12 @@ INSTRUCTIONS STRICTES :
 1. RÉÉCRIS le transcript en tant que lettre médicale professionnelle
 2. CONSERVE toutes les informations médicales importantes
 3. SUPPRIME les mots d'hésitation ("euh", "hm", "ben", "alors", "donc", "voilà", etc.)
-4. SUPPRIME les phrases d'introduction ou de transition non médicales
+4. SUPPRIME les phrases d'introduction ou de transition non médicales ("ça c'est une lettre pour", "il faudrait", etc.)
 5. CORRIGE les erreurs de transcription évidentes
-6. STRUCTURE le texte en paragraphes cohérents
-7. UTILISE un langage médical approprié
+6. STRUCTURE le texte en paragraphes cohérents et distincts si nécessaire
+7. UTILISE un langage médical approprié et professionnel
 8. GARDE la chronologie des événements médicaux
+9. ORGANISE les informations par paragraphes logiques (diagnostic, traitement, recommandations, etc.)
 
 NE PAS :
 - Ajouter d'informations qui ne sont pas dans le transcript
@@ -56,7 +57,7 @@ Réponds UNIQUEMENT avec la lettre médicale réécrite, sans commentaires.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: 'DeepSeek-R1-distilled-qwen-32B',
         messages: [
           {
             role: 'user',
