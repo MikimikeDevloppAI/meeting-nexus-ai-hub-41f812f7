@@ -1,6 +1,5 @@
 import React, { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
 import { MedicalLetterChat } from "@/components/patient-letters/MedicalLetterChat";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,8 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 
 const PatientLetters = () => {
-  const [patientName, setPatientName] = useState("");
-  const [patientAddress, setPatientAddress] = useState("");
   const [rawTranscript, setRawTranscript] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -223,8 +220,6 @@ const PatientLetters = () => {
   };
 
   const clearForm = () => {
-    setPatientName("");
-    setPatientAddress("");
     setRawTranscript("");
     setLetterContent("");
     toast({
@@ -243,15 +238,7 @@ const PatientLetters = () => {
       </div>
 
       <div className="grid gap-6">
-        {/* 1. Informations patient */}
-        <PatientInfoCard 
-          patientName={patientName} 
-          setPatientName={setPatientName}
-          patientAddress={patientAddress}
-          setPatientAddress={setPatientAddress}
-        />
-        
-        {/* 2. Dictée vocale */}
+        {/* 1. Dictée vocale */}
         <VoiceRecordingCard 
           isRecording={isRecording}
           isProcessing={isProcessing || isRewriting}
