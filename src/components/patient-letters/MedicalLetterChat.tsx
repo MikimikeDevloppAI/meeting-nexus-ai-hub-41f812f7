@@ -81,9 +81,14 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
 
         setChatHistory(prev => [...prev, assistantMessage]);
 
+        // Si une lettre modifiée est retournée, la mettre à jour
+        if (data.modifiedLetter && onLetterUpdate) {
+          onLetterUpdate(data.modifiedLetter);
+        }
+
         toast({
-          title: "Réponse reçue",
-          description: "L'assistant a répondu à votre demande",
+          title: "Lettre modifiée",
+          description: "L'assistant a modifié votre lettre médicale",
         });
       } else {
         throw new Error(data?.error || "Erreur de communication avec l'assistant");
@@ -122,7 +127,7 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
                 <Bot className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>Demandez-moi de modifier votre lettre médicale</p>
                 <p className="text-sm mt-2">
-                  Exemples: "Corrige les fautes", "Rends le plus professionnel", "Ajoute une recommandation"
+                  Exemples: "Corrige les fautes", "Rends le plus professionnel", "Ajoute une recommandation de suivi"
                 </p>
               </div>
             ) : (

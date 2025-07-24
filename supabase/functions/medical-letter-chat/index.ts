@@ -49,12 +49,21 @@ HISTORIQUE DE LA CONVERSATION :`
 
 INSTRUCTIONS :
 1. Réponds aux demandes de modification de la lettre médicale
-2. Propose des améliorations basées sur le contexte médical
-3. Garde un langage médical professionnel
-4. Si une modification est demandée, propose le texte modifié complet
-5. Explique tes modifications si nécessaire
+2. IMPORTANT: Fournis TOUJOURS la lettre médicale complète modifiée dans ta réponse
+3. Si une modification est demandée, retourne la lettre complète avec les changements appliqués
+4. Explique brièvement les modifications que tu as effectuées
+5. Garde un langage médical professionnel
 6. Conserve les informations médicales importantes
 7. Respecte la structure d'une lettre médicale
+
+FORMAT DE RÉPONSE REQUIS :
+```
+MODIFICATIONS EFFECTUÉES :
+[Explication courte des changements]
+
+LETTRE MODIFIÉE :
+[Lettre médicale complète avec les modifications]
+```
 
 DEMANDE ACTUELLE DE L'UTILISATEUR :
 ${userMessage}`
@@ -95,10 +104,27 @@ ${userMessage}`
 
     const assistantResponse = data.choices[0].message.content
 
+    // Extraire la lettre modifiée du contenu de la réponse
+    let modifiedLetter = null;
+    let explanation = assistantResponse;
+
+    // Chercher la section "LETTRE MODIFIÉE :"
+    const letterMatch = assistantResponse.match(/LETTRE MODIFIÉE\s*:\s*([\s\S]*?)(?=\n\n|$)/i);
+    if (letterMatch) {
+      modifiedLetter = letterMatch[1].trim();
+      
+      // Extraire l'explication
+      const explanationMatch = assistantResponse.match(/MODIFICATIONS EFFECTUÉES\s*:\s*(.*?)(?=LETTRE MODIFIÉE|$)/is);
+      if (explanationMatch) {
+        explanation = explanationMatch[1].trim();
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        response: assistantResponse.trim()
+        response: explanation,
+        modifiedLetter: modifiedLetter
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
