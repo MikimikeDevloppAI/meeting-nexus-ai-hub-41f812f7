@@ -935,13 +935,12 @@ export default function TimeTracking() {
                   const minutes = Number(formValues.overtime_minutes) || 0;
                   const hasValidTime = hours > 0 || minutes > 0;
                   
-                  console.log("Form validation:", { 
-                    hasDate, 
-                    hours, 
-                    minutes,
-                    hasValidTime,
-                    disabled: !hasDate || !hasValidTime
-                  });
+                  console.log("DEBUG - Form Values:", formValues);
+                  console.log("DEBUG - hasDate:", hasDate);
+                  console.log("DEBUG - hours:", hours, typeof hours);
+                  console.log("DEBUG - minutes:", minutes, typeof minutes);
+                  console.log("DEBUG - hasValidTime:", hasValidTime);
+                  console.log("DEBUG - Button disabled:", !hasDate || !hasValidTime);
                   
                   return !hasDate || !hasValidTime;
                 })()}
