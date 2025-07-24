@@ -48,22 +48,22 @@ HISTORIQUE DE LA CONVERSATION :`
     contextPrompt += `
 
 INSTRUCTIONS :
-1. Réponds aux demandes de modification de la lettre médicale
-2. IMPORTANT: Fournis TOUJOURS la lettre médicale complète modifiée dans ta réponse
-3. Si une modification est demandée, retourne la lettre complète avec les changements appliqués
-4. Explique brièvement les modifications que tu as effectuées
-5. Garde un langage médical professionnel
-6. Conserve les informations médicales importantes
-7. Respecte la structure d'une lettre médicale
+1. Reponds aux demandes de modification de la lettre medicale
+2. IMPORTANT: Fournis TOUJOURS la lettre medicale complete modifiee dans ta reponse
+3. Si une modification est demandee, retourne la lettre complete avec les changements appliques
+4. Explique brievement les modifications que tu as effectuees
+5. Garde un langage medical professionnel
+6. Conserve les informations medicales importantes
+7. Respecte la structure d'une lettre medicale
 
-FORMAT DE RÉPONSE REQUIS :
-```
-MODIFICATIONS EFFECTUÉES :
+FORMAT DE REPONSE REQUIS :
+\`\`\`
+MODIFICATIONS EFFECTUEES :
 [Explication courte des changements]
 
-LETTRE MODIFIÉE :
-[Lettre médicale complète avec les modifications]
-```
+LETTRE MODIFIEE :
+[Lettre medicale complete avec les modifications]
+\`\`\`
 
 DEMANDE ACTUELLE DE L'UTILISATEUR :
 ${userMessage}`
@@ -108,13 +108,13 @@ ${userMessage}`
     let modifiedLetter = null;
     let explanation = assistantResponse;
 
-    // Chercher la section "LETTRE MODIFIÉE :"
-    const letterMatch = assistantResponse.match(/LETTRE MODIFIÉE\s*:\s*([\s\S]*?)(?=\n\n|$)/i);
+    // Chercher la section "LETTRE MODIFIEE :"
+    const letterMatch = assistantResponse.match(/LETTRE MODIFIEE\s*:\s*([\s\S]*?)(?=\n\n|$)/i);
     if (letterMatch) {
       modifiedLetter = letterMatch[1].trim();
       
       // Extraire l'explication
-      const explanationMatch = assistantResponse.match(/MODIFICATIONS EFFECTUÉES\s*:\s*(.*?)(?=LETTRE MODIFIÉE|$)/is);
+      const explanationMatch = assistantResponse.match(/MODIFICATIONS EFFECTUEES\s*:\s*(.*?)(?=LETTRE MODIFIEE|$)/is);
       if (explanationMatch) {
         explanation = explanationMatch[1].trim();
       }
