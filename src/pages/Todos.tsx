@@ -276,6 +276,34 @@ export default function Todos() {
     fetchTodos();
   };
 
+  const extractTextFromAttachment = async (attachmentId: string, contentType: string) => {
+    try {
+      console.log('🔍 Starting text extraction for attachment:', attachmentId);
+      
+      const { data, error } = await supabase.functions.invoke('extract-attachment-text', {
+        body: { attachmentId }
+      });
+
+      if (error) {
+        console.error('Text extraction error:', error);
+        return;
+      }
+
+      if (data.success) {
+        console.log('✅ Text extraction completed:', data.message);
+        
+        if (data.extractedText && data.extractedText.length > 0) {
+          toast({
+            title: 'Texte extrait',
+            description: `Texte extrait du fichier (${data.textLength} caractères)`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error calling text extraction function:', error);
+    }
+  };
+
   const createNewTodo = async (data: NewTodoForm) => {
     try {
       // Créer la tâche
@@ -343,8 +371,8 @@ export default function Todos() {
               continue;
             }
 
-            // Créer l'enregistrement de l'attachement
-            const { error: attachmentError } = await supabase
+            // Créer l'enregistrement de l'attachement et récupérer l'ID
+            const { data: attachmentData, error: attachmentError } = await supabase
               .from("todo_attachments")
               .insert({
                 todo_id: newTodo.id,
@@ -353,10 +381,18 @@ export default function Todos() {
                 content_type: file.type,
                 file_size: file.size,
                 created_by: user?.id
-              });
+              })
+              .select('id')
+              .single();
 
             if (attachmentError) {
               console.error('Error creating attachment record:', attachmentError);
+              continue;
+            }
+
+            // Lancer l'extraction de texte en arrière-plan
+            if (attachmentData?.id) {
+              extractTextFromAttachment(attachmentData.id, file.type);
             }
           } catch (error) {
             console.error('Error processing attachment:', error);
