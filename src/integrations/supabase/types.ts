@@ -1047,6 +1047,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      calculate_vacation_days_count: {
+        Args: { vacation_id_param: string }
+        Returns: number
+      }
       get_all_overtime_hours: {
         Args: Record<PropertyKey, never>
         Returns: {
