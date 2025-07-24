@@ -57,6 +57,8 @@ interface Vacation {
 interface OvertimeFormData {
   date: Date | undefined;
   hours: number;
+  overtime_hours: number;
+  overtime_minutes: number;
   description: string;
 }
 
@@ -93,6 +95,8 @@ export default function TimeTracking() {
     defaultValues: {
       date: new Date(),
       hours: 0,
+      overtime_hours: 0,
+      overtime_minutes: 0,
       description: ""
     }
   });
@@ -239,13 +243,14 @@ export default function TimeTracking() {
 
     try {
       const dateString = data.date.toISOString().split('T')[0];
+      const totalHours = (data.overtime_hours || 0) + ((data.overtime_minutes || 0) / 60);
       
       if (editingOvertime) {
         const { error } = await supabase
           .from('overtime_hours')
           .update({
             date: dateString,
-            hours: data.hours,
+            hours: totalHours,
             description: data.description
           })
           .eq('id', editingOvertime.id);
@@ -261,7 +266,7 @@ export default function TimeTracking() {
           .insert({
             user_id: user.id,
             date: dateString,
-            hours: data.hours,
+            hours: totalHours,
             description: data.description
           });
 
@@ -582,9 +587,15 @@ export default function TimeTracking() {
 
   const editOvertime = (overtime: OvertimeHour) => {
     setEditingOvertime(overtime);
+    const totalHours = overtime.hours;
+    const hours = Math.floor(totalHours);
+    const minutes = Math.round((totalHours - hours) * 60);
+    
     overtimeForm.reset({
       date: new Date(overtime.date),
       hours: overtime.hours,
+      overtime_hours: hours,
+      overtime_minutes: minutes,
       description: overtime.description || ""
     });
     setShowOvertimeDialog(true);
@@ -875,20 +886,31 @@ export default function TimeTracking() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="hours">Nombre d'heures (minimum 15 minutes)</Label>
-              <Input
-                id="hours"
-                type="number"
-                step="0.25"
-                min="0.25"
-                max="24"
-                placeholder="0.25 (15 min), 0.5 (30 min), 1 (1h)..."
-                {...overtimeForm.register("hours", { required: true, valueAsNumber: true, min: 0.25 })}
-              />
-              <p className="text-xs text-gray-500">
-                Utilisez 0.25 pour 15 minutes, 0.5 pour 30 minutes, 1 pour 1 heure, etc.
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="overtime_hours">Heures</Label>
+                <Input
+                  id="overtime_hours"
+                  type="number"
+                  min="0"
+                  max="23"
+                  placeholder="0"
+                  {...overtimeForm.register("overtime_hours", { valueAsNumber: true, min: 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="overtime_minutes">Minutes</Label>
+                <select
+                  id="overtime_minutes"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  {...overtimeForm.register("overtime_minutes", { valueAsNumber: true })}
+                >
+                  <option value="0">0</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (optionnel)</Label>
@@ -907,18 +929,22 @@ export default function TimeTracking() {
                 disabled={(() => {
                   const isValid = overtimeForm.formState.isValid;
                   const hasDate = !!overtimeForm.watch("date");
-                  const hours = overtimeForm.watch("hours");
-                  const hasValidHours = hours >= 0.25;
+                  const hours = overtimeForm.watch("overtime_hours") || 0;
+                  const minutes = overtimeForm.watch("overtime_minutes") || 0;
+                  const totalHours = hours + (minutes / 60);
+                  const hasValidTime = totalHours >= 0.25;
                   
                   console.log("Form validation:", { 
                     isValid, 
                     hasDate, 
                     hours, 
-                    hasValidHours,
+                    minutes,
+                    totalHours,
+                    hasValidTime,
                     errors: overtimeForm.formState.errors 
                   });
                   
-                  return !isValid || !hasDate || !hasValidHours;
+                  return !isValid || !hasDate || !hasValidTime;
                 })()}
               >
                 {editingOvertime ? "Modifier" : "Ajouter"}
