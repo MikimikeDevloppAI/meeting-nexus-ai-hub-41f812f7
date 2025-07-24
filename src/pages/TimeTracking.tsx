@@ -902,7 +902,10 @@ export default function TimeTracking() {
               <Button type="button" variant="outline" onClick={() => setShowOvertimeDialog(false)}>
                 Annuler
               </Button>
-              <Button type="submit">
+              <Button 
+                type="submit" 
+                disabled={!overtimeForm.formState.isValid || !overtimeForm.watch("date") || !overtimeForm.watch("hours") || (overtimeForm.watch("hours") < 0.25)}
+              >
                 {editingOvertime ? "Modifier" : "Ajouter"}
               </Button>
             </DialogFooter>
