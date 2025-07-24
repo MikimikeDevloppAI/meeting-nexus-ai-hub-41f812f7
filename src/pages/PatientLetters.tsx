@@ -9,6 +9,7 @@ import { LetterContentCard } from "@/components/patient-letters/LetterContentCar
 const PatientLetters = () => {
   const [patientName, setPatientName] = useState("");
   const [patientAddress, setPatientAddress] = useState("");
+  const [rawTranscript, setRawTranscript] = useState("");
   const [letterContent, setLetterContent] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -134,8 +135,8 @@ const PatientLetters = () => {
       if (data?.success && data?.text) {
         const transcription = data.text;
         
-        // Ajouter le transcript brut d'abord
-        setLetterContent(prev => prev + (prev ? "\n\n" : "") + transcription);
+        // Sauvegarder le transcript brut
+        setRawTranscript(prev => prev + (prev ? "\n\n" : "") + transcription);
 
         toast({
           title: "Transcription réussie",
@@ -181,8 +182,8 @@ const PatientLetters = () => {
       const data = await response.json();
 
       if (data?.success && data?.rewrittenContent) {
-        // Remplacer le contenu par la version réécrite
-        setLetterContent(data.rewrittenContent);
+        // Ajouter le contenu réécrit
+        setLetterContent(prev => prev + (prev ? "\n\n" : "") + data.rewrittenContent);
 
         toast({
           title: "Réécriture terminée",
@@ -203,81 +204,27 @@ const PatientLetters = () => {
     }
   };
 
-  const saveLetterLocally = () => {
-    if (!patientName.trim()) {
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
       toast({
-        title: "Nom du patient requis",
-        description: "Veuillez saisir le nom du patient",
+        title: "Copié!",
+        description: `${type} copié dans le presse-papiers`,
+      });
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+      toast({
+        title: "Erreur de copie",
+        description: "Impossible de copier dans le presse-papiers",
         variant: "destructive",
       });
-      return;
     }
-
-    if (!letterContent.trim()) {
-      toast({
-        title: "Contenu requis",
-        description: "Veuillez saisir ou dicter le contenu de la lettre",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const letterData = {
-      patientName,
-      letterContent,
-      createdAt: new Date().toISOString(),
-    };
-
-    const dataStr = JSON.stringify(letterData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Sauvegarde réussie",
-      description: "La lettre a été sauvegardée localement",
-    });
-  };
-
-  const exportAsText = () => {
-    if (!patientName.trim() || !letterContent.trim()) {
-      toast({
-        title: "Données incomplètes",
-        description: "Veuillez saisir le nom du patient et le contenu de la lettre",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const fullLetter = `LETTRE PATIENT\n\nPatient: ${patientName}\nDate: ${new Date().toLocaleDateString('fr-FR')}\n\n${letterContent}`;
-    
-    const dataBlob = new Blob([fullLetter], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Export réussi",
-      description: "La lettre a été exportée au format texte",
-    });
   };
 
   const clearForm = () => {
     setPatientName("");
     setPatientAddress("");
+    setRawTranscript("");
     setLetterContent("");
     toast({
       title: "Formulaire vidé",
@@ -322,24 +269,55 @@ const PatientLetters = () => {
           </div>
         )}
         
-        {/* 3. Contenu de la lettre */}
-        <LetterContentCard 
-          letterContent={letterContent}
-          setLetterContent={setLetterContent}
-        />
+        {/* 3. Transcript brut de Whisper */}
+        {rawTranscript && (
+          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+            <div className="p-6 pb-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Transcript Brut (Whisper)</h3>
+                <button 
+                  onClick={() => copyToClipboard(rawTranscript, "Transcript brut")}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Copier
+                </button>
+              </div>
+            </div>
+            <div className="p-6 pt-0">
+              <div className="bg-muted rounded-md p-4 max-h-60 overflow-y-auto">
+                <pre className="text-sm font-mono whitespace-pre-wrap">{rawTranscript}</pre>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* 4. Actions simples */}
-        <div className="flex gap-3">
-          <button 
-            onClick={exportAsText}
-            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            disabled={!patientName.trim() || !letterContent.trim()}
-          >
-            Exporter en TXT
-          </button>
+        {/* 4. Contenu réécrit par Llama */}
+        {letterContent && (
+          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+            <div className="p-6 pb-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Lettre Médicale (Llama)</h3>
+                <button 
+                  onClick={() => copyToClipboard(letterContent, "Lettre médicale")}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Copier
+                </button>
+              </div>
+            </div>
+            <div className="p-6 pt-0">
+              <div className="bg-muted rounded-md p-4 max-h-60 overflow-y-auto">
+                <pre className="text-sm whitespace-pre-wrap font-serif">{letterContent}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. Action de reset */}
+        <div className="flex justify-center">
           <button 
             onClick={clearForm}
-            className="flex-1 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-6 py-2 rounded-md text-sm font-medium transition-colors"
           >
             Nouvelle lettre
           </button>
