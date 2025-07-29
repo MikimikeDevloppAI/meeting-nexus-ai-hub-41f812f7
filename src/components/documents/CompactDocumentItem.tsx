@@ -225,17 +225,12 @@ export const CompactDocumentItem = ({
             </div>
 
             <div className="flex flex-wrap gap-1 mb-2">
-              {isMeeting ? (
-                <Badge variant="default" className="bg-blue-500 text-xs">
-                  <Mic className="h-3 w-3 mr-1" />
-                  Meeting
-                </Badge>
-              ) : isProcessing ? (
+              {!isMeeting && isProcessing && (
                 <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   En traitement...
                 </Badge>
-              ) : null}
+              )}
 
               {isMeeting && document.participants && document.participants.length > 0 && (
                 <Badge variant="outline" className="bg-orange-50 text-xs">
@@ -245,11 +240,11 @@ export const CompactDocumentItem = ({
               )}
             </div>
             
-            {/* Catégorisation */}
-            {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
+            {/* Catégorisation - seulement pour les documents */}
+            {!isMeeting && document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
                 {document.taxonomy.category && (
-                  <Badge variant={isMeeting ? "default" : "secondary"} className="text-xs">
+                  <Badge variant="secondary" className="text-xs">
                     {document.taxonomy.category}
                   </Badge>
                 )}
