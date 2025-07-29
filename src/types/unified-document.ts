@@ -13,6 +13,7 @@ export interface UnifiedDocumentItem {
   created_at: string;
   created_by: string;
   extracted_text: string | null;
+  google_drive_link?: string | null;
   
   // Champs spécifiques aux meetings
   meeting_id?: string;

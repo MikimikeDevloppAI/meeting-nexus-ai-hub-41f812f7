@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, Check } from "lucide-react";
+import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, Check, Cloud } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
@@ -132,6 +132,13 @@ export const CompactDocumentItem = ({
     if (document.file_path) {
       const fileUrl = getDocumentViewUrl(document.file_path);
       window.open(fileUrl, '_blank');
+    }
+  };
+
+  const handleGoogleDriveOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (document.google_drive_link) {
+      window.open(document.google_drive_link, '_blank');
     }
   };
 
@@ -279,16 +286,20 @@ export const CompactDocumentItem = ({
           </div>
           
           <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
-            {/* Bouton de prévisualisation pour les documents avec file_path */}
-            {!isMeeting && document.file_path && document.processed && (
+            {/* Bouton pour Google Drive ou prévisualisation document */}
+            {!isMeeting && document.processed && (document.google_drive_link || document.file_path) && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handlePreview}
-                title="Prévisualiser le document"
+                onClick={document.google_drive_link ? handleGoogleDriveOpen : handlePreview}
+                title={document.google_drive_link ? "Ouvrir dans Google Drive" : "Prévisualiser le document"}
                 className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
-                <Eye className="h-4 w-4" />
+                {document.google_drive_link ? (
+                  <Cloud className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </Button>
             )}
             {isMeeting && document.audio_url && (
