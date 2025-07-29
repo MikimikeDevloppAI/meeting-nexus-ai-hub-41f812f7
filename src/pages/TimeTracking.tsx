@@ -20,6 +20,7 @@ import { useForm } from "react-hook-form";
 import { formatDistanceToNow, format, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { formatHoursToHoursMinutes } from "@/utils/timeFormatter";
 
 interface OvertimeHour {
   id: string;
@@ -56,6 +57,8 @@ interface Vacation {
 interface OvertimeFormData {
   date: Date | undefined;
   hours: number;
+  overtime_hours: number;
+  overtime_minutes: number;
   description: string;
 }
 
@@ -92,6 +95,8 @@ export default function TimeTracking() {
     defaultValues: {
       date: new Date(),
       hours: 0,
+      overtime_hours: 0,
+      overtime_minutes: 0,
       description: ""
     }
   });
@@ -184,10 +189,17 @@ export default function TimeTracking() {
 
   const fetchVacations = async () => {
     try {
-      // D'abord récupérer les vacances sans le join
+      // D'abord récupérer les vacances avec les jours détaillés
       const { data: vacationsData, error: vacationsError } = await supabase
         .from('vacations')
-        .select('*')
+        .select(`
+          *,
+          vacation_days (
+            vacation_date,
+            is_half_day,
+            half_day_period
+          )
+        `)
         .order('start_date', { ascending: false });
 
       if (vacationsError) throw vacationsError;
@@ -231,13 +243,14 @@ export default function TimeTracking() {
 
     try {
       const dateString = data.date.toISOString().split('T')[0];
+      const totalHours = (data.overtime_hours || 0) + ((data.overtime_minutes || 0) / 60);
       
       if (editingOvertime) {
         const { error } = await supabase
           .from('overtime_hours')
           .update({
             date: dateString,
-            hours: data.hours,
+            hours: totalHours,
             description: data.description
           })
           .eq('id', editingOvertime.id);
@@ -253,7 +266,7 @@ export default function TimeTracking() {
           .insert({
             user_id: user.id,
             date: dateString,
-            hours: data.hours,
+            hours: totalHours,
             description: data.description
           });
 
@@ -359,6 +372,8 @@ export default function TimeTracking() {
       const endDate = sortedDates[sortedDates.length - 1];
       const daysCount = data.isHalfDay ? data.dates.length * 0.5 : data.dates.length;
 
+      let vacationId: string;
+
       if (editingVacation) {
         const { error } = await supabase
           .from('vacations')
@@ -372,12 +387,20 @@ export default function TimeTracking() {
           .eq('id', editingVacation.id);
 
         if (error) throw error;
+        vacationId = editingVacation.id;
+
+        // Supprimer les anciens jours de vacances
+        await supabase
+          .from('vacation_days')
+          .delete()
+          .eq('vacation_id', vacationId);
+
         toast({
           title: "Vacances modifiées",
           description: "Les vacances ont été mises à jour",
         });
       } else {
-        const { error } = await supabase
+        const { data: vacation, error } = await supabase
           .from('vacations')
           .insert({
             user_id: user.id,
@@ -386,9 +409,13 @@ export default function TimeTracking() {
             days_count: daysCount,
             vacation_type: data.vacation_type,
             description: data.description
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
+        vacationId = vacation.id;
+
         const description = data.isHalfDay ? 
           `${data.dates.length} demi-journée${data.dates.length > 1 ? 's' : ''} de vacances enregistrée${data.dates.length > 1 ? 's' : ''}` :
           `${data.dates.length} jour${data.dates.length > 1 ? 's' : ''} de vacances enregistré${data.dates.length > 1 ? 's' : ''}`;
@@ -398,6 +425,20 @@ export default function TimeTracking() {
           description,
         });
       }
+
+      // Créer les entrées vacation_days pour chaque date
+      const vacationDaysData = data.dates.map(date => ({
+        vacation_id: vacationId,
+        vacation_date: date,
+        is_half_day: data.isHalfDay,
+        half_day_period: data.isHalfDay ? 'morning' : null
+      }));
+
+      const { error: daysError } = await supabase
+        .from('vacation_days')
+        .insert(vacationDaysData);
+
+      if (daysError) throw daysError;
 
       fetchVacations();
       setShowVacationCalendar(false);
@@ -430,7 +471,7 @@ export default function TimeTracking() {
       
       toast({
         title: "Heures ajoutées",
-        description: `${data.hours}h d'heures supplémentaires enregistrées`,
+        description: `${formatHoursToHoursMinutes(data.hours)} d'heures supplémentaires enregistrées`,
       });
       
       fetchOvertimeHours();
@@ -546,9 +587,15 @@ export default function TimeTracking() {
 
   const editOvertime = (overtime: OvertimeHour) => {
     setEditingOvertime(overtime);
+    const totalHours = overtime.hours;
+    const hours = Math.floor(totalHours);
+    const minutes = Math.round((totalHours - hours) * 60);
+    
     overtimeForm.reset({
       date: new Date(overtime.date),
       hours: overtime.hours,
+      overtime_hours: hours,
+      overtime_minutes: minutes,
       description: overtime.description || ""
     });
     setShowOvertimeDialog(true);
@@ -839,16 +886,33 @@ export default function TimeTracking() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="hours">Nombre d'heures</Label>
-              <Input
-                id="hours"
-                type="number"
-                step="0.5"
-                min="0.5"
-                max="24"
-                {...overtimeForm.register("hours", { required: true, valueAsNumber: true })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="overtime_hours">Heures</Label>
+                <Input
+                  id="overtime_hours"
+                  type="number"
+                  min="0"
+                  max="23"
+                  placeholder="0"
+                  defaultValue="0"
+                  {...overtimeForm.register("overtime_hours", { required: false })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="overtime_minutes">Minutes</Label>
+                <select
+                  id="overtime_minutes"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  defaultValue="0"
+                  {...overtimeForm.register("overtime_minutes", { required: false })}
+                >
+                  <option value="0">0</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (optionnel)</Label>
@@ -862,7 +926,25 @@ export default function TimeTracking() {
               <Button type="button" variant="outline" onClick={() => setShowOvertimeDialog(false)}>
                 Annuler
               </Button>
-              <Button type="submit">
+              <Button 
+                type="submit" 
+                disabled={(() => {
+                  const formValues = overtimeForm.getValues();
+                  const hasDate = !!formValues.date;
+                  const hours = Number(formValues.overtime_hours) || 0;
+                  const minutes = Number(formValues.overtime_minutes) || 0;
+                  const hasValidTime = hours > 0 || minutes > 0;
+                  
+                  console.log("DEBUG - Form Values:", formValues);
+                  console.log("DEBUG - hasDate:", hasDate);
+                  console.log("DEBUG - hours:", hours, typeof hours);
+                  console.log("DEBUG - minutes:", minutes, typeof minutes);
+                  console.log("DEBUG - hasValidTime:", hasValidTime);
+                  console.log("DEBUG - Button disabled:", !hasDate || !hasValidTime);
+                  
+                  return !hasDate || !hasValidTime;
+                })()}
+              >
                 {editingOvertime ? "Modifier" : "Ajouter"}
               </Button>
             </DialogFooter>

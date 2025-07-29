@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Clock, Edit, X, TrendingUp } from "lucide-react";
 import { format, parseISO, isSameDay, startOfMonth, endOfMonth, eachMonthOfInterval, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 import { fr } from "date-fns/locale";
+import { formatHoursToHoursMinutes } from "@/utils/timeFormatter";
 
 interface OvertimeHour {
   id: string;
@@ -331,7 +332,7 @@ export function OvertimeCalendar({
                       <span className="font-medium">
                         {format(parseISO(overtime.date), "dd/MM/yyyy", { locale: fr })}
                       </span>
-                      <Badge variant="outline">{overtime.hours}h</Badge>
+                      <Badge variant="outline">{formatHoursToHoursMinutes(overtime.hours)}</Badge>
                       {overtime.description && (
                         <span className="text-sm text-gray-600 truncate max-w-32">{overtime.description}</span>
                       )}
@@ -397,22 +398,22 @@ export function OvertimeCalendar({
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-lg">
-                      {stat.totalHours.toFixed(1)}h
+                      {formatHoursToHoursMinutes(stat.totalHours)}
                     </div>
                     <div className="text-xs space-x-2">
                       {stat.approvedHours > 0 && (
                         <span className="text-green-600">
-                          ✓ {(stat.approvedHours + (stat.recoveryHours || 0)).toFixed(1)}h
+                          ✓ {formatHoursToHoursMinutes(stat.approvedHours + (stat.recoveryHours || 0))}
                         </span>
                       )}
                       {stat.pendingHours > 0 && (
                         <span className="text-orange-600">
-                          ⏳ {stat.pendingHours.toFixed(1)}h
+                          ⏳ {formatHoursToHoursMinutes(stat.pendingHours)}
                         </span>
                       )}
                       {(stat.recoveryHours || 0) > 0 && (
                         <span className="text-blue-600">
-                          🔄 -{stat.recoveryHours.toFixed(1)}h
+                          🔄 -{formatHoursToHoursMinutes(stat.recoveryHours)}
                         </span>
                       )}
                     </div>
@@ -426,17 +427,17 @@ export function OvertimeCalendar({
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Total {currentYear}</span>
                 <span className="font-bold text-xl">
-                  {monthlyStats.reduce((sum, stat) => sum + stat.totalHours, 0).toFixed(1)}h
+                  {formatHoursToHoursMinutes(monthlyStats.reduce((sum, stat) => sum + stat.totalHours, 0))}
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-1 text-sm text-gray-600 mt-1">
                 <div className="flex justify-between">
-                  <span>Approuvées: {monthlyStats.reduce((sum, stat) => sum + (stat.approvedHours + (stat.recoveryHours || 0)), 0).toFixed(1)}h</span>
-                  <span>En attente: {monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0).toFixed(1)}h</span>
+                  <span>Approuvées: {formatHoursToHoursMinutes(monthlyStats.reduce((sum, stat) => sum + (stat.approvedHours + (stat.recoveryHours || 0)), 0))}</span>
+                  <span>En attente: {formatHoursToHoursMinutes(monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0))}</span>
                 </div>
                 {monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0) > 0 && (
                   <div className="text-blue-600">
-                    Récupération utilisée: -{monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0).toFixed(1)}h
+                    Récupération utilisée: -{formatHoursToHoursMinutes(monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0))}
                   </div>
                 )}
               </div>
@@ -452,6 +453,9 @@ export function OvertimeCalendar({
             <DialogTitle>
               {editingOvertime ? "Modifier" : "Ajouter"} des heures supplémentaires
             </DialogTitle>
+            <DialogDescription>
+              Saisissez les heures supplémentaires pour la date sélectionnée.
+            </DialogDescription>
             {selectedDate && (
               <p className="text-sm text-muted-foreground">
                 {format(selectedDate, "PPPP", { locale: fr })}
@@ -516,7 +520,11 @@ export function OvertimeCalendar({
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={!hours || parseInt(hours) === 0}
+              disabled={(() => {
+                const hoursValue = parseInt(hours) || 0;
+                const minutesValue = parseInt(minutes) || 0;
+                return hoursValue === 0 && minutesValue === 0;
+              })()}
             >
               {editingOvertime ? "Modifier" : "Ajouter"}
             </Button>

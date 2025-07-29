@@ -29,14 +29,11 @@ import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
 
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
-import { useTodoCounter } from "./hooks/useTodoCounter";
+import { TodoCounterWrapper } from "./components/layout/TodoCounterWrapper";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Hook pour compter les tâches en cours et mettre à jour le titre
-  useTodoCounter();
-
   return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -44,6 +41,7 @@ const App = () => {
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <TodoCounterWrapper />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

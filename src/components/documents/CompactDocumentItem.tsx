@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, Check } from "lucide-react";
+import { FileText, Download, Trash2, Loader2, X, Mic, Users, Play, Eye, Edit3, Check, Cloud } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { CompactDocumentChat } from "./CompactDocumentChat";
 import { DocumentMetadataEditor } from "./DocumentMetadataEditor";
@@ -135,6 +135,13 @@ export const CompactDocumentItem = ({
     }
   };
 
+  const handleGoogleDriveOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (document.google_drive_link) {
+      window.open(document.google_drive_link, '_blank');
+    }
+  };
+
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDownload();
@@ -218,17 +225,12 @@ export const CompactDocumentItem = ({
             </div>
 
             <div className="flex flex-wrap gap-1 mb-2">
-              {isMeeting ? (
-                <Badge variant="default" className="bg-blue-500 text-xs">
-                  <Mic className="h-3 w-3 mr-1" />
-                  Meeting
-                </Badge>
-              ) : isProcessing ? (
+              {!isMeeting && isProcessing && (
                 <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   En traitement...
                 </Badge>
-              ) : null}
+              )}
 
               {isMeeting && document.participants && document.participants.length > 0 && (
                 <Badge variant="outline" className="bg-orange-50 text-xs">
@@ -238,11 +240,11 @@ export const CompactDocumentItem = ({
               )}
             </div>
             
-            {/* Catégorisation */}
-            {document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
+            {/* Catégorisation - seulement pour les documents */}
+            {!isMeeting && document.taxonomy && Object.keys(document.taxonomy).length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
                 {document.taxonomy.category && (
-                  <Badge variant={isMeeting ? "default" : "secondary"} className="text-xs">
+                  <Badge variant="secondary" className="text-xs">
                     {document.taxonomy.category}
                   </Badge>
                 )}
@@ -279,16 +281,20 @@ export const CompactDocumentItem = ({
           </div>
           
           <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
-            {/* Bouton de prévisualisation pour les documents avec file_path */}
-            {!isMeeting && document.file_path && document.processed && (
+            {/* Bouton pour Google Drive ou prévisualisation document */}
+            {!isMeeting && document.processed && (document.google_drive_link || document.file_path) && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handlePreview}
-                title="Prévisualiser le document"
+                onClick={document.google_drive_link ? handleGoogleDriveOpen : handlePreview}
+                title={document.google_drive_link ? "Ouvrir dans Google Drive" : "Prévisualiser le document"}
                 className="h-8 w-8 p-0 lg:h-auto lg:w-auto lg:px-3"
               >
-                <Eye className="h-4 w-4" />
+                {document.google_drive_link ? (
+                  <Cloud className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </Button>
             )}
             {isMeeting && document.audio_url && (

@@ -10,7 +10,7 @@ export const uploadAudio = async (audioBlob: Blob, meetingId: string) => {
   try {
     const fileName = `recording_${meetingId}.wav`;
     const { data, error } = await supabase.storage
-      .from("meeting-recordings")
+      .from("meeting-audio")
       .upload(fileName, audioBlob, {
         contentType: "audio/wav",
         upsert: true,
@@ -21,7 +21,7 @@ export const uploadAudio = async (audioBlob: Blob, meetingId: string) => {
       return null;
     }
 
-    const audioUrl = `https://ecziljpkvshvapjsxaty.supabase.co/storage/v1/object/public/meeting-recordings/${fileName}`;
+    const audioUrl = `https://ecziljpkvshvapjsxaty.supabase.co/storage/v1/object/public/meeting-audio/${fileName}`;
     return audioUrl;
   } catch (error) {
     console.error("Error in uploadAudio:", error);
@@ -93,7 +93,6 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
         .insert({
           description: task.trim(),
           status: "pending",
-          meeting_id: meetingId,
           assigned_to: assignedTo,
         })
         .select()
@@ -104,19 +103,33 @@ const saveTasks = async (tasks: string[], meetingId: string, allParticipants: an
       if (todoData) {
         savedTasks.push(todoData);
         
+        // Create the todo-meeting relationship
+        const { error: meetingError } = await supabase
+          .from("todo_meetings")
+          .insert({
+            todo_id: todoData.id,
+            meeting_id: meetingId
+          });
+        
+        if (meetingError) {
+          console.error('Error creating todo-meeting relationship:', meetingError);
+        } else {
+          console.log(`✅ [SAVE_TASKS] Created todo-meeting relationship for task ${todoData.id}`);
+        }
+        
         // If we found a participant match, also create the many-to-many relationship
         if (assignedTo) {
-          const { error: participantError } = await supabase
-            .from("todo_participants")
+          const { error: userError } = await supabase
+            .from("todo_users")
             .insert({
               todo_id: todoData.id,
-              participant_id: assignedTo
+              user_id: assignedTo
             });
           
-          if (participantError) {
-            console.error('Error creating todo-participant relationship:', participantError);
+          if (userError) {
+            console.error('Error creating todo-user relationship:', userError);
           } else {
-            console.log(`✅ [SAVE_TASKS] Created todo-participant relationship for task ${todoData.id}`);
+            console.log(`✅ [SAVE_TASKS] Created todo-user relationship for task ${todoData.id}`);
           }
         }
 
@@ -256,57 +269,57 @@ export const MeetingService = {
     }
   },
 
-  addParticipants: async (meetingId: string, participantIds: string[]) => {
-    console.log('[MeetingService] Adding participants to meeting:', { meetingId, participantIds });
+  addParticipants: async (meetingId: string, userIds: string[]) => {
+    console.log('[MeetingService] Adding users to meeting:', { meetingId, userIds });
     
     if (!meetingId) {
       throw new Error('Meeting ID is required');
     }
     
-    if (!participantIds || participantIds.length === 0) {
-      console.log('[MeetingService] No participants to add');
+    if (!userIds || userIds.length === 0) {
+      console.log('[MeetingService] No users to add');
       return;
     }
 
     try {
-      const meetingParticipants = participantIds.map(participantId => ({
+      const meetingUsers = userIds.map(userId => ({
         meeting_id: meetingId,
-        participant_id: participantId
+        user_id: userId
       }));
 
       const { error } = await supabase
-        .from('meeting_participants')
-        .insert(meetingParticipants);
+        .from('meeting_users')
+        .insert(meetingUsers);
 
       if (error) {
-        console.error('[MeetingService] Error adding participants:', error);
+        console.error('[MeetingService] Error adding users:', error);
         throw error;
       }
 
-      console.log('[MeetingService] Participants added successfully');
+      console.log('[MeetingService] Users added successfully');
     } catch (error) {
-      console.error('[MeetingService] Failed to add participants:', error);
+      console.error('[MeetingService] Failed to add users:', error);
       throw error;
     }
   }
 };
 
-// Update the processMeetingData function to pass meeting participants correctly
+// Update the processMeetingData function to use meeting_users correctly
 export const processMeetingData = async (
   meetingId: string,
-  participantIds: string[],
+  userIds: string[],
   audioBlob: Blob | null,
   audioFile: File | null
 ): Promise<void> => {
   console.log('[PROCESS_MEETING] Processing meeting data for meeting:', meetingId);
 
   try {
-    // Récupérer les participants de la réunion (ceux qui sont vraiment dans la réunion)
-    const { data: meetingParticipants, error: meetingParticipantsError } = await supabase
-      .from("meeting_participants")
+    // Récupérer les utilisateurs de la réunion via meeting_users
+    const { data: meetingUsers, error: meetingUsersError } = await supabase
+      .from("meeting_users")
       .select(`
-        participant_id,
-        participants (
+        user_id,
+        users (
           id,
           name,
           email
@@ -314,13 +327,13 @@ export const processMeetingData = async (
       `)
       .eq('meeting_id', meetingId);
 
-    if (meetingParticipantsError) {
-      console.error('[PROCESS_MEETING] Error fetching meeting participants:', meetingParticipantsError);
+    if (meetingUsersError) {
+      console.error('[PROCESS_MEETING] Error fetching meeting users:', meetingUsersError);
     }
 
-    // Utiliser les participants de la réunion pour l'assignation
-    const participantsForAssignment = meetingParticipants?.map((mp: any) => mp.participants).filter(Boolean) || [];
-    console.log('[PROCESS_MEETING] Participants for assignment:', participantsForAssignment.map(p => ({ id: p.id, name: p.name })));
+    // Utiliser les utilisateurs de la réunion pour l'assignation
+    const usersForAssignment = meetingUsers?.map((mu: any) => mu.users).filter(Boolean) || [];
+    console.log('[PROCESS_MEETING] Users for assignment:', usersForAssignment.map(u => ({ id: u.id, name: u.name })));
 
     // Upload audio file
     let audioUrl = null;
@@ -329,7 +342,7 @@ export const processMeetingData = async (
       const fileName = `${meetingId}_${Date.now()}.${fileToUpload.name.split('.').pop()}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('meeting-recordings')
+        .from('meeting-audio')
         .upload(fileName, fileToUpload);
 
       if (uploadError) {
@@ -338,7 +351,7 @@ export const processMeetingData = async (
       }
 
       const { data: urlData } = supabase.storage
-        .from('meeting-recordings')
+        .from('meeting-audio')
         .getPublicUrl(fileName);
 
       audioUrl = urlData.publicUrl;
@@ -356,7 +369,7 @@ export const processMeetingData = async (
       throw updateError;
     }
 
-    // Process transcript and extract tasks with correct participants
+    // Process transcript and extract tasks with correct users
     if (audioUrl) {
       console.log('[PROCESS_MEETING] Starting transcript processing...');
       
@@ -369,7 +382,7 @@ export const processMeetingData = async (
         body: JSON.stringify({
           meetingId,
           audioUrl,
-          participants: participantsForAssignment
+          participants: usersForAssignment
         }),
       });
 

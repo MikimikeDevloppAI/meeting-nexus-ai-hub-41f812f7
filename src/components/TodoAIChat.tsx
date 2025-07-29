@@ -30,14 +30,7 @@ export const TodoAIChat = ({ todoId, todoDescription }: TodoAIChatProps) => {
     storageKey: `todo-chat-${todoId}`,
     initialMessage: `Je suis votre assistant IA spécialisé OphtaCare pour vous aider avec cette tâche : "${todoDescription}". 
 
-**Je peux vous assister pour :**
-• Analyser les étapes nécessaires pour accomplir cette tâche
-• Vous fournir des informations contextuelles du cabinet
-• Vous suggérer des ressources ou contacts pertinents
-• Vous donner des conseils pratiques basés sur les données OphtaCare
-• Répondre à vos questions spécifiques sur cette tâche
-
-Comment puis-je vous aider à accomplir cette tâche efficacement ?`,
+`,
     maxHistoryLength: 50,
     maxSentHistory: 20
   });
@@ -60,21 +53,68 @@ Comment puis-je vous aider à accomplir cette tâche efficacement ?`,
     try {
       console.log('[TODO_AI_CHAT] 📤 Envoi avec historique:', getFormattedHistory().length, 'messages');
 
-      // Message contextualisé pour assistance tâche OphtaCare
+      // Récupérer les subtasks
+      const { data: subtasks } = await supabase
+        .from('todo_subtasks')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: true });
+
+      // Récupérer les pièces jointes avec texte extrait
+      const { data: attachments, error: attachmentsError } = await supabase
+        .from('todo_attachments')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: false });
+
+      console.log('[TODO_AI_CHAT] 📎 Attachments récupérés:', attachments);
+      if (attachmentsError) {
+        console.error('[TODO_AI_CHAT] ❌ Erreur attachments:', attachmentsError);
+      }
+
+      // Construire le contexte des subtasks
+      let subtasksContext = '';
+      if (subtasks && subtasks.length > 0) {
+        subtasksContext = '\n\nSOUS-TÂCHES ASSOCIÉES :\n';
+        subtasks.forEach((subtask, index) => {
+          const status = subtask.completed ? '✅ Terminée' : '⏳ En cours';
+          subtasksContext += `${index + 1}. ${subtask.description} (${status})\n`;
+        });
+      }
+
+      // Construire le contexte des fichiers joints
+      let attachmentsContext = '';
+      if (attachments && attachments.length > 0) {
+        console.log('[TODO_AI_CHAT] 📎 Traitement de', attachments.length, 'attachments');
+        attachments.forEach((attachment) => {
+          console.log('[TODO_AI_CHAT] 📄 Attachment:', attachment.file_name, 'extractedText length:', attachment.extracted_text?.length || 0);
+          if (attachment.extracted_text && attachment.extracted_text.trim()) {
+            attachmentsContext += `\n\nFICHIER JOINT À LA TÂCHE - ${attachment.file_name} :\n`;
+            attachmentsContext += `Voici son contenu :\n${attachment.extracted_text}\n`;
+          }
+        });
+      }
+      
+      console.log('[TODO_AI_CHAT] 🔤 Contexte attachments final length:', attachmentsContext.length);
+      console.log('[TODO_AI_CHAT] 🔤 Contexte attachments:', attachmentsContext.substring(0, 200) + '...');
+
+      // Message contextualisé pour l'ai-agent
       const contextualizedMessage = `ASSISTANCE SPÉCIALISÉE TÂCHE OPHTACARE
 
 CONTEXTE TÂCHE SPÉCIFIQUE :
 - ID tâche : ${todoId}
 - Description : "${todoDescription}"
 - Cabinet : OphtaCare (Dr Tabibian, Genève)
-- Type : Assistance administrative pour accomplissement
+- Type : Assistance administrative pour accomplissement${subtasksContext}${attachmentsContext}
 
 DEMANDE UTILISATEUR :
 ${currentMessage}
 
 INSTRUCTIONS ASSISTANT :
-Tu es l'assistant IA spécialisé OphtaCare pour aider à accomplir cette tâche spécifique.
+Tu es l'assistant IA spécialisé pour le cabinet ophtalmologique OphtaCare de Genève pour aider à accomplir cette tâche spécifique.
 Concentre-toi sur l'aide pratique en utilisant toutes les données internes disponibles.
+Si des fichiers sont joints, utilise leur contenu pour enrichir tes réponses.
+Si des sous-tâches existent, prends-les en compte dans tes conseils.
 Fournis des conseils concrets, des étapes détaillées et des suggestions contextuelles.
 Reste dans le contexte du cabinet d'ophtalmologie OphtaCare.
 Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle-ci.`;
@@ -82,14 +122,7 @@ Ne propose PAS de créer de nouvelles tâches, aide seulement à accomplir celle
       const { data, error } = await supabase.functions.invoke('ai-agent', {
         body: { 
           message: contextualizedMessage,
-          todoId: todoId,
-          conversationHistory: getFormattedHistory(),
-          taskContext: {
-            todoId,
-            description: todoDescription,
-            type: 'task_assistance',
-            cabinet: 'OphtaCare'
-          }
+          conversationHistory: getFormattedHistory()
         }
       });
 

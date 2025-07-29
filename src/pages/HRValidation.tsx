@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow, format, startOfYear, endOfYear, isWithinInterval, parseISO, eachMonthOfInterval, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatHoursToHoursMinutes } from "@/utils/timeFormatter";
 
 interface OvertimeHour {
   id: string;
@@ -47,6 +48,11 @@ interface Vacation {
     name: string;
     email: string;
   };
+  vacation_days?: Array<{
+    vacation_date: string;
+    is_half_day: boolean;
+    half_day_period: string | null;
+  }>;
 }
 
 interface VacationQuota {
@@ -194,7 +200,12 @@ export default function HRValidation() {
         .from('vacations')
         .select(`
           *,
-          users(name, email)
+          users(name, email),
+          vacation_days(
+            vacation_date,
+            is_half_day,
+            half_day_period
+          )
         `)
         .order('start_date', { ascending: false });
 
@@ -324,8 +335,13 @@ export default function HRValidation() {
       vacation.status === 'approved'
     )
     .reduce((sum, vacation) => {
-      // Si c'est un nombre entier (ex: 1), c'est une journée complète = 8h
-      // Si c'est un décimal (ex: 0.5), c'est une demi-journée = 4h
+      // Calculer les heures basées sur vacation_days
+      if (vacation.vacation_days && vacation.vacation_days.length > 0) {
+        return sum + vacation.vacation_days.reduce((daySum, day) => {
+          return daySum + (day.is_half_day ? 4 : 8);
+        }, 0);
+      }
+      // Fallback sur l'ancien calcul si pas de vacation_days
       const hoursPerDay = vacation.days_count % 1 === 0 ? 8 : 4;
       return sum + hoursPerDay;
     }, 0);
@@ -392,8 +408,19 @@ export default function HRValidation() {
       isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd })
     );
     
+    // Calculer le total des jours basé sur vacation_days si disponible
+    const totalDays = userVacations.reduce((sum, v) => {
+      if (v.vacation_days && v.vacation_days.length > 0) {
+        return sum + v.vacation_days.reduce((daySum, day) => {
+          return daySum + (day.is_half_day ? 0.5 : 1);
+        }, 0);
+      }
+      // Fallback sur l'ancien calcul
+      return sum + v.days_count;
+    }, 0);
+    
     return {
-      totalDays: userVacations.reduce((sum, v) => sum + v.days_count, 0),
+      totalDays,
       count: userVacations.length
     };
   };
@@ -466,7 +493,7 @@ export default function HRValidation() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overtimeStats.totalHours}h</div>
+            <div className="text-2xl font-bold">{formatHoursToHoursMinutes(overtimeStats.totalHours)}</div>
             <p className="text-xs text-muted-foreground">total approuvé</p>
           </CardContent>
         </Card>
@@ -500,10 +527,10 @@ export default function HRValidation() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${overtimeStats.balanceHours >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {overtimeStats.balanceHours.toFixed(1)}h
+              {formatHoursToHoursMinutes(overtimeStats.balanceHours)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {overtimeStats.totalHours.toFixed(1)}h - {overtimeStats.recoveryHours.toFixed(1)}h
+              {formatHoursToHoursMinutes(overtimeStats.totalHours)} - {formatHoursToHoursMinutes(overtimeStats.recoveryHours)}
             </p>
           </CardContent>
         </Card>
@@ -573,7 +600,7 @@ export default function HRValidation() {
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium">{overtime.users.name}</h3>
                         <Badge variant="outline">{overtime.users.email}</Badge>
-                        <Badge variant="outline">{overtime.hours}h</Badge>
+                        <Badge variant="outline">{formatHoursToHoursMinutes(overtime.hours)}</Badge>
                         {getStatusBadge(overtime.status)}
                       </div>
                       <p className="text-sm">
@@ -675,9 +702,9 @@ export default function HRValidation() {
                             return (
                               <TableCell key={monthKey} className="text-center">
                                 {hours > 0 ? (
-                                  <Badge variant="outline" className="font-mono">
-                                    {hours.toFixed(1)}h
-                                  </Badge>
+                                   <Badge variant="outline" className="font-mono">
+                                     {formatHoursToHoursMinutes(hours)}
+                                   </Badge>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
@@ -686,7 +713,7 @@ export default function HRValidation() {
                           })}
                           <TableCell className="text-center">
                             <Badge variant="default" className="font-mono font-bold">
-                              {yearTotal.toFixed(1)}h
+                              {formatHoursToHoursMinutes(yearTotal)}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -707,60 +734,91 @@ export default function HRValidation() {
               </CardContent>
             </Card>
           ) : (
-            filteredVacations.map((vacation) => (
-              <Card key={vacation.id}>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-medium">{vacation.users.name}</h3>
-                        <Badge variant="outline">{vacation.users.email}</Badge>
-                        <Badge variant="outline">{getVacationTypeLabel(vacation.vacation_type)}</Badge>
-                        <Badge variant="outline">
-                          {vacation.days_count} jour{vacation.days_count > 1 ? 's' : ''}
-                        </Badge>
-                        {getStatusBadge(vacation.status)}
+            filteredVacations.map((vacation) => {
+              // Calculer le nombre de jours réel basé sur vacation_days
+              const actualDaysCount = vacation.vacation_days && vacation.vacation_days.length > 0 
+                ? vacation.vacation_days.reduce((sum, day) => sum + (day.is_half_day ? 0.5 : 1), 0)
+                : vacation.days_count;
+
+              return (
+                <Card key={vacation.id}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-medium">{vacation.users.name}</h3>
+                          <Badge variant="outline">{vacation.users.email}</Badge>
+                          <Badge variant="outline">{getVacationTypeLabel(vacation.vacation_type)}</Badge>
+                          <Badge variant="outline">
+                            {actualDaysCount} jour{actualDaysCount > 1 ? 's' : ''}
+                          </Badge>
+                          {getStatusBadge(vacation.status)}
+                        </div>
+                        <p className="text-sm">
+                          Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
+                        </p>
+                        
+                        {/* Affichage détaillé des jours */}
+                        {vacation.vacation_days && vacation.vacation_days.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Détail des jours :</p>
+                            <div className="flex flex-wrap gap-1">
+                              {vacation.vacation_days
+                                .sort((a, b) => new Date(a.vacation_date).getTime() - new Date(b.vacation_date).getTime())
+                                .map((day, index) => (
+                                <Badge 
+                                  key={index} 
+                                  variant="secondary" 
+                                  className={`text-xs ${day.is_half_day ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}
+                                >
+                                  {new Date(day.vacation_date).toLocaleDateString('fr-FR', { 
+                                    day: '2-digit', 
+                                    month: '2-digit' 
+                                  })}
+                                  {day.is_half_day && ' (½j)'}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {vacation.description && (
+                          <p className="text-sm text-gray-600">{vacation.description}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Demandé {formatDistanceToNow(new Date(vacation.created_at), { 
+                            addSuffix: true, 
+                            locale: fr 
+                          })}
+                        </p>
                       </div>
-                      <p className="text-sm">
-                        Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} 
-                        au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
-                      </p>
-                      {vacation.description && (
-                        <p className="text-sm text-gray-600">{vacation.description}</p>
+                      {vacation.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateVacationStatus(vacation.id, 'approved')}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approuver
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateVacationStatus(vacation.id, 'rejected')}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Rejeter
+                          </Button>
+                        </div>
                       )}
-                      <p className="text-xs text-gray-500">
-                        Demandé {formatDistanceToNow(new Date(vacation.created_at), { 
-                          addSuffix: true, 
-                          locale: fr 
-                        })}
-                      </p>
                     </div>
-                    {vacation.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateVacationStatus(vacation.id, 'approved')}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Approuver
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateVacationStatus(vacation.id, 'rejected')}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Rejeter
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
 
           {/* Sélecteur d'année pour les vacances */}

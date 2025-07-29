@@ -589,6 +589,7 @@ export type Database = {
           content_type: string | null
           created_at: string
           created_by: string | null
+          extracted_text: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -599,6 +600,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -609,6 +611,7 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_text?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
@@ -917,6 +920,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vacation_days: {
+        Row: {
+          created_at: string
+          half_day_period: string | null
+          id: string
+          is_half_day: boolean
+          updated_at: string
+          vacation_date: string
+          vacation_id: string
+        }
+        Insert: {
+          created_at?: string
+          half_day_period?: string | null
+          id?: string
+          is_half_day?: boolean
+          updated_at?: string
+          vacation_date: string
+          vacation_id: string
+        }
+        Update: {
+          created_at?: string
+          half_day_period?: string | null
+          id?: string
+          is_half_day?: boolean
+          updated_at?: string
+          vacation_date?: string
+          vacation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacation_days_vacation_id_fkey"
+            columns: ["vacation_id"]
+            isOneToOne: false
+            referencedRelation: "vacations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vacation_quotas: {
         Row: {
           created_at: string
@@ -1005,6 +1046,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      calculate_vacation_days_count: {
+        Args: { vacation_id_param: string }
+        Returns: number
       }
       get_all_overtime_hours: {
         Args: Record<PropertyKey, never>

@@ -1,33 +1,17 @@
 import React, { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { PatientInfoCard } from "@/components/patient-letters/PatientInfoCard";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
-import { LetterContentCard } from "@/components/patient-letters/LetterContentCard";
-import { LetterActionsCard } from "@/components/patient-letters/LetterActionsCard";
-import { LetterTemplateUpload } from "@/components/patient-letters/LetterTemplateUpload";
+import { MedicalLetterChat } from "@/components/patient-letters/MedicalLetterChat";
+import { Textarea } from "@/components/ui/textarea";
 
 
-interface TextPosition {
-  x: number;
-  y: number;
-  fontSize: number;
-  color: string;
-}
 
 const PatientLetters = () => {
-  const [patientName, setPatientName] = useState("");
-  const [patientAddress, setPatientAddress] = useState("");
+  const [rawTranscript, setRawTranscript] = useState("");
   const [letterContent, setLetterContent] = useState("");
-  const [templateUrl, setTemplateUrl] = useState("");
-  const [originalWordUrl, setOriginalWordUrl] = useState(""); // URL du Word original pour la génération
-  const [textPosition, setTextPosition] = useState<TextPosition>({
-    x: 8, // Position fixe avec marge gauche
-    y: 15, // Position fixe avec marge haute
-    fontSize: 12,
-    color: "#000000"
-  });
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRewriting, setIsRewriting] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
@@ -71,7 +55,7 @@ const PatientLetters = () => {
       mediaRecorder.onstop = async () => {
         // Utiliser le type MIME détecté au lieu de forcer audio/wav
         const audioBlob = new Blob(audioChunksRef.current, { type: options.mimeType });
-        await processAudioWithWhisper(audioBlob);
+        await processAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -110,10 +94,10 @@ const PatientLetters = () => {
     }
 
     console.log('📁 Audio file selected:', file.name, file.type, file.size);
-    await processAudioWithWhisper(file);
+    await processAudio(file);
   };
 
-  const processAudioWithWhisper = async (audioBlob: Blob) => {
+  const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
 
     try {
@@ -148,12 +132,17 @@ const PatientLetters = () => {
 
       if (data?.success && data?.text) {
         const transcription = data.text;
-        setLetterContent(prev => prev + (prev ? "\n\n" : "") + transcription);
+        
+        // Sauvegarder le transcript brut
+        setRawTranscript(prev => prev + (prev ? "\n\n" : "") + transcription);
 
         toast({
           title: "Transcription réussie",
-          description: "Le texte a été ajouté à votre lettre",
+          description: "Traitement de la lettre en cours...",
         });
+
+        // Lancer la réécriture
+        await rewriteWithAI(transcription);
       } else {
         throw new Error(data?.error || "Erreur de transcription");
       }
@@ -169,87 +158,70 @@ const PatientLetters = () => {
     }
   };
 
-  const saveLetterLocally = () => {
-    if (!patientName.trim()) {
+  const rewriteWithAI = async (transcript: string) => {
+    setIsRewriting(true);
+
+    try {
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/rewrite-medical-letter', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcript }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data?.success && data?.rewrittenContent) {
+        // Ajouter le contenu réécrit
+        setLetterContent(prev => prev + (prev ? "\n\n" : "") + data.rewrittenContent);
+
+        toast({
+          title: "Réécriture terminée",
+          description: "La lettre a été réécrite et corrigée",
+        });
+      } else {
+        throw new Error(data?.error || "Erreur de réécriture");
+      }
+    } catch (error) {
+      console.error("Error rewriting with Llama:", error);
       toast({
-        title: "Nom du patient requis",
-        description: "Veuillez saisir le nom du patient",
+        title: "Erreur de traitement",
+        description: error.message || "Impossible de traiter la lettre",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsRewriting(false);
     }
-
-    if (!letterContent.trim()) {
-      toast({
-        title: "Contenu requis",
-        description: "Veuillez saisir ou dicter le contenu de la lettre",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const letterData = {
-      patientName,
-      letterContent,
-      templateUrl,
-      textPosition,
-      createdAt: new Date().toISOString(),
-    };
-
-    const dataStr = JSON.stringify(letterData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Sauvegarde réussie",
-      description: "La lettre a été sauvegardée localement",
-    });
   };
 
-  const exportAsText = () => {
-    if (!patientName.trim() || !letterContent.trim()) {
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
       toast({
-        title: "Données incomplètes",
-        description: "Veuillez saisir le nom du patient et le contenu de la lettre",
+        title: "Copié!",
+        description: `${type} copié dans le presse-papiers`,
+      });
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+      toast({
+        title: "Erreur de copie",
+        description: "Impossible de copier dans le presse-papiers",
         variant: "destructive",
       });
-      return;
     }
-
-    const fullLetter = `LETTRE PATIENT\n\nPatient: ${patientName}\nDate: ${new Date().toLocaleDateString('fr-FR')}\n\n${letterContent}`;
-    
-    const dataBlob = new Blob([fullLetter], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lettre_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Export réussi",
-      description: "La lettre a été exportée au format texte",
-    });
   };
 
   const clearForm = () => {
-    setPatientName("");
-    setPatientAddress("");
+    setRawTranscript("");
     setLetterContent("");
-    setTemplateUrl("");
-    setOriginalWordUrl("");
-    setTextPosition({ x: 10, y: 20, fontSize: 12, color: "#000000" });
     toast({
       title: "Formulaire vidé",
       description: "Une nouvelle lettre peut être créée",
@@ -261,55 +233,98 @@ const PatientLetters = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
         <p className="text-muted-foreground">
-          Créez des lettres professionnelles avec template Word, dictée vocale et export Word
+          Créez des lettres médicales avec dictée vocale et assistance IA
         </p>
       </div>
 
       <div className="grid gap-6">
-        {/* 1. Sélection du template Word en premier */}
-        <LetterTemplateUpload 
-          onTemplateUploaded={(url, wordUrl) => {
-            console.log('🚀 Template uploaded callback with URL:', url, 'Word URL:', wordUrl);
-            setTemplateUrl(url);
-            setOriginalWordUrl(wordUrl || url);
-          }}
-          currentTemplate={templateUrl}
-        />
-        
-        {/* 2. Informations patient avec nom et adresse */}
-        <PatientInfoCard 
-          patientName={patientName} 
-          setPatientName={setPatientName}
-          patientAddress={patientAddress}
-          setPatientAddress={setPatientAddress}
-        />
-        
-        {/* 3. Dictée vocale */}
+        {/* 1. Dictée vocale */}
         <VoiceRecordingCard 
           isRecording={isRecording}
-          isProcessing={isProcessing}
+          isProcessing={isProcessing || isRewriting}
           startRecording={startRecording}
           stopRecording={stopRecording}
           onAudioFileUpload={handleAudioFileUpload}
         />
         
-        {/* 4. Contenu de la lettre */}
-        <LetterContentCard 
-          letterContent={letterContent}
-          setLetterContent={setLetterContent}
-        />
-
+        {/* Indicateur de traitement */}
+        {isRewriting && (
+          <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-sm text-blue-700 mt-2">
+              Traitement de la lettre en cours...
+            </p>
+          </div>
+        )}
         
-        <LetterActionsCard 
-          patientName={patientName}
-          patientAddress={patientAddress}
-          letterContent={letterContent}
-          templateUrl={originalWordUrl || templateUrl} // Utiliser le Word original pour la génération
-          textPosition={textPosition}
-          saveLetterLocally={saveLetterLocally}
-          exportAsText={exportAsText}
-          clearForm={clearForm}
-        />
+        {/* 3. Transcript brut éditable */}
+        {rawTranscript && (
+          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+            <div className="p-6 pb-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Transcript Brut</h3>
+                <button 
+                  onClick={() => copyToClipboard(rawTranscript, "Transcript brut")}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Copier
+                </button>
+              </div>
+            </div>
+            <div className="p-6 pt-0">
+              <Textarea
+                value={rawTranscript}
+                onChange={(e) => setRawTranscript(e.target.value)}
+                className="min-h-[200px] font-mono text-sm"
+                placeholder="Le transcript de l'audio apparaîtra ici et pourra être modifié..."
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 4. Contenu de la lettre médicale éditable */}
+        {letterContent && (
+          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+            <div className="p-6 pb-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Lettre Médicale</h3>
+                <button 
+                  onClick={() => copyToClipboard(letterContent, "Lettre médicale")}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Copier
+                </button>
+              </div>
+            </div>
+            <div className="p-6 pt-0">
+              <Textarea
+                value={letterContent}
+                onChange={(e) => setLetterContent(e.target.value)}
+                className="min-h-[200px] font-serif text-sm"
+                placeholder="La lettre médicale apparaîtra ici et pourra être modifiée..."
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 5. Chat d'assistance pour modification */}
+        {(rawTranscript || letterContent) && (
+          <MedicalLetterChat
+            rawTranscript={rawTranscript}
+            letterContent={letterContent}
+            onLetterUpdate={setLetterContent}
+          />
+        )}
+
+        {/* 6. Action de reset */}
+        <div className="flex justify-center">
+          <button 
+            onClick={clearForm}
+            className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-6 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            Nouvelle lettre
+          </button>
+        </div>
       </div>
     </div>
   );

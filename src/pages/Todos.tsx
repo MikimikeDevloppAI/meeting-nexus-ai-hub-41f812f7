@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Trash2, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail } from "lucide-react";
+import { CheckCircle, Calendar, Trash2, Users, Plus, Lightbulb, Bot, Zap, ChevronUp, ChevronDown, Mail, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TodoComments } from "@/components/TodoComments";
 import { TodoUserManager } from "@/components/TodoUserManager";
@@ -27,10 +27,15 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/lib/auth";
+import { useTodoCounter } from "@/hooks/useTodoCounter";
 
 interface NewTodoForm {
   description: string;
   user_id?: string;
+  due_date?: string;
+  priority?: 'high' | 'normal' | 'low';
+  subtasks?: string[];
 }
 
 interface User {
@@ -59,20 +64,29 @@ export default function Todos() {
   const [todos, setTodos] = useState<TodoWithPriority[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("confirmed"); // Filtre par défaut sur "En cours"
-  const [participantFilter, setParticipantFilter] = useState<string>("all");
+  const [participantFilter, setParticipantFilter] = useState<string>(""); // Vide au début, sera initialisé avec l'utilisateur connecté
+  const [participantFilterInitialized, setParticipantFilterInitialized] = useState(false);
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null);
   const [showNewTodoDialog, setShowNewTodoDialog] = useState(false);
+  const [newTodoSubtasks, setNewTodoSubtasks] = useState<string[]>([]);
+  const [newTodoAttachments, setNewTodoAttachments] = useState<File[]>([]);
+  const [newTodoPriority, setNewTodoPriority] = useState<'high' | 'normal' | 'low'>('normal');
   const [users, setUsers] = useState<User[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  const { user } = useAuth();
+  const todoCount = useTodoCounter();
   
   const form = useForm<NewTodoForm>({
     defaultValues: {
       description: "",
-      user_id: undefined
+      user_id: undefined,
+      due_date: undefined,
+      priority: 'normal',
+      subtasks: []
     }
   });
 
@@ -80,6 +94,14 @@ export default function Todos() {
     fetchTodos();
     fetchUsers();
   }, []);
+
+  // Définir le filtre par défaut sur l'utilisateur connecté (une seule fois)
+  useEffect(() => {
+    if (user?.id && users.length > 0 && !participantFilterInitialized) {
+      setParticipantFilter(user.id);
+      setParticipantFilterInitialized(true);
+    }
+  }, [user?.id, users, participantFilterInitialized]);
 
   const fetchUsers = async () => {
     try {
@@ -254,6 +276,34 @@ export default function Todos() {
     fetchTodos();
   };
 
+  const extractTextFromAttachment = async (attachmentId: string, contentType: string) => {
+    try {
+      console.log('🔍 Starting text extraction for attachment:', attachmentId);
+      
+      const { data, error } = await supabase.functions.invoke('extract-attachment-text', {
+        body: { attachmentId }
+      });
+
+      if (error) {
+        console.error('Text extraction error:', error);
+        return;
+      }
+
+      if (data.success) {
+        console.log('✅ Text extraction completed:', data.message);
+        
+        if (data.extractedText && data.extractedText.length > 0) {
+          toast({
+            title: 'Texte extrait',
+            description: `Texte extrait du fichier (${data.textLength} caractères)`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error calling text extraction function:', error);
+    }
+  };
+
   const createNewTodo = async (data: NewTodoForm) => {
     try {
       // Créer la tâche
@@ -262,7 +312,8 @@ export default function Todos() {
         .insert([{ 
           description: data.description,
           status: 'confirmed',
-          priority: 'normal' // Priorité normale par défaut
+          priority: newTodoPriority,
+          due_date: data.due_date || null
         }])
         .select()
         .single();
@@ -283,11 +334,79 @@ export default function Todos() {
           // On continue même si l'attribution échoue
         }
       }
+
+      // Ajouter les sous-tâches
+      if (newTodoSubtasks.length > 0) {
+        const subtasksToInsert = newTodoSubtasks.map(description => ({
+          todo_id: newTodo.id,
+          description,
+          completed: false,
+          created_by: user?.id
+        }));
+
+        const { error: subtasksError } = await supabase
+          .from("todo_subtasks")
+          .insert(subtasksToInsert);
+          
+        if (subtasksError) {
+          console.error("Error creating subtasks:", subtasksError);
+        }
+      }
+
+      // Gérer les attachements
+      if (newTodoAttachments.length > 0) {
+        for (const file of newTodoAttachments) {
+          try {
+            // Upload du fichier vers le storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
+            const filePath = `todo-attachments/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('todo-attachments')
+              .upload(filePath, file);
+
+            if (uploadError) {
+              console.error('Error uploading file:', uploadError);
+              continue;
+            }
+
+            // Créer l'enregistrement de l'attachement et récupérer l'ID
+            const { data: attachmentData, error: attachmentError } = await supabase
+              .from("todo_attachments")
+              .insert({
+                todo_id: newTodo.id,
+                file_name: file.name,
+                file_path: filePath,
+                content_type: file.type,
+                file_size: file.size,
+                created_by: user?.id
+              })
+              .select('id')
+              .single();
+
+            if (attachmentError) {
+              console.error('Error creating attachment record:', attachmentError);
+              continue;
+            }
+
+            // Lancer l'extraction de texte en arrière-plan
+            if (attachmentData?.id) {
+              extractTextFromAttachment(attachmentData.id, file.type);
+            }
+          } catch (error) {
+            console.error('Error processing attachment:', error);
+          }
+        }
+      }
       
       // Recharger les tâches pour obtenir les participants
       fetchTodos();
       setShowNewTodoDialog(false);
       form.reset();
+      setNewTodoSubtasks([]);
+      setNewTodoAttachments([]);
+      setNewTodoPriority('normal');
       
       toast({
         title: "Tâche créée",
@@ -375,7 +494,17 @@ export default function Todos() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Mes Tâches</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Mes Tâches</h1>
+            {todoCount > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="bg-red-500 text-white font-medium text-sm px-2 py-1 rounded-full"
+              >
+                {todoCount}
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
         </div>
         <div className="flex items-center gap-2">
@@ -622,7 +751,7 @@ export default function Todos() {
       
       {/* Dialog for creating new todo with participant selection */}
       <Dialog open={showNewTodoDialog} onOpenChange={setShowNewTodoDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Créer une nouvelle tâche</DialogTitle>
           </DialogHeader>
@@ -640,6 +769,42 @@ export default function Todos() {
                   </FormItem>
                 )}
               />
+
+              <div className="flex items-center gap-4">
+                <FormField
+                  control={form.control}
+                  name="due_date"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Date d'échéance</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex flex-col items-center">
+                  <FormLabel className="mb-2">Priorité</FormLabel>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNewTodoPriority(newTodoPriority === 'high' ? 'normal' : 'high')}
+                    className={`h-10 w-10 p-0 ${
+                      newTodoPriority === 'high' 
+                        ? 'text-orange-500 hover:text-orange-600' 
+                        : 'text-gray-400 hover:text-orange-500'
+                    }`}
+                  >
+                    <Star className={`h-5 w-5 ${newTodoPriority === 'high' ? 'fill-current' : ''}`} />
+                  </Button>
+                </div>
+              </div>
               
               <FormField
                 control={form.control}
@@ -667,9 +832,96 @@ export default function Todos() {
                   </FormItem>
                 )}
               />
+
+              {/* Sous-tâches */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Sous-tâches</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewTodoSubtasks([...newTodoSubtasks, ''])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter
+                  </Button>
+                </div>
+                {newTodoSubtasks.map((subtask, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Description de la sous-tâche..."
+                      value={subtask}
+                      onChange={(e) => {
+                        const updated = [...newTodoSubtasks];
+                        updated[index] = e.target.value;
+                        setNewTodoSubtasks(updated);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const updated = newTodoSubtasks.filter((_, i) => i !== index);
+                        setNewTodoSubtasks(updated);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Attachements */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Fichiers joints</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.multiple = true;
+                      input.onchange = (e) => {
+                        const files = Array.from((e.target as HTMLInputElement).files || []);
+                        setNewTodoAttachments([...newTodoAttachments, ...files]);
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Ajouter des fichiers
+                  </Button>
+                </div>
+                {newTodoAttachments.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm truncate">{file.name}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const updated = newTodoAttachments.filter((_, i) => i !== index);
+                        setNewTodoAttachments(updated);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowNewTodoDialog(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowNewTodoDialog(false);
+                  setNewTodoSubtasks([]);
+                  setNewTodoAttachments([]);
+                  setNewTodoPriority('normal');
+                  form.reset();
+                }}>
                   Annuler
                 </Button>
                 <Button type="submit">Créer</Button>

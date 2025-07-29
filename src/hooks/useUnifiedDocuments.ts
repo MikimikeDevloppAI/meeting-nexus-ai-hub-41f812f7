@@ -28,8 +28,8 @@ export const useUnifiedDocuments = () => {
         .from('meetings')
         .select(`
           *,
-          meeting_participants (
-            participants (
+          meeting_users (
+            users (
               name,
               email
             )
@@ -73,7 +73,7 @@ export const useUnifiedDocuments = () => {
         audio_url: meeting.audio_url,
         transcript: meeting.transcript,
         summary: meeting.summary,
-        participants: meeting.meeting_participants?.map((mp: any) => mp.participants) || []
+        participants: meeting.meeting_users?.map((mu: any) => mu.users) || []
       }));
 
       // Combiner et trier par date de création
