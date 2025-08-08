@@ -206,8 +206,8 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
                 opacity: 0.6
               },
               overtime_recovery: {
-                backgroundColor: 'hsl(var(--secondary))',
-                color: 'hsl(var(--secondary-foreground))',
+                backgroundColor: 'hsl(var(--success-soft))',
+                color: 'hsl(var(--success-soft-foreground))',
                 opacity: 0.6
               },
               other: {
@@ -231,7 +231,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               <span className="text-sm">Congé personnel</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--secondary))', opacity: 0.6 }} />
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--success-soft))', opacity: 0.6 }} />
               <span className="text-sm">Récupération heures sup.</span>
             </div>
             <div className="flex items-center gap-2">
