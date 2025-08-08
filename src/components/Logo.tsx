@@ -9,7 +9,7 @@ interface LogoProps {
 
 const LOGO_BUCKET = 'branding';
 const LOGO_PATH = 'logo/ophtacare-logo.png';
-const FALLBACK_SRC = "/lovable-uploads/463d4077-b16a-419d-8bf7-35b454625013.png";
+const FALLBACK_SRC = "/lovable-uploads/77aa08c4-c4d2-410d-b176-9a564fe9a881.png";
 
 export const Logo = ({ className = "", showText = true }: LogoProps) => {
   const [src, setSrc] = useState<string>(FALLBACK_SRC);
@@ -23,18 +23,13 @@ export const Logo = ({ className = "", showText = true }: LogoProps) => {
           .getPublicUrl(LOGO_PATH);
 
         const publicUrl = data.publicUrl;
-        // Test if the file exists in the bucket
-        const head = await fetch(publicUrl, { method: 'HEAD' });
-
-        if (!head.ok) {
-          // Seed the bucket with the provided attachment via edge function
-          const sourceUrl = `${window.location.origin}${FALLBACK_SRC}`;
-          await fetch(`https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/seed-branding-logo`, {
+        // Always upsert the logo with the provided source to ensure latest branding
+        const sourceUrl = `${window.location.origin}${FALLBACK_SRC}`;
+        await fetch(`https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/seed-branding-logo`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ source_url: sourceUrl, target_path: LOGO_PATH })
-          });
-        }
+        });
 
         if (!cancelled) setSrc(publicUrl);
       } catch (e) {
