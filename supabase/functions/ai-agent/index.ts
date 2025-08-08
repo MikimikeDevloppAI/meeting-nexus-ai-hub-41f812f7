@@ -155,7 +155,7 @@ Réponds en te basant sur les documents fournis, en faisant des liens contextuel
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4.1-2025-04-14',
+            model: 'gpt-5',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.3, // Température modérée pour permettre l'interprétation
             max_tokens: 16384,
