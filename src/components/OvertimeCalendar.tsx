@@ -291,7 +291,7 @@ export function OvertimeCalendar({
                 head_row: "grid grid-cols-7 w-full",
                 row: "grid grid-cols-7 w-full",
                 cell: "p-0",
-                day: "w-full h-12 p-0"
+                day: "w-full h-12 p-0 hover:bg-transparent focus:bg-transparent"
               }}
               locale={fr}
               disabled={(date) => date > new Date()}
@@ -304,30 +304,29 @@ export function OvertimeCalendar({
                 approved: {
                   backgroundColor: 'hsl(var(--success-soft))',
                   color: 'hsl(var(--success-soft-foreground))',
-                  opacity: 0.6,
                 },
                 pending: {
-                  backgroundColor: 'hsl(var(--accent))',
-                  color: 'hsl(var(--accent-foreground))',
-                  opacity: 0.5,
+                  backgroundColor: 'hsl(var(--warning-soft, var(--accent)))',
                 },
                 rejected: {
-                  backgroundColor: 'hsl(var(--destructive))',
-                  color: 'hsl(var(--destructive-foreground))',
-                  opacity: 0.35,
+                  backgroundColor: 'hsl(var(--destructive-soft, var(--destructive) / 0.18))',
                 },
               }}
               components={{
                 DayContent: ({ date }) => {
                   const overtime = getOvertimeForDate(date);
-                  const hasOvertime = !!overtime;
-                  const statusText = hasOvertime
-                    ? overtime.status === 'approved'
-                      ? 'Approuvées'
-                      : overtime.status === 'pending'
-                        ? 'En attente'
-                        : 'Rejetées'
-                    : null;
+                  if (!overtime) {
+                    return (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        {date.getDate()}
+                      </div>
+                    );
+                  }
+                  const statusText = overtime.status === 'approved'
+                    ? 'Approuvées'
+                    : overtime.status === 'pending'
+                      ? 'En attente'
+                      : 'Rejetées';
                   return (
                     <TooltipProvider delayDuration={150}>
                       <Tooltip>
@@ -340,16 +339,12 @@ export function OvertimeCalendar({
                           <div className="text-sm font-medium">
                             {format(date, "PPP", { locale: fr })}
                           </div>
-                          {hasOvertime ? (
-                            <div className="text-xs text-muted-foreground">
-                              {formatHoursToHoursMinutes(overtime.hours)} • {statusText}
-                              {overtime.description && (
-                                <div className="mt-1">{overtime.description}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">Aucune heure</div>
-                          )}
+                          <div className="text-xs text-muted-foreground">
+                            {formatHoursToHoursMinutes(overtime.hours)} • {statusText}
+                            {overtime.description && (
+                              <div className="mt-1">{overtime.description}</div>
+                            )}
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
