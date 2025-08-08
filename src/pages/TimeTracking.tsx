@@ -375,7 +375,9 @@ export default function TimeTracking() {
       const sortedDates = data.dates.sort();
       const startDate = sortedDates[0];
       const endDate = sortedDates[sortedDates.length - 1];
-      const daysCount = data.isHalfDay ? data.dates.length * 0.5 : data.dates.length;
+      // days_count doit rester un entier dans la DB; on enregistre le nombre de dates
+      // Le calcul réel des demi-journées sera basé sur vacation_days pour l'affichage et les quotas
+      const daysCount = data.dates.length;
 
       let vacationId: string;
 
@@ -713,7 +715,12 @@ export default function TimeTracking() {
               isWithinInterval(parseISO(vacation.start_date), { start: yearStart, end: yearEnd })
             );
             
-            const totalDays = userVacations.reduce((sum, vacation) => sum + vacation.days_count, 0);
+            const totalDays = userVacations.reduce((sum, v) => {
+              if (v.vacation_days && v.vacation_days.length > 0) {
+                return sum + v.vacation_days.reduce((dSum, d) => dSum + (d.is_half_day ? 0.5 : 1), 0);
+              }
+              return sum + v.days_count;
+            }, 0);
             const quota = getQuotaForUser(currentYear);
             const remainingDays = currentYear === 2025 ? quota - totalDays : Math.max(0, quota - totalDays);
             
