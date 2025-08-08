@@ -217,28 +217,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               }
             }}
           />
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--primary))', opacity: 0.6 }} />
-              <span className="text-sm">Congés annuels</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--destructive))', opacity: 0.65 }} />
-              <span className="text-sm">Congé maladie</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--accent))', opacity: 0.6 }} />
-              <span className="text-sm">Congé personnel</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--success-soft))', opacity: 0.6 }} />
-              <span className="text-sm">Récupération heures sup.</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.7 }} />
-              <span className="text-sm">Autre</span>
-            </div>
-          </div>
           
           {selectedDates.length > 0 && (
             <div className="mt-4 p-3 bg-blue-50 rounded-md">
