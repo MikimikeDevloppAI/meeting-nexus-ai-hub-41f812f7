@@ -110,6 +110,34 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     );
   };
 
+  // Grouper les dates par type de congé pour coloration
+  const typeDateMap: Record<'annual' | 'sick' | 'personal' | 'overtime_recovery' | 'other', Date[]> = {
+    annual: [],
+    sick: [],
+    personal: [],
+    overtime_recovery: [],
+    other: []
+  };
+  existingVacations.forEach(vacation => {
+    const key = (vacation.vacation_type || 'other') as keyof typeof typeDateMap;
+    const pushUnique = (d: Date) => {
+      const ymd = d.toISOString().split('T')[0];
+      if (!typeDateMap[key].some(x => x.toISOString().split('T')[0] === ymd)) {
+        typeDateMap[key].push(d);
+      }
+    };
+    if (vacation.vacation_days && vacation.vacation_days.length > 0) {
+      vacation.vacation_days.forEach(d => {
+        try { pushUnique(parseISO(d.vacation_date)); } catch {}
+      });
+    } else {
+      try {
+        const startDate = parseISO(vacation.start_date);
+        const endDate = parseISO(vacation.end_date);
+        eachDayOfInterval({ start: startDate, end: endDate }).forEach(pushUnique);
+      } catch {}
+    }
+  });
   const getVacationTypeLabel = (type: string) => {
     const types = {
       annual: "Congés annuels",
@@ -155,16 +183,62 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               return isWeekend;
             }}
             modifiers={{
-              vacation: existingVacationDates
+              annual: typeDateMap.annual,
+              sick: typeDateMap.sick,
+              personal: typeDateMap.personal,
+              overtime_recovery: typeDateMap.overtime_recovery,
+              other: typeDateMap.other
             }}
             modifiersStyles={{
-              vacation: { 
+              annual: {
+                backgroundColor: 'hsl(var(--primary))',
+                color: 'hsl(var(--primary-foreground))',
+                opacity: 0.6
+              },
+              sick: {
                 backgroundColor: 'hsl(var(--destructive))',
                 color: 'hsl(var(--destructive-foreground))',
+                opacity: 0.65
+              },
+              personal: {
+                backgroundColor: 'hsl(var(--accent))',
+                color: 'hsl(var(--accent-foreground))',
+                opacity: 0.6
+              },
+              overtime_recovery: {
+                backgroundColor: 'hsl(var(--secondary))',
+                color: 'hsl(var(--secondary-foreground))',
+                opacity: 0.6
+              },
+              other: {
+                backgroundColor: 'hsl(var(--muted))',
+                color: 'hsl(var(--muted-foreground))',
                 opacity: 0.7
               }
             }}
           />
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--primary))', opacity: 0.6 }} />
+              <span className="text-sm">Congés annuels</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--destructive))', opacity: 0.65 }} />
+              <span className="text-sm">Congé maladie</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--accent))', opacity: 0.6 }} />
+              <span className="text-sm">Congé personnel</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--secondary))', opacity: 0.6 }} />
+              <span className="text-sm">Récupération heures sup.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.7 }} />
+              <span className="text-sm">Autre</span>
+            </div>
+          </div>
           
           {selectedDates.length > 0 && (
             <div className="mt-4 p-3 bg-blue-50 rounded-md">
