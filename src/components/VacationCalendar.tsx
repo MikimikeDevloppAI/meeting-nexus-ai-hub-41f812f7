@@ -175,11 +175,15 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             selected={selectedDates}
             onSelect={handleDateSelect}
             numberOfMonths={2}
-            className="w-full rounded-md border p-4 pointer-events-auto"
+            className="w-full rounded-md border p-0 pointer-events-auto"
             classNames={{
-              months: "grid grid-cols-2 gap-6 w-full",
+              months: "grid grid-cols-2 gap-0 w-full",
               month: "w-full",
               table: "w-full",
+              head_row: "grid grid-cols-7 w-full",
+              row: "grid grid-cols-7 w-full",
+              cell: "p-0",
+              day: "w-full h-12 p-0"
             }}
             locale={fr}
             disabled={(date) => {
