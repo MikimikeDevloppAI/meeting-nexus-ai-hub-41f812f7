@@ -19,9 +19,19 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
     let cancelled = false;
     const load = async () => {
       try {
+        // Try to use the most recently updated file in branding/logo
+        const { data: files, error } = await supabase.storage
+          .from(LOGO_BUCKET)
+          .list('logo', { limit: 1, sortBy: { column: 'updated_at', order: 'desc' } });
+
+        let resolvedPath = LOGO_PATH;
+        if (!error && files && files.length > 0) {
+          resolvedPath = `logo/${files[0].name}`;
+        }
+
         const { data } = supabase.storage
           .from(LOGO_BUCKET)
-          .getPublicUrl(LOGO_PATH);
+          .getPublicUrl(resolvedPath);
 
         const publicUrl = data.publicUrl;
         if (!cancelled) setSrc(`${publicUrl}?v=${Date.now()}`);
