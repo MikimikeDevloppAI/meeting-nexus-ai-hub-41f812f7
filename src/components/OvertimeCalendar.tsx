@@ -69,6 +69,17 @@ export function OvertimeCalendar({
     overtime
   }));
 
+  // Groupes par statut pour coloration pastel façon calendrier des vacances
+  const pendingDates = overtimeHours
+    .filter((o) => o.status === 'pending')
+    .map((o) => parseISO(o.date));
+  const approvedDates = overtimeHours
+    .filter((o) => o.status === 'approved')
+    .map((o) => parseISO(o.date));
+  const rejectedDates = overtimeHours
+    .filter((o) => o.status === 'rejected')
+    .map((o) => parseISO(o.date));
+
   // Fonction pour obtenir les heures supplémentaires d'une date
   const getOvertimeForDate = (date: Date) => {
     return overtimeHours.find(overtime => 
@@ -284,28 +295,26 @@ export function OvertimeCalendar({
               locale={fr}
               disabled={(date) => date > new Date()}
               modifiers={{
-                overtime: overtimeDates.map(item => item.date)
+                approved: approvedDates,
+                pending: pendingDates,
+                rejected: rejectedDates,
               }}
               modifiersStyles={{
-                overtime: { 
-                  position: 'relative'
-                }
-              }}
-              components={{
-                DayContent: ({ date }) => {
-                  const overtime = getOvertimeForDate(date);
-                  return (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      {date.getDate()}
-                      {overtime && (
-                        <div 
-                          className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${getStatusColor(overtime.status)}`}
-                          title={`${overtime.hours}h - ${overtime.status}`}
-                        />
-                      )}
-                    </div>
-                  );
-                }
+                approved: {
+                  backgroundColor: 'hsl(var(--success-soft))',
+                  color: 'hsl(var(--success-soft-foreground))',
+                  opacity: 0.6,
+                },
+                pending: {
+                  backgroundColor: 'hsl(var(--accent))',
+                  color: 'hsl(var(--accent-foreground))',
+                  opacity: 0.5,
+                },
+                rejected: {
+                  backgroundColor: 'hsl(var(--destructive))',
+                  color: 'hsl(var(--destructive-foreground))',
+                  opacity: 0.35,
+                },
               }}
             />
             
