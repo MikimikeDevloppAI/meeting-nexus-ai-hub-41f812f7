@@ -9,7 +9,7 @@ interface LogoProps {
 
 const LOGO_BUCKET = 'branding';
 const LOGO_PATH = 'logo/ophtacare-logo.png';
-const FALLBACK_SRC = "/lovable-uploads/77aa08c4-c4d2-410d-b176-9a564fe9a881.png";
+const FALLBACK_SRC = "/lovable-uploads/fa2a00de-4ca8-4feb-bd36-adaf1ac59409.png";
 
 export const Logo = ({ className = "", showText = true }: LogoProps) => {
   const [src, setSrc] = useState<string>(FALLBACK_SRC);
