@@ -1019,11 +1019,6 @@ export default function TimeTracking() {
       {/* Calendrier interactif pour les vacances */}
       <Dialog open={showVacationCalendar} onOpenChange={setShowVacationCalendar}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingVacation ? "Modifier les vacances" : "Demander des vacances"}
-            </DialogTitle>
-          </DialogHeader>
           <VacationCalendar
             onSubmit={onSubmitVacationCalendar}
             onCancel={() => {
