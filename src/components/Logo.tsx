@@ -31,7 +31,7 @@ export const Logo = ({ className = "", showText = true }: LogoProps) => {
             body: JSON.stringify({ source_url: sourceUrl, target_path: LOGO_PATH })
         });
 
-        if (!cancelled) setSrc(publicUrl);
+        if (!cancelled) setSrc(`${publicUrl}?v=${Date.now()}`);
       } catch (e) {
         if (!cancelled) setSrc(FALLBACK_SRC);
       }
