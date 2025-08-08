@@ -178,9 +178,12 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             className="rounded-md border pointer-events-auto w-full"
             locale={fr}
             classNames={{
-              months: "grid grid-cols-1 sm:grid-cols-2 gap-6 w-full",
+              months: "grid grid-cols-2 gap-6 w-full",
               month: "w-full",
-              table: "w-full border-collapse space-y-1"
+              table: "w-full border-collapse",
+              head_cell: "text-muted-foreground rounded-md font-normal text-[0.8rem] px-0",
+              cell: "p-0 relative",
+              day: "w-full h-10 sm:h-12 flex items-center justify-center font-normal aria-selected:opacity-100"
             }}
             disabled={(date) => {
               // Désactiver seulement les week-ends (samedi = 6, dimanche = 0)
