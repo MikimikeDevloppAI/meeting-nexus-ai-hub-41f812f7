@@ -295,11 +295,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
                 <SelectItem value="other">Autre</SelectItem>
               </SelectContent>
             </Select>
-            {vacationType && (
-              <Badge variant="outline" className={getVacationTypeColor(vacationType)}>
-                {getVacationTypeLabel(vacationType)}
-              </Badge>
-            )}
           </div>
 
             <div className="space-y-2">
