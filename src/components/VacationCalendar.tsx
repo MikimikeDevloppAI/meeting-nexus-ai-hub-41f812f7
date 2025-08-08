@@ -34,6 +34,7 @@ interface VacationCalendarProps {
     status: string;
     days_count: number;
     users?: { name: string; email: string; } | null;
+    vacation_days?: Array<{ vacation_date: string; is_half_day?: boolean; half_day_period?: string | null }>
   }>;
 }
 
@@ -83,16 +84,24 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     setSelectedDates([]);
   };
 
-  // Créer la liste des jours de vacances existantes
-  const existingVacationDates = existingVacations.flatMap(vacation => {
-    try {
-      const startDate = parseISO(vacation.start_date);
-      const endDate = parseISO(vacation.end_date);
-      return eachDayOfInterval({ start: startDate, end: endDate });
-    } catch {
-      return [];
-    }
-  });
+  // Créer la liste des jours de vacances existantes (utilise vacation_days si dispo)
+  const existingVacationDates = existingVacations
+    .flatMap(vacation => {
+      if (vacation.vacation_days && vacation.vacation_days.length > 0) {
+        return vacation.vacation_days.map(d => {
+          try { return parseISO(d.vacation_date); } catch { return null; }
+        }).filter(Boolean) as Date[];
+      }
+      try {
+        const startDate = parseISO(vacation.start_date);
+        const endDate = parseISO(vacation.end_date);
+        return eachDayOfInterval({ start: startDate, end: endDate });
+      } catch {
+        return [];
+      }
+    })
+    // Déduplication par jour
+    .filter((date, idx, arr) => idx === arr.findIndex(d => d.toISOString().split('T')[0] === date.toISOString().split('T')[0]));
 
   // Fonction pour vérifier si une date est déjà en vacances
   const isVacationDate = (date: Date) => {
