@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface LogoProps {
   className?: string;
   showText?: boolean;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "xxl";
 }
 
 const LOGO_BUCKET = 'branding';
@@ -49,6 +49,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
     md: { wrapper: "w-12 h-12", img: "h-10 w-10" },
     lg: { wrapper: "w-16 h-16", img: "h-14 w-14" },
     xl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
+    xxl: { wrapper: "w-24 h-24", img: "h-20 w-20" },
   } as const;
 
   const wrapperSize = sizes[size].wrapper;
