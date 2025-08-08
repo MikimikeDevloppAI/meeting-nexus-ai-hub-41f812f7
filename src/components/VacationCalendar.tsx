@@ -175,8 +175,13 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             selected={selectedDates}
             onSelect={handleDateSelect}
             numberOfMonths={2}
-            className="rounded-md border pointer-events-auto"
+            className="rounded-md border pointer-events-auto w-full"
             locale={fr}
+            classNames={{
+              months: "grid grid-cols-1 sm:grid-cols-2 gap-6 w-full",
+              month: "w-full",
+              table: "w-full border-collapse space-y-1"
+            }}
             disabled={(date) => {
               // Désactiver seulement les week-ends (samedi = 6, dimanche = 0)
               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
