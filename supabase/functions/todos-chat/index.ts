@@ -67,7 +67,7 @@ Réponds UNIQUEMENT en JSON avec cette structure :
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-5',
         messages: [{ role: 'user', content: systemPrompt }],
         temperature: 0.3,
         max_tokens: 16384,

@@ -69,11 +69,11 @@ serve(async (req) => {
 
     // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry et 16384 tokens
     const cleaningStartTime = Date.now();
-    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-4.1-2025-04-14 and retry mechanism...');
+    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-5-mini and retry mechanism...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
     
     try {
-      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-4.1-2025-04-14', 3, 16384);
+      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-5-mini', 3, 16384);
       await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
       console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
       console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
@@ -105,9 +105,9 @@ serve(async (req) => {
         
         // Génération du résumé avec retry et gpt-4o avec 4096 tokens
         (async () => {
-          console.log('📝 [PARALLEL] Generating summary with gpt-4o and retry...');
+          console.log('📝 [PARALLEL] Generating summary with gpt-5 and retry...');
           const startTime = Date.now();
-          const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-4o', 3, 4096);
+          const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-5', 3, 4096);
           await saveSummary(supabaseClient, meetingId, summary);
           console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
           return summary;

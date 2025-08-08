@@ -11,7 +11,7 @@ export async function processTasksWithRecommendations(
     return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
-  console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-4.1`);
+  console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5`);
   console.log(`👥 [UNIFIED-TODO-SERVICE] Users fournis pour assignation:`, users?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   const supabaseClient = createSupabaseClient();
@@ -157,10 +157,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   * "fin du mois" → dernier jour du mois actuel
   * "urgent" → dans 2-3 jours selon le contexte`;
 
-    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-4.1`);
+    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5`);
     
     const callStartTime = Date.now();
-    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, 0.3, 'gpt-4.1-2025-04-14', 3, 16384);
+    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, 0.3, 'gpt-5', 3, 16384);
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
@@ -245,7 +245,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       fullyCompleted: true,
       savedTasks: savedTasks,
       unified: true,
-      model: 'gpt-4.1-2025-04-14'
+      model: 'gpt-5'
     };
     
   } catch (error) {
