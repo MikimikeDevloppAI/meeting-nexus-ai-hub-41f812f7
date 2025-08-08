@@ -1,19 +1,18 @@
 
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Logo } from "@/components/Logo";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
-export const LoginHeader = () => {
+export const LoginHeader = ({ title = "Connexion", description }: { title?: string; description?: string }) => {
   return (
     <>
-      <div className="mb-8 text-center">
-        <Logo className="justify-center mb-4" />
-        <p className="text-muted-foreground">Plateforme intelligente pour cabinet d'ophtalmologie</p>
-      </div>
+      <AuthBrand />
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Connexion</CardTitle>
-        <CardDescription>
-          Entrez vos identifiants pour accéder à votre compte
-        </CardDescription>
+        <CardTitle className="text-2xl">{title}</CardTitle>
+        {(description || title === "Connexion") && (
+          <CardDescription>
+            {description ?? "Entrez vos identifiants pour accéder à votre compte"}
+          </CardDescription>
+        )}
       </CardHeader>
     </>
   );

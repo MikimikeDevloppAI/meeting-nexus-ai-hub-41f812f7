@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Mail } from "lucide-react";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -63,10 +64,7 @@ const ForgotPassword = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
-          </div>
+          <AuthBrand />
           
           <Card className="animate-scale-in">
             <CardHeader className="text-center">
@@ -113,10 +111,7 @@ const ForgotPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
-        </div>
+        <AuthBrand />
         
         <Card className="animate-scale-in">
           <CardHeader className="text-center">

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { validatePassword } from "@/utils/passwordValidation";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -80,10 +81,7 @@ const Signup = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-muted-foreground">Système de gestion interne</p>
-        </div>
+        <AuthBrand />
         <Card className="animate-scale-in">
           <CardHeader>
             <CardTitle>Créer un compte</CardTitle>

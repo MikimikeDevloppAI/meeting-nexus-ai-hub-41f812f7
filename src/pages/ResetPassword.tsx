@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { validatePassword } from "@/utils/passwordValidation";
 import { Eye, EyeOff } from "lucide-react";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -149,10 +150,7 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
-          </div>
+          <AuthBrand />
           
           <Card className="animate-scale-in">
             <CardContent className="pt-6">
@@ -172,10 +170,7 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">NexusHub</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Internal Management System</p>
-        </div>
+        <AuthBrand />
         
         <Card className="animate-scale-in">
           <CardHeader className="text-center">
