@@ -52,6 +52,11 @@ interface Vacation {
     name: string;
     email: string;
   };
+  vacation_days?: Array<{
+    vacation_date: string;
+    is_half_day: boolean;
+    half_day_period: string | null;
+  }>;
 }
 
 interface OvertimeFormData {
@@ -794,26 +799,54 @@ export default function TimeTracking() {
                           <h3 className="font-medium">
                             {vacation.users?.name || 'Utilisateur'}
                           </h3>
+                          {vacation.users?.email && (
+                            <Badge variant="outline">{vacation.users.email}</Badge>
+                          )}
                           <Badge variant="outline">
                             {getVacationTypeLabel(vacation.vacation_type)}
                           </Badge>
-                          <Badge variant="outline">
-                            {vacation.days_count % 1 === 0 ? 
-                              `${vacation.days_count} jour${vacation.days_count > 1 ? 's' : ''}` :
-                              `${vacation.days_count} jour${vacation.days_count > 1 ? 's' : ''} (${vacation.days_count * 2} demi-journées)`
-                            }
-                          </Badge>
+                          {(() => {
+                            const actualDaysCount = vacation.vacation_days && vacation.vacation_days.length > 0 
+                              ? vacation.vacation_days.reduce((sum, day) => sum + (day.is_half_day ? 0.5 : 1), 0)
+                              : vacation.days_count;
+                            return (
+                              <Badge variant="outline">
+                                {actualDaysCount} jour{actualDaysCount > 1 ? 's' : ''}
+                              </Badge>
+                            );
+                          })()}
                           {getStatusBadge(vacation.status)}
                         </div>
                         <p className="text-sm">
                           Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} 
                           au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
                         </p>
+
+                        {vacation.vacation_days && vacation.vacation_days.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Détail des jours :</p>
+                            <div className="flex flex-wrap gap-1">
+                              {vacation.vacation_days
+                                .sort((a, b) => new Date(a.vacation_date).getTime() - new Date(b.vacation_date).getTime())
+                                .map((day, index) => (
+                                  <Badge 
+                                    key={index} 
+                                    variant="secondary" 
+                                    className={`text-xs ${day.is_half_day ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}
+                                  >
+                                    {new Date(day.vacation_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                                    {day.is_half_day && ' (½j)'}
+                                  </Badge>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
                         {vacation.description && (
                           <p className="text-sm text-gray-600">{vacation.description}</p>
                         )}
                         <p className="text-xs text-gray-500">
-                          Créé {formatDistanceToNow(new Date(vacation.created_at), { 
+                          Demandé {formatDistanceToNow(new Date(vacation.created_at), { 
                             addSuffix: true, 
                             locale: fr 
                           })}
