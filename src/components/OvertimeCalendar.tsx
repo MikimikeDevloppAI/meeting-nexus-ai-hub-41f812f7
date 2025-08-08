@@ -271,7 +271,16 @@ export function OvertimeCalendar({
               selected={selectedDate}
               onSelect={handleDateClick}
               numberOfMonths={2}
-              className="rounded-md border pointer-events-auto"
+              className="w-full rounded-md border p-0 pointer-events-auto"
+              classNames={{
+                months: "grid grid-cols-2 gap-0 w-full divide-x divide-border",
+                month: "w-full",
+                table: "w-full",
+                head_row: "grid grid-cols-7 w-full",
+                row: "grid grid-cols-7 w-full",
+                cell: "p-0",
+                day: "w-full h-12 p-0"
+              }}
               locale={fr}
               disabled={(date) => date > new Date()}
               modifiers={{
