@@ -1,45 +1,60 @@
 
-import { Eye } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LogoProps {
   className?: string;
   showText?: boolean;
 }
 
+const LOGO_BUCKET = 'branding';
+const LOGO_PATH = 'logo/ophtacare-logo.png';
+const FALLBACK_SRC = "/lovable-uploads/463d4077-b16a-419d-8bf7-35b454625013.png";
+
 export const Logo = ({ className = "", showText = true }: LogoProps) => {
+  const [src, setSrc] = useState<string>(FALLBACK_SRC);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data } = supabase.storage
+          .from(LOGO_BUCKET)
+          .getPublicUrl(LOGO_PATH);
+
+        const publicUrl = data.publicUrl;
+        // Test if the file exists in the bucket
+        const head = await fetch(publicUrl, { method: 'HEAD' });
+
+        if (!head.ok) {
+          // Seed the bucket with the provided attachment via edge function
+          const sourceUrl = `${window.location.origin}${FALLBACK_SRC}`;
+          await fetch(`https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/seed-branding-logo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_url: sourceUrl, target_path: LOGO_PATH })
+          });
+        }
+
+        if (!cancelled) setSrc(publicUrl);
+      } catch (e) {
+        if (!cancelled) setSrc(FALLBACK_SRC);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <div className="relative w-12 h-12 flex items-center justify-center">
-        {/* Rayons du soleil */}
-        <svg className="absolute inset-0 w-12 h-12" viewBox="0 0 48 48">
-          {Array.from({ length: 24 }, (_, i) => {
-            const angle = (i * 360) / 24;
-            const radians = (angle * Math.PI) / 180;
-            const startX = 24 + Math.cos(radians) * 14;
-            const startY = 24 + Math.sin(radians) * 14;
-            const endX = 24 + Math.cos(radians) * 22;
-            const endY = 24 + Math.sin(radians) * 22;
-            
-            return (
-              <line
-                key={i}
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke="#2563eb"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            );
-          })}
-        </svg>
-        
-        {/* Œil au centre */}
-        <div className="relative z-10">
-          <Eye className="h-8 w-8 text-blue-600" />
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-        </div>
+        <img
+          src={src}
+          alt="Logo OphtaCare Hub – cercle rayonnant"
+          className="h-10 w-10 object-contain"
+          loading="lazy"
+        />
       </div>
       {showText && (
         <div className="flex flex-col leading-none">
@@ -50,3 +65,4 @@ export const Logo = ({ className = "", showText = true }: LogoProps) => {
     </div>
   );
 };
+
