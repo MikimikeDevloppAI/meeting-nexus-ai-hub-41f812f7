@@ -24,14 +24,6 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
           .getPublicUrl(LOGO_PATH);
 
         const publicUrl = data.publicUrl;
-        // Always upsert the logo with the provided source to ensure latest branding
-        const sourceUrl = `${window.location.origin}${FALLBACK_SRC}`;
-        await fetch(`https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/seed-branding-logo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_url: sourceUrl, target_path: LOGO_PATH })
-        });
-
         if (!cancelled) setSrc(`${publicUrl}?v=${Date.now()}`);
       } catch (e) {
         if (!cancelled) setSrc(FALLBACK_SRC);
@@ -60,6 +52,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
           alt="Logo OphtaCare Hub – cercle rayonnant"
           className={`${imgSize} object-contain`}
           loading="lazy"
+          onError={() => setSrc(FALLBACK_SRC)}
         />
       </div>
       {showText && (
