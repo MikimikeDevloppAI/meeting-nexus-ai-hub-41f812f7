@@ -11,6 +11,7 @@ import { Clock, Edit, X, TrendingUp } from "lucide-react";
 import { format, parseISO, isSameDay, startOfMonth, endOfMonth, eachMonthOfInterval, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 import { fr } from "date-fns/locale";
 import { formatHoursToHoursMinutes } from "@/utils/timeFormatter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface OvertimeHour {
   id: string;
@@ -315,6 +316,45 @@ export function OvertimeCalendar({
                   color: 'hsl(var(--destructive-foreground))',
                   opacity: 0.35,
                 },
+              }}
+              components={{
+                DayContent: ({ date }) => {
+                  const overtime = getOvertimeForDate(date);
+                  const hasOvertime = !!overtime;
+                  const statusText = hasOvertime
+                    ? overtime.status === 'approved'
+                      ? 'Approuvées'
+                      : overtime.status === 'pending'
+                        ? 'En attente'
+                        : 'Rejetées'
+                    : null;
+                  return (
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            {date.getDate()}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="center" className="max-w-xs">
+                          <div className="text-sm font-medium">
+                            {format(date, "PPP", { locale: fr })}
+                          </div>
+                          {hasOvertime ? (
+                            <div className="text-xs text-muted-foreground">
+                              {formatHoursToHoursMinutes(overtime.hours)} • {statusText}
+                              {overtime.description && (
+                                <div className="mt-1">{overtime.description}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">Aucune heure</div>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
               }}
             />
             
