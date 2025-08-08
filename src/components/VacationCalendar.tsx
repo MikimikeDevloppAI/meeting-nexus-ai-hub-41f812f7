@@ -177,7 +177,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             numberOfMonths={2}
             className="w-full rounded-md border p-0 pointer-events-auto"
             classNames={{
-              months: "grid grid-cols-2 gap-0 w-full",
+              months: "grid grid-cols-2 gap-0 w-full divide-x divide-border",
               month: "w-full",
               table: "w-full",
               head_row: "grid grid-cols-7 w-full",
