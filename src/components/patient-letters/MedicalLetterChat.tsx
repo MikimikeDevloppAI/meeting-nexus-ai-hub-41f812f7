@@ -86,7 +86,9 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
           const normalized = data.modifiedLetter
             .replace(/\\r\\n/g, '\n')
             .replace(/\\n/g, '\n')
-            .replace(/\\r/g, '\n');
+            .replace(/\\r/g, '\n')
+            .replace(/\\'/g, "'")
+            .replace(/\\"/g, '"');
           onLetterUpdate(normalized);
         }
 
