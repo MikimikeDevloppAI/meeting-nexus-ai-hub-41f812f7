@@ -114,19 +114,98 @@ ${userMessage}`
       return m ? m[1] : s;
     };
 
+    // Try very robust JSON extraction
+    const tryParse = (text: string) => {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    };
+
+    const extractBalancedJson = (text: string): any | null => {
+      const t = stripCodeFences(text).trim();
+      // 1) Direct parse
+      const direct = tryParse(t);
+      if (direct && typeof direct === 'object') return direct;
+
+      // 2) Regex to find an object containing "modifications" and "letter"
+      const jsonLike = t.match(/{[\s\S]*?"modifications"\s*:\s*"(?:[^"\\]|\\.)*?"[\s\S]*?"letter"\s*:\s*"(?:[^"\\]|\\.)*?"[\s\S]*?}/);
+      if (jsonLike) {
+        const parsed = tryParse(jsonLike[0]);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+
+      // 3) Balanced braces scan
+      const start = t.indexOf('{');
+      if (start !== -1) {
+        let inString = false;
+        let escape = false;
+        let depth = 0;
+        for (let i = start; i < t.length; i++) {
+          const ch = t[i];
+          if (inString) {
+            if (escape) {
+              escape = false;
+            } else if (ch === '\\') {
+              escape = true;
+            } else if (ch === '"') {
+              inString = false;
+            }
+          } else {
+            if (ch === '"') inString = true;
+            else if (ch === '{') depth++;
+            else if (ch === '}') {
+              depth--;
+              if (depth === 0) {
+                const candidate = t.slice(start, i + 1);
+                const parsed = tryParse(candidate);
+                if (parsed && typeof parsed === 'object') return parsed;
+              }
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const decodeJsonString = (s: string) => {
+      try {
+        // Wrap in quotes to decode escapes safely
+        return JSON.parse(`"${s.replace(/"/g, '\\"')}"`);
+      } catch {
+        return s;
+      }
+    };
+
+    // Extract values
     try {
-      const jsonText = stripCodeFences(assistantResponse).trim();
-      const parsed = JSON.parse(jsonText);
-      if (parsed && typeof parsed === 'object') {
+      const parsed = extractBalancedJson(assistantResponse);
+      if (parsed) {
         if (typeof parsed.letter === 'string') {
           modifiedLetter = parsed.letter.trim();
         }
         if (typeof parsed.modifications === 'string') {
           explanation = parsed.modifications.trim();
         }
+      } else {
+        // Heuristic extraction when JSON parse fails
+        const letterField = assistantResponse.match(/"letter"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
+        if (letterField) {
+          modifiedLetter = decodeJsonString(letterField[1]).trim();
+        }
+        const modsField = assistantResponse.match(/"modifications"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
+        if (modsField) {
+          explanation = decodeJsonString(modsField[1]).trim();
+        }
       }
     } catch (_e) {
-      // Fallback regex si JSON non valide
+      // keep fallbacks below
+    }
+
+    if (!modifiedLetter || modifiedLetter.length === 0) {
+      // Fallback regex if model used headings
       const letterMatch = assistantResponse.match(/LETTRE MODIFI(?:É|E)E\s*:\s*([\s\S]*)$/i);
       if (letterMatch) {
         modifiedLetter = letterMatch[1].replace(/```/g, '').trim();
@@ -138,7 +217,7 @@ ${userMessage}`
     }
 
     if (!modifiedLetter || modifiedLetter.length === 0) {
-      // Dernier recours: prendre tout après "LETTRE MODIFI"
+      // Dernier recours: take everything after "LETTRE MODIFI"
       const fallback = assistantResponse.split(/LETTRE MODIFI(?:É|E)E\s*:\s*/i)[1];
       if (fallback) {
         modifiedLetter = fallback.replace(/```/g, '').trim();
