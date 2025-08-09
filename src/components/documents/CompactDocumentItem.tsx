@@ -33,6 +33,10 @@ export const CompactDocumentItem = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Lien Google Drive (pour documents uploadés)
+  const [googleLink, setGoogleLink] = useState(document.google_drive_link || "");
+  const [isSavingLink, setIsSavingLink] = useState(false);
+
   useEffect(() => {
     if (isEditingTitle && inputRef.current) {
       inputRef.current.focus();
@@ -113,6 +117,46 @@ export const CompactDocumentItem = ({
       handleTitleSave();
     } else if (e.key === 'Escape') {
       handleTitleCancel();
+    }
+  };
+
+  const handleGoogleDriveSave = async () => {
+    if (document.type === 'meeting') return;
+
+    const url = googleLink.trim();
+    if (!url) {
+      toast({
+        title: 'Lien requis',
+        description: "Veuillez entrer une URL Google Drive.",
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingLink(true);
+    try {
+      const { error } = await supabase
+        .from('uploaded_documents')
+        .update({ google_drive_link: url })
+        .eq('id', document.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Lien ajouté',
+        description: 'Lien Google Drive enregistré avec succès.',
+      });
+
+      if (onUpdate) onUpdate();
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde du lien Google Drive:', err);
+      toast({
+        title: 'Erreur',
+        description: "Impossible d'enregistrer le lien Google Drive.",
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingLink(false);
     }
   };
 
@@ -403,6 +447,34 @@ export const CompactDocumentItem = ({
                   </div>
                 )}
                 
+                {/* Lien Google Drive - disponible pour documents uploadés */}
+                {!isMeeting && (
+                  <div>
+                    <h4 className="font-medium mb-2">Lien Google Drive</h4>
+                    {document.google_drive_link ? (
+                      <Button variant="outline" size="sm" onClick={handleGoogleDriveOpen}>
+                        <Cloud className="h-4 w-4 mr-2" /> Ouvrir dans Google Drive
+                      </Button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="Collez l'URL Google Drive"
+                          value={googleLink}
+                          onChange={(e) => setGoogleLink(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button onClick={handleGoogleDriveSave} disabled={isSavingLink}>
+                          {isSavingLink ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Enregistrer'
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Éditeur de métadonnées - seulement pour les documents traités */}
                 {!isMeeting && document.processed && (
                   <div>
