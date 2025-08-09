@@ -255,15 +255,22 @@ export const CompactDocumentItem = ({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 flex-1 min-w-0 group">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <h3 
-                    className="font-medium text-sm truncate flex-1 min-w-0 cursor-pointer hover:text-blue-600 transition-colors"
-                    onClick={handleTitleClick}
-                    title="Cliquer pour modifier le titre"
+                    className="font-medium text-sm truncate flex-1 min-w-0"
                   >
                     {document.ai_generated_name || document.original_name}
                   </h3>
-                  <Edit3 className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}
+                    aria-label="Modifier le titre"
+                    title="Modifier le titre"
+                  >
+                    <Edit3 className="h-3 w-3 text-gray-400" />
+                  </Button>
                 </div>
               )}
             </div>
