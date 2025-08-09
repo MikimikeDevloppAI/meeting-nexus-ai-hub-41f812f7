@@ -27,12 +27,15 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth";
 import { useTodoCounter } from "@/hooks/useTodoCounter";
 
 interface NewTodoForm {
   description: string;
-  user_id?: string;
+  user_ids?: string[];
+  comment?: string;
   due_date?: string;
   priority?: 'high' | 'normal' | 'low';
   subtasks?: string[];
@@ -83,7 +86,8 @@ export default function Todos() {
   const form = useForm<NewTodoForm>({
     defaultValues: {
       description: "",
-      user_id: undefined,
+      user_ids: [],
+      comment: "",
       due_date: undefined,
       priority: 'normal',
       subtasks: []
@@ -320,17 +324,15 @@ export default function Todos() {
         
       if (error) throw error;
       
-      // Si un utilisateur est sélectionné, l'ajouter à la tâche
-      if (data.user_id) {
-        const { error: userError } = await supabase
-          .from("todo_users")
-          .insert({
-            todo_id: newTodo.id,
-            user_id: data.user_id
-          });
-          
-        if (userError) {
-          console.error("Error assigning user:", userError);
+      // Assigner plusieurs utilisateurs si sélectionnés
+      if (data.user_ids && data.user_ids.length > 0) {
+        const rows = data.user_ids.map((uid) => ({
+          todo_id: newTodo.id,
+          user_id: uid,
+        }));
+        const { error: usersError } = await supabase.from("todo_users").insert(rows);
+        if (usersError) {
+          console.error("Error assigning users:", usersError);
           // On continue même si l'attribution échoue
         }
       }
@@ -397,6 +399,20 @@ export default function Todos() {
           } catch (error) {
             console.error('Error processing attachment:', error);
           }
+        }
+      }
+      
+      // Ajouter un commentaire initial si fourni
+      if (data.comment && data.comment.trim()) {
+        const { error: commentError } = await supabase
+          .from("todo_comments")
+          .insert({
+            todo_id: newTodo.id,
+            user_id: user?.id,
+            comment: data.comment.trim()
+          });
+        if (commentError) {
+          console.error("Error adding initial comment:", commentError);
         }
       }
       
@@ -808,27 +824,42 @@ export default function Todos() {
               
               <FormField
                 control={form.control}
-                name="user_id"
+                name="user_ids"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Participant assigné</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un participant (optionnel)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Participants assignés</FormLabel>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {users.map((u) => {
+                        const selected: string[] = field.value || [];
+                        const checked = selected.includes(u.id);
+                        return (
+                          <label key={u.id} className="flex items-center gap-2 p-2 rounded border hover:bg-gray-50">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                const set = new Set<string>(selected);
+                                if (v) set.add(u.id); else set.delete(u.id);
+                                field.onChange(Array.from(set));
+                              }}
+                            />
+                            <span className="text-sm truncate">{u.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="comment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Commentaire initial</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Ajouter un commentaire (optionnel)" {...field} />
+                    </FormControl>
                   </FormItem>
                 )}
               />
