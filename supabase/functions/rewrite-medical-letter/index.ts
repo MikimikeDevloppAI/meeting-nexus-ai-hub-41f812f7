@@ -23,6 +23,14 @@ serve(async (req) => {
       throw new Error('INFOMANIAK_API_KEY is not configured')
     }
 
+    // Allow configuring the Infomaniak App/Workspace ID via secret
+    const INFOMANIAK_APP_ID = Deno.env.get('INFOMANIAK_APP_ID') || '105139'
+    if (!Deno.env.get('INFOMANIAK_APP_ID')) {
+      console.warn('[rewrite-medical-letter] INFOMANIAK_APP_ID not set, using default 105139')
+    }
+    const apiUrl = `https://api.infomaniak.com/1/ai/${INFOMANIAK_APP_ID}/openai/chat/completions`
+
+
     // Prompt pour réécrire le contenu médical
     const prompt = `Tu es un assistant spécialisé dans la rédaction de lettres médicales pour un cabinet d'ophtalmologie.
 
@@ -48,9 +56,9 @@ ${transcript}
 
 Réponds UNIQUEMENT avec la lettre médicale réécrite, sans commentaires.`
 
-    console.log('Sending request to Infomaniak API...')
+    console.log('[rewrite-medical-letter] Sending request to Infomaniak API...', { appId: INFOMANIAK_APP_ID, model: 'llama3' })
 
-    const response = await fetch('https://api.infomaniak.com/1/ai/105139/openai/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${INFOMANIAK_API_KEY}`,
@@ -71,12 +79,12 @@ Réponds UNIQUEMENT avec la lettre médicale réécrite, sans commentaires.`
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Infomaniak API error:', errorText)
+      console.error('[rewrite-medical-letter] Infomaniak API error:', response.status, errorText)
       throw new Error(`Infomaniak API error: ${response.status} ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('Infomaniak API response received')
+    console.log('[rewrite-medical-letter] Infomaniak API response received')
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       throw new Error('Invalid response format from Infomaniak API')

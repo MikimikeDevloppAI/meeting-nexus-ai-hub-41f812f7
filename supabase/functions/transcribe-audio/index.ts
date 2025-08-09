@@ -19,6 +19,13 @@ serve(async (req) => {
       throw new Error('Clé API Infomaniak non configurée');
     }
 
+    // Allow configuring the Infomaniak App/Workspace ID via secret
+    const INFOMANIAK_APP_ID = Deno.env.get('INFOMANIAK_APP_ID') || '105139';
+    if (!Deno.env.get('INFOMANIAK_APP_ID')) {
+      console.warn('[transcribe-audio] INFOMANIAK_APP_ID not set, using default 105139');
+    }
+    const apiBase = `https://api.infomaniak.com/1/ai/${INFOMANIAK_APP_ID}`;
+
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     
@@ -36,9 +43,9 @@ serve(async (req) => {
     whisperFormData.append('language', 'fr');
     whisperFormData.append('response_format', 'json');
 
-    console.log('Envoi de la transcription à Infomaniak avec le modèle whisper...');
+    console.log('[transcribe-audio] Sending transcription request...', { appId: INFOMANIAK_APP_ID, model: 'whisper' });
 
-    const response = await fetch('https://api.infomaniak.com/1/ai/105139/openai/audio/transcriptions', {
+    const response = await fetch(`${apiBase}/openai/audio/transcriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${infomaniakApiKey}`,
@@ -50,7 +57,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Erreur API Infomaniak:', errorText);
+      console.error('[transcribe-audio] Infomaniak API error:', response.status, errorText);
       throw new Error(`Erreur API Infomaniak: ${response.status} - ${errorText}`);
     }
 
@@ -74,7 +81,7 @@ serve(async (req) => {
         console.log(`Tentative ${attempts}: Vérification du statut du batch avec délai de ${delay}ms`);
         
         try {
-          const batchUrl = `https://api.infomaniak.com/1/ai/105139/results/${result.batch_id}`;
+          const batchUrl = `${apiBase}/results/${result.batch_id}`;
           console.log('URL de vérification des résultats:', batchUrl);
           
           const batchResponse = await fetch(batchUrl, {
