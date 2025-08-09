@@ -56,22 +56,15 @@ HISTORIQUE DE LA CONVERSATION :`
     contextPrompt += `
 
 INSTRUCTIONS :
-1. Reponds aux demandes de modification de la lettre medicale
-2. IMPORTANT: Fournis TOUJOURS la lettre medicale complete modifiee dans ta reponse
-3. Si une modification est demandee, retourne la lettre complete avec les changements appliques
-4. Explique brievement les modifications que tu as effectuees
-5. Garde un langage medical professionnel
-6. Conserve les informations medicales importantes
-7. Respecte la structure d'une lettre medicale
+1. Réponds aux demandes de modification de la lettre médicale.
+2. IMPORTANT: Réponds UNIQUEMENT en JSON valide (UTF-8), sans encadrer avec des blocs de code (pas de ```).
+3. Le JSON DOIT contenir exactement ces clés: "modifications" (string courte) et "letter" (string avec la lettre complète modifiée).
+4. Fournis TOUJOURS la lettre médicale complète modifiée dans le champ "letter".
+5. Explique brièvement les modifications dans le champ "modifications".
+6. Adopte un langage médical professionnel, conserve les informations importantes et respecte la structure d'une lettre médicale.
 
-FORMAT DE REPONSE REQUIS :
-\`\`\`
-MODIFICATIONS EFFECTUEES :
-[Explication courte des changements]
-
-LETTRE MODIFIEE :
-[Lettre medicale complete avec les modifications]
-\`\`\`
+FORMAT DE RÉPONSE REQUIS (JSON STRICT, SANS BLOC DE CODE):
+{"modifications":"...","letter":"..."}
 
 DEMANDE ACTUELLE DE L'UTILISATEUR :
 ${userMessage}`
@@ -110,24 +103,49 @@ ${userMessage}`
       throw new Error('Invalid response format from Infomaniak API')
     }
 
-    const assistantResponse = data.choices[0].message.content
+    const assistantResponse = data.choices[0].message.content || ''
 
-    // Extraire la lettre modifiée du contenu de la réponse
-    let modifiedLetter = null;
-    let explanation = assistantResponse;
+    // Tenter d'abord de parser une réponse JSON stricte
+    let modifiedLetter: string | null = null;
+    let explanation: string = assistantResponse;
 
-    // Chercher la section "LETTRE MODIFIEE :"
-    const letterMatch = assistantResponse.match(/LETTRE MODIFIEE\s*:\s*([\s\S]*?)(?=\n\n|$)/i);
-    if (letterMatch) {
-      modifiedLetter = letterMatch[1].trim();
-      
-      // Extraire l'explication
-      const explanationMatch = assistantResponse.match(/MODIFICATIONS EFFECTUEES\s*:\s*(.*?)(?=LETTRE MODIFIEE|$)/is);
+    const stripCodeFences = (s: string) => {
+      const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      return m ? m[1] : s;
+    };
+
+    try {
+      const jsonText = stripCodeFences(assistantResponse).trim();
+      const parsed = JSON.parse(jsonText);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.letter === 'string') {
+          modifiedLetter = parsed.letter.trim();
+        }
+        if (typeof parsed.modifications === 'string') {
+          explanation = parsed.modifications.trim();
+        }
+      }
+    } catch (_e) {
+      // Fallback regex si JSON non valide
+      const letterMatch = assistantResponse.match(/LETTRE MODIFI(?:É|E)E\s*:\s*([\s\S]*)$/i);
+      if (letterMatch) {
+        modifiedLetter = letterMatch[1].replace(/```/g, '').trim();
+      }
+      const explanationMatch = assistantResponse.match(/MODIFICATIONS EFFECTU(?:É|E)ES\s*:\s*([\s\S]*?)(?=LETTRE MODIFI(?:É|E)E|$)/i);
       if (explanationMatch) {
-        explanation = explanationMatch[1].trim();
+        explanation = explanationMatch[1].replace(/```/g, '').trim();
       }
     }
 
+    if (!modifiedLetter || modifiedLetter.length === 0) {
+      // Dernier recours: prendre tout après "LETTRE MODIFI"
+      const fallback = assistantResponse.split(/LETTRE MODIFI(?:É|E)E\s*:\s*/i)[1];
+      if (fallback) {
+        modifiedLetter = fallback.replace(/```/g, '').trim();
+      }
+    }
+
+    console.log('[medical-letter-chat] Extracted lengths', { letterLength: modifiedLetter?.length || 0, explanationLength: explanation?.length || 0 });
     return new Response(
       JSON.stringify({ 
         success: true, 
