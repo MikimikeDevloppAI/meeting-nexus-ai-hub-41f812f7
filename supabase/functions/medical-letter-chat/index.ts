@@ -57,7 +57,7 @@ HISTORIQUE DE LA CONVERSATION :`
 
 INSTRUCTIONS :
 1. Réponds aux demandes de modification de la lettre médicale.
-2. IMPORTANT: Réponds UNIQUEMENT en JSON valide (UTF-8), sans encadrer avec des blocs de code (pas de ```).
+2. IMPORTANT: Réponds UNIQUEMENT en JSON valide (UTF-8), sans encadrer avec des blocs de code (pas de code fences).
 3. Le JSON DOIT contenir exactement ces clés: "modifications" (string courte) et "letter" (string avec la lettre complète modifiée).
 4. Fournis TOUJOURS la lettre médicale complète modifiée dans le champ "letter".
 5. Explique brièvement les modifications dans le champ "modifications".
