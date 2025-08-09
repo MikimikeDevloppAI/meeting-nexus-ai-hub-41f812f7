@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -22,6 +23,13 @@ serve(async (req) => {
     if (!INFOMANIAK_API_KEY) {
       throw new Error('INFOMANIAK_API_KEY is not configured')
     }
+
+    // NEW: Allow configuring the Infomaniak App/Workspace ID via secret
+    const INFOMANIAK_APP_ID = Deno.env.get('INFOMANIAK_APP_ID') || '105139'
+    if (!Deno.env.get('INFOMANIAK_APP_ID')) {
+      console.warn('[medical-letter-chat] INFOMANIAK_APP_ID not set, using default 105139')
+    }
+    const apiUrl = `https://api.infomaniak.com/1/ai/${INFOMANIAK_APP_ID}/openai/chat/completions`
 
     // Construire le contexte avec l'historique et le contenu actuel
     let contextPrompt = `Tu es un assistant spécialisé dans l'édition et la modification de lettres médicales pour un cabinet d'ophtalmologie.
@@ -68,9 +76,9 @@ LETTRE MODIFIEE :
 DEMANDE ACTUELLE DE L'UTILISATEUR :
 ${userMessage}`
 
-    console.log('Sending request to Infomaniak API...')
+    console.log('[medical-letter-chat] Sending request to Infomaniak API...', { appId: INFOMANIAK_APP_ID, model: 'llama3' })
 
-    const response = await fetch('https://api.infomaniak.com/1/ai/105139/openai/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${INFOMANIAK_API_KEY}`,
@@ -91,12 +99,12 @@ ${userMessage}`
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Infomaniak API error:', errorText)
+      console.error('[medical-letter-chat] Infomaniak API error:', response.status, errorText)
       throw new Error(`Infomaniak API error: ${response.status} ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('Infomaniak API response received')
+    console.log('[medical-letter-chat] Infomaniak API response received')
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       throw new Error('Invalid response format from Infomaniak API')
