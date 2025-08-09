@@ -83,7 +83,11 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
 
         // Si une lettre modifiée est retournée, la mettre à jour
         if (data.modifiedLetter && onLetterUpdate) {
-          onLetterUpdate(data.modifiedLetter);
+          const normalized = data.modifiedLetter
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\n');
+          onLetterUpdate(normalized);
         }
 
         toast({
