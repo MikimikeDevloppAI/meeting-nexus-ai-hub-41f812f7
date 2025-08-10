@@ -607,8 +607,8 @@ const GestionStock: React.FC = () => {
               <CardTitle id="historique-section">Historique</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                <Card className="shadow-sm md:col-span-3 md:order-2">
                   <CardHeader>
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
                   </CardHeader>
@@ -663,7 +663,7 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-sm">
+                <Card className="shadow-sm md:col-span-2 md:order-1">
                   <CardHeader>
                     <CardTitle className="text-base">Injections récentes</CardTitle>
                   </CardHeader>
