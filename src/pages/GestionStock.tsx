@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, ClipboardList, Pencil } from "lucide-react";
+import { PlusCircle, ClipboardList, Pencil, Trash2 } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
 // our new tables. We cast to any locally to avoid TS issues.
@@ -95,6 +96,8 @@ const GestionStock: React.FC = () => {
   const [openInjectionEdit, setOpenInjectionEdit] = useState(false);
   const [editingCommandeId, setEditingCommandeId] = useState<string | null>(null);
   const [editingInjectionId, setEditingInjectionId] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'produit'|'commande'|'injection'; id: string; label?: string } | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -243,6 +246,30 @@ const GestionStock: React.FC = () => {
     setInjectionForm({ produit_id: "", date_injection: new Date().toISOString().slice(0, 10), quantite: 1 });
     if (editingInjectionId) setOpenInjectionEdit(false);
     setEditingInjectionId(null);
+  };
+
+  const requestDelete = (type: 'produit'|'commande'|'injection', id: string, label?: string) => {
+    setDeleteTarget({ type, id, label });
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === 'produit') {
+        await sb.from('produit_injection').delete().eq('id', deleteTarget.id);
+      } else if (deleteTarget.type === 'commande') {
+        await sb.from('commande_injection').delete().eq('id', deleteTarget.id);
+      } else {
+        await sb.from('injection').delete().eq('id', deleteTarget.id);
+      }
+    } catch (err) {
+      console.error('Delete failed', err);
+    } finally {
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      await fetchAll();
+    }
   };
 
   return (
@@ -471,6 +498,21 @@ const GestionStock: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer {deleteTarget?.type === 'produit' ? 'ce produit' : deleteTarget?.type === 'commande' ? 'cette commande' : 'cette injection'} ? Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete}>Supprimer</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <section aria-labelledby="stock-section">
           <Card className="shadow-sm">
             <CardHeader>
@@ -501,9 +543,14 @@ const GestionStock: React.FC = () => {
                         <TableCell>{p.seuil_alerte ?? 0}</TableCell>
                         <TableCell>{stock}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -523,7 +570,7 @@ const GestionStock: React.FC = () => {
             </CardHeader>
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
-                <select className="border rounded-md px-3 py-2 w-full md:col-span-3" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
+                <select className="border rounded-md px-3 py-2 w-full md:w-auto md:col-span-2 min-w-[220px]" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
                   <option value="">Sélectionner un produit</option>
                   {produits.map((p) => (
                     <option key={p.id} value={p.id}>{p.produit}</option>
@@ -531,7 +578,7 @@ const GestionStock: React.FC = () => {
                 </select>
                 <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
                 <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
-                <div className="flex items-center">
+                <div className="flex items-center justify-end">
                   <Button type="submit">Ajouter</Button>
                 </div>
               </form>
@@ -581,9 +628,14 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{c.date_commande}</TableCell>
                                 <TableCell>{c.date_reception || "-"}</TableCell>
                                 <TableCell>
-                                  <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
@@ -621,9 +673,14 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{inj.quantite ?? 1}</TableCell>
                                 <TableCell>{inj.date_injection}</TableCell>
                                 <TableCell>
-                                  <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
