@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { PlusCircle, ClipboardList } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
@@ -207,23 +208,80 @@ const GestionStock: React.FC = () => {
       </header>
       <main className="mt-6 space-y-10">
         <Dialog open={openProduit} onOpenChange={setOpenProduit}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-5xl max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>{editingId ? "Modifier un produit" : "Ajouter un produit"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSaveProduit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input placeholder="Produit" value={produitForm.produit || ""} onChange={(e) => setProduitForm({ ...produitForm, produit: e.target.value })} required />
-              <Input placeholder="Molécule" value={produitForm.molecule || ""} onChange={(e) => setProduitForm({ ...produitForm, molecule: e.target.value })} />
-              <Input placeholder="Fabricant" value={produitForm.fabricant || ""} onChange={(e) => setProduitForm({ ...produitForm, fabricant: e.target.value })} />
-              <Input placeholder="Concentration" value={produitForm.concentration || ""} onChange={(e) => setProduitForm({ ...produitForm, concentration: e.target.value })} />
-              <Input placeholder="Présentation" value={produitForm.presentation || ""} onChange={(e) => setProduitForm({ ...produitForm, presentation: e.target.value })} />
-              <Input type="number" step="0.01" placeholder="Prix patient" value={produitForm.prix_patient ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_patient: parseFloat(e.target.value) })} />
-              <Input type="number" step="0.01" placeholder="Prix d'achat" value={produitForm.prix_achat ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_achat: parseFloat(e.target.value) })} />
-              <Input placeholder="Représentant" value={produitForm.representant || ""} onChange={(e) => setProduitForm({ ...produitForm, representant: e.target.value })} />
-              <Input placeholder="Téléphone" value={produitForm.telephone || ""} onChange={(e) => setProduitForm({ ...produitForm, telephone: e.target.value })} />
-              <Input type="email" placeholder="Email" value={produitForm.email || ""} onChange={(e) => setProduitForm({ ...produitForm, email: e.target.value })} />
-              <Input type="number" placeholder="Seuil d'alerte" value={produitForm.seuil_alerte ?? 0} onChange={(e) => setProduitForm({ ...produitForm, seuil_alerte: parseInt(e.target.value || "0") })} />
-              <div className="flex items-center gap-2">
+            <form onSubmit={handleSaveProduit} className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Informations produit</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Produit</Label>
+                    <Input value={produitForm.produit || ""} onChange={(e) => setProduitForm({ ...produitForm, produit: e.target.value })} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Molécule</Label>
+                    <Input value={produitForm.molecule || ""} onChange={(e) => setProduitForm({ ...produitForm, molecule: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Fabricant</Label>
+                    <Input value={produitForm.fabricant || ""} onChange={(e) => setProduitForm({ ...produitForm, fabricant: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Concentration</Label>
+                    <Input value={produitForm.concentration || ""} onChange={(e) => setProduitForm({ ...produitForm, concentration: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Présentation</Label>
+                    <Input value={produitForm.presentation || ""} onChange={(e) => setProduitForm({ ...produitForm, presentation: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Tarifs</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Prix patient</Label>
+                    <Input type="number" step="0.01" value={produitForm.prix_patient ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_patient: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Prix d'achat</Label>
+                    <Input type="number" step="0.01" value={produitForm.prix_achat ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_achat: parseFloat(e.target.value) })} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Contact représentant</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Représentant</Label>
+                    <Input value={produitForm.representant || ""} onChange={(e) => setProduitForm({ ...produitForm, representant: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Téléphone</Label>
+                    <Input value={produitForm.telephone || ""} onChange={(e) => setProduitForm({ ...produitForm, telephone: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Email</Label>
+                    <Input type="email" value={produitForm.email || ""} onChange={(e) => setProduitForm({ ...produitForm, email: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Seuil d'alerte</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Seuil d'alerte</Label>
+                    <Input type="number" value={produitForm.seuil_alerte ?? 0} onChange={(e) => setProduitForm({ ...produitForm, seuil_alerte: parseInt(e.target.value || "0") })} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
                 <Button type="submit">{editingId ? "Enregistrer" : "Ajouter"}</Button>
                 <Button type="button" variant="outline" onClick={() => { setOpenProduit(false); resetProduitForm(); }}>Annuler</Button>
               </div>
@@ -232,24 +290,72 @@ const GestionStock: React.FC = () => {
         </Dialog>
 
         <Dialog open={openCommande} onOpenChange={setOpenCommande}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-5xl max-w-[95vw]">
             <DialogHeader>
               <DialogTitle>Enregistrer une commande</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSaveCommande} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <select className="border rounded-md px-3 py-2" value={commandeForm.produit_id || ""} onChange={(e) => setCommandeForm({ ...commandeForm, produit_id: e.target.value })} required>
-                <option value="">Sélectionner un produit</option>
-                {produits.map((p) => (
-                  <option key={p.id} value={p.id}>{p.produit}</option>
-                ))}
-              </select>
-              <Input placeholder="Numéro de commande" value={commandeForm.numero_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, numero_commande: e.target.value })} />
-              <Input type="number" placeholder="Quantité commandée" value={commandeForm.quantite_commande ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_commande: parseInt(e.target.value || "0") })} required />
-              <Input type="date" placeholder="Date commande" value={commandeForm.date_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_commande: e.target.value })} required />
-              <Input type="number" placeholder="Quantité reçue" value={commandeForm.quantite_recue ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_recue: parseInt(e.target.value || "0") })} />
-              <Input type="date" placeholder="Date réception" value={commandeForm.date_reception || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_reception: e.target.value })} />
-              <Input type="number" step="0.01" placeholder="Montant" value={commandeForm.montant ?? ""} onChange={(e) => setCommandeForm({ ...commandeForm, montant: parseFloat(e.target.value) })} />
-              <Input type="date" placeholder="Date paiement" value={commandeForm.date_paiement || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_paiement: e.target.value })} />
+            <form onSubmit={handleSaveCommande} className="space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Produit</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Produit commandé</Label>
+                    <select className="border rounded-md px-3 py-2 w-full" value={commandeForm.produit_id || ""} onChange={(e) => setCommandeForm({ ...commandeForm, produit_id: e.target.value })} required>
+                      <option value="">Sélectionner un produit</option>
+                      {produits.map((p) => (
+                        <option key={p.id} value={p.id}>{p.produit}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Détails commande</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Numéro de commande</Label>
+                    <Input value={commandeForm.numero_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, numero_commande: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Quantité commandée</Label>
+                    <Input type="number" value={commandeForm.quantite_commande ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_commande: parseInt(e.target.value || "0") })} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date commande</Label>
+                    <Input type="date" value={commandeForm.date_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_commande: e.target.value })} required />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Réception</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Quantité reçue</Label>
+                    <Input type="number" value={commandeForm.quantite_recue ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_recue: parseInt(e.target.value || "0") })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date réception</Label>
+                    <Input type="date" value={commandeForm.date_reception || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_reception: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Paiement</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Montant</Label>
+                    <Input type="number" step="0.01" value={commandeForm.montant ?? ""} onChange={(e) => setCommandeForm({ ...commandeForm, montant: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Date paiement</Label>
+                    <Input type="date" value={commandeForm.date_paiement || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_paiement: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center">
                 <Button type="submit">Enregistrer</Button>
               </div>
