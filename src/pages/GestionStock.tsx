@@ -41,6 +41,7 @@ type Injection = {
   id: string;
   produit_id: string;
   date_injection: string; // ISO date
+  quantite?: number | null;
 };
 
 const SEO = () => {
@@ -83,6 +84,7 @@ const GestionStock: React.FC = () => {
   const [injectionForm, setInjectionForm] = useState<Partial<Injection>>({
     produit_id: "",
     date_injection: new Date().toISOString().slice(0, 10),
+    quantite: 1,
   });
 
   const [openProduit, setOpenProduit] = useState(false);
@@ -113,7 +115,8 @@ const GestionStock: React.FC = () => {
       recu[c.produit_id] = (recu[c.produit_id] || 0) + (isNaN(q) ? 0 : q);
     });
     injections.forEach((inj) => {
-      consomme[inj.produit_id] = (consomme[inj.produit_id] || 0) + 1;
+      const q = Number(inj.quantite ?? 1);
+      consomme[inj.produit_id] = (consomme[inj.produit_id] || 0) + (isNaN(q) ? 0 : q);
     });
     const out: Record<string, number> = {};
     produits.forEach((p) => {
@@ -181,9 +184,10 @@ const GestionStock: React.FC = () => {
     await sb.from("injection").insert({
       produit_id: injectionForm.produit_id,
       date_injection: injectionForm.date_injection,
+      quantite: Number(injectionForm.quantite || 1),
     });
     await fetchAll();
-    setInjectionForm({ produit_id: "", date_injection: new Date().toISOString().slice(0, 10) });
+    setInjectionForm({ produit_id: "", date_injection: new Date().toISOString().slice(0, 10), quantite: 1 });
   };
 
   return (
@@ -291,13 +295,14 @@ const GestionStock: React.FC = () => {
 
         <section aria-labelledby="injection-form-section">
           <h2 id="injection-form-section" className="text-xl font-medium">Enregistrer une injection</h2>
-          <form onSubmit={handleSaveInjection} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <form onSubmit={handleSaveInjection} className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <select className="border rounded-md px-3 py-2" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
               <option value="">Sélectionner un produit</option>
               {produits.map((p) => (
                 <option key={p.id} value={p.id}>{p.produit}</option>
               ))}
             </select>
+            <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
             <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
             <div className="flex items-center">
               <Button type="submit">Ajouter</Button>

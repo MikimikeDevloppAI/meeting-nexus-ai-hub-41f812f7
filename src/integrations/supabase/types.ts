@@ -165,6 +165,7 @@ export type Database = {
           date_injection: string
           id: string
           produit_id: string
+          quantite: number
           updated_at: string
         }
         Insert: {
@@ -172,6 +173,7 @@ export type Database = {
           date_injection?: string
           id?: string
           produit_id: string
+          quantite?: number
           updated_at?: string
         }
         Update: {
@@ -179,6 +181,7 @@ export type Database = {
           date_injection?: string
           id?: string
           produit_id?: string
+          quantite?: number
           updated_at?: string
         }
         Relationships: [
