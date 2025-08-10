@@ -645,7 +645,6 @@ const GestionStock: React.FC = () => {
                   <CardHeader>
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
                   </CardHeader>
-                  <Separator className="bg-foreground/10" />
                   <CardContent>
                     <Table className="font-calibri text-[15px] md:text-base">
                       <TableHeader className="bg-table-header">
@@ -669,7 +668,7 @@ const GestionStock: React.FC = () => {
                           .map((c) => {
                             const prod = produits.find((p) => p.id === c.produit_id);
                             return (
-                              <TableRow key={c.id}>
+                              <TableRow key={c.id} className="border-row even:bg-row-alt">
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{c.numero_commande || "-"}</TableCell>
                                 <TableCell>{c.quantite_commande}</TableCell>
@@ -700,7 +699,7 @@ const GestionStock: React.FC = () => {
                   <CardHeader>
                     <CardTitle className="text-base">Injections récentes</CardTitle>
                   </CardHeader>
-                  <Separator className="bg-foreground/10" />
+                  
                   <CardContent>
                     <Table className="font-calibri text-[15px] md:text-base">
                       <TableHeader className="bg-table-header">
@@ -719,7 +718,7 @@ const GestionStock: React.FC = () => {
                           .map((inj) => {
                             const prod = produits.find((p) => p.id === inj.produit_id);
                             return (
-                              <TableRow key={inj.id}>
+                              <TableRow key={inj.id} className="border-row even:bg-row-alt">
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{inj.quantite ?? 1}</TableCell>
                                 <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
