@@ -682,9 +682,10 @@ const GestionStock: React.FC = () => {
 
         <section aria-labelledby="historique-section">
           <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle id="historique-section">Historique</CardTitle>
-            </CardHeader>
+          <CardHeader>
+            <CardTitle id="historique-section">Historique</CardTitle>
+          </CardHeader>
+          <Separator className="my-2 shadow-md" />
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <Card className="shadow-md border md:col-span-3 md:order-2">

@@ -332,7 +332,7 @@ export const MeetingTodosWithRecommendations = ({ meetingId }: MeetingTodosWithR
         const hasDeepSearchResults = deepSearchResults[todo.id] || false;
         
         return (
-          <Card key={todo.id} className={`hover:shadow-sm transition-shadow ${
+          <Card key={todo.id} className={`shadow-md hover:shadow-lg transition-shadow ${
             todo.priority === 'high' ? 'ring-2 ring-orange-200' : ''
           }`}>
              <CardContent className="p-6">
