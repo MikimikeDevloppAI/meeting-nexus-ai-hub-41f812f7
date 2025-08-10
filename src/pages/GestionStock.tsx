@@ -566,7 +566,10 @@ const GestionStock: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!loading && produits.map((p) => {
+                  {!loading && produits
+                    .slice()
+                    .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
+                    .map((p) => {
                     const stock = stockParProduit[p.id] ?? 0;
                     const below = (p.seuil_alerte ?? 0) > 0 && stock <= (p.seuil_alerte ?? 0);
                     return (
