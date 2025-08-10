@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Legend, Line, LabelList } from "recharts";
 
 interface RetroRow {
   id: string;
@@ -97,28 +97,36 @@ const Retrocession: React.FC = () => {
   }, [data]);
 
   const chartData = useMemo(() => {
-    const months = new Set<string>();
-    const doctors = new Set<string>();
-    (data || []).forEach((r) => {
-      months.add(formatYYYYMM(r.period_month));
-      doctors.add(r.doctor);
-    });
-    const monthList = Array.from(months).sort();
+    const start = toFirstOfMonth(startMonth);
+    const end = toFirstOfMonth(endMonth);
+    const monthList = monthsRange(
+      new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)),
+      new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1))
+    );
+    const doctors = Array.from(new Set((data || []).map(r => r.doctor))).sort();
+
     const result = monthList.map((m) => {
       const row: any = { month: m };
-      (data || [])
-        .filter((r) => formatYYYYMM(r.period_month) === m)
-        .forEach((r) => {
-          row[r.doctor] = (row[r.doctor] || 0) + Number(r.retrocession || 0);
-        });
+      let total = 0;
+      doctors.forEach((doc) => {
+        const sum = (data || [])
+          .filter((r) => r.doctor === doc && formatYYYYMM(r.period_month) === m)
+          .reduce((acc, r) => acc + Number(r.retrocession || 0), 0);
+        row[doc] = sum;
+        total += sum;
+      });
+      row.total = total;
       return row;
     });
-    return { data: result, doctors: Array.from(doctors) };
-  }, [data]);
+
+    return { data: result, doctors };
+  }, [data, startMonth, endMonth]);
 
   const history = useMemo(() => {
     return [...(data || [])].sort((a, b) => (a.period_month < b.period_month ? 1 : -1));
   }, [data]);
+
+  const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
 
   return (
     <div className="space-y-6">
@@ -173,7 +181,6 @@ const Retrocession: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{d.doctor}</span>
-                <span className="text-sm text-muted-foreground">{(d.pct * 100).toFixed(1)}%</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -202,14 +209,22 @@ const Retrocession: React.FC = () => {
         <CardContent className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData.data}>
-              <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <Tooltip
+                formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
+                labelFormatter={(label) => `Mois: ${label}`}
+              />
+              <Legend
+                formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
+              />
               {chartData.doctors.map((doc, idx) => (
-                <Bar key={doc} dataKey={doc} stackId="retro" fill={`hsl(var(--primary) / ${0.6 + (idx % 3) * 0.1})`} />
+                <Bar key={doc} dataKey={doc} fill={palette[idx % palette.length]}>
+                  <LabelList dataKey={doc} position="top" formatter={(val: any) => (Number(val) ? formatCHF(Number(val)) : '')} />
+                </Bar>
               ))}
+              <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot>
+                <LabelList dataKey="total" position="top" formatter={(val: any) => (Number(val) ? formatCHF(Number(val)) : '')} />
+              </Line>
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
