@@ -557,12 +557,12 @@ const GestionStock: React.FC = () => {
                   <TableHeader className="bg-table-header">
                     <TableRow className="border-row">
                       <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                      <TableHead className="px-3 py-2 font-medium text-muted-2 hidden md:table-cell">Molécule</TableHead>
-                      <TableHead className="px-3 py-2 font-medium text-muted-2 hidden md:table-cell">Fabricant</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-medium">Seuil alerte</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-medium">Moy. inj/mois (3m)</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold">Stock</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-medium">Action</TableHead>
+                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
+                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -582,7 +582,7 @@ const GestionStock: React.FC = () => {
                           <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
                           <TableCell className={`px-3 py-2 text-center ${below ? 'bg-danger-soft text-danger-strong font-semibold' : ''}`}>
                             <div className="inline-flex items-center gap-2">
-                              <span>{stock}</span>
+                              {stock > 0 && <span>{stock}</span>}
                               {stock === 0 && (
                                 <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
                                   Rupture
@@ -648,17 +648,17 @@ const GestionStock: React.FC = () => {
                   <Separator className="bg-foreground/10" />
                   <CardContent>
                     <Table className="font-calibri text-[15px] md:text-base">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produit</TableHead>
-                          <TableHead>N°</TableHead>
-                          <TableHead>Qté cmd</TableHead>
-                          <TableHead>Qté reçue</TableHead>
-                          <TableHead>Date cmd</TableHead>
-                          <TableHead>Date réception</TableHead>
-                          <TableHead>Montant</TableHead>
-                          <TableHead>Date paiement</TableHead>
-                          <TableHead className="text-center">Action</TableHead>
+                      <TableHeader className="bg-table-header">
+                        <TableRow className="border-row">
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">N°</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Qté cmd</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Qté reçue</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Date cmd</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Date réception</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Montant</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Date paiement</TableHead>
+                          <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -703,12 +703,12 @@ const GestionStock: React.FC = () => {
                   <Separator className="bg-foreground/10" />
                   <CardContent>
                     <Table className="font-calibri text-[15px] md:text-base">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Produit</TableHead>
-                          <TableHead>Quantité</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead className="text-center">Action</TableHead>
+                      <TableHeader className="bg-table-header">
+                        <TableRow className="border-row">
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
+                          <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
+                          <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
