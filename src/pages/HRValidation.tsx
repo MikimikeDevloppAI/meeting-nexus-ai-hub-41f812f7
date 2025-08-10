@@ -474,66 +474,39 @@ export default function HRValidation() {
         </div>
       </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Heures en attente</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overtimeStats.pending}</div>
-            <p className="text-xs text-muted-foreground">demandes à traiter</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Heures approuvées</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatHoursToHoursMinutes(overtimeStats.totalHours)}</div>
-            <p className="text-xs text-muted-foreground">total approuvé</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vacances en attente</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{vacationStats.pending}</div>
-            <p className="text-xs text-muted-foreground">demandes à traiter</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jours approuvés</CardTitle>
-            <Users className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{vacationStats.totalDays}</div>
-            <p className="text-xs text-muted-foreground">jours total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Solde heures sup.</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${overtimeStats.balanceHours >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatHoursToHoursMinutes(overtimeStats.balanceHours)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {formatHoursToHoursMinutes(overtimeStats.totalHours)} - {formatHoursToHoursMinutes(overtimeStats.recoveryHours)}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Statistiques par personne */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {specificUsers.map((person) => {
+          const matched = users.find(u => u.email === person.email);
+          const taken = getVacationSummaryForUser(person.email).totalDays;
+          const quota = matched ? getQuotaForUser(matched.id, selectedYear) : 0;
+          const remaining = Math.max(0, quota - taken);
+          const approvedOvertime = overtimeHours
+            .filter(o => o.users.email === person.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
+            .reduce((sum, o) => sum + o.hours, 0);
+          const firstName = person.name.split(' ')[0];
+          return (
+            <Card key={person.email} className="shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">{firstName}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Vacances posées</span>
+                  <span className="font-semibold">{taken} j</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Jours restants</span>
+                  <span className="font-semibold">{remaining} j</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Heures sup. validées</span>
+                  <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Filtres */}
