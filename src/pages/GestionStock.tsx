@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { PlusCircle, ClipboardList } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
@@ -90,6 +92,9 @@ const GestionStock: React.FC = () => {
 
   const [openProduit, setOpenProduit] = useState(false);
   const [openCommande, setOpenCommande] = useState(false);
+  const [openInjectionEdit, setOpenInjectionEdit] = useState(false);
+  const [editingCommandeId, setEditingCommandeId] = useState<string | null>(null);
+  const [editingInjectionId, setEditingInjectionId] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -161,34 +166,83 @@ const GestionStock: React.FC = () => {
     setOpenProduit(true);
   };
 
+  const handleEditCommande = (c: Commande) => {
+    setEditingCommandeId(c.id);
+    setCommandeForm({
+      produit_id: c.produit_id,
+      numero_commande: c.numero_commande ?? "",
+      quantite_commande: c.quantite_commande,
+      date_commande: c.date_commande,
+      quantite_recue: c.quantite_recue ?? 0,
+      date_reception: c.date_reception ?? null,
+      montant: c.montant ?? null,
+      date_paiement: c.date_paiement ?? null,
+    });
+    setOpenCommande(true);
+  };
+
+  const handleEditInjection = (inj: Injection) => {
+    setEditingInjectionId(inj.id);
+    setInjectionForm({
+      produit_id: inj.produit_id,
+      date_injection: inj.date_injection,
+      quantite: inj.quantite ?? 1,
+    });
+    setOpenInjectionEdit(true);
+  };
+
   const handleSaveCommande = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commandeForm.produit_id) return;
-    await sb.from("commande_injection").insert({
-      produit_id: commandeForm.produit_id,
-      numero_commande: commandeForm.numero_commande,
-      quantite_commande: Number(commandeForm.quantite_commande || 0),
-      date_commande: commandeForm.date_commande,
-      quantite_recue: Number(commandeForm.quantite_recue || 0),
-      date_reception: commandeForm.date_reception || null,
-      montant: commandeForm.montant ?? null,
-      date_paiement: commandeForm.date_paiement || null,
-    });
+    if (editingCommandeId) {
+      await sb.from("commande_injection").update({
+        produit_id: commandeForm.produit_id,
+        numero_commande: commandeForm.numero_commande,
+        quantite_commande: Number(commandeForm.quantite_commande || 0),
+        date_commande: commandeForm.date_commande,
+        quantite_recue: Number(commandeForm.quantite_recue || 0),
+        date_reception: commandeForm.date_reception || null,
+        montant: commandeForm.montant ?? null,
+        date_paiement: commandeForm.date_paiement || null,
+      }).eq("id", editingCommandeId);
+    } else {
+      await sb.from("commande_injection").insert({
+        produit_id: commandeForm.produit_id,
+        numero_commande: commandeForm.numero_commande,
+        quantite_commande: Number(commandeForm.quantite_commande || 0),
+        date_commande: commandeForm.date_commande,
+        quantite_recue: Number(commandeForm.quantite_recue || 0),
+        date_reception: commandeForm.date_reception || null,
+        montant: commandeForm.montant ?? null,
+        date_paiement: commandeForm.date_paiement || null,
+      });
+    }
     await fetchAll();
     setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 });
+    setEditingCommandeId(null);
     setOpenCommande(false);
   };
 
   const handleSaveInjection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!injectionForm.produit_id) return;
-    await sb.from("injection").insert({
-      produit_id: injectionForm.produit_id,
-      date_injection: injectionForm.date_injection,
-      quantite: Number(injectionForm.quantite || 1),
-    });
+    if (editingInjectionId) {
+      await sb.from("injection").update({
+        produit_id: injectionForm.produit_id,
+        date_injection: injectionForm.date_injection,
+        quantite: Number(injectionForm.quantite || 1),
+      }).eq("id", editingInjectionId);
+    } else {
+      await sb.from("injection").insert({
+        produit_id: injectionForm.produit_id,
+        date_injection: injectionForm.date_injection,
+        quantite: Number(injectionForm.quantite || 1),
+      });
+    }
     await fetchAll();
     setInjectionForm({ produit_id: "", date_injection: new Date().toISOString().slice(0, 10), quantite: 1 });
+    if (editingInjectionId) setOpenInjectionEdit(false);
+    setEditingInjectionId(null);
   };
 
   return (
@@ -289,10 +343,10 @@ const GestionStock: React.FC = () => {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={openCommande} onOpenChange={setOpenCommande}>
+        <Dialog open={openCommande} onOpenChange={(o) => { setOpenCommande(o); if (!o) { setEditingCommandeId(null); } }}>
           <DialogContent className="sm:max-w-5xl max-w-[95vw]">
             <DialogHeader>
-              <DialogTitle>Enregistrer une commande</DialogTitle>
+              <DialogTitle>{editingCommandeId ? "Modifier une commande" : "Enregistrer une commande"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSaveCommande} className="space-y-6">
               <div>
@@ -363,115 +417,217 @@ const GestionStock: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={openInjectionEdit} onOpenChange={setOpenInjectionEdit}>
+          <DialogContent className="sm:max-w-lg max-w-[95vw]">
+            <DialogHeader>
+              <DialogTitle>Modifier une injection</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSaveInjection} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-3 space-y-1">
+                  <Label>Produit</Label>
+                  <select
+                    className="border rounded-md px-3 py-2 w-full"
+                    value={injectionForm.produit_id || ""}
+                    onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Sélectionner un produit</option>
+                    {produits.map((p) => (
+                      <option key={p.id} value={p.id}>{p.produit}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Quantité</Label>
+                  <Input
+                    type="number"
+                    value={injectionForm.quantite ?? 1}
+                    onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Date d'injection</Label>
+                  <Input
+                    type="date"
+                    value={injectionForm.date_injection || ""}
+                    onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="submit">Enregistrer</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setOpenInjectionEdit(false); setEditingInjectionId(null); }}
+                >
+                  Annuler
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <section aria-labelledby="stock-section">
-          <h2 id="stock-section" className="text-xl font-medium">Stocks par produit</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produit</TableHead>
-                <TableHead>Molécule</TableHead>
-                <TableHead>Fabricant</TableHead>
-                <TableHead>Seuil alerte</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading && produits.map((p) => {
-                const stock = stockParProduit[p.id] ?? 0;
-                const below = (p.seuil_alerte ?? 0) > 0 && stock <= (p.seuil_alerte ?? 0);
-                return (
-                  <TableRow key={p.id} className={below ? "bg-red-50" : undefined}>
-                    <TableCell>{p.produit}</TableCell>
-                    <TableCell>{p.molecule}</TableCell>
-                    <TableCell>{p.fabricant}</TableCell>
-                    <TableCell>{p.seuil_alerte ?? 0}</TableCell>
-                    <TableCell>{stock}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => handleEditProduit(p)}>Modifier</Button>
-                    </TableCell>
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle id="stock-section">Stocks par produit</CardTitle>
+            </CardHeader>
+            <Separator className="bg-foreground/10" />
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produit</TableHead>
+                    <TableHead>Molécule</TableHead>
+                    <TableHead>Fabricant</TableHead>
+                    <TableHead>Seuil alerte</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-            <TableCaption>Stock calculé = quantité reçue - nombre d'injections</TableCaption>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {!loading && produits.map((p) => {
+                    const stock = stockParProduit[p.id] ?? 0;
+                    const below = (p.seuil_alerte ?? 0) > 0 && stock <= (p.seuil_alerte ?? 0);
+                    return (
+                      <TableRow key={p.id} className={below ? "bg-red-50" : undefined}>
+                        <TableCell>{p.produit}</TableCell>
+                        <TableCell>{p.molecule}</TableCell>
+                        <TableCell>{p.fabricant}</TableCell>
+                        <TableCell>{p.seuil_alerte ?? 0}</TableCell>
+                        <TableCell>{stock}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => handleEditProduit(p)}>Modifier</Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableCaption>Stock calculé = quantité reçue - nombre d'injections</TableCaption>
+              </Table>
+            </CardContent>
+          </Card>
         </section>
 
 
         <section aria-labelledby="injection-form-section">
-          <h2 id="injection-form-section" className="text-xl font-medium">Enregistrer une injection</h2>
-          <form onSubmit={handleSaveInjection} className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <select className="border rounded-md px-3 py-2" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
-              <option value="">Sélectionner un produit</option>
-              {produits.map((p) => (
-                <option key={p.id} value={p.id}>{p.produit}</option>
-              ))}
-            </select>
-            <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
-            <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
-            <div className="flex items-center">
-              <Button type="submit">Ajouter</Button>
-            </div>
-          </form>
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle id="injection-form-section">Enregistrer une injection</CardTitle>
+            </CardHeader>
+            <Separator className="bg-foreground/10" />
+            <CardContent>
+              <form onSubmit={handleSaveInjection} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <select className="border rounded-md px-3 py-2" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
+                  <option value="">Sélectionner un produit</option>
+                  {produits.map((p) => (
+                    <option key={p.id} value={p.id}>{p.produit}</option>
+                  ))}
+                </select>
+                <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
+                <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
+                <div className="flex items-center">
+                  <Button type="submit">Ajouter</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </section>
 
         <section aria-labelledby="historique-section">
-          <h2 id="historique-section" className="text-xl font-medium">Historique</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium mb-2">Commandes récentes</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produit</TableHead>
-                    <TableHead>N°</TableHead>
-                    <TableHead>Qté cmd</TableHead>
-                    <TableHead>Qté reçue</TableHead>
-                    <TableHead>Date cmd</TableHead>
-                    <TableHead>Date réception</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {commandes.slice().reverse().slice(0, 10).map((c) => {
-                    const prod = produits.find((p) => p.id === c.produit_id);
-                    return (
-                      <TableRow key={c.id}>
-                        <TableCell>{prod?.produit || ""}</TableCell>
-                        <TableCell>{c.numero_commande || "-"}</TableCell>
-                        <TableCell>{c.quantite_commande}</TableCell>
-                        <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                        <TableCell>{c.date_commande}</TableCell>
-                        <TableCell>{c.date_reception || "-"}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <div>
-              <h3 className="font-medium mb-2">Injections récentes</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produit</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {injections.slice().reverse().slice(0, 10).map((inj) => {
-                    const prod = produits.find((p) => p.id === inj.produit_id);
-                    return (
-                      <TableRow key={inj.id}>
-                        <TableCell>{prod?.produit || ""}</TableCell>
-                        <TableCell>{inj.date_injection}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle id="historique-section">Historique</CardTitle>
+            </CardHeader>
+            <Separator className="bg-foreground/10" />
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Commandes récentes</CardTitle>
+                  </CardHeader>
+                  <Separator className="bg-foreground/10" />
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produit</TableHead>
+                          <TableHead>N°</TableHead>
+                          <TableHead>Qté cmd</TableHead>
+                          <TableHead>Qté reçue</TableHead>
+                          <TableHead>Date cmd</TableHead>
+                          <TableHead>Date réception</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {commandes
+                          .slice()
+                          .sort((a, b) => new Date(b.date_commande).getTime() - new Date(a.date_commande).getTime())
+                          .slice(0, 10)
+                          .map((c) => {
+                            const prod = produits.find((p) => p.id === c.produit_id);
+                            return (
+                              <TableRow key={c.id}>
+                                <TableCell>{prod?.produit || ""}</TableCell>
+                                <TableCell>{c.numero_commande || "-"}</TableCell>
+                                <TableCell>{c.quantite_commande}</TableCell>
+                                <TableCell>{c.quantite_recue ?? 0}</TableCell>
+                                <TableCell>{c.date_commande}</TableCell>
+                                <TableCell>{c.date_reception || "-"}</TableCell>
+                                <TableCell>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditCommande(c)}>Modifier</Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Injections récentes</CardTitle>
+                  </CardHeader>
+                  <Separator className="bg-foreground/10" />
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produit</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {injections
+                          .slice()
+                          .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
+                          .slice(0, 10)
+                          .map((inj) => {
+                            const prod = produits.find((p) => p.id === inj.produit_id);
+                            return (
+                              <TableRow key={inj.id}>
+                                <TableCell>{prod?.produit || ""}</TableCell>
+                                <TableCell>{inj.date_injection}</TableCell>
+                                <TableCell>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditInjection(inj)}>Modifier</Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
         </section>
       </main>
     </>
