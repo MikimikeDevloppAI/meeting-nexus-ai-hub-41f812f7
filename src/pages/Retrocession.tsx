@@ -72,6 +72,9 @@ const Retrocession: React.FC = () => {
     },
   });
 
+  const [doctorFilter, setDoctorFilter] = useState<string>("all");
+  const doctorOptions = useMemo(() => Array.from(new Set((data || []).map(r => r.doctor))).sort(), [data]);
+
   const allMonths = useMemo(() => {
     const rangeStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 35, 1));
     let min = rangeStart;
@@ -105,7 +108,8 @@ const Retrocession: React.FC = () => {
       new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)),
       new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1))
     );
-    const doctors = Array.from(new Set((data || []).map(r => r.doctor))).sort();
+    const doctorsAll = Array.from(new Set((data || []).map(r => r.doctor))).sort();
+    const doctors = doctorFilter === 'all' ? doctorsAll : doctorsAll.filter((d) => d === doctorFilter);
 
     const result = monthList.map((m) => {
       const row: any = { month: m };
@@ -122,11 +126,13 @@ const Retrocession: React.FC = () => {
     });
 
     return { data: result, doctors };
-  }, [data, startMonth, endMonth]);
+  }, [data, startMonth, endMonth, doctorFilter]);
 
   const history = useMemo(() => {
-    return [...(data || [])].sort((a, b) => (a.period_month < b.period_month ? 1 : -1));
-  }, [data]);
+    return [...(data || [])]
+      .filter((r) => doctorFilter === "all" || r.doctor === doctorFilter)
+      .sort((a, b) => (a.period_month < b.period_month ? 1 : -1));
+  }, [data, doctorFilter]);
 
   const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
 
@@ -171,14 +177,27 @@ const Retrocession: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end text-sm text-muted-foreground">
-            Par défaut: YTD ({startMonth} → {endMonth})
+          <div>
+            <div className="text-sm text-muted-foreground mb-2">Docteur</div>
+            <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Tous les docteurs" />
+              </SelectTrigger>
+              <SelectContent className="z-50 bg-popover">
+                <SelectItem value="all">Tous les docteurs</SelectItem>
+                {doctorOptions.map((doc) => (
+                  <SelectItem key={doc} value={doc}>
+                    {doc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {byDoctor.map((d) => (
+        {byDoctor.filter(d => doctorFilter === "all" || d.doctor === doctorFilter).map((d) => (
           <Card key={d.doctor} className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -187,16 +206,16 @@ const Retrocession: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-sm text-muted-foreground">Rétrocession sur la période</div>
-              <div className="text-2xl font-semibold">{formatCHF(d.retro)}</div>
+              <div className="text-2xl font-semibold">{formatCHF0(d.retro)}</div>
               <Separator className="my-3" />
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <div className="text-muted-foreground">Chiffre d'affaires</div>
-                  <div className="font-medium">{formatCHF(d.ca)}</div>
+                  <div className="font-medium">{formatCHF0(d.ca)}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Pourcentage</div>
-                  <div className="font-medium">{(d.pct * 100).toFixed(1)}%</div>
+                  <div className="font-medium">{Math.round(d.pct * 100)}%</div>
                 </div>
               </div>
             </CardContent>
