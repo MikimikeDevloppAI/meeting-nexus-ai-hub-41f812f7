@@ -591,7 +591,7 @@ const GestionStock: React.FC = () => {
                     );
                   })}
                 </TableBody>
-                <TableCaption>Stock calculé = quantité reçue - nombre d'injections</TableCaption>
+                
               </Table>
             </CardContent>
           </Card>
