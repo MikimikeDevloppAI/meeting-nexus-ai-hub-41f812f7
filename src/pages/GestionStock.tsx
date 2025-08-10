@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, ClipboardList } from "lucide-react";
+import { PlusCircle, ClipboardList, Pencil } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
 // our new tables. We cast to any locally to avoid TS issues.
@@ -501,7 +501,9 @@ const GestionStock: React.FC = () => {
                         <TableCell>{p.seuil_alerte ?? 0}</TableCell>
                         <TableCell>{stock}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" onClick={() => handleEditProduit(p)}>Modifier</Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -580,7 +582,9 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{c.date_commande}</TableCell>
                                 <TableCell>{c.date_reception || "-"}</TableCell>
                                 <TableCell>
-                                  <Button size="sm" variant="outline" onClick={() => handleEditCommande(c)}>Modifier</Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
@@ -600,6 +604,7 @@ const GestionStock: React.FC = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Produit</TableHead>
+                          <TableHead>Quantité</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Action</TableHead>
                         </TableRow>
@@ -614,9 +619,12 @@ const GestionStock: React.FC = () => {
                             return (
                               <TableRow key={inj.id}>
                                 <TableCell>{prod?.produit || ""}</TableCell>
+                                <TableCell>{inj.quantite ?? 1}</TableCell>
                                 <TableCell>{inj.date_injection}</TableCell>
                                 <TableCell>
-                                  <Button size="sm" variant="outline" onClick={() => handleEditInjection(inj)}>Modifier</Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
