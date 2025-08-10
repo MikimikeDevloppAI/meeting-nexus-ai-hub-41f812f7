@@ -18,6 +18,8 @@ interface RetroRow {
 const formatCHF = (n: number) =>
   new Intl.NumberFormat("fr-CH", { style: "currency", currency: "CHF", maximumFractionDigits: 2 }).format(n || 0);
 
+const formatCHF0 = (n: number) =>
+  new Intl.NumberFormat("fr-CH", { style: "currency", currency: "CHF", maximumFractionDigits: 0 }).format(Math.round(n || 0));
 const formatYYYYMM = (dateStr: string) => {
   const d = new Date(dateStr);
   const y = d.getUTCFullYear();
@@ -219,11 +221,11 @@ const Retrocession: React.FC = () => {
               />
               {chartData.doctors.map((doc, idx) => (
                 <Bar key={doc} dataKey={doc} fill={palette[idx % palette.length]}>
-                  <LabelList dataKey={doc} position="top" formatter={(val: any) => (Number(val) ? formatCHF(Number(val)) : '')} />
+                  <LabelList dataKey={doc} position="top" formatter={(val: any) => (Number(val) ? formatCHF0(Number(val)) : '')} />
                 </Bar>
               ))}
               <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot>
-                <LabelList dataKey="total" position="top" formatter={(val: any) => (Number(val) ? formatCHF(Number(val)) : '')} />
+                <LabelList dataKey="total" position="top" formatter={(val: any) => (Number(val) ? formatCHF0(Number(val)) : '')} />
               </Line>
             </BarChart>
           </ResponsiveContainer>
