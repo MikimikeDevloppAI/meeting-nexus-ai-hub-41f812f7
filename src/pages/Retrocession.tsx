@@ -234,6 +234,9 @@ const Retrocession: React.FC = () => {
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
                 labelFormatter={(label) => `Mois: ${label}`}
+                itemStyle={{ color: 'hsl(0 0% 0%)' }}
+                contentStyle={{ color: 'hsl(0 0% 0%)' }}
+                labelStyle={{ color: 'hsl(0 0% 0%)' }}
               />
               <Legend
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
