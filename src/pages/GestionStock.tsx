@@ -149,6 +149,24 @@ const GestionStock: React.FC = () => {
     return out;
   }, [commandes, injections, produits]);
 
+  const moyenneInjections3Mois = useMemo(() => {
+    const start = new Date();
+    start.setMonth(start.getMonth() - 3);
+    const sums: Record<string, number> = {};
+    injections.forEach((inj) => {
+      const d = new Date(inj.date_injection);
+      if (!isNaN(d.getTime()) && d >= start) {
+        const q = Number(inj.quantite ?? 1);
+        sums[inj.produit_id] = (sums[inj.produit_id] || 0) + (isNaN(q) ? 0 : q);
+      }
+    });
+    const avg: Record<string, number> = {};
+    Object.keys(sums).forEach((pid) => {
+      avg[pid] = sums[pid] / 3;
+    });
+    return avg;
+  }, [injections]);
+
   const resetProduitForm = () => {
     setEditingId(null);
     setProduitForm({ produit: "", molecule: "", fabricant: "", concentration: "", presentation: "", prix_patient: undefined, prix_achat: undefined, representant: "", telephone: "", email: "", seuil_alerte: 0 });
@@ -542,6 +560,7 @@ const GestionStock: React.FC = () => {
                     <TableHead>Molécule</TableHead>
                     <TableHead>Fabricant</TableHead>
                     <TableHead>Seuil alerte</TableHead>
+                    <TableHead>Moy. inj/mois (3m)</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead className="text-center">Action</TableHead>
                   </TableRow>
@@ -555,8 +574,9 @@ const GestionStock: React.FC = () => {
                         <TableCell>{p.produit}</TableCell>
                         <TableCell>{p.molecule}</TableCell>
                         <TableCell>{p.fabricant}</TableCell>
-                        <TableCell>{p.seuil_alerte ?? 0}</TableCell>
-                        <TableCell>{stock}</TableCell>
+                         <TableCell>{p.seuil_alerte ?? 0}</TableCell>
+                         <TableCell>{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                         <TableCell>{stock}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
