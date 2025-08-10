@@ -609,6 +609,36 @@ export type Database = {
         }
         Relationships: []
       }
+      retrocessions: {
+        Row: {
+          chiffre_affaires: number
+          created_at: string
+          doctor: string
+          id: string
+          period_month: string
+          retrocession: number
+          updated_at: string
+        }
+        Insert: {
+          chiffre_affaires?: number
+          created_at?: string
+          doctor: string
+          id?: string
+          period_month: string
+          retrocession?: number
+          updated_at?: string
+        }
+        Update: {
+          chiffre_affaires?: number
+          created_at?: string
+          doctor?: string
+          id?: string
+          period_month?: string
+          retrocession?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_deep_search_followups: {
         Row: {
           answer: string

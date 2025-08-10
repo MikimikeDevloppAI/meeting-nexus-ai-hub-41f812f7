@@ -28,6 +28,7 @@ import IOLCalculator from "./pages/IOLCalculator";
 import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
 import GestionStock from "./pages/GestionStock";
+import Retrocession from "./pages/Retrocession";
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 import { TodoCounterWrapper } from "./components/layout/TodoCounterWrapper";
 
@@ -122,6 +123,11 @@ const App = () => {
               <Route path="gestion-stock" element={
                 <PermissionProtectedRoute requiredPermission="stock-management">
                   <GestionStock />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="retrocession" element={
+                <PermissionProtectedRoute requiredPermission="retrocession">
+                  <Retrocession />
                 </PermissionProtectedRoute>
               } />
               <Route path="profile" element={
