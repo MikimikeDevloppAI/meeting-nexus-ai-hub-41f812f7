@@ -116,6 +116,21 @@ const GestionStock: React.FC = () => {
     fetchAll();
   }, []);
 
+  const formatDateShort = (d?: string | null) => {
+    if (!d) return "-";
+    const s = d.toString();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, day] = s.slice(0, 10).split("-");
+      return `${day}.${m}.${y.slice(2)}`;
+    }
+    const dt = new Date(s);
+    if (isNaN(dt.getTime())) return s;
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yy = String(dt.getFullYear()).slice(2);
+    return `${dd}.${mm}.${yy}`;
+  };
+
   const stockParProduit = useMemo(() => {
     const recu: Record<string, number> = {};
     const consomme: Record<string, number> = {};
@@ -518,7 +533,7 @@ const GestionStock: React.FC = () => {
             <CardHeader>
               <CardTitle id="stock-section">Stocks par produit</CardTitle>
             </CardHeader>
-            <Separator className="bg-foreground/10" />
+            {/* Separator removed as requested */}
             <CardContent>
               <Table>
                 <TableHeader>
@@ -577,8 +592,8 @@ const GestionStock: React.FC = () => {
                   ))}
                 </select>
                 <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
-                <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
-                <div className="flex items-center justify-end">
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
                   <Button type="submit">Ajouter</Button>
                 </div>
               </form>
@@ -591,7 +606,6 @@ const GestionStock: React.FC = () => {
             <CardHeader>
               <CardTitle id="historique-section">Historique</CardTitle>
             </CardHeader>
-            <Separator className="bg-foreground/10" />
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="shadow-sm">
@@ -627,10 +641,10 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{c.numero_commande || "-"}</TableCell>
                                 <TableCell>{c.quantite_commande}</TableCell>
                                 <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                                <TableCell>{c.date_commande}</TableCell>
-                                <TableCell>{c.date_reception || "-"}</TableCell>
+                                <TableCell>{formatDateShort(c.date_commande)}</TableCell>
+                                <TableCell>{formatDateShort(c.date_reception)}</TableCell>
                                 <TableCell>{c.montant ?? "-"}</TableCell>
-                                <TableCell>{c.date_paiement || "-"}</TableCell>
+                                <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center gap-1">
                                     <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
@@ -675,7 +689,7 @@ const GestionStock: React.FC = () => {
                               <TableRow key={inj.id}>
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{inj.quantite ?? 1}</TableCell>
-                                <TableCell>{inj.date_injection}</TableCell>
+                                <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center gap-1">
                                     <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
