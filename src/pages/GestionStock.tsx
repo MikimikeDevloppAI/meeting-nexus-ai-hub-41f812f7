@@ -521,9 +521,8 @@ const GestionStock: React.FC = () => {
             <CardHeader>
               <CardTitle id="injection-form-section">Enregistrer une injection</CardTitle>
             </CardHeader>
-            <Separator className="bg-foreground/10" />
-            <CardContent>
-              <form onSubmit={handleSaveInjection} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <CardContent className="flex justify-center">
+              <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
                 <select className="border rounded-md px-3 py-2" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
                   <option value="">Sélectionner un produit</option>
                   {produits.map((p) => (
