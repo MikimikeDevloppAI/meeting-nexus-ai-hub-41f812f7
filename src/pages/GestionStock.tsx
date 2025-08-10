@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PlusCircle, ClipboardList } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
 // our new tables. We cast to any locally to avoid TS issues.
@@ -83,6 +85,9 @@ const GestionStock: React.FC = () => {
     date_injection: new Date().toISOString().slice(0, 10),
   });
 
+  const [openProduit, setOpenProduit] = useState(false);
+  const [openCommande, setOpenCommande] = useState(false);
+
   const fetchAll = async () => {
     setLoading(true);
     const [{ data: p }, { data: c }, { data: i }] = await Promise.all([
@@ -143,11 +148,13 @@ const GestionStock: React.FC = () => {
     }
     await fetchAll();
     resetProduitForm();
+    setOpenProduit(false);
   };
 
   const handleEditProduit = (p: Produit) => {
     setEditingId(p.id);
     setProduitForm(p);
+    setOpenProduit(true);
   };
 
   const handleSaveCommande = async (e: React.FormEvent) => {
@@ -165,6 +172,7 @@ const GestionStock: React.FC = () => {
     });
     await fetchAll();
     setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 });
+    setOpenCommande(false);
   };
 
   const handleSaveInjection = async (e: React.FormEvent) => {
@@ -184,8 +192,67 @@ const GestionStock: React.FC = () => {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Gestion du stock</h1>
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un produit
+          </Button>
+          <Button variant="outline" onClick={() => { setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 }); setOpenCommande(true); }}>
+            <ClipboardList className="mr-2 h-4 w-4" /> Enregistrer une commande
+          </Button>
+        </div>
       </header>
       <main className="mt-6 space-y-10">
+        <Dialog open={openProduit} onOpenChange={setOpenProduit}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingId ? "Modifier un produit" : "Ajouter un produit"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSaveProduit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input placeholder="Produit" value={produitForm.produit || ""} onChange={(e) => setProduitForm({ ...produitForm, produit: e.target.value })} required />
+              <Input placeholder="Molécule" value={produitForm.molecule || ""} onChange={(e) => setProduitForm({ ...produitForm, molecule: e.target.value })} />
+              <Input placeholder="Fabricant" value={produitForm.fabricant || ""} onChange={(e) => setProduitForm({ ...produitForm, fabricant: e.target.value })} />
+              <Input placeholder="Concentration" value={produitForm.concentration || ""} onChange={(e) => setProduitForm({ ...produitForm, concentration: e.target.value })} />
+              <Input placeholder="Présentation" value={produitForm.presentation || ""} onChange={(e) => setProduitForm({ ...produitForm, presentation: e.target.value })} />
+              <Input type="number" step="0.01" placeholder="Prix patient" value={produitForm.prix_patient ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_patient: parseFloat(e.target.value) })} />
+              <Input type="number" step="0.01" placeholder="Prix d'achat" value={produitForm.prix_achat ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_achat: parseFloat(e.target.value) })} />
+              <Input placeholder="Représentant" value={produitForm.representant || ""} onChange={(e) => setProduitForm({ ...produitForm, representant: e.target.value })} />
+              <Input placeholder="Téléphone" value={produitForm.telephone || ""} onChange={(e) => setProduitForm({ ...produitForm, telephone: e.target.value })} />
+              <Input type="email" placeholder="Email" value={produitForm.email || ""} onChange={(e) => setProduitForm({ ...produitForm, email: e.target.value })} />
+              <Input type="number" placeholder="Seuil d'alerte" value={produitForm.seuil_alerte ?? 0} onChange={(e) => setProduitForm({ ...produitForm, seuil_alerte: parseInt(e.target.value || "0") })} />
+              <div className="flex items-center gap-2">
+                <Button type="submit">{editingId ? "Enregistrer" : "Ajouter"}</Button>
+                <Button type="button" variant="outline" onClick={() => { setOpenProduit(false); resetProduitForm(); }}>Annuler</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openCommande} onOpenChange={setOpenCommande}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enregistrer une commande</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSaveCommande} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <select className="border rounded-md px-3 py-2" value={commandeForm.produit_id || ""} onChange={(e) => setCommandeForm({ ...commandeForm, produit_id: e.target.value })} required>
+                <option value="">Sélectionner un produit</option>
+                {produits.map((p) => (
+                  <option key={p.id} value={p.id}>{p.produit}</option>
+                ))}
+              </select>
+              <Input placeholder="Numéro de commande" value={commandeForm.numero_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, numero_commande: e.target.value })} />
+              <Input type="number" placeholder="Quantité commandée" value={commandeForm.quantite_commande ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_commande: parseInt(e.target.value || "0") })} required />
+              <Input type="date" placeholder="Date commande" value={commandeForm.date_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_commande: e.target.value })} required />
+              <Input type="number" placeholder="Quantité reçue" value={commandeForm.quantite_recue ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_recue: parseInt(e.target.value || "0") })} />
+              <Input type="date" placeholder="Date réception" value={commandeForm.date_reception || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_reception: e.target.value })} />
+              <Input type="number" step="0.01" placeholder="Montant" value={commandeForm.montant ?? ""} onChange={(e) => setCommandeForm({ ...commandeForm, montant: parseFloat(e.target.value) })} />
+              <Input type="date" placeholder="Date paiement" value={commandeForm.date_paiement || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_paiement: e.target.value })} />
+              <div className="flex items-center">
+                <Button type="submit">Enregistrer</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <section aria-labelledby="stock-section">
           <h2 id="stock-section" className="text-xl font-medium">Stocks par produit</h2>
           <Table>
@@ -221,50 +288,6 @@ const GestionStock: React.FC = () => {
           </Table>
         </section>
 
-        <section aria-labelledby="produit-form-section">
-          <h2 id="produit-form-section" className="text-xl font-medium">{editingId ? "Modifier un produit" : "Ajouter un produit"}</h2>
-          <form onSubmit={handleSaveProduit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input placeholder="Produit" value={produitForm.produit || ""} onChange={(e) => setProduitForm({ ...produitForm, produit: e.target.value })} required />
-            <Input placeholder="Molécule" value={produitForm.molecule || ""} onChange={(e) => setProduitForm({ ...produitForm, molecule: e.target.value })} />
-            <Input placeholder="Fabricant" value={produitForm.fabricant || ""} onChange={(e) => setProduitForm({ ...produitForm, fabricant: e.target.value })} />
-            <Input placeholder="Concentration" value={produitForm.concentration || ""} onChange={(e) => setProduitForm({ ...produitForm, concentration: e.target.value })} />
-            <Input placeholder="Présentation" value={produitForm.presentation || ""} onChange={(e) => setProduitForm({ ...produitForm, presentation: e.target.value })} />
-            <Input type="number" step="0.01" placeholder="Prix patient" value={produitForm.prix_patient ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_patient: parseFloat(e.target.value) })} />
-            <Input type="number" step="0.01" placeholder="Prix d'achat" value={produitForm.prix_achat ?? ""} onChange={(e) => setProduitForm({ ...produitForm, prix_achat: parseFloat(e.target.value) })} />
-            <Input placeholder="Représentant" value={produitForm.representant || ""} onChange={(e) => setProduitForm({ ...produitForm, representant: e.target.value })} />
-            <Input placeholder="Téléphone" value={produitForm.telephone || ""} onChange={(e) => setProduitForm({ ...produitForm, telephone: e.target.value })} />
-            <Input type="email" placeholder="Email" value={produitForm.email || ""} onChange={(e) => setProduitForm({ ...produitForm, email: e.target.value })} />
-            <Input type="number" placeholder="Seuil d'alerte" value={produitForm.seuil_alerte ?? 0} onChange={(e) => setProduitForm({ ...produitForm, seuil_alerte: parseInt(e.target.value || "0") })} />
-            <div className="flex items-center gap-2">
-              <Button type="submit">{editingId ? "Enregistrer" : "Ajouter"}</Button>
-              {editingId && (
-                <Button type="button" variant="outline" onClick={resetProduitForm}>Annuler</Button>
-              )}
-            </div>
-          </form>
-        </section>
-
-        <section aria-labelledby="commande-form-section">
-          <h2 id="commande-form-section" className="text-xl font-medium">Enregistrer une commande</h2>
-          <form onSubmit={handleSaveCommande} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <select className="border rounded-md px-3 py-2" value={commandeForm.produit_id || ""} onChange={(e) => setCommandeForm({ ...commandeForm, produit_id: e.target.value })} required>
-              <option value="">Sélectionner un produit</option>
-              {produits.map((p) => (
-                <option key={p.id} value={p.id}>{p.produit}</option>
-              ))}
-            </select>
-            <Input placeholder="Numéro de commande" value={commandeForm.numero_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, numero_commande: e.target.value })} />
-            <Input type="number" placeholder="Quantité commandée" value={commandeForm.quantite_commande ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_commande: parseInt(e.target.value || "0") })} required />
-            <Input type="date" placeholder="Date commande" value={commandeForm.date_commande || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_commande: e.target.value })} required />
-            <Input type="number" placeholder="Quantité reçue" value={commandeForm.quantite_recue ?? 0} onChange={(e) => setCommandeForm({ ...commandeForm, quantite_recue: parseInt(e.target.value || "0") })} />
-            <Input type="date" placeholder="Date réception" value={commandeForm.date_reception || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_reception: e.target.value })} />
-            <Input type="number" step="0.01" placeholder="Montant" value={commandeForm.montant ?? ""} onChange={(e) => setCommandeForm({ ...commandeForm, montant: parseFloat(e.target.value) })} />
-            <Input type="date" placeholder="Date paiement" value={commandeForm.date_paiement || ""} onChange={(e) => setCommandeForm({ ...commandeForm, date_paiement: e.target.value })} />
-            <div className="flex items-center">
-              <Button type="submit">Enregistrer</Button>
-            </div>
-          </form>
-        </section>
 
         <section aria-labelledby="injection-form-section">
           <h2 id="injection-form-section" className="text-xl font-medium">Enregistrer une injection</h2>
