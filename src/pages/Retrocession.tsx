@@ -142,7 +142,7 @@ const Retrocession: React.FC = () => {
         <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
       </header>
 
-      <Card>
+      <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Période</CardTitle>
         </CardHeader>
@@ -198,7 +198,7 @@ const Retrocession: React.FC = () => {
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {byDoctor.filter(d => doctorFilter === "all" || d.doctor === doctorFilter).map((d) => (
-          <Card key={d.doctor} className="shadow-sm">
+          <Card key={d.doctor} className="shadow-md border">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{d.doctor}</span>
@@ -223,7 +223,7 @@ const Retrocession: React.FC = () => {
         ))}
       </section>
 
-      <Card>
+      <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Rétrocessions par mois (par docteur)</CardTitle>
         </CardHeader>
@@ -251,19 +251,19 @@ const Retrocession: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Historique des rétrocessions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative w-full overflow-auto">
-            <Table className="font-calibri text-[15px] md:text-base">
+            <Table className="font-calibri text-[15px] md:text-base table-fixed w-full">
               <TableHeader className="bg-table-header">
                 <TableRow className="border-row">
-                  <TableHead className="px-3 py-2 font-semibold text-strong">Période</TableHead>
-                  <TableHead className="px-3 py-2 font-semibold text-strong">Docteur</TableHead>
-                  <TableHead className="px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
-                  <TableHead className="px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
+                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong">Période</TableHead>
+                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong">Docteur</TableHead>
+                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
+                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
