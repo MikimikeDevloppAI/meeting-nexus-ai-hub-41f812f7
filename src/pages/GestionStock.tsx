@@ -547,7 +547,7 @@ const GestionStock: React.FC = () => {
         </AlertDialog>
 
         <section aria-labelledby="stock-section">
-          <Card className="shadow-sm">
+          <Card className="shadow-md border">
             <CardHeader>
               <CardTitle id="stock-section">Stocks par produit</CardTitle>
             </CardHeader>
@@ -628,7 +628,7 @@ const GestionStock: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                <Card className="shadow-sm md:col-span-3 md:order-2">
+                <Card className="shadow-md border md:col-span-3 md:order-2">
                   <CardHeader>
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
                   </CardHeader>
@@ -683,7 +683,7 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-sm md:col-span-2 md:order-1">
+                <Card className="shadow-md border md:col-span-2 md:order-1">
                   <CardHeader>
                     <CardTitle className="text-base">Injections récentes</CardTitle>
                   </CardHeader>
