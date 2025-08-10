@@ -580,9 +580,11 @@ const GestionStock: React.FC = () => {
                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
                           <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
                           <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                          <TableCell className={`px-3 py-2 text-center ${below ? 'bg-danger-soft text-danger-strong font-semibold' : ''}`}>
+                          <TableCell className="px-3 py-2 text-center">
                             <div className="inline-flex items-center gap-2">
-                              {stock > 0 && <span>{stock}</span>}
+                              {stock > 0 && (
+                                <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                              )}
                               {stock === 0 && (
                                 <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
                                   Rupture
