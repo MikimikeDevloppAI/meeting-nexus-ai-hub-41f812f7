@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      commande_injection: {
+        Row: {
+          created_at: string
+          date_commande: string
+          date_paiement: string | null
+          date_reception: string | null
+          id: string
+          montant: number | null
+          numero_commande: string | null
+          produit_id: string
+          quantite_commande: number
+          quantite_recue: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_commande: string
+          date_paiement?: string | null
+          date_reception?: string | null
+          id?: string
+          montant?: number | null
+          numero_commande?: string | null
+          produit_id: string
+          quantite_commande: number
+          quantite_recue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_commande?: string
+          date_paiement?: string | null
+          date_reception?: string | null
+          id?: string
+          montant?: number | null
+          numero_commande?: string | null
+          produit_id?: string
+          quantite_commande?: number
+          quantite_recue?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commande_injection_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produit_injection"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_embeddings: {
         Row: {
           chunk_index: number
@@ -105,6 +155,38 @@ export type Database = {
             columns: ["uploaded_document_id"]
             isOneToOne: false
             referencedRelation: "uploaded_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      injection: {
+        Row: {
+          created_at: string
+          date_injection: string
+          id: string
+          produit_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_injection?: string
+          id?: string
+          produit_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_injection?: string
+          id?: string
+          produit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "injection_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produit_injection"
             referencedColumns: ["id"]
           },
         ]
@@ -470,6 +552,57 @@ export type Database = {
           id?: string
           name?: string
           path?: string
+        }
+        Relationships: []
+      }
+      produit_injection: {
+        Row: {
+          concentration: string | null
+          created_at: string
+          email: string | null
+          fabricant: string | null
+          id: string
+          molecule: string | null
+          presentation: string | null
+          prix_achat: number | null
+          prix_patient: number | null
+          produit: string
+          representant: string | null
+          seuil_alerte: number | null
+          telephone: string | null
+          updated_at: string
+        }
+        Insert: {
+          concentration?: string | null
+          created_at?: string
+          email?: string | null
+          fabricant?: string | null
+          id?: string
+          molecule?: string | null
+          presentation?: string | null
+          prix_achat?: number | null
+          prix_patient?: number | null
+          produit: string
+          representant?: string | null
+          seuil_alerte?: number | null
+          telephone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          concentration?: string | null
+          created_at?: string
+          email?: string | null
+          fabricant?: string | null
+          id?: string
+          molecule?: string | null
+          presentation?: string | null
+          prix_achat?: number | null
+          prix_patient?: number | null
+          produit?: string
+          representant?: string | null
+          seuil_alerte?: number | null
+          telephone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

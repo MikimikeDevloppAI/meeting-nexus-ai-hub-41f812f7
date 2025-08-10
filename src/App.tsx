@@ -27,7 +27,7 @@ import PatientLetters from "./pages/PatientLetters";
 import IOLCalculator from "./pages/IOLCalculator";
 import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
-
+import GestionStock from "./pages/GestionStock";
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 import { TodoCounterWrapper } from "./components/layout/TodoCounterWrapper";
 
@@ -117,6 +117,11 @@ const App = () => {
               <Route path="hr-validation" element={
                 <PermissionProtectedRoute requiredPermission="hr-validation">
                   <HRValidation />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="gestion-stock" element={
+                <PermissionProtectedRoute requiredPermission="stock-management">
+                  <GestionStock />
                 </PermissionProtectedRoute>
               } />
               <Route path="profile" element={
