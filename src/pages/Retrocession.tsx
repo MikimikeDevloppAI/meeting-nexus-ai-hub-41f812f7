@@ -56,12 +56,14 @@ const Retrocession: React.FC = () => {
     queryKey: ["retrocessions", startMonth, endMonth],
     queryFn: async () => {
       const fromDate = toFirstOfMonth(startMonth).toISOString().slice(0, 10);
-      const toDate = toFirstOfMonth(endMonth).toISOString().slice(0, 10);
+      const endFirst = toFirstOfMonth(endMonth);
+      const endNext = new Date(Date.UTC(endFirst.getUTCFullYear(), endFirst.getUTCMonth() + 1, 1));
+      const toDateExclusive = endNext.toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("retrocessions")
         .select("*")
         .gte("period_month", fromDate)
-        .lte("period_month", toDate)
+        .lt("period_month", toDateExclusive)
         .order("period_month", { ascending: true });
       if (error) throw error;
       return (data as any[] as RetroRow[]) || [];
@@ -69,10 +71,17 @@ const Retrocession: React.FC = () => {
   });
 
   const allMonths = useMemo(() => {
-    const earliest = data && data.length > 0 ? new Date(data[0].period_month) : defaultStart;
-    const latest = data && data.length > 0 ? new Date(data[data.length - 1].period_month) : defaultEnd;
-    const min = new Date(Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), 1));
-    const max = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), 1));
+    const rangeStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 35, 1));
+    let min = rangeStart;
+    let max = new Date(Date.UTC(defaultEnd.getUTCFullYear(), defaultEnd.getUTCMonth(), 1));
+    if (data && data.length > 0) {
+      const earliest = new Date(data[0].period_month);
+      const latest = new Date(data[data.length - 1].period_month);
+      const earliestMonth = new Date(Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), 1));
+      const latestMonth = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), 1));
+      if (earliestMonth < min) min = earliestMonth;
+      if (latestMonth > max) max = latestMonth;
+    }
     return monthsRange(min, max);
   }, [data]);
 
