@@ -528,7 +528,7 @@ const GestionStock: React.FC = () => {
                     <TableHead>Fabricant</TableHead>
                     <TableHead>Seuil alerte</TableHead>
                     <TableHead>Stock</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead className="text-center">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -542,8 +542,8 @@ const GestionStock: React.FC = () => {
                         <TableCell>{p.fabricant}</TableCell>
                         <TableCell>{p.seuil_alerte ?? 0}</TableCell>
                         <TableCell>{stock}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
                             <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -609,7 +609,9 @@ const GestionStock: React.FC = () => {
                           <TableHead>Qté reçue</TableHead>
                           <TableHead>Date cmd</TableHead>
                           <TableHead>Date réception</TableHead>
-                          <TableHead>Action</TableHead>
+                          <TableHead>Montant</TableHead>
+                          <TableHead>Date paiement</TableHead>
+                          <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -627,8 +629,10 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{c.quantite_recue ?? 0}</TableCell>
                                 <TableCell>{c.date_commande}</TableCell>
                                 <TableCell>{c.date_reception || "-"}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
+                                <TableCell>{c.montant ?? "-"}</TableCell>
+                                <TableCell>{c.date_paiement || "-"}</TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-1">
                                     <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -657,7 +661,7 @@ const GestionStock: React.FC = () => {
                           <TableHead>Produit</TableHead>
                           <TableHead>Quantité</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Action</TableHead>
+                          <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -672,8 +676,8 @@ const GestionStock: React.FC = () => {
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{inj.quantite ?? 1}</TableCell>
                                 <TableCell>{inj.date_injection}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-1">
                                     <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
                                       <Pencil className="h-4 w-4" />
                                     </Button>
