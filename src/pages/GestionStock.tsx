@@ -535,7 +535,7 @@ const GestionStock: React.FC = () => {
             </CardHeader>
             {/* Separator removed as requested */}
             <CardContent>
-              <Table>
+              <Table className="font-calibri text-[15px] md:text-base">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Produit</TableHead>
@@ -614,7 +614,7 @@ const GestionStock: React.FC = () => {
                   </CardHeader>
                   <Separator className="bg-foreground/10" />
                   <CardContent>
-                    <Table>
+                    <Table className="font-calibri text-[15px] md:text-base">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Produit</TableHead>
@@ -669,7 +669,7 @@ const GestionStock: React.FC = () => {
                   </CardHeader>
                   <Separator className="bg-foreground/10" />
                   <CardContent>
-                    <Table>
+                    <Table className="font-calibri text-[15px] md:text-base">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Produit</TableHead>
