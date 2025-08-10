@@ -257,13 +257,13 @@ const Retrocession: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="relative w-full overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Période</TableHead>
-                  <TableHead>Docteur</TableHead>
-                  <TableHead>Chiffre d'affaires</TableHead>
-                  <TableHead>Rétrocession</TableHead>
+            <Table className="font-calibri text-[15px] md:text-base">
+              <TableHeader className="bg-table-header">
+                <TableRow className="border-row">
+                  <TableHead className="px-3 py-2 font-semibold text-strong">Période</TableHead>
+                  <TableHead className="px-3 py-2 font-semibold text-strong">Docteur</TableHead>
+                  <TableHead className="px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
+                  <TableHead className="px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -278,11 +278,11 @@ const Retrocession: React.FC = () => {
                   </TableRow>
                 )}
                 {history.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{formatYYYYMM(r.period_month)}</TableCell>
-                    <TableCell>{r.doctor}</TableCell>
-                    <TableCell>{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
-                    <TableCell>{formatCHF(Number(r.retrocession || 0))}</TableCell>
+                  <TableRow key={r.id} className="border-row even:bg-row-alt">
+                    <TableCell className="px-3 py-2">{formatYYYYMM(r.period_month)}</TableCell>
+                    <TableCell className="px-3 py-2">{r.doctor}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
+                    <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
