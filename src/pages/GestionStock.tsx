@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, ClipboardList, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, ClipboardList, Pencil, Trash2, Phone } from "lucide-react";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
 // our new tables. We cast to any locally to avoid TS issues.
@@ -94,6 +94,8 @@ const GestionStock: React.FC = () => {
   const [openProduit, setOpenProduit] = useState(false);
   const [openCommande, setOpenCommande] = useState(false);
   const [openInjectionEdit, setOpenInjectionEdit] = useState(false);
+  const [openContact, setOpenContact] = useState(false);
+  const [contactProduit, setContactProduit] = useState<Produit | null>(null);
   const [editingCommandeId, setEditingCommandeId] = useState<string | null>(null);
   const [editingInjectionId, setEditingInjectionId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -531,6 +533,44 @@ const GestionStock: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={openContact} onOpenChange={setOpenContact}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Informations de contact</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Représentant</div>
+                <div className="text-strong">{contactProduit?.representant || '-'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Fabricant</div>
+                <div className="text-strong">{contactProduit?.fabricant || '-'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Téléphone</div>
+                <div className="text-strong">
+                  {contactProduit?.telephone ? (
+                    <a className="underline underline-offset-2" href={`tel:${contactProduit.telephone}`}>{contactProduit.telephone}</a>
+                  ) : (
+                    '-'
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Email</div>
+                <div className="text-strong">
+                  {contactProduit?.email ? (
+                    <a className="underline underline-offset-2" href={`mailto:${contactProduit.email}`}>{contactProduit.email}</a>
+                  ) : (
+                    '-'
+                  )}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -594,6 +634,9 @@ const GestionStock: React.FC = () => {
                           </TableCell>
                           <TableCell className="px-3 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
+                                <Phone className="h-4 w-4" />
+                              </Button>
                               <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
                                 <Pencil className="h-4 w-4" />
                               </Button>
