@@ -65,6 +65,8 @@ export default {
 				}
 			},
 			fontFamily: {
+				inter: ['Inter', 'system-ui', 'sans-serif'],
+				roboto: ['Roboto', 'system-ui', 'sans-serif'],
 				calibri: ['Calibri', 'Segoe UI', 'Arial', 'sans-serif'],
 			},
 			borderRadius: {

@@ -551,51 +551,61 @@ const GestionStock: React.FC = () => {
             <CardHeader>
               <CardTitle id="stock-section">Stocks par produit</CardTitle>
             </CardHeader>
-            {/* Separator removed as requested */}
             <CardContent>
-              <Table className="font-calibri text-[15px] md:text-base">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produit</TableHead>
-                    <TableHead>Molécule</TableHead>
-                    <TableHead>Fabricant</TableHead>
-                    <TableHead>Seuil alerte</TableHead>
-                    <TableHead>Moy. inj/mois (3m)</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead className="text-center">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {!loading && produits
-                    .slice()
-                    .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
-                    .map((p) => {
-                    const stock = stockParProduit[p.id] ?? 0;
-                    const below = (p.seuil_alerte ?? 0) > 0 && stock <= (p.seuil_alerte ?? 0);
-                    return (
-                      <TableRow key={p.id} className={below ? "bg-red-50" : undefined}>
-                        <TableCell>{p.produit}</TableCell>
-                        <TableCell>{p.molecule}</TableCell>
-                        <TableCell>{p.fabricant}</TableCell>
-                         <TableCell>{p.seuil_alerte ?? 0}</TableCell>
-                         <TableCell>{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                         <TableCell>{stock}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-                
-              </Table>
+              <div className="overflow-x-auto">
+                <Table className="font-inter text-[15px]">
+                  <TableHeader className="bg-table-header">
+                    <TableRow className="border-row">
+                      <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                      <TableHead className="px-3 py-2 font-medium text-muted-2 hidden md:table-cell">Molécule</TableHead>
+                      <TableHead className="px-3 py-2 font-medium text-muted-2 hidden md:table-cell">Fabricant</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-medium">Seuil alerte</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-medium">Moy. inj/mois (3m)</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold">Stock</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-medium">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {!loading && produits
+                      .slice()
+                      .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
+                      .map((p) => {
+                      const stock = stockParProduit[p.id] ?? 0;
+                      const seuil = p.seuil_alerte ?? 0;
+                      const below = seuil > 0 && stock <= seuil;
+                      return (
+                        <TableRow key={p.id} className="border-row even:bg-row-alt">
+                          <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
+                          <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
+                          <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
+                          <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
+                          <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                          <TableCell className={`px-3 py-2 text-center ${below ? 'bg-danger-soft text-danger-strong font-semibold' : ''}`}>
+                            <div className="inline-flex items-center gap-2">
+                              <span>{stock}</span>
+                              {stock === 0 && (
+                                <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                  Rupture
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </section>
