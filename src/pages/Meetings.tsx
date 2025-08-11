@@ -85,7 +85,7 @@ const Meetings = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Rechercher des réunions..."
-            className="pl-10"
+            className="pl-10 shadow-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -95,7 +95,7 @@ const Meetings = () => {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Card key={item} className="cursor-pointer hover:shadow-md transition-shadow">
+            <Card key={item} className="cursor-pointer shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
                 <Skeleton className="h-4 w-2/3 mb-2" />
                 <Skeleton className="h-3 w-1/3" />
@@ -115,7 +115,7 @@ const Meetings = () => {
           {filteredMeetings.map((meeting) => (
             <Card
               key={meeting.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer shadow-sm hover:shadow-md transition-shadow"
               onClick={() => handleMeetingClick(meeting.id)}
             >
               <CardHeader className="pb-2">
@@ -136,7 +136,7 @@ const Meetings = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
+        <div className="text-center py-12 rounded-lg border shadow-sm">
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Calendar className="h-6 w-6 text-primary" />
           </div>
