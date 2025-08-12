@@ -441,8 +441,12 @@ export function OvertimeCalendar({
             {(() => {
               const approvedNetTotal = monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0);
               const pendingTotal = monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0);
+              const recoveryTotal = monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0);
+              const approvedRawTotal = approvedNetTotal + recoveryTotal; // approuvées sans soustraction
               const daysRaw = approvedNetTotal / 8;
               const daysHalf = Math.floor(daysRaw * 2) / 2; // Arrondi vers le bas au 1/2 jour
+              const daysRecoveredRaw = recoveryTotal / 8;
+              const daysRecoveredHalf = Math.floor(daysRecoveredRaw * 2) / 2;
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
                 const str = d.toString().replace(".", ",");
@@ -451,11 +455,17 @@ export function OvertimeCalendar({
               return (
                 <div className="mb-4 pb-4 border-b">
                   <div className="grid grid-cols-2 gap-y-1 items-center">
-                    <span className="font-semibold">Total {currentYear}</span>
+                    <span className="font-semibold">Total {currentYear} (net)</span>
                     <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
+
+                    <span className="text-sm text-muted-foreground">Sous-total heures sup approuvées</span>
+                    <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(approvedRawTotal)}</span>
 
                     <span className="text-sm text-muted-foreground">Jours à récupérer</span>
                     <span className="text-sm text-muted-foreground text-right">{formatDays(daysHalf)}</span>
+
+                    <span className="text-sm text-muted-foreground">Jours déjà récupérés</span>
+                    <span className="text-sm text-muted-foreground text-right">{formatDays(daysRecoveredHalf)}</span>
 
                     <span className="text-sm text-muted-foreground">En attente</span>
                     <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(pendingTotal)}</span>

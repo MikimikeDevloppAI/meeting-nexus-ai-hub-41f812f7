@@ -724,14 +724,29 @@ export default function TimeTracking() {
             const quota = getQuotaForUser(currentYear);
             const remainingDays = currentYear === 2025 ? quota - totalDays : Math.max(0, quota - totalDays);
             
-            // Calcul des "Jours à récupérer" basé uniquement sur les heures supplémentaires approuvées
+            // Calcul approuvé d'heures sup sur l'année (heures validées uniquement)
             const approvedOvertimeHoursYear = overtimeHours
               .filter(o => o.user_id === user?.id && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
               .reduce((sum, o) => sum + (o.hours || 0), 0);
-            const overtimeDaysRaw = approvedOvertimeHoursYear / 8;
-            const overtimeDaysHalf = Math.floor(overtimeDaysRaw * 2) / 2;
-            
-            return (
+
+            // Calcul des "Jours déjà récupérés" basé sur les vacances de type récupération
+            const recoveryVacations = vacations.filter(v => 
+              v.user_id === user?.id && 
+              v.status === 'approved' && 
+              v.vacation_type === 'overtime_recovery' &&
+              isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd })
+            );
+            const recoveredDays = recoveryVacations.reduce((sum, v) => {
+              if (v.vacation_days && v.vacation_days.length > 0) {
+                return sum + v.vacation_days.reduce((dSum, d) => dSum + (d.is_half_day ? 0.5 : 1), 0);
+              }
+              return sum + v.days_count;
+            }, 0);
+
+            // Même calcul que la section Heures supplémentaires: jours à récupérer = (heures approuvées - heures récupérées) / 8, arrondi au 1/2 jour
+            const recoveredHoursYear = recoveredDays * 8;
+            const netOvertimeHoursYear = Math.max(0, approvedOvertimeHoursYear - recoveredHoursYear);
+            const overtimeDaysHalf = Math.floor(((netOvertimeHoursYear / 8)) * 2) / 2;
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -743,7 +758,7 @@ export default function TimeTracking() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-4'} gap-6`}>
+                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-5'} gap-6`}>
                      <div className="text-center">
                        <div className="text-3xl font-bold text-primary">{totalDays}</div>
                        <div className="text-sm text-muted-foreground">jours pris</div>
@@ -773,6 +788,11 @@ export default function TimeTracking() {
                       <div className="text-center">
                         <div className="text-3xl font-bold text-[hsl(var(--success))]">{overtimeDaysHalf}</div>
                         <div className="text-sm text-muted-foreground">jours à récupérer</div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-3xl font-bold">{recoveredDays}</div>
+                        <div className="text-sm text-muted-foreground">jours déjà récupérés</div>
                       </div>
                    </div>
                   
