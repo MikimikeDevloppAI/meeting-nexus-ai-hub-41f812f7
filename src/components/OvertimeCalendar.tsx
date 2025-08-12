@@ -439,11 +439,9 @@ export function OvertimeCalendar({
           </CardHeader>
           <CardContent>
             {(() => {
-              const annualTotalHours = monthlyStats.reduce((sum, stat) => sum + stat.totalHours, 0);
-              const approvedTotal = monthlyStats.reduce((sum, stat) => sum + (stat.approvedHours + (stat.recoveryHours || 0)), 0);
+              const approvedNetTotal = monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0);
               const pendingTotal = monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0);
-              const recoveryTotal = monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0);
-              const daysRaw = annualTotalHours / 8;
+              const daysRaw = approvedNetTotal / 8;
               const daysHalf = Math.floor(daysRaw * 2) / 2; // Arrondi vers le bas au 1/2 jour
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
@@ -454,7 +452,7 @@ export function OvertimeCalendar({
                 <div className="mb-4 pb-4 border-b">
                   <div className="grid grid-cols-2 gap-y-1 items-center">
                     <span className="font-semibold">Total {currentYear}</span>
-                    <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(annualTotalHours)}</span>
+                    <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
 
                     <span className="text-sm text-muted-foreground">Jours à récupérer</span>
                     <span className="text-sm text-muted-foreground text-right">{formatDays(daysHalf)}</span>
