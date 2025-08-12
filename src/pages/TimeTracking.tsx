@@ -762,13 +762,28 @@ export default function TimeTracking() {
                 <CardContent>
                    <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-5'} gap-6`}>
                      <div className="text-center">
-                       <div className="text-3xl font-bold text-primary">{totalDays}</div>
+                       <div className="text-3xl font-bold text-strong">{totalDays}</div>
                        <div className="text-sm text-muted-foreground">jours pris</div>
                      </div>
-                     
+
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-strong">{remainingDays}</div>
+                       <div className="text-sm text-muted-foreground">jours restants</div>
+                     </div>
+
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-strong">{recoveredDays}</div>
+                       <div className="text-sm text-muted-foreground">jours déjà récupérés</div>
+                     </div>
+
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-strong">{overtimeDaysHalf}</div>
+                       <div className="text-sm text-muted-foreground">jours à récupérer</div>
+                     </div>
+
                      {currentYear !== 2025 && (
                        <div className="text-center">
-                         <div className="text-3xl font-bold text-gray-600">{quota}</div>
+                         <div className="text-3xl font-bold text-strong">{quota}</div>
                          <div className="text-sm text-muted-foreground">quota total</div>
                          {currentYear >= 2026 && quota > 0 && (
                            <div className="text-xs text-blue-600 mt-1">
@@ -777,28 +792,8 @@ export default function TimeTracking() {
                          )}
                        </div>
                      )}
-                     
-                     <div className="text-center">
-                       <div className={`text-3xl font-bold ${remainingDays > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {remainingDays}
-                       </div>
-                       <div className="text-sm text-muted-foreground">
-                         jours restants
-                       </div>
-                      </div>
-
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-[hsl(var(--success))]">{overtimeDaysHalf}</div>
-                        <div className="text-sm text-muted-foreground">jours à récupérer</div>
-                      </div>
-
-                      <div className="text-center">
-                        <div className="text-3xl font-bold">{recoveredDays}</div>
-                        <div className="text-sm text-muted-foreground">jours déjà récupérés</div>
-                      </div>
-                   </div>
-                  
-                  {quota > 0 && (
+                    </div>
+                   {quota > 0 && (
                     <div className="mt-4">
                       <div className="flex justify-between text-sm text-muted-foreground mb-1">
                         <span>Progression</span>
