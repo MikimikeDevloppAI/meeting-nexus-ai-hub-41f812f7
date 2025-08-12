@@ -724,6 +724,13 @@ export default function TimeTracking() {
             const quota = getQuotaForUser(currentYear);
             const remainingDays = currentYear === 2025 ? quota - totalDays : Math.max(0, quota - totalDays);
             
+            // Calcul des "Jours à récupérer" basé uniquement sur les heures supplémentaires approuvées
+            const approvedOvertimeHoursYear = overtimeHours
+              .filter(o => o.user_id === user?.id && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
+              .reduce((sum, o) => sum + (o.hours || 0), 0);
+            const overtimeDaysRaw = approvedOvertimeHoursYear / 8;
+            const overtimeDaysHalf = Math.floor(overtimeDaysRaw * 2) / 2;
+            
             return (
               <Card>
                 <CardHeader>
@@ -736,7 +743,7 @@ export default function TimeTracking() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'} gap-6`}>
+                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-4'} gap-6`}>
                      <div className="text-center">
                        <div className="text-3xl font-bold text-primary">{totalDays}</div>
                        <div className="text-sm text-muted-foreground">jours pris</div>
@@ -761,6 +768,11 @@ export default function TimeTracking() {
                        <div className="text-sm text-muted-foreground">
                          jours restants
                        </div>
+                     </div>
+
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-primary">{overtimeDaysHalf}</div>
+                       <div className="text-sm text-muted-foreground">jours à récupérer</div>
                      </div>
                    </div>
                   
