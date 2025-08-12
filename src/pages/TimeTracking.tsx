@@ -768,12 +768,12 @@ export default function TimeTracking() {
                        <div className="text-sm text-muted-foreground">
                          jours restants
                        </div>
-                     </div>
+                      </div>
 
-                     <div className="text-center">
-                       <div className="text-3xl font-bold text-primary">{overtimeDaysHalf}</div>
-                       <div className="text-sm text-muted-foreground">jours à récupérer</div>
-                     </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-[hsl(var(--success))]">{overtimeDaysHalf}</div>
+                        <div className="text-sm text-muted-foreground">jours à récupérer</div>
+                      </div>
                    </div>
                   
                   {quota > 0 && (
