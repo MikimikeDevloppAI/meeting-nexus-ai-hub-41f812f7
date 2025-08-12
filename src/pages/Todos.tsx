@@ -116,7 +116,8 @@ export default function Todos() {
         .order("name");
 
       if (error) throw error;
-      setUsers(data || []);
+      const filtered = (data || []).filter(u => (u.email || '').toLowerCase() !== 'michael.enry4@gmail.com');
+      setUsers(filtered);
     } catch (error: any) {
       console.error("Error fetching users:", error);
     }

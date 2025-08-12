@@ -72,10 +72,10 @@ export const SimpleMeetingForm = ({
 
         if (error) throw error;
         
-        const usersList = data || [];
+        const usersList = (data || []).filter(u => (u.email || '').toLowerCase() !== 'michael.enry4@gmail.com');
         setUsers(usersList);
         
-        // Automatiquement sélectionner tous les utilisateurs
+        // Automatiquement sélectionner tous les utilisateurs (filtrés)
         const allUserIds = usersList.map(u => u.id);
         setSelectedUserIds(allUserIds);
         console.log('[SimpleMeetingForm] Auto-selected users:', allUserIds);

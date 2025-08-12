@@ -45,7 +45,8 @@ export const TodoUserManager = ({
 
       if (error) throw error;
 
-      setAvailableUsers(users || []);
+      const filtered = (users || []).filter(u => (u.email || '').toLowerCase() !== 'michael.enry4@gmail.com');
+      setAvailableUsers(filtered);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
