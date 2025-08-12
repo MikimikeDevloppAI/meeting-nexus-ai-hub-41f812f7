@@ -32,6 +32,11 @@ interface Vacation {
   days_count: number;
   vacation_type: string;
   status: 'pending' | 'approved' | 'rejected';
+  vacation_days?: Array<{
+    vacation_date: string;
+    is_half_day: boolean;
+    half_day_period?: string | null;
+  }>;
 }
 
 interface OvertimeCalendarProps {
@@ -201,48 +206,44 @@ export function OvertimeCalendar({
       if (vacation.vacation_type !== 'overtime_recovery' || vacation.status !== 'approved') {
         return false;
       }
-      
-      // Vérifier si les dates de vacances chevauchent avec le mois
+      // Uniquement celles qui intersectent le mois courant
       const vacationStart = parseISO(vacation.start_date);
       const vacationEnd = parseISO(vacation.end_date);
-      
-      return isWithinInterval(vacationStart, { start: monthStart, end: monthEnd }) ||
-             isWithinInterval(vacationEnd, { start: monthStart, end: monthEnd }) ||
-             (vacationStart <= monthStart && vacationEnd >= monthEnd);
+      return (
+        isWithinInterval(vacationStart, { start: monthStart, end: monthEnd }) ||
+        isWithinInterval(vacationEnd, { start: monthStart, end: monthEnd }) ||
+        (vacationStart <= monthStart && vacationEnd >= monthEnd)
+      );
     });
-    
+
+    // Heures de récupération dans le mois en tenant compte des demi-journées (0.5 = 4h)
     const recoveryHours = recoveryVacations.reduce((sum, vacation) => {
-      // Calculer le nombre de jours de récupération dans ce mois
+      // Si on dispose du détail des jours, on l'utilise
+      if (vacation.vacation_days && vacation.vacation_days.length > 0) {
+        const hoursInMonth = vacation.vacation_days.reduce((h, day) => {
+          const d = parseISO(day.vacation_date);
+          return isWithinInterval(d, { start: monthStart, end: monthEnd })
+            ? h + (day.is_half_day ? 4 : 8)
+            : h;
+        }, 0);
+        return sum + hoursInMonth;
+      }
+
+      // Fallback: intersection simple start/end (sans détail 1/2j)
       const vacationStart = parseISO(vacation.start_date);
       const vacationEnd = parseISO(vacation.end_date);
-      
-      // Prendre l'intersection avec le mois
       const effectiveStart = vacationStart > monthStart ? vacationStart : monthStart;
       const effectiveEnd = vacationEnd < monthEnd ? vacationEnd : monthEnd;
-      
       if (effectiveStart > effectiveEnd) return sum;
-      
-      // Calculer les jours ouvrables dans cette période et appliquer le bon calcul d'heures
-      let totalRecoveryHours = 0;
+
+      let total = 0;
       let currentDate = new Date(effectiveStart);
-      
       while (currentDate <= effectiveEnd) {
         const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclure week-ends
-          // Si vacation.days_count est un entier (ex: 1), c'est une journée complète = 8h
-          // Si vacation.days_count est un décimal (ex: 0.5), c'est une demi-journée = 4h
-          if (vacation.days_count % 1 === 0) {
-            // Journée complète : 8h par jour
-            totalRecoveryHours += 8;
-          } else {
-            // Demi-journée : 4h
-            totalRecoveryHours += 4;
-          }
-        }
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) total += 8; // jour ouvrable = 8h
         currentDate.setDate(currentDate.getDate() + 1);
       }
-      
-      return sum + totalRecoveryHours;
+      return sum + total;
     }, 0);
     
     const totalHours = monthlyOvertimes.reduce((sum, overtime) => sum + overtime.hours, 0);
@@ -439,14 +440,29 @@ export function OvertimeCalendar({
           </CardHeader>
           <CardContent>
             {(() => {
+              // Période annuelle courante
+              const yearStart = startOfYear(new Date(currentYear, 0, 1));
+              const yearEnd = endOfYear(new Date(currentYear, 11, 31));
+
               const approvedNetTotal = monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0);
               const pendingTotal = monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0);
               const recoveryTotal = monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0);
               const approvedRawTotal = approvedNetTotal + recoveryTotal; // approuvées sans soustraction
+
+              // Conversion en jours (1j = 8h), arrondi au 1/2 jour
               const daysRaw = approvedNetTotal / 8;
               const daysHalf = Math.floor(daysRaw * 2) / 2; // Arrondi vers le bas au 1/2 jour
               const daysRecoveredRaw = recoveryTotal / 8;
               const daysRecoveredHalf = Math.floor(daysRecoveredRaw * 2) / 2;
+
+              // Compte des demi‑journées récupérées (basé sur vacation_days)
+              const halfDayCountYear = (vacations || []).reduce((acc, v) => {
+                if (v.vacation_type !== 'overtime_recovery' || v.status !== 'approved') return acc;
+                if (!v.vacation_days || v.vacation_days.length === 0) return acc;
+                const count = v.vacation_days.filter(d => d.is_half_day && isWithinInterval(parseISO(d.vacation_date), { start: yearStart, end: yearEnd })).length;
+                return acc + count;
+              }, 0);
+
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
                 const str = d.toString().replace(".", ",");
@@ -466,6 +482,9 @@ export function OvertimeCalendar({
 
                     <span className="text-sm text-muted-foreground">Jours déjà récupérés</span>
                     <span className="text-sm text-muted-foreground text-right">{formatDays(daysRecoveredHalf)}</span>
+
+                    <span className="text-sm text-muted-foreground">Demi‑journées récupérées</span>
+                    <span className="text-sm text-muted-foreground text-right">{halfDayCountYear}</span>
 
                     <span className="text-sm text-muted-foreground">En attente</span>
                     <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(pendingTotal)}</span>
