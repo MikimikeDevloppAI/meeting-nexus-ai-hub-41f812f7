@@ -463,7 +463,7 @@ export function OvertimeCalendar({
                   </div>
                   <div className="grid grid-cols-1 gap-1 text-sm text-gray-600 mt-1">
                     <div className="flex justify-between">
-                      <span>Approuvées: {formatHoursToHoursMinutes(approvedTotal)}</span>
+                      <span>{formatHoursToHoursMinutes(approvedTotal)}</span>
                       <span>En attente: {formatHoursToHoursMinutes(pendingTotal)}</span>
                     </div>
                     {recoveryTotal > 0 && (
