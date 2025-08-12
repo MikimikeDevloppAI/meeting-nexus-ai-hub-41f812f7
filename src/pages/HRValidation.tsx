@@ -827,6 +827,24 @@ export default function HRValidation() {
                   const userRecord = users.find(u => u.email === user.email);
                   const quota = userRecord ? getQuotaForUser(userRecord.id, selectedYear) : 0;
                   const remaining = selectedYear === 2025 ? quota - summary.totalDays : Math.max(0, quota - summary.totalDays);
+
+                  // Calcul des jours à récupérer (heures sup approuvées - jours déjà récupérés), arrondi au 1/2 jour
+                  const approvedOvertimeHoursForYear = overtimeHours
+                    .filter(o => o.users.email === user.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
+                    .reduce((sum, o) => sum + o.hours, 0);
+
+                  const recoveredHoursUsed = vacations
+                    .filter(v => v.users.email === user.email && v.status === 'approved' && v.vacation_type === 'overtime_recovery' && isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd }))
+                    .reduce((sum, v) => {
+                      if (v.vacation_days && v.vacation_days.length > 0) {
+                        return sum + v.vacation_days.reduce((ds, day) => ds + (day.is_half_day ? 4 : 8), 0);
+                      }
+                      return sum + (v.days_count * 8);
+                    }, 0);
+
+                  const daysToRecoverRaw = Math.max(0, (approvedOvertimeHoursForYear - recoveredHoursUsed) / 8);
+                  const daysToRecover = Math.floor(daysToRecoverRaw * 2) / 2;
+                  const daysToRecoverDisplay = daysToRecover.toString().replace('.', ',');
                   
                   return (
                     <div key={user.email} className="p-4 border rounded-lg">
@@ -846,23 +864,28 @@ export default function HRValidation() {
                                 </div>
                                 <div className="text-sm text-muted-foreground">jours restants</div>
                               </div>
+                              <div className="text-center">
+                                <div className="text-2xl font-bold">{daysToRecoverDisplay}</div>
+                                <div className="text-sm text-muted-foreground">jours à récupérer</div>
+                              </div>
                             </>
                           ) : (
                             <>
                               <div className="flex items-center justify-between">
                                 <span className="text-2xl font-bold">{summary.totalDays} / {quota}</span>
                               </div>
-                              <div className="text-xs text-gray-500 space-y-1">
-                                <p>jours pris / quota disponible</p>
-                                <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {remaining > 0 ? `${remaining} jours restants` : 'Quota dépassé'}
-                                </p>
-                                {selectedYear >= 2026 && quota > 0 && (
-                                  <p className="text-blue-600 text-xs">
-                                    (inclut report année précédente)
+                                <div className="text-xs text-gray-500 space-y-1">
+                                  <p>jours pris / quota disponible</p>
+                                  <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {remaining > 0 ? `${remaining} jours restants` : 'Quota dépassé'}
                                   </p>
-                                )}
-                              </div>
+                                  <p>Jours à récupérer: <span className="font-medium">{daysToRecoverDisplay} j</span></p>
+                                  {selectedYear >= 2026 && quota > 0 && (
+                                    <p className="text-blue-600 text-xs">
+                                      (inclut report année précédente)
+                                    </p>
+                                  )}
+                                </div>
                             </>
                           )}
                         </div>
