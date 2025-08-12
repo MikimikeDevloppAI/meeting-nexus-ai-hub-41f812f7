@@ -614,7 +614,7 @@ const GestionStock: React.FC = () => {
                       const seuil = p.seuil_alerte ?? 0;
                       const below = seuil > 0 && stock <= seuil;
                       return (
-                        <TableRow key={p.id} className="border-row even:bg-row-alt">
+                        <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
                           <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
@@ -661,7 +661,6 @@ const GestionStock: React.FC = () => {
             <CardHeader>
               <CardTitle id="injection-form-section">Enregistrer une injection</CardTitle>
             </CardHeader>
-            <Separator className="my-2 shadow-md" />
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
                 <select className="border rounded-md px-3 py-2 w-full md:w-auto md:col-span-2 min-w-[220px]" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
@@ -681,11 +680,11 @@ const GestionStock: React.FC = () => {
         </section>
 
         <section aria-labelledby="historique-section">
-          <Card className="shadow-sm">
+          <Card className="shadow-md">
           <CardHeader>
             <CardTitle id="historique-section">Historique</CardTitle>
           </CardHeader>
-          <Separator className="my-2 shadow-md" />
+          
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <Card className="shadow-md border md:col-span-3 md:order-2">
@@ -715,7 +714,7 @@ const GestionStock: React.FC = () => {
                           .map((c) => {
                             const prod = produits.find((p) => p.id === c.produit_id);
                             return (
-                              <TableRow key={c.id} className="border-row even:bg-row-alt">
+                              <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{c.numero_commande || "-"}</TableCell>
                                 <TableCell>{c.quantite_commande}</TableCell>
@@ -765,7 +764,7 @@ const GestionStock: React.FC = () => {
                           .map((inj) => {
                             const prod = produits.find((p) => p.id === inj.produit_id);
                             return (
-                              <TableRow key={inj.id} className="border-row even:bg-row-alt">
+                              <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
                                 <TableCell>{prod?.produit || ""}</TableCell>
                                 <TableCell>{inj.quantite ?? 1}</TableCell>
                                 <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
