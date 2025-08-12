@@ -452,24 +452,15 @@ export function OvertimeCalendar({
               };
               return (
                 <div className="mb-4 pb-4 border-b">
-                  <div className="flex justify-between items-end">
-                    <div className="flex flex-col">
-                      <span className="font-semibold">Total {currentYear}</span>
-                      <span className="text-sm text-muted-foreground">{formatDays(daysHalf)} à récupérer</span>
-                    </div>
-                    <span className="font-bold text-xl">
-                      {formatHoursToHoursMinutes(annualTotalHours)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1 text-sm text-gray-600 mt-1">
-                    <div className="flex justify-start">
-                      <span>En attente: {formatHoursToHoursMinutes(pendingTotal)}</span>
-                    </div>
-                    {recoveryTotal > 0 && (
-                      <div className="text-blue-600">
-                        Récupération utilisée: -{formatHoursToHoursMinutes(recoveryTotal)}
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 gap-y-1 items-center">
+                    <span className="font-semibold">Total {currentYear}</span>
+                    <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(annualTotalHours)}</span>
+
+                    <span className="text-sm text-muted-foreground">Jours à récupérer</span>
+                    <span className="text-sm text-muted-foreground text-right">{formatDays(daysHalf)}</span>
+
+                    <span className="text-sm text-muted-foreground">En attente</span>
+                    <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(pendingTotal)}</span>
                   </div>
                 </div>
               );
