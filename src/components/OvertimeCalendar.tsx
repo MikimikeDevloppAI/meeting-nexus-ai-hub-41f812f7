@@ -455,14 +455,6 @@ export function OvertimeCalendar({
               const daysRecoveredRaw = recoveryTotal / 8;
               const daysRecoveredHalf = Math.floor(daysRecoveredRaw * 2) / 2;
 
-              // Compte des demi‑journées récupérées (basé sur vacation_days)
-              const halfDayCountYear = (vacations || []).reduce((acc, v) => {
-                if (v.vacation_type !== 'overtime_recovery' || v.status !== 'approved') return acc;
-                if (!v.vacation_days || v.vacation_days.length === 0) return acc;
-                const count = v.vacation_days.filter(d => d.is_half_day && isWithinInterval(parseISO(d.vacation_date), { start: yearStart, end: yearEnd })).length;
-                return acc + count;
-              }, 0);
-
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
                 const str = d.toString().replace(".", ",");
@@ -482,9 +474,6 @@ export function OvertimeCalendar({
 
                     <span className="text-sm text-muted-foreground">Jours déjà récupérés</span>
                     <span className="text-sm text-muted-foreground text-right">{formatDays(daysRecoveredHalf)}</span>
-
-                    <span className="text-sm text-muted-foreground">Demi‑journées récupérées</span>
-                    <span className="text-sm text-muted-foreground text-right">{halfDayCountYear}</span>
 
                     <span className="text-sm text-muted-foreground">En attente</span>
                     <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(pendingTotal)}</span>
