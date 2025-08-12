@@ -484,6 +484,27 @@ export default function HRValidation() {
           const approvedOvertime = overtimeHours
             .filter(o => o.users.email === person.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
             .reduce((sum, o) => sum + o.hours, 0);
+
+          // Calcul des jours récupérés (récupération heures sup approuvées)
+          const recoveryVacations = vacations.filter(v => 
+            v.users.email === person.email && 
+            v.status === 'approved' && 
+            v.vacation_type === 'overtime_recovery' &&
+            isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd })
+          );
+          const recoveredDays = recoveryVacations.reduce((sum, v) => {
+            if (v.vacation_days && v.vacation_days.length > 0) {
+              return sum + v.vacation_days.reduce((ds, d) => ds + (d.is_half_day ? 0.5 : 1), 0);
+            }
+            return sum + v.days_count;
+          }, 0);
+
+          // Jours à récupérer (arrondi au 1/2 jour)
+          const recoveredHoursUsed = recoveredDays * 8;
+          const daysToRecoverRaw = Math.max(0, (approvedOvertime - recoveredHoursUsed) / 8);
+          const daysToRecover = Math.floor(daysToRecoverRaw * 2) / 2;
+          const daysToRecoverDisplay = daysToRecover.toString().replace('.', ',');
+
           const firstName = person.name.split(' ')[0];
           return (
             <Card key={person.email} className="shadow-md hover:shadow-lg transition-shadow">
@@ -500,8 +521,12 @@ export default function HRValidation() {
                   <span className="font-semibold">{remaining} j</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Heures sup. validées</span>
-                  <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime)}</span>
+                  <span className="text-xs text-muted-foreground">Jours récupérés</span>
+                  <span className="font-semibold">{recoveredDays.toString().replace('.', ',')} j</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Jours à récupérer</span>
+                  <span className="font-semibold">{daysToRecoverDisplay} j</span>
                 </div>
               </CardContent>
             </Card>
