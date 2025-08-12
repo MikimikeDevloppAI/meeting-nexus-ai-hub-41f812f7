@@ -949,6 +949,7 @@ export type Database = {
       todos: {
         Row: {
           ai_recommendation_generated: boolean | null
+          completed_at: string | null
           created_at: string
           description: string
           due_date: string | null
@@ -958,6 +959,7 @@ export type Database = {
         }
         Insert: {
           ai_recommendation_generated?: boolean | null
+          completed_at?: string | null
           created_at?: string
           description: string
           due_date?: string | null
@@ -967,6 +969,7 @@ export type Database = {
         }
         Update: {
           ai_recommendation_generated?: boolean | null
+          completed_at?: string | null
           created_at?: string
           description?: string
           due_date?: string | null
@@ -1264,6 +1267,10 @@ export type Database = {
       hnswhandler: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      is_retrocession_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       ivfflat_bit_support: {
         Args: { "": unknown }
