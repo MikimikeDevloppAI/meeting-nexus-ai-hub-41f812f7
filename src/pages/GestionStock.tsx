@@ -169,6 +169,19 @@ const GestionStock: React.FC = () => {
     return avg;
   }, [injections]);
 
+  const commandeEnCoursParProduit = useMemo(() => {
+    const enCours: Record<string, number> = {};
+    commandes.forEach((c) => {
+      const commande = Number(c.quantite_commande || 0);
+      const recue = Number(c.quantite_recue || 0);
+      const difference = commande - recue;
+      if (difference > 0) {
+        enCours[c.produit_id] = (enCours[c.produit_id] || 0) + difference;
+      }
+    });
+    return enCours;
+  }, [commandes]);
+
   const resetProduitForm = () => {
     setEditingId(null);
     setProduitForm({ produit: "", molecule: "", fabricant: "", concentration: "", presentation: "", prix_patient: undefined, prix_achat: undefined, representant: "", telephone: "", email: "", seuil_alerte: 0 });
@@ -595,43 +608,52 @@ const GestionStock: React.FC = () => {
               <div className="overflow-x-auto">
                 <Table className="font-inter text-[15px]">
                   <TableHeader className="bg-table-header">
-                    <TableRow className="border-row">
-                      <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
-                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
-                    </TableRow>
+                     <TableRow className="border-row">
+                       <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                       <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
+                       <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {!loading && produits
                       .slice()
                       .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
                       .map((p) => {
-                      const stock = stockParProduit[p.id] ?? 0;
-                      const seuil = p.seuil_alerte ?? 0;
-                      const below = seuil > 0 && stock <= seuil;
-                      return (
-                        <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                          <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
-                          <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
-                          <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
-                          <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
-                          <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                          <TableCell className="px-3 py-2 text-center">
-                            <div className="inline-flex items-center gap-2">
-                              {stock > 0 && (
-                                <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
-                              )}
-                              {stock === 0 && (
-                                <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
-                                  Rupture
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
+                       const stock = stockParProduit[p.id] ?? 0;
+                       const seuil = p.seuil_alerte ?? 0;
+                       const below = seuil > 0 && stock <= seuil;
+                       const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
+                       return (
+                         <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                           <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
+                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
+                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
+                           <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
+                           <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                           <TableCell className="px-3 py-2 text-center">
+                             {commandeEnCours > 0 ? (
+                               <span className="text-info-strong font-medium">{commandeEnCours}</span>
+                             ) : (
+                               "-"
+                             )}
+                           </TableCell>
+                           <TableCell className="px-3 py-2 text-center">
+                             <div className="inline-flex items-center gap-2">
+                               {stock > 0 && (
+                                 <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                               )}
+                               {stock === 0 && (
+                                 <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                   Rupture
+                                 </span>
+                               )}
+                             </div>
+                           </TableCell>
                           <TableCell className="px-3 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
