@@ -383,11 +383,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 
           invoices={filteredInvoices}
-          searchFilters={searchFilters}
-          onSearchFiltersChange={setSearchFilters}
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
-          onDownloadFile={downloadFile}
           deletingInvoiceId={deletingInvoiceId}
         />
       </div>

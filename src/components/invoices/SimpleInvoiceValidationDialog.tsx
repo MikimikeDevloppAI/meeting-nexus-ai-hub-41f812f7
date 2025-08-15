@@ -188,6 +188,22 @@ export function SimpleInvoiceValidationDialog({
                 </Select>
               </CardContent>
             </Card>
+
+            {/* Taux de change en dessous de catégorie */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Taux de change</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={formData.exchange_rate}
+                  onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
+                  placeholder="Taux de change"
+                />
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column - Invoice Details */}
@@ -249,37 +265,19 @@ export function SimpleInvoiceValidationDialog({
               </CardContent>
             </Card>
 
-            {/* Taux de change et Montant CHF sur la même ligne */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Montant CHF en dessous de montant TTC */}
+            {invoice.original_amount_chf && (
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Taux de change</CardTitle>
+                  <CardTitle className="text-lg">Montant CHF</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={formData.exchange_rate}
-                    onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
-                    placeholder="Taux de change"
-                  />
+                  <div className="text-xl font-semibold text-blue-600">
+                    {invoice.original_amount_chf.toFixed(2)} CHF
+                  </div>
                 </CardContent>
               </Card>
-
-              {/* Display original amount CHF */}
-              {invoice.original_amount_chf && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Montant CHF</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xl font-semibold text-blue-600">
-                      {invoice.original_amount_chf.toFixed(2)} CHF
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            )}
           </div>
         </div>
 

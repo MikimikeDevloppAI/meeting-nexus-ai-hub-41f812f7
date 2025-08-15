@@ -1,12 +1,12 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -19,6 +19,7 @@ interface Invoice {
   status: string;
   compte: string;
   purchase_category?: string;
+  invoice_type?: string;
   purchase_subcategory?: string;
   invoice_number?: string;
   invoice_date?: string;
@@ -43,28 +44,26 @@ interface Invoice {
   payment_date?: string;
 }
 
-interface SearchFilters {
-  dateFrom?: string;
-  dateTo?: string;
-  compte?: string;
-  supplier?: string;
-  minAmount?: number;
-  maxAmount?: number;
+interface FilteredInvoiceListFilters {
+  compte: string;
+  supplier: string;
+  invoice_type: string;
+  dateFrom: string;
+  dateTo: string;
+  amountMin: number;
+  amountMax: number;
 }
 
 interface FilteredInvoiceListProps {
   invoices: Invoice[];
-  searchFilters: SearchFilters;
-  onSearchFiltersChange: (filters: SearchFilters) => void;
   onValidateInvoice: (invoice: Invoice) => void;
   onDeleteInvoice: (invoice: Invoice) => void;
-  onDownloadFile: (filePath: string, filename: string) => void;
   deletingInvoiceId: string | null;
 }
 
 // Helper function to properly decode and display supplier names
-const formatSupplierName = (supplierName?: string): string => {
-  if (!supplierName) return 'N/A';
+function formatSupplierName(supplierName?: string): string {
+  if (!supplierName) return '';
   
   try {
     let decoded = supplierName;
@@ -85,20 +84,27 @@ const formatSupplierName = (supplierName?: string): string => {
     return decoded || supplierName;
   } catch (error) {
     console.error('Error decoding supplier name:', error, 'Original:', supplierName);
-    return supplierName;
+    return supplierName || '';
   }
-};
+}
 
 export function FilteredInvoiceList({ 
   invoices, 
-  searchFilters, 
-  onSearchFiltersChange, 
   onValidateInvoice, 
   onDeleteInvoice, 
-  onDownloadFile, 
   deletingInvoiceId 
 }: FilteredInvoiceListProps) {
   
+  const [filters, setFilters] = useState<FilteredInvoiceListFilters>({
+    compte: 'all',
+    supplier: 'all',
+    invoice_type: 'all',
+    dateFrom: '',
+    dateTo: '',
+    amountMin: 0,
+    amountMax: 10000
+  });
+
   // Function to view file in bucket (signed URL because invoices bucket is private)
   const viewFile = async (filePath: string) => {
     try {
@@ -120,85 +126,53 @@ export function FilteredInvoiceList({
       .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   
+  const uniqueInvoiceTypes = Array.from(new Set(invoices.map(inv => inv.invoice_type).filter(Boolean))).sort();
+  
+  // Filtrer les factures
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(invoice => {
+      if (filters.compte !== 'all' && invoice.compte !== filters.compte) {
+        return false;
+      }
+      
+      if (filters.supplier !== 'all' && !formatSupplierName(invoice.supplier_name)?.toUpperCase().includes(filters.supplier)) {
+        return false;
+      }
+      
+      if (filters.invoice_type !== 'all' && invoice.invoice_type !== filters.invoice_type) {
+        return false;
+      }
+      
+      if (filters.dateFrom) {
+        const invoiceDate = new Date(invoice.payment_date || invoice.invoice_date || '');
+        const filterDate = new Date(filters.dateFrom);
+        if (invoiceDate < filterDate) return false;
+      }
+      
+      if (filters.dateTo) {
+        const invoiceDate = new Date(invoice.payment_date || invoice.invoice_date || '');
+        const filterDate = new Date(filters.dateTo);
+        if (invoiceDate > filterDate) return false;
+      }
+      
+      const amount = invoice.original_amount_chf || 0;
+      if (amount < filters.amountMin || amount > filters.amountMax) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [invoices, filters]);
+  
   const supplierOptions = [
     { value: 'all', label: 'Tous les fournisseurs' },
     ...uniqueSuppliers.map(supplier => ({ value: supplier, label: supplier }))
   ];
-
-  const clearSearchFilters = () => {
-    onSearchFiltersChange({});
-  };
-
-  const hasActiveSearchFilters = Object.values(searchFilters).some(value => value !== undefined && value !== '' && value !== null);
-
-  // Appliquer les filtres de recherche
-  const searchFilteredInvoices = useMemo(() => {
-    return invoices.filter(invoice => {
-      // Filtre par date - utilise payment_date
-      if (searchFilters.dateFrom && invoice.payment_date) {
-        if (new Date(invoice.payment_date) < new Date(searchFilters.dateFrom)) return false;
-      }
-      if (searchFilters.dateTo && invoice.payment_date) {
-        if (new Date(invoice.payment_date) > new Date(searchFilters.dateTo)) return false;
-      }
-      
-      // Filtre par compte
-      if (searchFilters.compte && invoice.compte !== searchFilters.compte) return false;
-      
-      // Filtre par fournisseur (insensible à la casse)
-      if (searchFilters.supplier && invoice.supplier_name?.toLowerCase() !== searchFilters.supplier.toLowerCase()) return false;
-      
-      // Filtre par montant minimum
-      if (searchFilters.minAmount && invoice.original_amount_chf && invoice.original_amount_chf < searchFilters.minAmount) return false;
-      
-      // Filtre par montant maximum
-      if (searchFilters.maxAmount && invoice.original_amount_chf && invoice.original_amount_chf > searchFilters.maxAmount) return false;
-      
-      return true;
-    });
-  }, [invoices, searchFilters]);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          En attente
-        </Badge>;
-      case 'processing':
-        return <Badge variant="default" className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          Traitement
-        </Badge>;
-      case 'completed':
-        return <Badge variant="default" className="bg-blue-500 flex items-center gap-1">
-          <CheckCircle className="h-3 w-3" />
-          À valider
-        </Badge>;
-      case 'validated':
-        return <Badge variant="default" className="bg-green-500 flex items-center gap-1">
-          <CheckCircle className="h-3 w-3" />
-          Validé
-        </Badge>;
-      case 'error':
-        return <Badge variant="destructive" className="flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
-          Erreur
-        </Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  if (!invoices || invoices.length === 0) {
-    return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <p className="text-gray-600">Aucune facture trouvée pour cette période</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  
+  const invoiceTypeOptions = [
+    { value: 'all', label: 'Toutes les catégories' },
+    ...uniqueInvoiceTypes.map(type => ({ value: type, label: type }))
+  ];
 
   return (
     <Card>
@@ -207,110 +181,115 @@ export function FilteredInvoiceList({
       </CardHeader>
       <CardContent>
         {/* Filtres de recherche */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Filtres de recherche</CardTitle>
-              {hasActiveSearchFilters && (
-                <Button variant="ghost" size="sm" onClick={clearSearchFilters} className="flex items-center gap-1">
-                  <X className="h-4 w-4" />
-                  Effacer
-                </Button>
-              )}
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filtre par compte */}
+            <div>
+              <Label htmlFor="compte-filter">Compte</Label>
+              <Combobox
+                options={[
+                  { value: 'all', label: 'Tous les comptes' },
+                  ...uniqueComptes.map(compte => ({ value: compte, label: compte }))
+                ]}
+                value={filters.compte}
+                onSelect={(value) => setFilters(prev => ({ ...prev, compte: value }))}
+                placeholder="Sélectionner un compte"
+              />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Première ligne : dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="searchDateFrom">Date de début</Label>
+
+            {/* Filtre par fournisseur */}
+            <div>
+              <Label htmlFor="supplier-filter">Fournisseur</Label>
+              <Combobox
+                options={supplierOptions}
+                value={filters.supplier}
+                onSelect={(value) => setFilters(prev => ({ ...prev, supplier: value }))}
+                placeholder="Sélectionner un fournisseur"
+              />
+            </div>
+            
+            {/* Filtre par catégorie (invoice_type) */}
+            <div>
+              <Label htmlFor="invoice-type-filter">Catégorie</Label>
+              <Combobox
+                options={invoiceTypeOptions}
+                value={filters.invoice_type}
+                onSelect={(value) => setFilters(prev => ({ ...prev, invoice_type: value }))}
+                placeholder="Sélectionner une catégorie"
+              />
+            </div>
+          </div>
+
+          {/* Filtres par date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="date-from">Date de</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="date-to">Date à</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+              />
+            </div>
+          </div>
+          
+          {/* Filtre par montant avec slider */}
+          <div className="space-y-4">
+            <Label>Filtrer par montant</Label>
+            <div className="bg-background border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm text-muted-foreground">de</span>
+                <span className="text-sm text-muted-foreground">à</span>
+              </div>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex-1">
                   <Input
-                    id="searchDateFrom"
-                    type="date"
-                    value={searchFilters.dateFrom || ''}
-                    onChange={(e) => onSearchFiltersChange({ ...searchFilters, dateFrom: e.target.value })}
+                    type="number"
+                    value={filters.amountMin}
+                    onChange={(e) => setFilters(prev => ({ ...prev, amountMin: Number(e.target.value) }))}
+                    placeholder="CHF 2 000"
+                    className="text-center bg-muted border-2 rounded-full"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="searchDateTo">Date de fin</Label>
+                <div className="flex-1">
                   <Input
-                    id="searchDateTo"
-                    type="date"
-                    value={searchFilters.dateTo || ''}
-                    onChange={(e) => onSearchFiltersChange({ ...searchFilters, dateTo: e.target.value })}
+                    type="number"
+                    value={filters.amountMax}
+                    onChange={(e) => setFilters(prev => ({ ...prev, amountMax: Number(e.target.value) }))}
+                    placeholder="CHF 7 000"
+                    className="text-center bg-muted border-2 rounded-full"
                   />
                 </div>
               </div>
-
-              {/* Deuxième ligne : fournisseur et compte */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Fournisseur</Label>
-                  <Combobox
-                    options={supplierOptions}
-                    value={searchFilters.supplier}
-                    placeholder="Tous les fournisseurs"
-                    searchPlaceholder="Rechercher un fournisseur..."
-                    emptyText="Aucun fournisseur trouvé"
-                    onSelect={(value) => onSearchFiltersChange({ ...searchFilters, supplier: value === 'all' ? undefined : value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Compte</Label>
-                  <Select value={searchFilters.compte || 'all'} onValueChange={(value) => onSearchFiltersChange({ ...searchFilters, compte: value === 'all' ? undefined : value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tous les comptes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les comptes</SelectItem>
-                      {uniqueComptes.map(compte => (
-                        <SelectItem key={compte} value={compte}>{compte}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Troisième ligne : montants */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="minAmount">Montant minimum (CHF)</Label>
-                  <Input
-                    id="minAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={searchFilters.minAmount || ''}
-                    onChange={(e) => onSearchFiltersChange({ ...searchFilters, minAmount: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    placeholder="De..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="maxAmount">Montant maximum (CHF)</Label>
-                  <Input
-                    id="maxAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={searchFilters.maxAmount || ''}
-                    onChange={(e) => onSearchFiltersChange({ ...searchFilters, maxAmount: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    placeholder="À..."
-                  />
+              <div className="px-2">
+                <Slider
+                  value={[filters.amountMin, filters.amountMax]}
+                  onValueChange={([min, max]) => setFilters(prev => ({ ...prev, amountMin: min, amountMax: max }))}
+                  max={10000}
+                  min={0}
+                  step={100}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                  <span>CHF 0</span>
+                  <span>CHF 10 000</span>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Tableau des factures */}
-        <div className="text-sm text-muted-foreground mb-4">
-          {searchFilteredInvoices.length} facture{searchFilteredInvoices.length !== 1 ? 's' : ''} trouvée{searchFilteredInvoices.length !== 1 ? 's' : ''}
-        </div>
-        
         <Table>
           <TableHeader>
             <TableRow>
@@ -323,19 +302,12 @@ export function FilteredInvoiceList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {searchFilteredInvoices.map((invoice) => (
+            {filteredInvoices.map((invoice) => (
               <TableRow key={invoice.id}>
-                <TableCell>
-                  {formatSupplierName(invoice.supplier_name)}
-                </TableCell>
-                <TableCell>{invoice.compte || 'Commun'}</TableCell>
-                <TableCell>{invoice.purchase_category || 'N/A'}</TableCell>
-                <TableCell className="font-semibold">
-                  {invoice.original_amount_chf ? 
-                    `${invoice.original_amount_chf.toFixed(2)} CHF` : 
-                    'N/A'
-                  }
-                </TableCell>
+                <TableCell>{formatSupplierName(invoice.supplier_name) || 'N/A'}</TableCell>
+                <TableCell>{invoice.compte || 'N/A'}</TableCell>
+                <TableCell>{invoice.invoice_type || 'N/A'}</TableCell>
+                <TableCell>{invoice.original_amount_chf ? `${invoice.original_amount_chf.toFixed(2)} CHF` : 'N/A'}</TableCell>
                 <TableCell>
                   {invoice.payment_date ? 
                     new Date(invoice.payment_date).toLocaleDateString('fr-FR') : 
@@ -382,7 +354,7 @@ export function FilteredInvoiceList({
           </TableBody>
         </Table>
         
-        {searchFilteredInvoices.length === 0 && (
+        {filteredInvoices.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             Aucune facture trouvée avec ces critères
           </div>
