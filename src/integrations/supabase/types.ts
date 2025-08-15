@@ -1282,7 +1282,7 @@ export type Database = {
       vision_ophta: {
         Row: {
           created_at: string
-          cxl: number | null
+          CXL: boolean
           date: string
           ecriture: string | null
           id: string
@@ -1291,12 +1291,12 @@ export type Database = {
           numero_patient: string | null
           par: string | null
           patient: string | null
-          ptk: number | null
+          PTK: boolean
           updated_at: string
         }
         Insert: {
           created_at?: string
-          cxl?: number | null
+          CXL: boolean
           date: string
           ecriture?: string | null
           id?: string
@@ -1305,12 +1305,12 @@ export type Database = {
           numero_patient?: string | null
           par?: string | null
           patient?: string | null
-          ptk?: number | null
+          PTK: boolean
           updated_at?: string
         }
         Update: {
           created_at?: string
-          cxl?: number | null
+          CXL?: boolean
           date?: string
           ecriture?: string | null
           id?: string
@@ -1319,7 +1319,7 @@ export type Database = {
           numero_patient?: string | null
           par?: string | null
           patient?: string | null
-          ptk?: number | null
+          PTK?: boolean
           updated_at?: string
         }
         Relationships: []
