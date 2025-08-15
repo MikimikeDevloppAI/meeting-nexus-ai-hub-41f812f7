@@ -1093,9 +1093,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     <SelectItem value="nourritures">Nourritures</SelectItem>
                     <SelectItem value="télécommunication">Télécommunication</SelectItem>
                     <SelectItem value="non assigné">Non assigné</SelectItem>
-                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
-                    <SelectItem value="nourritures">Nourritures</SelectItem>
-                    <SelectItem value="non assigné">Non assigné</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
