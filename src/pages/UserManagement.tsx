@@ -221,7 +221,7 @@ const UserManagement = () => {
       </div>
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Utilisateurs
@@ -229,6 +229,14 @@ const UserManagement = () => {
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Permissions
+          </TabsTrigger>
+          <TabsTrigger value="pages" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Pages
+          </TabsTrigger>
+          <TabsTrigger value="help" className="flex items-center gap-2">
+            <HelpCircle className="h-4 w-4" />
+            Aide
           </TabsTrigger>
         </TabsList>
 
@@ -415,6 +423,104 @@ const UserManagement = () => {
                   Aucun utilisateur approuvé trouvé.
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pages" className="flex-1 flex flex-col">
+          <Card className="flex-1">
+            <CardHeader>
+              <CardTitle>Gestion des Pages</CardTitle>
+              <CardDescription>
+                Liste de toutes les pages disponibles dans l'application et leur description.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Chemin</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pages.map((page) => (
+                    <TableRow key={page.id}>
+                      <TableCell className="font-mono text-sm">{page.id}</TableCell>
+                      <TableCell className="font-medium">{page.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{page.path}</TableCell>
+                      <TableCell className="text-sm">{page.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {pages.length === 0 && (
+                <div className="text-center py-8">
+                  <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Aucune page trouvée</h3>
+                  <p className="text-muted-foreground">
+                    Les pages de l'application n'ont pas encore été configurées.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="help" className="flex-1 flex flex-col">
+          <Card className="flex-1">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Gestion de l'Aide</CardTitle>
+                  <CardDescription>
+                    Accédez à la page de gestion complète de l'aide pour configurer les informations d'aide pour chaque page.
+                  </CardDescription>
+                </div>
+                <Button onClick={() => navigate('/users/help')}>
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Ouvrir la gestion de l'aide
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-2">À propos de la gestion de l'aide</h3>
+                  <p className="text-sm text-blue-700">
+                    La gestion de l'aide vous permet de créer et modifier les informations d'aide qui s'affichent 
+                    lorsque les utilisateurs cliquent sur le bouton "Aide" en haut à droite de chaque page.
+                  </p>
+                </div>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-medium text-yellow-900 mb-2">Permissions requises</h3>
+                  <p className="text-sm text-yellow-700">
+                    Seuls David Tabibian et Michael Enry peuvent modifier les informations d'aide. 
+                    Tous les autres utilisateurs peuvent seulement les consulter.
+                  </p>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-medium text-green-900 mb-2">Pages disponibles</h3>
+                  <div className="text-sm text-green-700">
+                    <p className="mb-2">Vous pouvez créer de l'aide pour les pages suivantes :</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {pages.map((page) => (
+                        <div key={page.id} className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                          <span className="font-mono text-xs">{page.id}</span>
+                          <span>→</span>
+                          <span>{page.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
