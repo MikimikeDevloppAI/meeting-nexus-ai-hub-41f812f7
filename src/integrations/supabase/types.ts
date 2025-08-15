@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -533,6 +533,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      page_help_information: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          help_content: string
+          id: string
+          page_id: string
+          page_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          help_content: string
+          id?: string
+          page_id: string
+          page_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          help_content?: string
+          id?: string
+          page_id?: string
+          page_name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       pages: {
         Row: {
@@ -1223,16 +1253,16 @@ export type Database = {
       get_all_overtime_hours: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          user_id: string
-          date: string
-          hours: number
-          description: string
-          status: string
-          approved_by: string
           approved_at: string
+          approved_by: string
           created_at: string
+          date: string
+          description: string
+          hours: number
+          id: string
+          status: string
           updated_at: string
+          user_id: string
           users: Json
         }[]
       }
@@ -1294,19 +1324,19 @@ export type Database = {
       }
       search_document_embeddings: {
         Args: {
-          query_embedding: string
-          filter_document_type?: string
-          match_threshold?: number
-          match_count?: number
           filter_document_id?: string
+          filter_document_type?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
         }
         Returns: {
-          id: string
-          document_id: string
-          meeting_id: string
-          chunk_text: string
           chunk_index: number
+          chunk_text: string
+          document_id: string
           document_type: string
+          id: string
+          meeting_id: string
           metadata: Json
           similarity: number
         }[]
@@ -1325,20 +1355,20 @@ export type Database = {
       }
       store_document_with_embeddings: {
         Args: {
+          p_chunks: string[]
+          p_content: string
+          p_created_by?: string
+          p_embeddings: string[]
+          p_meeting_id?: string
+          p_metadata?: Json
           p_title: string
           p_type: string
-          p_content: string
-          p_chunks: string[]
-          p_embeddings: string[]
-          p_metadata?: Json
-          p_created_by?: string
-          p_meeting_id?: string
           p_uploaded_document_id?: string
         }
         Returns: string
       }
       user_has_permission: {
-        Args: { user_id_param: string; page_id_param: string }
+        Args: { page_id_param: string; user_id_param: string }
         Returns: boolean
       }
       vector_avg: {

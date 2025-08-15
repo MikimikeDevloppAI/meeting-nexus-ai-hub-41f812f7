@@ -25,6 +25,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { Badge } from "@/components/ui/badge";
 import { TodoSidebarBadge } from "./TodoSidebarBadge";
 import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
+import { HelpButton } from "./HelpButton";
 
 const menuItems = [
   {
@@ -92,6 +93,13 @@ const menuItems = [
     url: "/users",
     icon: Settings,
     permission: "users",
+    subItems: [
+      {
+        title: "Aide",
+        url: "/users/help",
+        permission: "users",
+      }
+    ]
   },
   {
     title: "Profil",
@@ -197,6 +205,7 @@ export const AppLayout: React.FC = () => {
               </h2>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <HelpButton />
               {user && (
                 <div className="text-xs lg:text-sm font-medium truncate max-w-32 lg:max-w-none text-gray-600 bg-gray-100 px-2 py-1 rounded-md">
                   {user.email}

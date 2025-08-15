@@ -29,6 +29,7 @@ import TimeTracking from "./pages/TimeTracking";
 import HRValidation from "./pages/HRValidation";
 import GestionStock from "./pages/GestionStock";
 import Retrocession from "./pages/Retrocession";
+import HelpManagement from "./pages/HelpManagement";
 import { PermissionProtectedRoute } from "./components/auth/PermissionProtectedRoute";
 import { TodoCounterWrapper } from "./components/layout/TodoCounterWrapper";
 
@@ -103,6 +104,11 @@ const App = () => {
               <Route path="users" element={
                 <PermissionProtectedRoute requiredPermission="users">
                   <UserManagement />
+                </PermissionProtectedRoute>
+              } />
+              <Route path="users/help" element={
+                <PermissionProtectedRoute requiredPermission="users">
+                  <HelpManagement />
                 </PermissionProtectedRoute>
               } />
               <Route path="patient-letters" element={

@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle, Settings, Save, Loader2 } from "lucide-react";
+import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle, Settings, Save, Loader2, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;
@@ -42,6 +43,7 @@ const UserManagement = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!permissionsLoading && isAdmin) {
@@ -205,11 +207,17 @@ const UserManagement = () => {
 
   return (
     <div className="animate-fade-in h-full flex flex-col">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Gestion des utilisateurs et accès</h1>
-        <p className="text-muted-foreground">
-          Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
-        </p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">Gestion des utilisateurs et accès</h1>
+          <p className="text-muted-foreground">
+            Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/users/help')}>
+          <HelpCircle className="h-4 w-4 mr-2" />
+          Gestion de l'aide
+        </Button>
       </div>
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">
