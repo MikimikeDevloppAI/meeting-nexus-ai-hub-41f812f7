@@ -489,39 +489,48 @@ export type Database = {
       }
       operation: {
         Row: {
+          commission: number | null
           created_at: string
           date: string
           ecriture: string | null
+          femto: boolean
           id: string
-          montant_femto_pkr: number | null
+          montant: number | null
           numero_facture: string | null
           numero_patient: string | null
           par: string | null
           patient: string | null
+          prk: boolean
           updated_at: string
         }
         Insert: {
+          commission?: number | null
           created_at?: string
           date: string
           ecriture?: string | null
+          femto: boolean
           id?: string
-          montant_femto_pkr?: number | null
+          montant?: number | null
           numero_facture?: string | null
           numero_patient?: string | null
           par?: string | null
           patient?: string | null
+          prk: boolean
           updated_at?: string
         }
         Update: {
+          commission?: number | null
           created_at?: string
           date?: string
           ecriture?: string | null
+          femto?: boolean
           id?: string
-          montant_femto_pkr?: number | null
+          montant?: number | null
           numero_facture?: string | null
           numero_patient?: string | null
           par?: string | null
           patient?: string | null
+          prk?: boolean
           updated_at?: string
         }
         Relationships: []
