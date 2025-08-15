@@ -748,19 +748,19 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
-                <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
-                <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
-                <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
-                <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
-                <SelectItem value="télécommunication">Télécommunication</SelectItem>
                 <SelectItem value="assurance/cotisations sociales">Assurance/cotisations sociales</SelectItem>
-                <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
-                <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
-                <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
-                <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
-                <SelectItem value="nourritures">Nourritures</SelectItem>
                 <SelectItem value="contactologie">Contactologie</SelectItem>
+                <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
+                <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
+                <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
+                <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
+                <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
+                <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
+                <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
+                <SelectItem value="nourritures">Nourritures</SelectItem>
+                <SelectItem value="télécommunication">Télécommunication</SelectItem>
                 <SelectItem value="non assigné">Non assigné</SelectItem>
               </SelectContent>
             </Select>
@@ -1079,19 +1079,19 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
-                    <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
-                    <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
-                    <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
-                    <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
-                    <SelectItem value="télécommunication">Télécommunication</SelectItem>
                     <SelectItem value="assurance/cotisations sociales">Assurance/cotisations sociales</SelectItem>
-                    <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
-                    <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
-                    <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
-                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
-                    <SelectItem value="nourritures">Nourritures</SelectItem>
                     <SelectItem value="contactologie">Contactologie</SelectItem>
+                    <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
+                    <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
+                    <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
+                    <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
+                    <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
+                    <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                    <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
+                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                    <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
+                    <SelectItem value="nourritures">Nourritures</SelectItem>
+                    <SelectItem value="télécommunication">Télécommunication</SelectItem>
                     <SelectItem value="non assigné">Non assigné</SelectItem>
                     <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                     <SelectItem value="nourritures">Nourritures</SelectItem>
