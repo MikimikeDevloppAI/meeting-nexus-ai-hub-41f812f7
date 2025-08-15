@@ -55,7 +55,9 @@ export function SimpleInvoiceValidationDialog({
     payment_date: '',
     purchase_category: '',
     currency: 'CHF',
-    compte: 'Commun'
+    compte: 'Commun',
+    total_amount: 0,
+    exchange_rate: 1
   });
   const [saving, setSaving] = useState(false);
 
@@ -66,7 +68,9 @@ export function SimpleInvoiceValidationDialog({
         payment_date: formatDateForInput(invoice.payment_date || invoice.invoice_date),
         purchase_category: invoice.purchase_category || '',
         currency: invoice.currency || 'CHF',
-        compte: invoice.compte || 'Commun'
+        compte: invoice.compte || 'Commun',
+        total_amount: invoice.total_amount || 0,
+        exchange_rate: invoice.exchange_rate || 1
       });
     }
   }, [invoice]);
@@ -89,6 +93,8 @@ export function SimpleInvoiceValidationDialog({
         purchase_category: formData.purchase_category,
         currency: formData.currency,
         compte: formData.compte,
+        total_amount: formData.total_amount,
+        exchange_rate: formData.exchange_rate,
         status: 'validated'
       };
 
@@ -164,24 +170,20 @@ export function SimpleInvoiceValidationDialog({
                     <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="télécommunication">télécommunication</SelectItem>
-                    <SelectItem value="fournitures de bureau">fournitures de bureau</SelectItem>
-                    <SelectItem value="informatique">informatique</SelectItem>
-                    <SelectItem value="marketing">marketing</SelectItem>
-                    <SelectItem value="frais de port">frais de port</SelectItem>
-                    <SelectItem value="assurance">assurance</SelectItem>
-                    <SelectItem value="comptabilité">comptabilité</SelectItem>
-                    <SelectItem value="formation">formation</SelectItem>
-                    <SelectItem value="déplacement">déplacement</SelectItem>
-                    <SelectItem value="représentation">représentation</SelectItem>
-                    <SelectItem value="maintenance et réparation">maintenance et réparation</SelectItem>
-                    <SelectItem value="location">location</SelectItem>
-                    <SelectItem value="énergie">énergie</SelectItem>
-                    <SelectItem value="investissement/amortissement">investissement/amortissement</SelectItem>
-                    <SelectItem value="sous-traitance">sous-traitance</SelectItem>
-                    <SelectItem value="charges sociales">charges sociales</SelectItem>
-                    <SelectItem value="autres charges">autres charges</SelectItem>
-                    <SelectItem value="nourritures">nourritures</SelectItem>
+                    <SelectItem value="assurance/cotisations sociales">Assurance/cotisations sociales</SelectItem>
+                    <SelectItem value="contactologie">Contactologie</SelectItem>
+                    <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
+                    <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
+                    <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
+                    <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
+                    <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
+                    <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                    <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
+                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                    <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
+                    <SelectItem value="nourritures">Nourritures</SelectItem>
+                    <SelectItem value="télécommunication">Télécommunication</SelectItem>
+                    <SelectItem value="non assigné">Non assigné</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
@@ -231,14 +233,46 @@ export function SimpleInvoiceValidationDialog({
               </CardContent>
             </Card>
 
-            {/* Display invoice amount */}
+            {/* Montant TTC - Editable */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Montant TTC</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.total_amount}
+                  onChange={(e) => handleInputChange('total_amount', e.target.value)}
+                  placeholder="Montant TTC"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Taux de change - Editable */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Taux de change</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={formData.exchange_rate}
+                  onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
+                  placeholder="Taux de change"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Display original amount CHF */}
             {invoice.original_amount_chf && (
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Montant TTC</CardTitle>
+                  <CardTitle className="text-lg">Montant original CHF</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-xl font-semibold text-blue-600">
                     {invoice.original_amount_chf.toFixed(2)} CHF
                   </div>
                 </CardContent>
