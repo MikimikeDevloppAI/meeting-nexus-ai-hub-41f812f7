@@ -44,6 +44,8 @@ interface DashboardFilters {
   dateTo?: string;
   compte?: string;
   supplier?: string;
+  minAmount?: number;
+  maxAmount?: number;
 }
 
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
@@ -148,6 +150,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       
       // Filtre par fournisseur (insensible à la casse)
       if (filters.supplier && invoice.supplier_name?.toLowerCase() !== filters.supplier.toLowerCase()) return false;
+      
+      // Filtre par montant minimum
+      if (filters.minAmount && invoice.original_amount_chf && invoice.original_amount_chf < filters.minAmount) return false;
+      
+      // Filtre par montant maximum
+      if (filters.maxAmount && invoice.original_amount_chf && invoice.original_amount_chf > filters.maxAmount) return false;
       
       return true;
     });

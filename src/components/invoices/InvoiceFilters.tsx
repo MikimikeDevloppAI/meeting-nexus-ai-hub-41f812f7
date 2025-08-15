@@ -17,6 +17,8 @@ interface DashboardFilters {
   dateTo?: string;
   compte?: string;
   supplier?: string;
+  minAmount?: number;
+  maxAmount?: number;
 }
 
 interface InvoiceFiltersProps {
@@ -42,13 +44,13 @@ export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFi
     onFiltersChange({});
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value);
+  const hasActiveFilters = Object.values(filters).some(value => value !== undefined && value !== '' && value !== null);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Filtres</CardTitle>
+          <CardTitle className="text-lg">Recherche facture</CardTitle>
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="flex items-center gap-1">
               <X className="h-4 w-4" />
@@ -58,52 +60,87 @@ export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFi
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="dateFrom">Date de début</Label>
-            <Input
-              id="dateFrom"
-              type="date"
-              value={filters.dateFrom || ''}
-              onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
-            />
+        <div className="space-y-4">
+          {/* Première ligne : dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dateFrom">Date de début</Label>
+              <Input
+                id="dateFrom"
+                type="date"
+                value={filters.dateFrom || ''}
+                onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dateTo">Date de fin</Label>
+              <Input
+                id="dateTo"
+                type="date"
+                value={filters.dateTo || ''}
+                onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dateTo">Date de fin</Label>
-            <Input
-              id="dateTo"
-              type="date"
-              value={filters.dateTo || ''}
-              onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
-            />
+          {/* Deuxième ligne : fournisseur et compte */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Fournisseur</Label>
+              <Combobox
+                options={supplierOptions}
+                value={filters.supplier}
+                placeholder="Tous les fournisseurs"
+                searchPlaceholder="Rechercher un fournisseur..."
+                emptyText="Aucun fournisseur trouvé"
+                onSelect={(value) => onFiltersChange({ ...filters, supplier: value === 'all' ? undefined : value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Compte</Label>
+              <Select value={filters.compte || 'all'} onValueChange={(value) => onFiltersChange({ ...filters, compte: value === 'all' ? undefined : value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tous les comptes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les comptes</SelectItem>
+                  {uniqueComptes.map(compte => (
+                    <SelectItem key={compte} value={compte}>{compte}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Compte</Label>
-            <Select value={filters.compte || 'all'} onValueChange={(value) => onFiltersChange({ ...filters, compte: value === 'all' ? undefined : value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les comptes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les comptes</SelectItem>
-                {uniqueComptes.map(compte => (
-                  <SelectItem key={compte} value={compte}>{compte}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Troisième ligne : montants */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="minAmount">Montant minimum (CHF)</Label>
+              <Input
+                id="minAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.minAmount || ''}
+                onChange={(e) => onFiltersChange({ ...filters, minAmount: e.target.value ? parseFloat(e.target.value) : undefined })}
+                placeholder="De..."
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Fournisseur</Label>
-            <Combobox
-              options={supplierOptions}
-              value={filters.supplier}
-              placeholder="Tous les fournisseurs"
-              searchPlaceholder="Rechercher un fournisseur..."
-              emptyText="Aucun fournisseur trouvé"
-              onSelect={(value) => onFiltersChange({ ...filters, supplier: value === 'all' ? undefined : value })}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="maxAmount">Montant maximum (CHF)</Label>
+              <Input
+                id="maxAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.maxAmount || ''}
+                onChange={(e) => onFiltersChange({ ...filters, maxAmount: e.target.value ? parseFloat(e.target.value) : undefined })}
+                placeholder="À..."
+              />
+            </div>
           </div>
         </div>
       </CardContent>
