@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Edit, Trash2, Clock, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Download, Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -98,11 +98,18 @@ export function FilteredInvoiceList({
   deletingInvoiceId 
 }: FilteredInvoiceListProps) {
   
+  // Function to view file in bucket
+  const viewFile = (filePath: string) => {
+    const supabaseUrl = 'https://ecziljpkvshvapjsxaty.supabase.co';
+    const fileUrl = `${supabaseUrl}/storage/v1/object/public/invoices/${filePath}`;
+    window.open(fileUrl, '_blank');
+  };
+  
   // Préparation des options pour les filtres
-  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean)));
+  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).filter(compte => compte !== 'David')));
   const uniqueSuppliers = Array.from(new Set(
     invoices
-      .map(inv => inv.supplier_name?.toUpperCase())
+      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase())
       .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   
@@ -300,11 +307,10 @@ export function FilteredInvoiceList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fichier</TableHead>
               <TableHead>Fournisseur</TableHead>
-              <TableHead>Montant</TableHead>
               <TableHead>Compte</TableHead>
-              <TableHead>Statut</TableHead>
+              <TableHead>Catégorie</TableHead>
+              <TableHead>Montant (CHF)</TableHead>
               <TableHead>Date de paiement</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -312,21 +318,16 @@ export function FilteredInvoiceList({
           <TableBody>
             {searchFilteredInvoices.map((invoice) => (
               <TableRow key={invoice.id}>
-                <TableCell className="font-medium">
-                  {invoice.original_filename}
-                </TableCell>
                 <TableCell>
                   {formatSupplierName(invoice.supplier_name)}
                 </TableCell>
+                <TableCell>{invoice.compte || 'Commun'}</TableCell>
+                <TableCell>{invoice.purchase_category || 'N/A'}</TableCell>
                 <TableCell className="font-semibold">
                   {invoice.original_amount_chf ? 
                     `${invoice.original_amount_chf.toFixed(2)} CHF` : 
-                    (invoice.total_amount ? `${invoice.total_amount.toFixed(2)} ${invoice.currency || 'EUR'}` : 'N/A')
+                    'N/A'
                   }
-                </TableCell>
-                <TableCell>{invoice.compte || 'Commun'}</TableCell>
-                <TableCell>
-                  {getStatusBadge(invoice.status)}
                 </TableCell>
                 <TableCell>
                   {invoice.payment_date ? 
@@ -340,10 +341,10 @@ export function FilteredInvoiceList({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onDownloadFile(invoice.file_path, invoice.original_filename)}
+                        onClick={() => viewFile(invoice.file_path)}
                         className="flex items-center gap-1"
                       >
-                        <Download className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
                     )}
                     

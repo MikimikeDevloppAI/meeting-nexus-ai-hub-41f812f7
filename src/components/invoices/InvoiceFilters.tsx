@@ -26,12 +26,39 @@ interface InvoiceFiltersProps {
 }
 
 export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFiltersProps) {
-  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean)));
+  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).filter(compte => compte !== 'David')));
   const uniqueSuppliers = Array.from(new Set(
     invoices
-      .map(inv => inv.supplier_name?.toUpperCase())
+      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase())
       .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
+// Helper function to properly decode and display supplier names
+const formatSupplierName = (supplierName?: string): string => {
+  if (!supplierName) return '';
+  
+  try {
+    let decoded = supplierName;
+    
+    // First handle common UTF-8 encoding issues
+    decoded = decoded
+      .replace(/Ã©/g, 'é')
+      .replace(/Ã¨/g, 'è')
+      .replace(/Ã /g, 'à')
+      .replace(/Ã§/g, 'ç')
+      .replace(/Ã´/g, 'ô')
+      .replace(/Ã¢/g, 'â')
+      .replace(/Ã¯/g, 'ï')
+      .replace(/Ã«/g, 'ë')
+      .replace(/Ã¹/g, 'ù')
+      .replace(/Ã»/g, 'û');
+    
+    return decoded || supplierName;
+  } catch (error) {
+    console.error('Error decoding supplier name:', error, 'Original:', supplierName);
+    return supplierName;
+  }
+};
   
   const supplierOptions = [
     { value: 'all', label: 'Tous les fournisseurs' },

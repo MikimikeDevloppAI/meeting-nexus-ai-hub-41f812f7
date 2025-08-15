@@ -11,7 +11,7 @@ import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
 import { DonutCategoryChart } from "./DonutCategoryChart";
 import { SupplierChart } from "./SupplierChart";
 import { FilteredInvoiceList } from "./FilteredInvoiceList";
-import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
+import { SimpleInvoiceValidationDialog } from "./SimpleInvoiceValidationDialog";
 import { GrowthComparisonCard } from "./GrowthComparisonCard";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -393,7 +393,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       </div>
 
       {selectedInvoice && (
-        <InvoiceValidationDialog
+        <SimpleInvoiceValidationDialog
           invoice={selectedInvoice}
           open={validationDialogOpen}
           onOpenChange={setValidationDialogOpen}
