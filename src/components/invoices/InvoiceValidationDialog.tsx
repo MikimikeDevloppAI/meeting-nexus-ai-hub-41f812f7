@@ -523,6 +523,7 @@ export function InvoiceValidationDialog({
                   <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
                   <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                   <SelectItem value="nourritures">Nourritures</SelectItem>
+                  <SelectItem value="contactologie">Contactologie</SelectItem>
                   <SelectItem value="non assigné">Non assigné</SelectItem>
                 </SelectContent>
               </Select>

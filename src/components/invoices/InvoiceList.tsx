@@ -760,6 +760,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
                 <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                 <SelectItem value="nourritures">Nourritures</SelectItem>
+                <SelectItem value="contactologie">Contactologie</SelectItem>
                 <SelectItem value="non assigné">Non assigné</SelectItem>
               </SelectContent>
             </Select>
@@ -1088,6 +1089,10 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
                     <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
                     <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                    <SelectItem value="nourritures">Nourritures</SelectItem>
+                    <SelectItem value="contactologie">Contactologie</SelectItem>
+                    <SelectItem value="non assigné">Non assigné</SelectItem>
                     <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                     <SelectItem value="nourritures">Nourritures</SelectItem>
                     <SelectItem value="non assigné">Non assigné</SelectItem>
