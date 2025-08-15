@@ -382,7 +382,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
         {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 
-          invoices={filteredInvoices}
+          invoices={invoices}
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
           deletingInvoiceId={deletingInvoiceId}
