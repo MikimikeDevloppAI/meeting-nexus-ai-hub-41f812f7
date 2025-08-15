@@ -1281,6 +1281,7 @@ export type Database = {
       }
       vision_ophta: {
         Row: {
+          commission: number | null
           created_at: string
           CXL: boolean
           date: string
@@ -1295,6 +1296,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          commission?: number | null
           created_at?: string
           CXL: boolean
           date: string
@@ -1309,6 +1311,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          commission?: number | null
           created_at?: string
           CXL?: boolean
           date?: string
