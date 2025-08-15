@@ -3,15 +3,15 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle, Settings, Save, Loader2, HelpCircle } from "lucide-react";
+import { Users, UserPlus, Mail, Calendar, CheckCircle, XCircle, Settings, Save, Loader2, HelpCircle, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;
@@ -34,16 +34,23 @@ interface Permission {
   granted: boolean;
 }
 
+interface HelpInfo {
+  id?: string;
+  page_id: string;
+  page_name: string;
+  help_content: string;
+}
+
 const UserManagement = () => {
   const { isAdmin, loading: permissionsLoading } = useUserPermissions();
   const [users, setUsers] = useState<User[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [helpInfos, setHelpInfos] = useState<HelpInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!permissionsLoading && isAdmin) {
@@ -55,19 +62,34 @@ const UserManagement = () => {
 
   const fetchData = async () => {
     try {
-      const [usersResponse, pagesResponse, permissionsResponse] = await Promise.all([
+      const [usersResponse, pagesResponse, permissionsResponse, helpResponse] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('pages').select('*').neq('id', 'access-manager').order('name'),
-        supabase.from('user_permissions').select('*')
+        supabase.from('user_permissions').select('*'),
+        supabase.from('page_help_information').select('*')
       ]);
 
       if (usersResponse.error) throw usersResponse.error;
       if (pagesResponse.error) throw pagesResponse.error;
       if (permissionsResponse.error) throw permissionsResponse.error;
+      if (helpResponse.error) throw helpResponse.error;
 
       setUsers(usersResponse.data || []);
       setPages(pagesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
+      
+      // Créer les objets d'aide pour toutes les pages
+      const existingHelp = helpResponse.data || [];
+      const allPagesHelp = (pagesResponse.data || []).map(page => {
+        const existing = existingHelp.find(h => h.page_id === page.id);
+        return {
+          id: existing?.id,
+          page_id: page.id,
+          page_name: page.name,
+          help_content: existing?.help_content || ''
+        };
+      });
+      setHelpInfos(allPagesHelp);
     } catch (error: any) {
       console.error("Error fetching data:", error);
       toast({
@@ -170,6 +192,66 @@ const UserManagement = () => {
     }
   };
 
+  const updateHelpContent = (pageId: string, content: string) => {
+    setHelpInfos(helpInfos.map(help => 
+      help.page_id === pageId 
+        ? { ...help, help_content: content }
+        : help
+    ));
+  };
+
+  const saveHelpInfo = async (pageId: string) => {
+    const helpInfo = helpInfos.find(h => h.page_id === pageId);
+    if (!helpInfo) return;
+
+    try {
+      if (helpInfo.id) {
+        // Update existing
+        const { error } = await supabase
+          .from('page_help_information')
+          .update({
+            help_content: helpInfo.help_content,
+            page_name: helpInfo.page_name
+          })
+          .eq('id', helpInfo.id);
+
+        if (error) throw error;
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('page_help_information')
+          .insert({
+            page_id: helpInfo.page_id,
+            page_name: helpInfo.page_name,
+            help_content: helpInfo.help_content
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Update local state with new ID
+        setHelpInfos(helpInfos.map(h => 
+          h.page_id === pageId 
+            ? { ...h, id: data.id }
+            : h
+        ));
+      }
+
+      toast({
+        title: "Succès",
+        description: "Information d'aide sauvegardée avec succès",
+      });
+    } catch (error) {
+      console.error('Error saving help info:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder l'information d'aide",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -207,21 +289,17 @@ const UserManagement = () => {
 
   return (
     <div className="animate-fade-in h-full flex flex-col">
-      <div className="mb-6 flex justify-between items-start">
+      <div className="mb-6">
         <div>
           <h1 className="text-2xl font-bold">Gestion des utilisateurs et accès</h1>
           <p className="text-muted-foreground">
             Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/users/help')}>
-          <HelpCircle className="h-4 w-4 mr-2" />
-          Gestion de l'aide
-        </Button>
       </div>
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Utilisateurs
@@ -229,10 +307,6 @@ const UserManagement = () => {
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Permissions
-          </TabsTrigger>
-          <TabsTrigger value="pages" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Pages
           </TabsTrigger>
           <TabsTrigger value="help" className="flex items-center gap-2">
             <HelpCircle className="h-4 w-4" />
@@ -427,100 +501,63 @@ const UserManagement = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="pages" className="flex-1 flex flex-col">
+        <TabsContent value="help" className="flex-1 flex flex-col">
           <Card className="flex-1">
             <CardHeader>
-              <CardTitle>Gestion des Pages</CardTitle>
+              <CardTitle>Gestion de l'Aide</CardTitle>
               <CardDescription>
-                Liste de toutes les pages disponibles dans l'application et leur description.
+                Configurez les informations d'aide pour chaque page de l'application. Ces informations s'affichent quand les utilisateurs cliquent sur le bouton "Aide".
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Nom</TableHead>
+                    <TableHead>Page</TableHead>
                     <TableHead>Chemin</TableHead>
-                    <TableHead>Description</TableHead>
+                    <TableHead className="w-1/2">Aide</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pages.map((page) => (
-                    <TableRow key={page.id}>
-                      <TableCell className="font-mono text-sm">{page.id}</TableCell>
-                      <TableCell className="font-medium">{page.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{page.path}</TableCell>
-                      <TableCell className="text-sm">{page.description}</TableCell>
+                  {helpInfos.map((helpInfo) => (
+                    <TableRow key={helpInfo.page_id}>
+                      <TableCell className="font-medium">{helpInfo.page_name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {pages.find(p => p.id === helpInfo.page_id)?.path}
+                      </TableCell>
+                      <TableCell>
+                        <Textarea
+                          value={helpInfo.help_content}
+                          onChange={(e) => updateHelpContent(helpInfo.page_id, e.target.value)}
+                          placeholder="Entrez les informations d'aide pour cette page..."
+                          className="min-h-[80px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => saveHelpInfo(helpInfo.page_id)}
+                          disabled={saving}
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Valider
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               
-              {pages.length === 0 && (
+              {helpInfos.length === 0 && (
                 <div className="text-center py-8">
-                  <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <HelpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">Aucune page trouvée</h3>
                   <p className="text-muted-foreground">
                     Les pages de l'application n'ont pas encore été configurées.
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="help" className="flex-1 flex flex-col">
-          <Card className="flex-1">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Gestion de l'Aide</CardTitle>
-                  <CardDescription>
-                    Accédez à la page de gestion complète de l'aide pour configurer les informations d'aide pour chaque page.
-                  </CardDescription>
-                </div>
-                <Button onClick={() => navigate('/users/help')}>
-                  <HelpCircle className="h-4 w-4 mr-2" />
-                  Ouvrir la gestion de l'aide
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">À propos de la gestion de l'aide</h3>
-                  <p className="text-sm text-blue-700">
-                    La gestion de l'aide vous permet de créer et modifier les informations d'aide qui s'affichent 
-                    lorsque les utilisateurs cliquent sur le bouton "Aide" en haut à droite de chaque page.
-                  </p>
-                </div>
-                
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h3 className="font-medium text-yellow-900 mb-2">Permissions requises</h3>
-                  <p className="text-sm text-yellow-700">
-                    Seuls David Tabibian et Michael Enry peuvent modifier les informations d'aide. 
-                    Tous les autres utilisateurs peuvent seulement les consulter.
-                  </p>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-medium text-green-900 mb-2">Pages disponibles</h3>
-                  <div className="text-sm text-green-700">
-                    <p className="mb-2">Vous pouvez créer de l'aide pour les pages suivantes :</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {pages.map((page) => (
-                        <div key={page.id} className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                          <span className="font-mono text-xs">{page.id}</span>
-                          <span>→</span>
-                          <span>{page.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
