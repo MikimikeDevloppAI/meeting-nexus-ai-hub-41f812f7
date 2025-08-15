@@ -44,6 +44,13 @@ interface DashboardFilters {
   dateTo?: string;
   compte?: string;
   supplier?: string;
+}
+
+interface SearchFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  compte?: string;
+  supplier?: string;
   minAmount?: number;
   maxAmount?: number;
 }
@@ -66,6 +73,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   };
 
   const [filters, setFilters] = useState<DashboardFilters>(getDefaultFilters());
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
@@ -150,12 +158,6 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       
       // Filtre par fournisseur (insensible à la casse)
       if (filters.supplier && invoice.supplier_name?.toLowerCase() !== filters.supplier.toLowerCase()) return false;
-      
-      // Filtre par montant minimum
-      if (filters.minAmount && invoice.original_amount_chf && invoice.original_amount_chf < filters.minAmount) return false;
-      
-      // Filtre par montant maximum
-      if (filters.maxAmount && invoice.original_amount_chf && invoice.original_amount_chf > filters.maxAmount) return false;
       
       return true;
     });
@@ -381,6 +383,8 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 
           invoices={filteredInvoices}
+          searchFilters={searchFilters}
+          onSearchFiltersChange={setSearchFilters}
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
           onDownloadFile={downloadFile}
