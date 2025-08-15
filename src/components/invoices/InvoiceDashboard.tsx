@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,7 @@ import { CalendarIcon, DollarSign, FileText, ArrowLeft, Users, UserCheck } from 
 import { Badge } from "@/components/ui/badge";
 import { InvoiceFilters } from "./InvoiceFilters";
 import { MonthlyExpenseChart } from "./MonthlyExpenseChart";
-import { CategoryChart } from "./CategoryChart";
+import { DonutCategoryChart } from "./DonutCategoryChart";
 import { SupplierChart } from "./SupplierChart";
 import { FilteredInvoiceList } from "./FilteredInvoiceList";
 import { SimpleInvoiceValidationDialog } from "./SimpleInvoiceValidationDialog";
@@ -29,7 +30,6 @@ interface Invoice {
   currency?: string;
   supplier_name?: string;
   purchase_category?: string;
-  invoice_type?: string;
   purchase_subcategory?: string;
   status: string;
   created_at: string;
@@ -44,12 +44,6 @@ interface DashboardFilters {
   dateTo?: string;
   compte?: string;
   supplier?: string;
-}
-
-interface ChartFilters {
-  selectedMonth?: string;
-  selectedCategory?: string;
-  selectedSupplier?: string;
 }
 
 interface SearchFilters {
@@ -72,22 +66,17 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   // Initialiser avec "année en cours" par défaut
   const getDefaultFilters = (): DashboardFilters => {
     const now = new Date();
-    const dateFrom = formatDateForInput(now.getFullYear(), 1, 1);
+    const dateFrom = formatDateForInput(now.getFullYear(), 1, 1); // 1er janvier
     const dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
     
     return { dateFrom, dateTo };
   };
 
   const [filters, setFilters] = useState<DashboardFilters>(getDefaultFilters());
-  const [chartFilters, setChartFilters] = useState<ChartFilters>({});
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string>('');
-
-  // Reset chart filters function
-  const resetChartFilters = () => {
-    setChartFilters({});
-  };
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-invoices'],
@@ -103,28 +92,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   });
 
-  // Helper function to format supplier names
-  const formatSupplierName = (supplierName?: string): string => {
-    if (!supplierName) return '';
-    
-    try {
-      return supplierName
-        .replace(/Ã©/g, 'é')
-        .replace(/Ã¨/g, 'è')
-        .replace(/Ã /g, 'à')
-        .replace(/Ã§/g, 'ç')
-        .replace(/Ã´/g, 'ô')
-        .replace(/Ã¢/g, 'â')
-        .replace(/Ã¯/g, 'ï')
-        .replace(/Ã«/g, 'ë')
-        .replace(/Ã¹/g, 'ù')
-        .replace(/Ã»/g, 'û');
-    } catch (error) {
-      return supplierName;
-    }
-  };
-
-  // Fonctions pour les filtres de date
+  // Fonctions pour les filtres de date - CORRIGÉES pour éviter les problèmes de fuseau horaire
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     let dateFrom: string | undefined;
@@ -132,10 +100,12 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
     switch (type) {
       case 'mtd':
+        // Premier jour du mois en cours (1er du mois)
         dateFrom = formatDateForInput(now.getFullYear(), now.getMonth() + 1, 1);
         dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
         break;
       case 'ytd':
+        // Premier jour de l'année en cours (1er janvier)
         dateFrom = formatDateForInput(now.getFullYear(), 1, 1);
         dateTo = formatDateForInput(now.getFullYear(), now.getMonth() + 1, now.getDate());
         break;
@@ -149,7 +119,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     setFilters(prev => ({ ...prev, dateFrom, dateTo }));
   };
 
-  // Fonction pour vérifier si un bouton est actif
+  // Fonction pour vérifier si un bouton est actif - CORRIGÉE
   const isButtonActive = (type: 'all' | 'mtd' | 'ytd') => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -171,66 +141,53 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     }
   };
 
-  // Filtered invoices for statistics and main charts (based on dashboard filters)
   const filteredInvoices = useMemo(() => {
-    return invoices?.filter(invoice => {
+    if (!invoices) return [];
+    
+    return invoices.filter(invoice => {
+      // Filtre par date - utilise payment_date au lieu de invoice_date
       if (filters.dateFrom && invoice.payment_date) {
-        const invoiceDate = new Date(invoice.payment_date);
-        const filterDate = new Date(filters.dateFrom);
-        if (invoiceDate < filterDate) return false;
+        if (new Date(invoice.payment_date) < new Date(filters.dateFrom)) return false;
       }
-      
       if (filters.dateTo && invoice.payment_date) {
-        const invoiceDate = new Date(invoice.payment_date);
-        const filterDate = new Date(filters.dateTo);
-        if (invoiceDate > filterDate) return false;
+        if (new Date(invoice.payment_date) > new Date(filters.dateTo)) return false;
       }
       
-      if (filters.compte && filters.compte !== 'all' && invoice.compte !== filters.compte) {
-        return false;
-      }
+      // Filtre par compte
+      if (filters.compte && invoice.compte !== filters.compte) return false;
       
-      if (filters.supplier && filters.supplier !== 'all') {
-        const supplierName = formatSupplierName(invoice.supplier_name);
-        if (!supplierName?.toLowerCase().includes(filters.supplier.toLowerCase())) {
-          return false;
-        }
-      }
-      
-      return true;
-    }) || [];
-  }, [invoices, filters]);
-
-  // Chart filtered invoices (based on dashboard filters + chart interactions)
-  const chartFilteredInvoices = useMemo(() => {
-    return filteredInvoices.filter(invoice => {
-      // Filter by selected month
-      if (chartFilters.selectedMonth && invoice.payment_date) {
-        const invoiceDate = new Date(invoice.payment_date);
-        const monthKey = `${invoiceDate.getFullYear()}-${String(invoiceDate.getMonth() + 1).padStart(2, '0')}`;
-        if (monthKey !== chartFilters.selectedMonth) return false;
-      }
-      
-      // Filter by selected category
-      if (chartFilters.selectedCategory && invoice.invoice_type !== chartFilters.selectedCategory) {
-        return false;
-      }
-      
-      // Filter by selected supplier
-      if (chartFilters.selectedSupplier) {
-        const supplierName = formatSupplierName(invoice.supplier_name);
-        if (supplierName !== chartFilters.selectedSupplier) return false;
-      }
+      // Filtre par fournisseur (insensible à la casse)
+      if (filters.supplier && invoice.supplier_name?.toLowerCase() !== filters.supplier.toLowerCase()) return false;
       
       return true;
     });
-  }, [filteredInvoices, chartFilters]);
+  }, [invoices, filters]);
 
-  // Statistics calculations (based on chart filtered data)
-  const totalInvoices = chartFilteredInvoices.length;
-  const totalAmount = chartFilteredInvoices.reduce((sum, invoice) => sum + (invoice.original_amount_chf || 0), 0);
-  const pendingInvoices = chartFilteredInvoices.filter(invoice => invoice.status === 'pending').length;
-  const validatedInvoices = chartFilteredInvoices.filter(invoice => invoice.status === 'validated').length;
+  const stats = useMemo(() => {
+    if (!filteredInvoices?.length) return {
+      totalAmount: 0,
+      invoiceCount: 0,
+      averageAmount: 0,
+      communAmount: 0,
+      davidAmount: 0
+    };
+
+    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
+    const communAmount = filteredInvoices
+      .filter(inv => inv.compte === 'Commun')
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
+    const davidAmount = filteredInvoices
+      .filter(inv => inv.compte === 'David Tabibian')
+      .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
+
+    return {
+      totalAmount,
+      invoiceCount: filteredInvoices.length,
+      averageAmount: totalAmount / filteredInvoices.length,
+      communAmount,
+      davidAmount
+    };
+  }, [filteredInvoices]);
 
   // Fonction pour formatter les montants en CHF avec séparateurs de milliers
   const formatAmount = (amount: number): string => {
@@ -239,11 +196,33 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
   // Handlers for invoice actions
   const handleValidateInvoice = (invoice: Invoice) => {
-    setEditingInvoice(invoice);
+    setSelectedInvoice(invoice);
+    setValidationDialogOpen(true);
   };
 
   const handleValidationComplete = () => {
     refetch();
+  };
+
+  const downloadFile = async (filePath: string, filename: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('invoices')
+        .download(filePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
   };
 
   const deleteInvoice = async (invoice: Invoice) => {
@@ -284,20 +263,13 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       console.error('Error during deletion process:', error);
       toast.error(`Erreur lors de la suppression de la facture: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
-      setDeletingInvoiceId('');
+      setDeletingInvoiceId(null);
     }
   };
 
   if (isLoading) {
     return <div className="text-center py-8">Chargement du dashboard...</div>;
   }
-
-  const communAmount = chartFilteredInvoices
-    .filter(inv => inv.compte === 'Commun')
-    .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
-  const davidAmount = chartFilteredInvoices
-    .filter(inv => inv.compte === 'David Tabibian')
-    .reduce((sum, inv) => sum + (inv.original_amount_chf || 0), 0);
 
   return (
     <>
@@ -316,7 +288,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           </Button>
         </div>
 
-        {/* Filtres */}
+        {/* Boutons de filtre de date */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
@@ -344,29 +316,10 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             </div>
             
             <InvoiceFilters filters={filters} onFiltersChange={setFilters} invoices={invoices || []} />
-        
-            {/* Chart Filter Indicator & Reset */}
-            {(chartFilters.selectedMonth || chartFilters.selectedCategory || chartFilters.selectedSupplier) && (
-              <Card className="bg-blue-50 border-blue-200 mt-4">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-blue-700">
-                      <span>Filtres graphiques actifs:</span>
-                      {chartFilters.selectedMonth && <Badge variant="secondary">Mois: {chartFilters.selectedMonth}</Badge>}
-                      {chartFilters.selectedCategory && <Badge variant="secondary">Catégorie: {chartFilters.selectedCategory}</Badge>}
-                      {chartFilters.selectedSupplier && <Badge variant="secondary">Fournisseur: {chartFilters.selectedSupplier}</Badge>}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={resetChartFilters}>
-                      Réinitialiser les filtres
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </CardContent>
         </Card>
 
-        {/* Statistiques principales */}
+        {/* Statistiques principales - 4 cartes maintenant */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -374,9 +327,9 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(totalAmount)}</div>
+              <div className="text-2xl font-bold">{formatAmount(stats.totalAmount)}</div>
               <p className="text-xs text-muted-foreground">
-                {totalInvoices} facture{totalInvoices > 1 ? 's' : ''}
+                {stats.invoiceCount} facture{stats.invoiceCount > 1 ? 's' : ''}
               </p>
             </CardContent>
           </Card>
@@ -393,9 +346,9 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(communAmount)}</div>
+              <div className="text-2xl font-bold">{formatAmount(stats.communAmount)}</div>
               <p className="text-xs text-muted-foreground">
-                {totalAmount > 0 ? Math.round((communAmount / totalAmount) * 100) : 0}% du total
+                {Math.round((stats.communAmount / stats.totalAmount) * 100)}% du total
               </p>
             </CardContent>
           </Card>
@@ -406,49 +359,41 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatAmount(davidAmount)}</div>
+              <div className="text-2xl font-bold">{formatAmount(stats.davidAmount)}</div>
               <p className="text-xs text-muted-foreground">
-                {totalAmount > 0 ? Math.round((davidAmount / totalAmount) * 100) : 0}% du total
+                {Math.round((stats.davidAmount / stats.totalAmount) * 100)}% du total
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Graphiques */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <MonthlyExpenseChart 
-            invoices={chartFilteredInvoices} 
-            dateFrom={filters.dateFrom} 
-            dateTo={filters.dateTo}
-            onMonthClick={(month) => setChartFilters(prev => ({ ...prev, selectedMonth: month }))}
-            selectedMonth={chartFilters.selectedMonth}
-          />
-          <CategoryChart 
-            invoices={chartFilteredInvoices}
-            onCategoryClick={(category) => setChartFilters(prev => ({ ...prev, selectedCategory: category }))}
-            selectedCategory={chartFilters.selectedCategory}
-          />
-          <SupplierChart 
-            invoices={chartFilteredInvoices}
-            onSupplierClick={(supplier) => setChartFilters(prev => ({ ...prev, selectedSupplier: supplier }))}
-            selectedSupplier={chartFilters.selectedSupplier}
-          />
+        {/* Graphique mensuel - Pleine largeur */}
+        <MonthlyExpenseChart 
+          invoices={filteredInvoices} 
+          dateFrom={filters.dateFrom}
+          dateTo={filters.dateTo}
+        />
+
+        {/* Graphiques côte à côte - maintenant alignés */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DonutCategoryChart invoices={filteredInvoices} />
+          <SupplierChart invoices={filteredInvoices} />
         </div>
 
-        {/* Tableau des factures */}
+        {/* Tableau des factures filtrées */}
         <FilteredInvoiceList 
-          invoices={invoices || []}
+          invoices={invoices}
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
           deletingInvoiceId={deletingInvoiceId}
         />
       </div>
 
-      {editingInvoice && (
+      {selectedInvoice && (
         <SimpleInvoiceValidationDialog
-          invoice={editingInvoice}
-          open={!!editingInvoice}
-          onOpenChange={(open) => !open && setEditingInvoice(null)}
+          invoice={selectedInvoice}
+          open={validationDialogOpen}
+          onOpenChange={setValidationDialogOpen}
           onValidated={handleValidationComplete}
         />
       )}

@@ -15,8 +15,6 @@ interface MonthlyExpenseChartProps {
   invoices: Invoice[];
   dateFrom?: string;
   dateTo?: string;
-  onMonthClick?: (month: string) => void;
-  selectedMonth?: string;
 }
 
 const chartConfig = {
@@ -34,7 +32,7 @@ const chartConfig = {
   },
 };
 
-export function MonthlyExpenseChart({ invoices, dateFrom, dateTo, onMonthClick, selectedMonth }: MonthlyExpenseChartProps) {
+export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpenseChartProps) {
   const monthlyData = useMemo(() => {
     const dataMap = new Map<string, { month: string; monthKey: string; commun: number; david: number }>();
 
@@ -154,61 +152,23 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo, onMonthClick, 
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ComposedChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <XAxis 
-              dataKey="month" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12 }}
-            />
-            <YAxis 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12 }}
-              tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-            />
+          <ComposedChart data={monthlyData} margin={{ top: 50, right: 30, left: 20, bottom: 5 }}>
+            <XAxis dataKey="month" />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            <Bar
-              dataKey="commun"
-              fill="var(--color-commun)"
-              radius={[2, 2, 0, 0]}
-              onClick={(data: any) => onMonthClick?.(data.monthKey)}
-              style={{ 
-                cursor: onMonthClick ? 'pointer' : 'default'
-              }}
+            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
+            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
+            <Line 
+              type="monotone" 
+              dataKey="total" 
+              stroke="var(--color-total)" 
+              strokeWidth={3}
+              strokeDasharray="8 4"
+              name="Tendance totale"
+              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 5 }}
             >
-              <LabelList 
-                dataKey="commun" 
-                position="top" 
-                className="text-xs"
-                formatter={(value: number) => value > 0 ? `${(value / 1000).toFixed(0)}k` : ''}
-              />
-            </Bar>
-            <Bar
-              dataKey="david"
-              fill="var(--color-david)"
-              radius={[2, 2, 0, 0]}
-              onClick={(data: any) => onMonthClick?.(data.monthKey)}
-              style={{ 
-                cursor: onMonthClick ? 'pointer' : 'default'
-              }}
-            >
-              <LabelList 
-                dataKey="david" 
-                position="top" 
-                className="text-xs"
-                formatter={(value: number) => value > 0 ? `${(value / 1000).toFixed(0)}k` : ''}
-              />
-            </Bar>
-            <Line
-              type="monotone"
-              dataKey="total"
-              stroke="var(--color-total)"
-              strokeWidth={2}
-              strokeDasharray="5 5"
-              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 4 }}
-            />
+              <LabelList content={TrendLineLabel} />
+            </Line>
           </ComposedChart>
         </ChartContainer>
       </CardContent>
