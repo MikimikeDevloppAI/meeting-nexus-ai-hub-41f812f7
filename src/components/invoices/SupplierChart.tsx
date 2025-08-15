@@ -13,6 +13,8 @@ interface Invoice {
 
 interface SupplierChartProps {
   invoices: Invoice[];
+  onSupplierClick?: (supplier: string) => void;
+  selectedSupplier?: string;
 }
 
 const chartConfig = {
@@ -22,7 +24,7 @@ const chartConfig = {
   },
 };
 
-export function SupplierChart({ invoices }: SupplierChartProps) {
+export function SupplierChart({ invoices, onSupplierClick, selectedSupplier }: SupplierChartProps) {
   const supplierData = useMemo(() => {
     const supplierMap = new Map<string, number>();
 
@@ -118,7 +120,15 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
                 fill="#000000"
               />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="amount" fill="var(--color-amount)" name="Montant CHF">
+              <Bar 
+                dataKey="amount" 
+                fill="var(--color-amount)" 
+                radius={[4, 4, 0, 0]}
+                onClick={(data: any) => onSupplierClick?.(data.name)}
+                style={{ 
+                  cursor: onSupplierClick ? 'pointer' : 'default'
+                }}
+              >
                 <LabelList content={CustomLabel} />
               </Bar>
             </BarChart>

@@ -11,6 +11,8 @@ interface Invoice {
 
 interface InvoiceTypeChartProps {
   invoices: Invoice[];
+  onCategoryClick?: (category: string) => void;
+  selectedCategory?: string;
 }
 
 const chartConfig = {
@@ -20,7 +22,7 @@ const chartConfig = {
   },
 };
 
-export function CategoryChart({ invoices }: InvoiceTypeChartProps) {
+export function CategoryChart({ invoices, onCategoryClick, selectedCategory }: InvoiceTypeChartProps) {
   const invoiceTypeData = useMemo(() => {
     const typeMap = new Map<string, number>();
 
@@ -54,8 +56,12 @@ export function CategoryChart({ invoices }: InvoiceTypeChartProps) {
             <YAxis />
             <Bar 
               dataKey="value" 
-              fill="var(--color-amount)"
+              fill="var(--color-amount)" 
               radius={[4, 4, 0, 0]}
+              onClick={(data: any) => onCategoryClick?.(data.name)}
+              style={{ 
+                cursor: onCategoryClick ? 'pointer' : 'default'
+              }}
             />
             <ChartTooltip 
               content={<ChartTooltipContent />}
