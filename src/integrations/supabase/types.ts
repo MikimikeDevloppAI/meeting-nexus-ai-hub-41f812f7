@@ -487,6 +487,45 @@ export type Database = {
         }
         Relationships: []
       }
+      operation: {
+        Row: {
+          created_at: string
+          date: string
+          ecriture: string | null
+          id: string
+          montant_femto_pkr: number | null
+          numero_facture: string | null
+          numero_patient: string | null
+          par: string | null
+          patient: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          ecriture?: string | null
+          id?: string
+          montant_femto_pkr?: number | null
+          numero_facture?: string | null
+          numero_patient?: string | null
+          par?: string | null
+          patient?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          ecriture?: string | null
+          id?: string
+          montant_femto_pkr?: number | null
+          numero_facture?: string | null
+          numero_patient?: string | null
+          par?: string | null
+          patient?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       overtime_hours: {
         Row: {
           approved_at: string | null
@@ -1239,6 +1278,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vision_ophta: {
+        Row: {
+          created_at: string
+          cxl: number | null
+          date: string
+          ecriture: string | null
+          id: string
+          montant: number | null
+          numero_facture: string | null
+          numero_patient: string | null
+          par: string | null
+          patient: string | null
+          ptk: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cxl?: number | null
+          date: string
+          ecriture?: string | null
+          id?: string
+          montant?: number | null
+          numero_facture?: string | null
+          numero_patient?: string | null
+          par?: string | null
+          patient?: string | null
+          ptk?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cxl?: number | null
+          date?: string
+          ecriture?: string | null
+          id?: string
+          montant?: number | null
+          numero_facture?: string | null
+          numero_patient?: string | null
+          par?: string | null
+          patient?: string | null
+          ptk?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
