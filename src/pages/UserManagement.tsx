@@ -39,6 +39,7 @@ interface HelpInfo {
   page_id: string;
   page_name: string;
   help_content: string;
+  hover_text: string;
 }
 
 const UserManagement = () => {
@@ -86,7 +87,8 @@ const UserManagement = () => {
           id: existing?.id,
           page_id: page.id,
           page_name: page.name,
-          help_content: existing?.help_content || ''
+          help_content: existing?.help_content || '',
+          hover_text: existing?.hover_text || ''
         };
       });
       setHelpInfos(allPagesHelp);
@@ -200,6 +202,14 @@ const UserManagement = () => {
     ));
   };
 
+  const updateHoverText = (pageId: string, hoverText: string) => {
+    setHelpInfos(helpInfos.map(help => 
+      help.page_id === pageId 
+        ? { ...help, hover_text: hoverText }
+        : help
+    ));
+  };
+
   const saveHelpInfo = async (pageId: string) => {
     const helpInfo = helpInfos.find(h => h.page_id === pageId);
     if (!helpInfo) return;
@@ -211,6 +221,7 @@ const UserManagement = () => {
           .from('page_help_information')
           .update({
             help_content: helpInfo.help_content,
+            hover_text: helpInfo.hover_text,
             page_name: helpInfo.page_name
           })
           .eq('id', helpInfo.id);
@@ -223,7 +234,8 @@ const UserManagement = () => {
           .insert({
             page_id: helpInfo.page_id,
             page_name: helpInfo.page_name,
-            help_content: helpInfo.help_content
+            help_content: helpInfo.help_content,
+            hover_text: helpInfo.hover_text
           })
           .select()
           .single();
@@ -515,7 +527,8 @@ const UserManagement = () => {
                   <TableRow>
                     <TableHead>Page</TableHead>
                     <TableHead>Chemin</TableHead>
-                    <TableHead className="w-1/2">Aide</TableHead>
+                    <TableHead className="w-1/3">Aide</TableHead>
+                    <TableHead className="w-1/4">Texte survol</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -532,6 +545,14 @@ const UserManagement = () => {
                           onChange={(e) => updateHelpContent(helpInfo.page_id, e.target.value)}
                           placeholder="Entrez les informations d'aide pour cette page..."
                           className="min-h-[80px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Textarea
+                          value={helpInfo.hover_text}
+                          onChange={(e) => updateHoverText(helpInfo.page_id, e.target.value)}
+                          placeholder="Texte affiché au survol dans la navigation..."
+                          className="min-h-[60px]"
                         />
                       </TableCell>
                       <TableCell>

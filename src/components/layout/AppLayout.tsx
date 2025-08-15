@@ -22,7 +22,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Logo } from "@/components/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { usePageHover } from "@/hooks/usePageHover";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TodoSidebarBadge } from "./TodoSidebarBadge";
 import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
 import { HelpButton } from "./HelpButton";
@@ -115,6 +117,7 @@ const AppSidebar: React.FC = () => {
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
   const { hasPermission, isAdmin, loading, permissions } = useUserPermissions();
+  const { getHoverText } = usePageHover();
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -141,8 +144,9 @@ const AppSidebar: React.FC = () => {
                   console.log(`Permission for ${item.permission}:`, hasPerms);
                   return !loading && hasPerms;
                 })
-                .map((item) => (
-                  <SidebarMenuItem key={item.title}>
+                .map((item) => {
+                  const hoverText = getHoverText(item.permission);
+                  const menuButton = (
                     <SidebarMenuButton
                       onClick={() => handleNavigation(item.url)}
                       className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
@@ -154,8 +158,25 @@ const AppSidebar: React.FC = () => {
                       {/* Badge pour les validations RH en attente */}
                       {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
                     </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                  );
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      {hoverText ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {menuButton}
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{hoverText}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        menuButton
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
               
               {/* Badge todos toujours monté pour garantir la mise à jour en temps réel même pendant le chargement des permissions */}
               {loading && menuItems.find(item => item.permission === "todos") && (

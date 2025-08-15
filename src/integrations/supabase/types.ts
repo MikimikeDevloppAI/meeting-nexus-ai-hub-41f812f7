@@ -539,6 +539,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           help_content: string
+          hover_text: string | null
           id: string
           page_id: string
           page_name: string
@@ -548,6 +549,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           help_content: string
+          hover_text?: string | null
           id?: string
           page_id: string
           page_name: string
@@ -557,6 +559,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           help_content?: string
+          hover_text?: string | null
           id?: string
           page_id?: string
           page_name?: string
