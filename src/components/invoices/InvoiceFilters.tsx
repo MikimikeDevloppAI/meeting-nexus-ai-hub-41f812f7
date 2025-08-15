@@ -26,15 +26,15 @@ interface InvoiceFiltersProps {
 }
 
 export function InvoiceFilters({ filters, onFiltersChange, invoices }: InvoiceFiltersProps) {
-  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).filter(compte => compte !== 'David')));
+  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).map(c => c.trim()).filter(compte => compte !== 'David')));
   const uniqueSuppliers = Array.from(new Set(
     invoices
-      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase())
+      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase().trim())
       .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
 // Helper function to properly decode and display supplier names
-const formatSupplierName = (supplierName?: string): string => {
+function formatSupplierName(supplierName?: string): string {
   if (!supplierName) return '';
   
   try {
@@ -56,9 +56,9 @@ const formatSupplierName = (supplierName?: string): string => {
     return decoded || supplierName;
   } catch (error) {
     console.error('Error decoding supplier name:', error, 'Original:', supplierName);
-    return supplierName;
+    return supplierName || '';
   }
-};
+}
   
   const supplierOptions = [
     { value: 'all', label: 'Tous les fournisseurs' },

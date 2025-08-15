@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye } from "lucide-react";
+import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Invoice {
   id: string;
@@ -98,18 +99,24 @@ export function FilteredInvoiceList({
   deletingInvoiceId 
 }: FilteredInvoiceListProps) {
   
-  // Function to view file in bucket
-  const viewFile = (filePath: string) => {
-    const supabaseUrl = 'https://ecziljpkvshvapjsxaty.supabase.co';
-    const fileUrl = `${supabaseUrl}/storage/v1/object/public/invoices/${filePath}`;
-    window.open(fileUrl, '_blank');
+  // Function to view file in bucket (signed URL because invoices bucket is private)
+  const viewFile = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('invoices')
+        .createSignedUrl(filePath, 60 * 5); // 5 minutes
+      if (error || !data?.signedUrl) throw error || new Error('No signed URL');
+      window.open(data.signedUrl, '_blank');
+    } catch (err) {
+      console.error('Erreur d\'ouverture du fichier:', err);
+    }
   };
   
   // Préparation des options pour les filtres
-  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).filter(compte => compte !== 'David')));
+  const uniqueComptes = Array.from(new Set(invoices.map(inv => inv.compte).filter(Boolean).map(c => c.trim()).filter(compte => compte !== 'David')));
   const uniqueSuppliers = Array.from(new Set(
     invoices
-      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase())
+      .map(inv => formatSupplierName(inv.supplier_name)?.toUpperCase().trim())
       .filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   
