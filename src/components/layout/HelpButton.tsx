@@ -18,9 +18,25 @@ export const HelpButton: React.FC = () => {
 
   useEffect(() => {
     const fetchHelpInfo = async () => {
-      // Convert URL path to page_id
-      let pageId = location.pathname.replace('/', '');
-      if (pageId === '') pageId = 'todos'; // Default page
+      // Mapping entre les URLs et les IDs de pages
+      const urlToPageIdMap: { [key: string]: string } = {
+        '': 'todos',
+        'todos': 'todos',
+        'meetings': 'meetings',
+        'documents': 'documents',
+        'iol-calculator': 'iol-calculator',
+        'patient-letters': 'patient-letters',
+        'invoices': 'invoices',
+        'retrocession': 'retrocession',
+        'gestion-stock': 'stock-management',
+        'time-tracking': 'time-tracking',
+        'hr-validation': 'hr-validation',
+        'users': 'users',
+        'profile': 'profile'
+      };
+
+      const pathKey = location.pathname.replace('/', '');
+      const pageId = urlToPageIdMap[pathKey] || pathKey;
 
       const { data, error } = await supabase
         .from('page_help_information')
