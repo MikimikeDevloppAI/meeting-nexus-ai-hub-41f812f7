@@ -480,7 +480,7 @@ export function OvertimeCalendar({
               return (
                 <div className="mb-4 pb-4 border-b">
                   <div className="grid grid-cols-2 gap-y-1 items-center">
-                    <span className="font-semibold">Total {currentYear} (net)</span>
+                    <span className="font-semibold">Total {currentYear}</span>
                     <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
                   </div>
                 </div>
