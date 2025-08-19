@@ -544,6 +544,7 @@ export type Database = {
           description: string | null
           hours: number
           id: string
+          is_recovery: boolean
           status: string
           updated_at: string
           user_id: string
@@ -556,6 +557,7 @@ export type Database = {
           description?: string | null
           hours: number
           id?: string
+          is_recovery?: boolean
           status?: string
           updated_at?: string
           user_id: string
@@ -568,6 +570,7 @@ export type Database = {
           description?: string | null
           hours?: number
           id?: string
+          is_recovery?: boolean
           status?: string
           updated_at?: string
           user_id?: string

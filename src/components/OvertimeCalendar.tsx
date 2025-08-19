@@ -23,6 +23,7 @@ interface OvertimeHour {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
+  is_recovery?: boolean;
 }
 
 interface Vacation {
@@ -47,11 +48,13 @@ interface OvertimeCalendarProps {
     date: string;
     hours: number;
     description?: string;
+    is_recovery?: boolean;
   }) => Promise<void>;
   onEditOvertime: (id: string, data: {
     date: string;
     hours: number;
     description?: string;
+    is_recovery?: boolean;
   }) => Promise<void>;
   onDeleteOvertime: (id: string) => Promise<void>;
 }
@@ -110,14 +113,13 @@ export function OvertimeCalendar({
       
       // Modifier les heures existantes (seulement si pending ou rejected)
       setEditingOvertime(existingOvertime);
-      const absHours = Math.abs(existingOvertime.hours);
-      const totalMinutes = absHours * 60;
+      const totalMinutes = existingOvertime.hours * 60;
       const hrs = Math.floor(totalMinutes / 60);
       const mins = totalMinutes % 60;
       setHours(hrs.toString());
       setMinutes(mins.toString());
       setDescription(existingOvertime.description || "");
-      setIsRecovery(existingOvertime.hours < 0);
+      setIsRecovery(existingOvertime.is_recovery || false);
     } else {
       // Ajouter de nouvelles heures
       setEditingOvertime(null);
@@ -133,19 +135,15 @@ export function OvertimeCalendar({
   const handleSubmit = async () => {
     if (!selectedDate) return;
     
-    let totalHours = (parseInt(hours) || 0) + (parseInt(minutes) || 0) / 60;
+    const totalHours = (parseInt(hours) || 0) + (parseInt(minutes) || 0) / 60;
     
     if (totalHours <= 0) return;
-
-    // Si c'est de la récupération, rendre les heures négatives
-    if (isRecovery) {
-      totalHours = -totalHours;
-    }
 
     const data = {
       date: format(selectedDate, 'yyyy-MM-dd'),
       hours: totalHours,
-      description: description.trim() || undefined
+      description: description.trim() || undefined,
+      is_recovery: isRecovery
     };
 
     try {
@@ -257,13 +255,19 @@ export function OvertimeCalendar({
       return sum + total;
     }, 0);
     
-    const totalHours = monthlyOvertimes.reduce((sum, overtime) => sum + overtime.hours, 0);
-    const approvedHours = monthlyOvertimes
-      .filter(overtime => overtime.status === 'approved')
-      .reduce((sum, overtime) => sum + overtime.hours, 0);
-    const pendingHours = monthlyOvertimes
-      .filter(overtime => overtime.status === 'pending')
-      .reduce((sum, overtime) => sum + overtime.hours, 0);
+            const totalHours = monthlyOvertimes.reduce((sum, overtime) => {
+              return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
+            }, 0);
+            const approvedHours = monthlyOvertimes
+              .filter(overtime => overtime.status === 'approved')
+              .reduce((sum, overtime) => {
+                return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
+              }, 0);
+            const pendingHours = monthlyOvertimes
+              .filter(overtime => overtime.status === 'pending')
+              .reduce((sum, overtime) => {
+                return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
+              }, 0);
 
     return {
       month,
@@ -352,7 +356,7 @@ export function OvertimeCalendar({
                             {format(date, "PPP", { locale: fr })}
                           </div>
                            <div className="text-xs text-muted-foreground">
-                             {overtime.hours < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(overtime.hours))} • {statusText}
+                             {overtime.is_recovery ? '(Récup) ' : ''}{formatHoursToHoursMinutes(overtime.hours)} • {statusText}
                              {overtime.description && (
                                <div className="mt-1">{overtime.description}</div>
                              )}
@@ -397,8 +401,8 @@ export function OvertimeCalendar({
                       <span className="font-medium">
                         {format(parseISO(overtime.date), "dd/MM/yyyy", { locale: fr })}
                       </span>
-                       <Badge variant="outline" className={overtime.hours < 0 ? "text-blue-600" : ""}>
-                         {overtime.hours < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(overtime.hours))}
+                       <Badge variant="outline" className={overtime.is_recovery ? "text-blue-600" : ""}>
+                         {overtime.is_recovery ? 'Récup ' : ''}{formatHoursToHoursMinutes(overtime.hours)}
                        </Badge>
                       {overtime.description && (
                         <span className="text-sm text-gray-600 truncate max-w-32">{overtime.description}</span>

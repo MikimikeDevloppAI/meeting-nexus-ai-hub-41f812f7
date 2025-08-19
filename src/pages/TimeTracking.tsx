@@ -33,6 +33,7 @@ interface OvertimeHour {
   approved_at?: string;
   created_at: string;
   updated_at: string;
+  is_recovery?: boolean;
 }
 
 interface Vacation {
@@ -65,6 +66,7 @@ interface OvertimeFormData {
   overtime_hours: number;
   overtime_minutes: number;
   description: string;
+  is_recovery: boolean;
 }
 
 interface VacationQuota {
@@ -102,7 +104,8 @@ export default function TimeTracking() {
       hours: 0,
       overtime_hours: 0,
       overtime_minutes: 0,
-      description: ""
+      description: "",
+      is_recovery: false
     }
   });
 
@@ -461,7 +464,7 @@ export default function TimeTracking() {
   };
 
   // Fonctions pour le calendrier des heures supplémentaires
-  const onAddOvertime = async (data: { date: string; hours: number; description?: string; }) => {
+  const onAddOvertime = async (data: { date: string; hours: number; description?: string; is_recovery?: boolean; }) => {
     if (!user) return;
 
     try {
@@ -471,14 +474,15 @@ export default function TimeTracking() {
           user_id: user.id,
           date: data.date,
           hours: data.hours,
-          description: data.description
+          description: data.description,
+          is_recovery: data.is_recovery || false
         });
 
       if (error) throw error;
       
       toast({
         title: "Heures ajoutées",
-        description: `${formatHoursToHoursMinutes(data.hours)} d'heures supplémentaires enregistrées`,
+        description: `${formatHoursToHoursMinutes(data.hours)} ${data.is_recovery ? 'de récupération' : "d'heures supplémentaires"} enregistrées`,
       });
       
       fetchOvertimeHours();
@@ -492,14 +496,15 @@ export default function TimeTracking() {
     }
   };
 
-  const onEditOvertime = async (id: string, data: { date: string; hours: number; description?: string; }) => {
+  const onEditOvertime = async (id: string, data: { date: string; hours: number; description?: string; is_recovery?: boolean; }) => {
     try {
       const { error } = await supabase
         .from('overtime_hours')
         .update({
           date: data.date,
           hours: data.hours,
-          description: data.description
+          description: data.description,
+          is_recovery: data.is_recovery || false
         })
         .eq('id', id);
 
