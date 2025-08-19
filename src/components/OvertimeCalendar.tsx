@@ -268,7 +268,6 @@ export function OvertimeCalendar({
                 day: "w-full h-12 p-0 hover:bg-transparent focus:bg-transparent"
               }}
               locale={fr}
-              disabled={(date) => date > new Date()}
               modifiers={{
                 approved: approvedDates,
                 pending: pendingDates,
