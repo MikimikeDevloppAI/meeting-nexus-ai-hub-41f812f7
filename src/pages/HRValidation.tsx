@@ -537,12 +537,8 @@ export default function HRValidation() {
                   <span className="font-semibold">{remaining} j</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Jours récupérés</span>
-                  <span className="font-semibold">{recoveredDays.toString().replace('.', ',')} j</span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Jours à récupérer</span>
-                  <span className="font-semibold">{daysToRecoverDisplay} j</span>
+                  <span className="text-xs text-muted-foreground">Heures supplémentaires</span>
+                  <span className="font-semibold">{approvedOvertime.toFixed(1).replace('.', ',')} h</span>
                 </div>
               </CardContent>
             </Card>
