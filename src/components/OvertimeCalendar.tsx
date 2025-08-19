@@ -271,10 +271,10 @@ export function OvertimeCalendar({
 
     return {
       month,
-      totalHours: totalHours - recoveryHours, // Soustraire les heures de récupération
-      approvedHours: approvedHours - recoveryHours,
+      totalHours: totalHours, // Plus de soustraction des recoveryHours car déjà dans is_recovery
+      approvedHours: approvedHours,
       pendingHours,
-      recoveryHours,
+      recoveryHours: 0, // Ne plus utiliser les vacations de récupération
       count: monthlyOvertimes.length
     };
   });
