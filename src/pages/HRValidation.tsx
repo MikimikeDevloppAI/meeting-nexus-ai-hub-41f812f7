@@ -538,7 +538,7 @@ export default function HRValidation() {
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-muted-foreground">Heures supplémentaires</span>
-                  <span className="font-semibold">{approvedOvertime.toFixed(1).replace('.', ',')} h</span>
+                  <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime)}</span>
                 </div>
               </CardContent>
             </Card>
