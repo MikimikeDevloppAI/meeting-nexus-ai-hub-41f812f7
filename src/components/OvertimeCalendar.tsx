@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Clock, Edit, X, TrendingUp } from "lucide-react";
 import { format, parseISO, isSameDay, startOfMonth, endOfMonth, eachMonthOfInterval, startOfYear, endOfYear, isWithinInterval } from "date-fns";
@@ -67,6 +68,7 @@ export function OvertimeCalendar({
   const [hours, setHours] = useState("");
   const [minutes, setMinutes] = useState("");
   const [description, setDescription] = useState("");
+  const [isRecovery, setIsRecovery] = useState(false);
   const [editingOvertime, setEditingOvertime] = useState<OvertimeHour | null>(null);
 
   // Créer la liste des jours avec heures supplémentaires
@@ -108,18 +110,21 @@ export function OvertimeCalendar({
       
       // Modifier les heures existantes (seulement si pending ou rejected)
       setEditingOvertime(existingOvertime);
-      const totalMinutes = existingOvertime.hours * 60;
+      const absHours = Math.abs(existingOvertime.hours);
+      const totalMinutes = absHours * 60;
       const hrs = Math.floor(totalMinutes / 60);
       const mins = totalMinutes % 60;
       setHours(hrs.toString());
       setMinutes(mins.toString());
       setDescription(existingOvertime.description || "");
+      setIsRecovery(existingOvertime.hours < 0);
     } else {
       // Ajouter de nouvelles heures
       setEditingOvertime(null);
       setHours("");
       setMinutes("");
       setDescription("");
+      setIsRecovery(false);
     }
     
     setShowDialog(true);
@@ -128,9 +133,14 @@ export function OvertimeCalendar({
   const handleSubmit = async () => {
     if (!selectedDate) return;
     
-    const totalHours = (parseInt(hours) || 0) + (parseInt(minutes) || 0) / 60;
+    let totalHours = (parseInt(hours) || 0) + (parseInt(minutes) || 0) / 60;
     
     if (totalHours <= 0) return;
+
+    // Si c'est de la récupération, rendre les heures négatives
+    if (isRecovery) {
+      totalHours = -totalHours;
+    }
 
     const data = {
       date: format(selectedDate, 'yyyy-MM-dd'),
@@ -170,6 +180,7 @@ export function OvertimeCalendar({
     setHours("");
     setMinutes("");
     setDescription("");
+    setIsRecovery(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -340,12 +351,12 @@ export function OvertimeCalendar({
                           <div className="text-sm font-medium">
                             {format(date, "PPP", { locale: fr })}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatHoursToHoursMinutes(overtime.hours)} • {statusText}
-                            {overtime.description && (
-                              <div className="mt-1">{overtime.description}</div>
-                            )}
-                          </div>
+                           <div className="text-xs text-muted-foreground">
+                             {overtime.hours < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(overtime.hours))} • {statusText}
+                             {overtime.description && (
+                               <div className="mt-1">{overtime.description}</div>
+                             )}
+                           </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -386,7 +397,9 @@ export function OvertimeCalendar({
                       <span className="font-medium">
                         {format(parseISO(overtime.date), "dd/MM/yyyy", { locale: fr })}
                       </span>
-                      <Badge variant="outline">{formatHoursToHoursMinutes(overtime.hours)}</Badge>
+                       <Badge variant="outline" className={overtime.hours < 0 ? "text-blue-600" : ""}>
+                         {overtime.hours < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(overtime.hours))}
+                       </Badge>
                       {overtime.description && (
                         <span className="text-sm text-gray-600 truncate max-w-32">{overtime.description}</span>
                       )}
@@ -569,6 +582,17 @@ export function OvertimeCalendar({
               </div>
             </div>
             
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="recovery"
+                checked={isRecovery}
+                onCheckedChange={(checked) => setIsRecovery(checked as boolean)}
+              />
+              <Label htmlFor="recovery" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Récupération d'heures supplémentaires (négatif)
+              </Label>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Description (optionnel)</Label>
               <Textarea
