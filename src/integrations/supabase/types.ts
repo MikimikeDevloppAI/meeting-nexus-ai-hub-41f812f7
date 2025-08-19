@@ -656,6 +656,7 @@ export type Database = {
           produit: string
           representant: string | null
           seuil_alerte: number | null
+          stock_cible: number | null
           telephone: string | null
           updated_at: string
         }
@@ -672,6 +673,7 @@ export type Database = {
           produit: string
           representant?: string | null
           seuil_alerte?: number | null
+          stock_cible?: number | null
           telephone?: string | null
           updated_at?: string
         }
@@ -688,6 +690,7 @@ export type Database = {
           produit?: string
           representant?: string | null
           seuil_alerte?: number | null
+          stock_cible?: number | null
           telephone?: string | null
           updated_at?: string
         }
