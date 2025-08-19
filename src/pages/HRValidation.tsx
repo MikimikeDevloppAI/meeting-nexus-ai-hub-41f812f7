@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Clock, Calendar, Check, X, AlertCircle, CheckCircle, XCircle, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -334,20 +335,26 @@ export default function HRValidation() {
     return types[type as keyof typeof types] || type;
   };
 
-  const filteredOvertimeHours = overtimeHours.filter(overtime => 
-    statusFilter === "all" || overtime.status === statusFilter
-  );
+  const filteredOvertimeHours = overtimeHours.filter(overtime => {
+    const overtimeYear = new Date(overtime.date).getFullYear();
+    const statusMatch = statusFilter === "all" || overtime.status === statusFilter;
+    return statusMatch && overtimeYear === selectedYear;
+  });
 
-  const filteredVacations = vacations.filter(vacation => 
-    statusFilter === "all" || vacation.status === statusFilter
-  );
+  const filteredVacations = vacations.filter(vacation => {
+    const vacationYear = new Date(vacation.start_date).getFullYear();
+    const statusMatch = statusFilter === "all" || vacation.status === statusFilter;
+    return statusMatch && vacationYear === selectedYear;
+  });
 
   // Calculer les heures de récupération à partir des vacances de type "overtime_recovery"
   const recoveryHours = vacations
-    .filter(vacation => 
-      vacation.vacation_type === 'overtime_recovery' && 
-      vacation.status === 'approved'
-    )
+    .filter(vacation => {
+      const vacationYear = new Date(vacation.start_date).getFullYear();
+      return vacation.vacation_type === 'overtime_recovery' && 
+             vacation.status === 'approved' &&
+             vacationYear === selectedYear;
+    })
     .reduce((sum, vacation) => {
       // Calculer les heures basées sur vacation_days
       if (vacation.vacation_days && vacation.vacation_days.length > 0) {
@@ -361,19 +368,19 @@ export default function HRValidation() {
     }, 0);
 
   const overtimeStats = {
-    pending: overtimeHours.filter(o => o.status === 'pending').length,
-    approved: overtimeHours.filter(o => o.status === 'approved').length,
-    rejected: overtimeHours.filter(o => o.status === 'rejected').length,
-    totalHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0),
+    pending: overtimeHours.filter(o => o.status === 'pending' && new Date(o.date).getFullYear() === selectedYear).length,
+    approved: overtimeHours.filter(o => o.status === 'approved' && new Date(o.date).getFullYear() === selectedYear).length,
+    rejected: overtimeHours.filter(o => o.status === 'rejected' && new Date(o.date).getFullYear() === selectedYear).length,
+    totalHours: overtimeHours.filter(o => o.status === 'approved' && new Date(o.date).getFullYear() === selectedYear).reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0),
     recoveryHours: recoveryHours,
-    balanceHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0) - recoveryHours
+    balanceHours: overtimeHours.filter(o => o.status === 'approved' && new Date(o.date).getFullYear() === selectedYear).reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0) - recoveryHours
   };
 
   const vacationStats = {
-    pending: vacations.filter(v => v.status === 'pending').length,
-    approved: vacations.filter(v => v.status === 'approved').length,
-    rejected: vacations.filter(v => v.status === 'rejected').length,
-    totalDays: vacations.filter(v => v.status === 'approved').reduce((sum, v) => sum + v.days_count, 0)
+    pending: vacations.filter(v => v.status === 'pending' && new Date(v.start_date).getFullYear() === selectedYear).length,
+    approved: vacations.filter(v => v.status === 'approved' && new Date(v.start_date).getFullYear() === selectedYear).length,
+    rejected: vacations.filter(v => v.status === 'rejected' && new Date(v.start_date).getFullYear() === selectedYear).length,
+    totalDays: vacations.filter(v => v.status === 'approved' && new Date(v.start_date).getFullYear() === selectedYear).reduce((sum, v) => sum + v.days_count, 0)
   };
 
   // Utilisateurs spécifiques à analyser
@@ -488,6 +495,29 @@ export default function HRValidation() {
           <h1 className="text-2xl font-bold">Validation RH</h1>
           <p className="text-muted-foreground">Gestion et validation des heures supplémentaires et vacances</p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Label htmlFor="year-select">Année :</Label>
+        <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+          <SelectTrigger className="w-[100px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(() => {
+              const currentYear = new Date().getFullYear();
+              const years = [];
+              for (let year = 2025; year <= currentYear; year++) {
+                years.push(year);
+              }
+              return years.map(year => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ));
+            })()}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Statistiques par personne */}
