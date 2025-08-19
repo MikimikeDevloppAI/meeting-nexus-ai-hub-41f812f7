@@ -97,6 +97,7 @@ export default function TimeTracking() {
   const [showVacationCalendar, setShowVacationCalendar] = useState(false);
   const [editingOvertime, setEditingOvertime] = useState<OvertimeHour | null>(null);
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const overtimeForm = useForm<OvertimeFormData>({
     defaultValues: {
@@ -701,17 +702,40 @@ export default function TimeTracking() {
         <TabsContent value="vacations" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Mes vacances</h2>
-            <Button onClick={() => setShowVacationCalendar(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Demander des vacances
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="year-select">Année :</Label>
+                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const currentYear = new Date().getFullYear();
+                      const years = [];
+                      for (let year = 2025; year <= currentYear; year++) {
+                        years.push(year);
+                      }
+                      return years.map(year => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => setShowVacationCalendar(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Demander des vacances
+              </Button>
+            </div>
           </div>
 
-          {/* Décompte des vacances pour l'année en cours */}
+          {/* Décompte des vacances pour l'année sélectionnée */}
           {(() => {
-            const currentYear = new Date().getFullYear();
-            const yearStart = startOfYear(new Date(currentYear, 0, 1));
-            const yearEnd = endOfYear(new Date(currentYear, 11, 31));
+            const yearStart = startOfYear(new Date(selectedYear, 0, 1));
+            const yearEnd = endOfYear(new Date(selectedYear, 11, 31));
             
             const userVacations = vacations.filter(vacation => 
               vacation.user_id === user?.id && 
@@ -726,8 +750,8 @@ export default function TimeTracking() {
               }
               return sum + v.days_count;
             }, 0);
-            const quota = getQuotaForUser(currentYear);
-            const remainingDays = currentYear === 2025 ? quota - totalDays : Math.max(0, quota - totalDays);
+            const quota = getQuotaForUser(selectedYear);
+            const remainingDays = quota - totalDays;
             
             // Calcul approuvé d'heures sup sur l'année (heures validées uniquement)
             const approvedOvertimeHoursYear = overtimeHours
@@ -758,7 +782,7 @@ export default function TimeTracking() {
                  <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    Décompte des vacances {currentYear}
+                    Décompte des vacances {selectedYear}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Jours de vacances approuvés / quota disponible
@@ -776,12 +800,10 @@ export default function TimeTracking() {
                        <div className="text-sm text-muted-foreground">jours restants</div>
                      </div>
 
-                     {currentYear === 2025 && (
-                       <div className="text-center">
-                         <div className="text-3xl font-bold text-strong">{quota}</div>
-                         <div className="text-sm text-muted-foreground">jours disponible 2025</div>
-                       </div>
-                     )}
+                     <div className="text-center">
+                       <div className="text-3xl font-bold text-strong">{quota}</div>
+                       <div className="text-sm text-muted-foreground">quota {selectedYear}</div>
+                     </div>
                     </div>
                    {quota > 0 && (
                     <div className="mt-4">
