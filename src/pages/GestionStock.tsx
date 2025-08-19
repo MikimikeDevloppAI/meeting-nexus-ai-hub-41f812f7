@@ -27,6 +27,7 @@ type Produit = {
   telephone?: string | null;
   email?: string | null;
   seuil_alerte?: number | null;
+  stock_cible?: number | null;
 };
 
 type Commande = {
@@ -184,7 +185,7 @@ const GestionStock: React.FC = () => {
 
   const resetProduitForm = () => {
     setEditingId(null);
-    setProduitForm({ produit: "", molecule: "", fabricant: "", concentration: "", presentation: "", prix_patient: undefined, prix_achat: undefined, representant: "", telephone: "", email: "", seuil_alerte: 0 });
+    setProduitForm({ produit: "", molecule: "", fabricant: "", concentration: "", presentation: "", prix_patient: undefined, prix_achat: undefined, representant: "", telephone: "", email: "", seuil_alerte: 0, stock_cible: 0 });
   };
 
   const handleSaveProduit = async (e: React.FormEvent) => {
@@ -204,6 +205,7 @@ const GestionStock: React.FC = () => {
         telephone: produitForm.telephone,
         email: produitForm.email,
         seuil_alerte: produitForm.seuil_alerte ?? 0,
+        stock_cible: produitForm.stock_cible ?? 0,
       });
     }
     await fetchAll();
@@ -401,11 +403,15 @@ const GestionStock: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Seuil d'alerte</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Gestion du stock</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label>Seuil d'alerte</Label>
                     <Input type="number" value={produitForm.seuil_alerte ?? 0} onChange={(e) => setProduitForm({ ...produitForm, seuil_alerte: parseInt(e.target.value || "0") })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Stock cible</Label>
+                    <Input type="number" value={produitForm.stock_cible ?? 0} onChange={(e) => setProduitForm({ ...produitForm, stock_cible: parseInt(e.target.value || "0") })} />
                   </div>
                 </div>
               </div>
@@ -607,18 +613,19 @@ const GestionStock: React.FC = () => {
             <CardContent>
               <div className="overflow-x-auto">
                 <Table className="font-inter text-[15px]">
-                  <TableHeader className="bg-table-header">
+                   <TableHeader className="bg-table-header">
                      <TableRow className="border-row">
                        <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
                        <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
                        <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
+                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
                      </TableRow>
-                  </TableHeader>
+                   </TableHeader>
                   <TableBody>
                     {!loading && produits
                       .slice()
@@ -629,31 +636,32 @@ const GestionStock: React.FC = () => {
                        const below = seuil > 0 && stock <= seuil;
                        const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
                        return (
-                         <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                           <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
-                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
-                           <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
-                           <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
-                           <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                           <TableCell className="px-3 py-2 text-center">
-                             {commandeEnCours > 0 ? (
-                               <span className="text-info-strong font-medium">{commandeEnCours}</span>
-                             ) : (
-                               "-"
-                             )}
-                           </TableCell>
-                           <TableCell className="px-3 py-2 text-center">
-                             <div className="inline-flex items-center gap-2">
-                               {stock > 0 && (
-                                 <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
-                               )}
-                               {stock === 0 && (
-                                 <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
-                                   Rupture
-                                 </span>
-                               )}
-                             </div>
-                           </TableCell>
+                          <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                            <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
+                            <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
+                            <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
+                            <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
+                            <TableCell className="px-3 py-2 text-center">{p.stock_cible ?? 0}</TableCell>
+                            <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                            <TableCell className="px-3 py-2 text-center">
+                              {commandeEnCours > 0 ? (
+                                <span className="text-info-strong font-medium">{commandeEnCours}</span>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center">
+                              <div className="inline-flex items-center gap-2">
+                                {stock > 0 && (
+                                  <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                                )}
+                                {stock === 0 && (
+                                  <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                    Rupture
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                           <TableCell className="px-3 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
