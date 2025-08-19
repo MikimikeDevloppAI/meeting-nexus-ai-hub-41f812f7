@@ -25,6 +25,7 @@ interface OvertimeHour {
   approved_at?: string;
   created_at: string;
   updated_at: string;
+  is_recovery?: boolean;
   users: {
     name: string;
     email: string;
@@ -350,9 +351,9 @@ export default function HRValidation() {
     pending: overtimeHours.filter(o => o.status === 'pending').length,
     approved: overtimeHours.filter(o => o.status === 'approved').length,
     rejected: overtimeHours.filter(o => o.status === 'rejected').length,
-    totalHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + o.hours, 0),
+    totalHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0),
     recoveryHours: recoveryHours,
-    balanceHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + o.hours, 0) - recoveryHours
+    balanceHours: overtimeHours.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0) - recoveryHours
   };
 
   const vacationStats = {
@@ -446,7 +447,9 @@ export default function HRValidation() {
           isWithinInterval(parseISO(overtime.date), { start: monthStart, end: monthEnd })
         );
         
-        result[user.email][format(month, 'yyyy-MM')] = monthlyOvertimes.reduce((sum, o) => sum + o.hours, 0);
+        result[user.email][format(month, 'yyyy-MM')] = monthlyOvertimes.reduce((sum, o) => {
+          return sum + (o.is_recovery ? -o.hours : o.hours);
+        }, 0);
       });
     });
     
@@ -483,7 +486,7 @@ export default function HRValidation() {
           const remaining = Math.max(0, quota - taken);
           const approvedOvertime = overtimeHours
             .filter(o => o.users.email === person.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
-            .reduce((sum, o) => sum + o.hours, 0);
+            .reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0);
 
           // Calcul des jours récupérés (récupération heures sup approuvées)
           const recoveryVacations = vacations.filter(v => 
@@ -598,7 +601,9 @@ export default function HRValidation() {
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium">{overtime.users.name}</h3>
                         <Badge variant="outline">{overtime.users.email}</Badge>
-                        <Badge variant="outline">{formatHoursToHoursMinutes(overtime.hours)}</Badge>
+                         <Badge variant="outline" className={overtime.is_recovery ? "text-blue-600" : ""}>
+                           {overtime.is_recovery ? '-' : ''}{formatHoursToHoursMinutes(overtime.hours)} {overtime.is_recovery ? '(Récup)' : ''}
+                         </Badge>
                         {getStatusBadge(overtime.status)}
                       </div>
                       <p className="text-sm">
@@ -698,22 +703,22 @@ export default function HRValidation() {
                             const monthKey = format(month, 'yyyy-MM');
                             const hours = userOvertimes[monthKey] || 0;
                             return (
-                              <TableCell key={monthKey} className="text-center">
-                                {hours > 0 ? (
-                                   <Badge variant="outline" className="font-mono">
-                                     {formatHoursToHoursMinutes(hours)}
-                                   </Badge>
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </TableCell>
+                               <TableCell key={monthKey} className="text-center">
+                                 {hours !== 0 ? (
+                                    <Badge variant="outline" className={`font-mono ${hours < 0 ? "text-blue-600" : ""}`}>
+                                      {hours < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(hours))}
+                                    </Badge>
+                                 ) : (
+                                   <span className="text-gray-400">-</span>
+                                 )}
+                               </TableCell>
                             );
                           })}
-                          <TableCell className="text-center">
-                            <Badge variant="default" className="font-mono font-bold">
-                              {formatHoursToHoursMinutes(yearTotal)}
-                            </Badge>
-                          </TableCell>
+                           <TableCell className="text-center">
+                             <Badge variant="default" className={`font-mono font-bold ${yearTotal < 0 ? "text-blue-600" : ""}`}>
+                               {yearTotal < 0 ? '-' : ''}{formatHoursToHoursMinutes(Math.abs(yearTotal))}
+                             </Badge>
+                           </TableCell>
                         </TableRow>
                       );
                     })}
