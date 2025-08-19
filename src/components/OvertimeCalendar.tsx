@@ -210,64 +210,20 @@ export function OvertimeCalendar({
       return isWithinInterval(overtimeDate, { start: monthStart, end: monthEnd });
     });
     
-    // Calculer les heures de récupération utilisées (vacances type "overtime_recovery" approuvées)
-    const recoveryVacations = vacations.filter(vacation => {
-      if (vacation.vacation_type !== 'overtime_recovery' || vacation.status !== 'approved') {
-        return false;
-      }
-      // Uniquement celles qui intersectent le mois courant
-      const vacationStart = parseISO(vacation.start_date);
-      const vacationEnd = parseISO(vacation.end_date);
-      return (
-        isWithinInterval(vacationStart, { start: monthStart, end: monthEnd }) ||
-        isWithinInterval(vacationEnd, { start: monthStart, end: monthEnd }) ||
-        (vacationStart <= monthStart && vacationEnd >= monthEnd)
-      );
-    });
-
-    // Heures de récupération dans le mois en tenant compte des demi-journées (0.5 = 4h)
-    const recoveryHours = recoveryVacations.reduce((sum, vacation) => {
-      // Si on dispose du détail des jours, on l'utilise
-      if (vacation.vacation_days && vacation.vacation_days.length > 0) {
-        const hoursInMonth = vacation.vacation_days.reduce((h, day) => {
-          const d = parseISO(day.vacation_date);
-          return isWithinInterval(d, { start: monthStart, end: monthEnd })
-            ? h + (day.is_half_day ? 4 : 8)
-            : h;
-        }, 0);
-        return sum + hoursInMonth;
-      }
-
-      // Fallback: intersection simple start/end (sans détail 1/2j)
-      const vacationStart = parseISO(vacation.start_date);
-      const vacationEnd = parseISO(vacation.end_date);
-      const effectiveStart = vacationStart > monthStart ? vacationStart : monthStart;
-      const effectiveEnd = vacationEnd < monthEnd ? vacationEnd : monthEnd;
-      if (effectiveStart > effectiveEnd) return sum;
-
-      let total = 0;
-      let currentDate = new Date(effectiveStart);
-      while (currentDate <= effectiveEnd) {
-        const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) total += 8; // jour ouvrable = 8h
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      return sum + total;
+    // Calculer les heures : is_recovery=false - is_recovery=true
+    const totalHours = monthlyOvertimes.reduce((sum, overtime) => {
+      return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
     }, 0);
-    
-            const totalHours = monthlyOvertimes.reduce((sum, overtime) => {
-              return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
-            }, 0);
-            const approvedHours = monthlyOvertimes
-              .filter(overtime => overtime.status === 'approved')
-              .reduce((sum, overtime) => {
-                return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
-              }, 0);
-            const pendingHours = monthlyOvertimes
-              .filter(overtime => overtime.status === 'pending')
-              .reduce((sum, overtime) => {
-                return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
-              }, 0);
+    const approvedHours = monthlyOvertimes
+      .filter(overtime => overtime.status === 'approved')
+      .reduce((sum, overtime) => {
+        return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
+      }, 0);
+    const pendingHours = monthlyOvertimes
+      .filter(overtime => overtime.status === 'pending')
+      .reduce((sum, overtime) => {
+        return sum + (overtime.is_recovery ? -overtime.hours : overtime.hours);
+      }, 0);
 
     return {
       month,
