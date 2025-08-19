@@ -169,6 +169,9 @@ export default function HRValidation() {
     try {
       // Utiliser une fonction PostgreSQL pour bypasser les RLS
       const { data, error } = await supabase.rpc('get_all_overtime_hours');
+      
+      console.log('RPC data:', data);
+      console.log('RPC error:', error);
 
       if (error) {
         // Fallback: essayer avec une requête normale
@@ -181,8 +184,18 @@ export default function HRValidation() {
           .order('date', { ascending: false });
 
         if (fallbackError) throw fallbackError;
-        setOvertimeHours(fallbackData || []);
+        
+        console.log('Fallback data:', fallbackData);
+        
+        // Transformer les données pour correspondre à l'interface attendue
+        const transformedData = (fallbackData || []).map(item => ({
+          ...item,
+          users: item.users || { name: '', email: '' }
+        }));
+        
+        setOvertimeHours(transformedData);
       } else {
+        console.log('Setting data from RPC:', data);
         setOvertimeHours(data || []);
       }
     } catch (error: any) {
