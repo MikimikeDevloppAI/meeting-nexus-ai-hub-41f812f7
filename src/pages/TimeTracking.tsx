@@ -765,7 +765,7 @@ export default function TimeTracking() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                   <div className={`grid ${currentYear === 2025 ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-5'} gap-6`}>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                      <div className="text-center">
                        <div className="text-3xl font-bold text-strong">{totalDays}</div>
                        <div className="text-sm text-muted-foreground">jours pris</div>
@@ -776,25 +776,10 @@ export default function TimeTracking() {
                        <div className="text-sm text-muted-foreground">jours restants</div>
                      </div>
 
-                     <div className="text-center">
-                       <div className="text-3xl font-bold text-strong">{recoveredDays}</div>
-                       <div className="text-sm text-muted-foreground">jours déjà récupérés</div>
-                     </div>
-
-                     <div className="text-center">
-                       <div className="text-3xl font-bold text-strong">{overtimeDaysHalf}</div>
-                       <div className="text-sm text-muted-foreground">jours à récupérer</div>
-                     </div>
-
-                     {currentYear !== 2025 && (
+                     {currentYear === 2025 && (
                        <div className="text-center">
                          <div className="text-3xl font-bold text-strong">{quota}</div>
-                         <div className="text-sm text-muted-foreground">quota total</div>
-                         {currentYear >= 2026 && quota > 0 && (
-                           <div className="text-xs text-blue-600 mt-1">
-                             (inclut report année précédente)
-                           </div>
-                         )}
+                         <div className="text-sm text-muted-foreground">jours disponible 2025</div>
                        </div>
                      )}
                     </div>
