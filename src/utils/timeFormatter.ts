@@ -4,14 +4,22 @@
  * @returns String in format "1h15" or "1h15min" depending on preference
  */
 export const formatHoursToHoursMinutes = (decimalHours: number): string => {
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
-  
-  if (minutes === 0) {
-    return `${hours}h`;
+  const sign = decimalHours < 0 ? '-' : '';
+  const abs = Math.abs(decimalHours);
+  let hours = Math.floor(abs);
+  let minutes = Math.round((abs - hours) * 60);
+
+  // Handle rounding edge case (e.g., 1.999 -> 2h00)
+  if (minutes === 60) {
+    hours += 1;
+    minutes = 0;
   }
-  
-  return `${hours}h${minutes.toString().padStart(2, '0')}`;
+
+  if (minutes === 0) {
+    return `${sign}${hours}h`;
+  }
+
+  return `${sign}${hours}h${minutes.toString().padStart(2, '0')}`;
 };
 
 /**
