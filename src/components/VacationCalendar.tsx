@@ -111,21 +111,26 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
   };
 
   // Grouper les dates par type de congé pour coloration
-  const typeDateMap: Record<'annual' | 'sick' | 'personal' | 'overtime_recovery' | 'other', Date[]> = {
+  const typeDateMap: Record<'annual' | 'sick' | 'other', Date[]> = {
     annual: [],
     sick: [],
-    personal: [],
-    overtime_recovery: [],
     other: []
   };
   existingVacations.forEach(vacation => {
-    const key = (vacation.vacation_type || 'other') as keyof typeof typeDateMap;
+    // Regrouper personal et overtime_recovery dans 'other'
+    let key = vacation.vacation_type || 'other';
+    if (key === 'personal' || key === 'overtime_recovery') {
+      key = 'other';
+    }
+    const mappedKey = key as keyof typeof typeDateMap;
+    
     const pushUnique = (d: Date) => {
       const ymd = d.toISOString().split('T')[0];
-      if (!typeDateMap[key].some(x => x.toISOString().split('T')[0] === ymd)) {
-        typeDateMap[key].push(d);
+      if (!typeDateMap[mappedKey].some(x => x.toISOString().split('T')[0] === ymd)) {
+        typeDateMap[mappedKey].push(d);
       }
     };
+    
     if (vacation.vacation_days && vacation.vacation_days.length > 0) {
       vacation.vacation_days.forEach(d => {
         try { pushUnique(parseISO(d.vacation_date)); } catch {}
@@ -142,19 +147,15 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     const types = {
       annual: "Congés annuels",
       sick: "Congé maladie", 
-      personal: "Congé personnel",
-      overtime_recovery: "Récupération heures supplémentaires",
-      other: "Autre"
+      other: "Autres"
     };
-    return types[type as keyof typeof types] || type;
+    return types[type as keyof typeof types] || "Autres";
   };
 
   const getVacationTypeColor = (type: string) => {
     const colors = {
       annual: "bg-blue-100 text-blue-800 border-blue-200",
       sick: "bg-red-100 text-red-800 border-red-200",
-      personal: "bg-green-100 text-green-800 border-green-200",
-      overtime_recovery: "bg-orange-100 text-orange-800 border-orange-200",
       other: "bg-purple-100 text-purple-800 border-purple-200"
     };
     return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800 border-gray-200";
@@ -194,8 +195,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
             modifiers={{
               annual: typeDateMap.annual,
               sick: typeDateMap.sick,
-              personal: typeDateMap.personal,
-              overtime_recovery: typeDateMap.overtime_recovery,
               other: typeDateMap.other
             }}
             modifiersStyles={{
@@ -209,16 +208,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
                 color: 'hsl(var(--destructive-foreground))',
                 opacity: 0.65
               },
-              personal: {
-                backgroundColor: 'hsl(var(--accent))',
-                color: 'hsl(var(--accent-foreground))',
-                opacity: 0.6
-              },
-              overtime_recovery: {
-                backgroundColor: 'hsl(var(--success-soft))',
-                color: 'hsl(var(--success-soft-foreground))',
-                opacity: 0.6
-              },
               other: {
                 backgroundColor: 'hsl(var(--muted))',
                 color: 'hsl(var(--muted-foreground))',
@@ -226,7 +215,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               }
             }}
           />
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--primary))', opacity: 0.6 }} />
               <span className="text-sm">Congés annuels</span>
@@ -236,12 +225,8 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               <span className="text-sm">Congé maladie</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--success-soft))', opacity: 0.6 }} />
-              <span className="text-sm">Récupération heures sup.</span>
-            </div>
-            <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'hsl(var(--muted))', opacity: 0.7 }} />
-              <span className="text-sm">Autre</span>
+              <span className="text-sm">Autres</span>
             </div>
           </div>
           {selectedDates.length > 0 && (
@@ -294,8 +279,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               <SelectContent>
                 <SelectItem value="annual">Congés annuels</SelectItem>
                 <SelectItem value="sick">Congé maladie</SelectItem>
-                <SelectItem value="overtime_recovery">Récupération heures supplémentaires</SelectItem>
-                <SelectItem value="other">Autre</SelectItem>
+                <SelectItem value="other">Autres</SelectItem>
               </SelectContent>
             </Select>
           </div>

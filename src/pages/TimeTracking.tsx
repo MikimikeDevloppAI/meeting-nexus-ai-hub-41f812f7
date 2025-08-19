@@ -651,11 +651,9 @@ export default function TimeTracking() {
     const types = {
       annual: "Congés annuels",
       sick: "Congé maladie",
-      personal: "Congé personnel",
-      overtime_recovery: "Récupération heures supplémentaires",
-      other: "Autre"
+      other: "Autres"
     };
-    return types[type as keyof typeof types] || type;
+    return types[type as keyof typeof types] || "Autres";
   };
 
   if (loading) {
@@ -1072,8 +1070,7 @@ export default function TimeTracking() {
                 <SelectContent>
                   <SelectItem value="annual">Congés annuels</SelectItem>
                   <SelectItem value="sick">Congé maladie</SelectItem>
-                  <SelectItem value="personal">Congé personnel</SelectItem>
-                  <SelectItem value="other">Autre</SelectItem>
+                  <SelectItem value="other">Autres</SelectItem>
                 </SelectContent>
               </Select>
             </div>
