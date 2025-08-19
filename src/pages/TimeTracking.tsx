@@ -677,6 +677,29 @@ export default function TimeTracking() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        <Label htmlFor="year-select">Année :</Label>
+        <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+          <SelectTrigger className="w-[100px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(() => {
+              const currentYear = new Date().getFullYear();
+              const years = [];
+              for (let year = 2025; year <= currentYear; year++) {
+                years.push(year);
+              }
+              return years.map(year => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ));
+            })()}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
@@ -696,40 +719,17 @@ export default function TimeTracking() {
             onAddOvertime={onAddOvertime}
             onEditOvertime={onEditOvertime}
             onDeleteOvertime={onDeleteOvertimeCalendar}
+            selectedYear={selectedYear}
           />
         </TabsContent>
 
         <TabsContent value="vacations" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Mes vacances</h2>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="year-select">Année :</Label>
-                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(() => {
-                      const currentYear = new Date().getFullYear();
-                      const years = [];
-                      for (let year = 2025; year <= currentYear; year++) {
-                        years.push(year);
-                      }
-                      return years.map(year => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ));
-                    })()}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => setShowVacationCalendar(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Demander des vacances
-              </Button>
-            </div>
+            <Button onClick={() => setShowVacationCalendar(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Demander des vacances
+            </Button>
           </div>
 
           {/* Décompte des vacances pour l'année sélectionnée */}

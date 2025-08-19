@@ -44,6 +44,7 @@ interface Vacation {
 interface OvertimeCalendarProps {
   overtimeHours: OvertimeHour[];
   vacations?: Vacation[];
+  selectedYear?: number;
   onAddOvertime: (data: {
     date: string;
     hours: number;
@@ -62,6 +63,7 @@ interface OvertimeCalendarProps {
 export function OvertimeCalendar({ 
   overtimeHours, 
   vacations = [],
+  selectedYear,
   onAddOvertime, 
   onEditOvertime, 
   onDeleteOvertime 
@@ -195,7 +197,7 @@ export function OvertimeCalendar({
   };
 
   // Calculer les statistiques mensuelles
-  const currentYear = new Date().getFullYear();
+  const currentYear = selectedYear || new Date().getFullYear();
   const monthsOfYear = eachMonthOfInterval({
     start: startOfYear(new Date(currentYear, 0, 1)),
     end: endOfYear(new Date(currentYear, 11, 31))
