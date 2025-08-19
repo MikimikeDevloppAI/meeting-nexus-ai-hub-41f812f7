@@ -419,14 +419,6 @@ export function OvertimeCalendar({
 
               const approvedNetTotal = monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0);
               const pendingTotal = monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0);
-              const recoveryTotal = monthlyStats.reduce((sum, stat) => sum + (stat.recoveryHours || 0), 0);
-              const approvedRawTotal = approvedNetTotal + recoveryTotal; // approuvées sans soustraction
-
-              // Conversion en jours (1j = 8h), arrondi au 1/2 jour
-              const daysRaw = approvedNetTotal / 8;
-              const daysHalf = Math.floor(daysRaw * 2) / 2; // Arrondi vers le bas au 1/2 jour
-              const daysRecoveredRaw = recoveryTotal / 8;
-              const daysRecoveredHalf = Math.floor(daysRecoveredRaw * 2) / 2;
 
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
@@ -458,23 +450,18 @@ export function OvertimeCalendar({
                     <div className="font-bold text-lg">
                       {formatHoursToHoursMinutes(stat.totalHours)}
                     </div>
-                    <div className="text-xs space-x-2">
-                      {stat.approvedHours > 0 && (
-                        <span className="text-green-600">
-                          ✓ {formatHoursToHoursMinutes(stat.approvedHours + (stat.recoveryHours || 0))}
-                        </span>
-                      )}
-                      {stat.pendingHours > 0 && (
-                        <span className="text-orange-600">
-                          ⏳ {formatHoursToHoursMinutes(stat.pendingHours)}
-                        </span>
-                      )}
-                      {(stat.recoveryHours || 0) > 0 && (
-                        <span className="text-blue-600">
-                          🔄 -{formatHoursToHoursMinutes(stat.recoveryHours)}
-                        </span>
-                      )}
-                    </div>
+                     <div className="text-xs space-x-2">
+                       {stat.approvedHours > 0 && (
+                         <span className="text-green-600">
+                           ✓ {formatHoursToHoursMinutes(stat.approvedHours)}
+                         </span>
+                       )}
+                       {stat.pendingHours > 0 && (
+                         <span className="text-orange-600">
+                           ⏳ {formatHoursToHoursMinutes(stat.pendingHours)}
+                         </span>
+                       )}
+                     </div>
                   </div>
                 </div>
               ))}
