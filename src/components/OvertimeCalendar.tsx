@@ -482,18 +482,6 @@ export function OvertimeCalendar({
                   <div className="grid grid-cols-2 gap-y-1 items-center">
                     <span className="font-semibold">Total {currentYear} (net)</span>
                     <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
-
-                    <span className="text-sm text-muted-foreground">Sous-total heures sup approuvées</span>
-                    <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(approvedRawTotal)}</span>
-
-                    <span className="text-sm text-muted-foreground">Jours à récupérer</span>
-                    <span className="text-sm text-muted-foreground text-right">{formatDays(daysHalf)}</span>
-
-                    <span className="text-sm text-muted-foreground">Jours déjà récupérés</span>
-                    <span className="text-sm text-muted-foreground text-right">{formatDays(daysRecoveredHalf)}</span>
-
-                    <span className="text-sm text-muted-foreground">En attente</span>
-                    <span className="text-sm text-muted-foreground text-right">{formatHoursToHoursMinutes(pendingTotal)}</span>
                   </div>
                 </div>
               );
