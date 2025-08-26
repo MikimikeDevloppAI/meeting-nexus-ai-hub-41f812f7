@@ -905,68 +905,81 @@ export default function HRValidation() {
                   const quota = userRecord ? getQuotaForUser(userRecord.id, selectedYear) : 0;
                   const remaining = selectedYear === 2025 ? quota - summary.totalDays : Math.max(0, quota - summary.totalDays);
 
-                  // Calcul des jours à récupérer (heures sup approuvées - jours déjà récupérés), arrondi au 1/2 jour
-                  const approvedOvertimeHoursForYear = overtimeHours
-                    .filter(o => o.users.email === user.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
-                    .reduce((sum, o) => sum + o.hours, 0);
+                   const approvedOvertimeHoursForYear = overtimeHours
+                     .filter(o => o.users.email === user.email && o.status === 'approved' && isWithinInterval(parseISO(o.date), { start: yearStart, end: yearEnd }))
+                     .reduce((sum, o) => sum + (o.is_recovery ? -o.hours : o.hours), 0);
 
-                  const recoveredHoursUsed = vacations
-                    .filter(v => v.users.email === user.email && v.status === 'approved' && v.vacation_type === 'overtime_recovery' && isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd }))
-                    .reduce((sum, v) => {
-                      if (v.vacation_days && v.vacation_days.length > 0) {
-                        return sum + v.vacation_days.reduce((ds, day) => ds + (day.is_half_day ? 4 : 8), 0);
-                      }
-                      return sum + (v.days_count * 8);
-                    }, 0);
-
-                  const daysToRecoverRaw = Math.max(0, (approvedOvertimeHoursForYear - recoveredHoursUsed) / 8);
-                  const daysToRecover = Math.floor(daysToRecoverRaw * 2) / 2;
-                  const daysToRecoverDisplay = daysToRecover.toString().replace('.', ',');
+                   // Calcul des jours pris en plus du quota
+                   const daysOverQuota = Math.max(0, summary.totalDays - quota);
+                   
+                   // Calcul des jours récupérés (nombre de jours pris en plus × 8)
+                   const joursRecuperes = daysOverQuota * 8;
+                   
+                   // Total heures supplémentaires après récupération
+                   const totalApresRecuperation = approvedOvertimeHoursForYear - joursRecuperes;
                   
                   return (
                     <div key={user.email} className="p-4 border rounded-lg">
                       <h3 className="font-medium">{user.name}</h3>
                       <p className="text-sm text-gray-600">{user.email}</p>
-                      <div className="mt-3 space-y-2">
-                        <div className="space-y-2">
-                          {selectedYear === 2025 ? (
-                            <>
-                              <div className="text-center">
-                                <div className="text-2xl font-bold text-primary">{summary.totalDays}</div>
-                                <div className="text-sm text-muted-foreground">jours pris</div>
-                              </div>
-                              <div className="text-center">
-                                <div className={`text-2xl font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {remaining}
-                                </div>
-                                <div className="text-sm text-muted-foreground">jours restants</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-2xl font-bold">{daysToRecoverDisplay}</div>
-                                <div className="text-sm text-muted-foreground">jours à récupérer</div>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <span className="text-2xl font-bold">{summary.totalDays} / {quota}</span>
-                              </div>
-                                <div className="text-xs text-gray-500 space-y-1">
-                                  <p>jours pris / quota disponible</p>
-                                  <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {remaining > 0 ? `${remaining} jours restants` : 'Quota dépassé'}
-                                  </p>
-                                  <p>Jours à récupérer: <span className="font-medium">{daysToRecoverDisplay} j</span></p>
-                                  {selectedYear >= 2026 && quota > 0 && (
-                                    <p className="text-blue-600 text-xs">
-                                      (inclut report année précédente)
-                                    </p>
-                                  )}
-                                </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                       <div className="mt-3 space-y-2">
+                         <div className="space-y-2">
+                           {selectedYear === 2025 ? (
+                             <>
+                               <div className="text-center">
+                                 <div className="text-2xl font-bold text-primary">{summary.totalDays}</div>
+                                 <div className="text-sm text-muted-foreground">jours pris</div>
+                               </div>
+                               <div className="text-center">
+                                 <div className={`text-2xl font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                   {remaining}
+                                 </div>
+                                 <div className="text-sm text-muted-foreground">jours restants</div>
+                               </div>
+                               {daysOverQuota > 0 && (
+                                 <>
+                                   <div className="text-center">
+                                     <div className="text-2xl font-bold text-orange-600">{formatHoursToHoursMinutes(totalApresRecuperation)}</div>
+                                     <div className="text-sm text-muted-foreground">total après récupération</div>
+                                   </div>
+                                   <div className="text-center">
+                                     <div className="text-2xl font-bold text-blue-600">{formatHoursToHoursMinutes(approvedOvertimeHoursForYear)}</div>
+                                     <div className="text-sm text-muted-foreground">total heures sup.</div>
+                                   </div>
+                                   <div className="text-center">
+                                     <div className="text-2xl font-bold text-purple-600">{formatHoursToHoursMinutes(joursRecuperes)}</div>
+                                     <div className="text-sm text-muted-foreground">jours récupérés</div>
+                                   </div>
+                                 </>
+                               )}
+                             </>
+                           ) : (
+                             <>
+                               <div className="flex items-center justify-between">
+                                 <span className="text-2xl font-bold">{summary.totalDays} / {quota}</span>
+                               </div>
+                                 <div className="text-xs text-gray-500 space-y-1">
+                                   <p>jours pris / quota disponible</p>
+                                   <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                     {remaining > 0 ? `${remaining} jours restants` : 'Quota dépassé'}
+                                   </p>
+                                   {daysOverQuota > 0 && (
+                                     <>
+                                       <p>Total après récupération: <span className="font-medium text-orange-600">{formatHoursToHoursMinutes(totalApresRecuperation)}</span></p>
+                                       <p>Total heures sup.: <span className="font-medium text-blue-600">{formatHoursToHoursMinutes(approvedOvertimeHoursForYear)}</span></p>
+                                       <p>Jours récupérés: <span className="font-medium text-purple-600">{formatHoursToHoursMinutes(joursRecuperes)}</span></p>
+                                     </>
+                                   )}
+                                   {selectedYear >= 2026 && quota > 0 && (
+                                     <p className="text-blue-600 text-xs">
+                                       (inclut report année précédente)
+                                     </p>
+                                   )}
+                                 </div>
+                             </>
+                           )}
+                         </div>
+                       </div>
                     </div>
                   );
                 })}
