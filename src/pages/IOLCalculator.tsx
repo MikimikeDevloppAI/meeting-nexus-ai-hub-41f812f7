@@ -417,11 +417,11 @@ export default function IOLCalculator() {
 
                     {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && !isCalculating && (
-                      <Card className="border-green-200 bg-green-50">
+                      <Card>
                         <CardContent className="space-y-6">
                           {/* Informations du header */}
                           <div className="space-y-4">
-                            <h4 className="font-semibold text-green-800">Informations générales</h4>
+                            <h4 className="font-semibold text-foreground">Informations générales</h4>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div>
                                 <label className="text-sm font-medium">Chirurgien</label>
@@ -466,7 +466,7 @@ export default function IOLCalculator() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Œil droit */}
                             <div className="space-y-4">
-                              <h4 className="font-semibold text-green-800">Œil Droit (OD)</h4>
+                              <h4 className="font-semibold text-foreground">Œil Droit (OD)</h4>
                               <div className="space-y-3">
                                 {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
                                   <div key={key}>
@@ -485,7 +485,7 @@ export default function IOLCalculator() {
 
                             {/* Œil gauche */}
                             <div className="space-y-4">
-                              <h4 className="font-semibold text-green-800">Œil Gauche (OS)</h4>
+                              <h4 className="font-semibold text-foreground">Œil Gauche (OS)</h4>
                               <div className="space-y-3">
                                 {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
                                   <div key={key}>
@@ -510,7 +510,7 @@ export default function IOLCalculator() {
                               onClick={submitToIOLAPI}
                               disabled={isCalculating}
                               size="lg"
-                              className="bg-green-600 hover:bg-green-700 text-white"
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
                             >
                               {isCalculating ? (
                                 <>
