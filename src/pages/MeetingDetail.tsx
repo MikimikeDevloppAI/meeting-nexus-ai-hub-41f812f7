@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, FileText, Search } from "lucide-react";
+import { Calendar, Users, FileText, Search, Bug, Loader2 } from "lucide-react";
 import { MeetingTodosWithRecommendations } from "@/components/MeetingTodosWithRecommendations";
 import { EditableContent } from "@/components/EditableContent";
 import { SummaryChat } from "@/components/meeting/SummaryChat";
@@ -11,6 +11,7 @@ import { useState } from "react";
 import { TaskDeepSearch } from "@/components/TaskDeepSearch";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -23,6 +24,8 @@ export default function MeetingDetail() {
   const [summary, setSummary] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [showSummaryChat, setShowSummaryChat] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
+  const { toast } = useToast();
 
   const { data: meeting, isLoading, error, refetch } = useQuery({
     queryKey: ["meeting", id, refreshKey],
@@ -66,6 +69,59 @@ export default function MeetingDetail() {
         el.classList.remove('animate-pulse');
       }, 1000);
     });
+  };
+
+  const handleDebugTodos = async () => {
+    if (!id) return;
+    
+    setIsDebugging(true);
+    
+    try {
+      console.log('🐛 [DEBUG] Starting debug for meeting:', id);
+      
+      const { data, error } = await supabase.functions.invoke('meeting-tasks-debug', {
+        body: { meetingId: id }
+      });
+
+      if (error) {
+        console.error('❌ [DEBUG] Error calling debug function:', error);
+        toast({
+          title: "Erreur de debug",
+          description: `Erreur: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ [DEBUG] Debug response:', data);
+      
+      const result = data.result;
+      const title = result.error ? "Debug terminé avec erreur" : "Debug terminé";
+      const description = result.error 
+        ? `Erreur: ${result.error}`
+        : `Tâches traitées: ${result.processed}, Réussies: ${result.successful}, Échouées: ${result.failed}`;
+
+      toast({
+        title,
+        description,
+        variant: result.error ? "destructive" : "default",
+      });
+
+      // Refresh data if todos were created
+      if (result.successful > 0) {
+        handleDataUpdate();
+      }
+
+    } catch (error) {
+      console.error('❌ [DEBUG] Unexpected error:', error);
+      toast({
+        title: "Erreur inattendue",
+        description: "Une erreur inattendue s'est produite lors du debug",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDebugging(false);
+    }
   };
 
   if (isLoading) {
@@ -182,9 +238,32 @@ export default function MeetingDetail() {
       {/* Todos with exact same rendering as /todos page */}
       <Card data-updated>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Tâches de la réunion
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Tâches de la réunion
+            </div>
+            {meeting.transcript && (
+              <Button
+                onClick={handleDebugTodos}
+                variant="outline"
+                size="sm"
+                disabled={isDebugging}
+                className="text-xs"
+              >
+                {isDebugging ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Debug...
+                  </>
+                ) : (
+                  <>
+                    <Bug className="h-3 w-3 mr-1" />
+                    Debug Todos
+                  </>
+                )}
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
