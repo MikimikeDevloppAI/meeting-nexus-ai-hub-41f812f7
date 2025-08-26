@@ -84,9 +84,9 @@ ${recentTodosContext.length > 0 ? recentTodosContext.map(todo =>
 ).join('\n') : 'Aucun todo existant récent'}
 
 **RÈGLES DE CRÉATION:**
-- CRÉE une nouvelle tâche pour CHAQUE action/sujet distinct mentionné dans le transcript
-- Regroupe seulement les actions strictement identiques
-- Une nouvelle discussion = une nouvelle tâche (même si le sujet est similaire à un existant)
+- CRÉE une nouvelle tâche pour CHAQUE action/sujet distinct mentionné dans le transcript 
+- Regroupe totues les taches qui ont le meme sujet ou le meme outil pour eviter de créér trop de taches semblable
+- tout point aborder qui necessite une action doit générer une tache
 - N'inclus dans ta réponse que les tâches réellement nouvelles
 
 **RÈGLES DE DESCRIPTION:**
@@ -109,11 +109,11 @@ ${recentTodosContext.length > 0 ? recentTodosContext.map(todo =>
 **RÈGLES POUR LES RECOMMANDATIONS IA:**
 Pour chaque tâche, génère:
 1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils
-2. **Email pré-rédigé COMPLET** créé une communication pour l'externe. l'email doit etre professionnel avec contexte pour que le destinaitaire commprenne la demande. si la tache ne necessite aucune communication externe créé une communication pour l'interne si nécessaire, clair et concis.
+2. **Email pré-rédigé COMPLET** créé une communication pour chaque tache avec un email clair et descriptif que l'utilisateur pourra envoyer pour effecture la tache (communication vers prestataire externe a privilégié).
 3. Si la tâche est simple/évidente, marque hasRecommendation: false
 
 Critères qualité pour les recommandations:
-- Concis, structuré, actionnable
+- structuré, actionnable
 - Valeur ajoutée réelle pour le cabinet d'ophtalmologie Dr Tabibian à Genève
 - Éviter banalités
 
@@ -133,8 +133,8 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       "assigned_to": ["Nom exact de l'utilisateur"] ou null,
       "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
       "hasRecommendation": true/false,
-      "recommendation": "Recommandation détaillée ou 'Aucune recommandation nécessaire.'",
-      "emailDraft": "Email COMPLET (optionnel)" ou null
+      "recommendation": "Recommandation détaillée",
+      "emailDraft": "Email COMPLET" 
     }
   ]
 }
