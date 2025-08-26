@@ -418,14 +418,6 @@ export default function IOLCalculator() {
                     {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && !isCalculating && (
                       <Card className="border-green-200 bg-green-50">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-green-800">
-                            🎯 Données à envoyer à l'API IOL Calculator
-                          </CardTitle>
-                          <CardDescription className="text-green-700">
-                            Vérifiez et modifiez les données ci-dessous avant de soumettre le calcul IOL
-                          </CardDescription>
-                        </CardHeader>
                         <CardContent className="space-y-6">
                           {/* Informations du header */}
                           <div className="space-y-4">
