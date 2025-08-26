@@ -181,59 +181,54 @@ async function processTasksWithRecommendations(
     const allUserNames = allUsers?.map(u => u.name).join(', ') || '';
     const meetingUserNames = users?.map(p => p.name).join(', ') || '';
 
-    // Récupérer seulement les todos récents pour éviter les vrais doublons
-    const recentTodosContext = existingTodosContext.slice(0, 10); // Top 10 plus récents
+    // Récupérer seulement les todos récents pour éviter les doublons côté IA
+    const recentTodosContext = existingTodosContext.slice(0, 15); // Top 15 plus récents
 
-    // Prompt modifié pour créer UNIQUEMENT de nouvelles tâches sans doublons
-    const unifiedPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les nouvelles tâches, actions et suivis mentionnés et CRÉÉ-LES comme nouvelles tâches SAUF si elles sont IDENTIQUES à une tâche existante.
+    // Prompt simplifié pour créer UNIQUEMENT de nouvelles tâches
+    const unifiedPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les nouvelles tâches, actions et suivis mentionnés et CRÉÉ-LES comme nouvelles tâches.
+
+NE PRODUIS QUE des tâches nouvelles qui ne dupliquent pas les todos existantes listées ci-dessous. Si c'est un doublon évident, n'inclus pas cette tâche dans ta réponse.
 
 TOUS LES UTILISATEURS SYSTÈME : ${allUserNames}
 PARTICIPANTS À CETTE RÉUNION : ${meetingUserNames}
 
-**TODOS EXISTANTS RÉCENTS (pour éviter les doublons EXACTS uniquement) :**
+**TODOS EXISTANTS (pour éviter doublons) :**
 ${recentTodosContext.length > 0 ? recentTodosContext.map(todo => 
   `- ${todo.description} (${todo.status})`
 ).join('\n') : 'Aucun todo existant récent'}
 
-**ACTIONS POSSIBLES:**
-- "action": "create" - Créer une nouvelle tâche (ACTION PRIVILÉGIÉE)
-- "action": "skip" - Ne rien faire car tâche IDENTIQUE existe déjà
+**RÈGLES DE CRÉATION:**
+- CRÉE une nouvelle tâche pour CHAQUE action/sujet distinct mentionné dans le transcript
+- Regroupe seulement les actions strictement identiques
+- Une nouvelle discussion = une nouvelle tâche (même si le sujet est similaire à un existant)
+- N'inclus dans ta réponse que les tâches réellement nouvelles
 
-**RÈGLES DE CRÉATION NOUVELLES TÂCHES:**
-- CRÉE une nouvelle tâche pour CHAQUE action/sujet mentionné dans le transcript
-- Regroupe seulement les actions strictement liées au MÊME SUJET PRÉCIS
-- Une nouvelle discussion = une nouvelle tâche (même si le sujet est proche d'un existant)
-- SKIP seulement si la tâche est EXACTEMENT identique à une existante
-- Privilégie CREATE sur SKIP - en cas de doute, CRÉE
-
-**RÈGLES DE DESCRIPTION CONCISE:**
-- description concise mais qui donne le contexte nécessaire pour la compréhension
+**RÈGLES DE DESCRIPTION:**
+- Description concise mais avec contexte nécessaire
 - Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
-- Format: "Action + Objet + Contexte "
+- Format: "Action + Objet + Contexte"
 
-**RÈGLES D'ASSIGNATION ÉTENDUES:**
+**RÈGLES D'ASSIGNATION:**
 - Tu peux assigner à N'IMPORTE QUEL utilisateur du système (liste complète ci-dessus)
 - PRIVILÉGIE les participants à cette réunion : ${meetingUserNames}
 - Variantes acceptées pour correspondance :
-  • Leïla / leila / Leila
-  • Émilie / emilie / Emilie  
-  • David / david / David Tabibian / Tabibian
-  • Parmice / parmice / Parmis
-  • Sybil / sybil
+  • Leïla / leila / Leila → "Leila Burnier-Framboret"
+  • Émilie / emilie / Emilie → "Emilie Doy"
+  • David / david / Tabibian → "David Tabibian"
+  • Parmice / parmice / Parmis → "Parmis PARVIN"
+  • Sybil / sybil / Sybille → "Sybille Peguiron "
 - Si une personne dit "je vais faire X" → assigne à cette personne
-- Si plusieurs personnes impliquées → assigne à la personne principale
 - Si aucune assignation claire, laisse "assigned_to" à null
 
 **RÈGLES POUR LES RECOMMANDATIONS IA:**
 Pour chaque tâche, génère:
-1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils, ou challenge les décisions si pertinent.
-2. **Email pré-rédigé COMPLET** si communication interne est nécessaire: direct et concis et si une communication externe est nécessaire professionnel avec tout le contexte et très détaillés.
-3. Si la tâche est simple/évidente, marque hasRecommendation: false avec "Aucune recommandation nécessaire."
+1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils
+2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte)
+3. Si la tâche est simple/évidente, marque hasRecommendation: false
 
 Critères qualité pour les recommandations:
 - Concis, structuré, actionnable
 - Valeur ajoutée réelle pour le cabinet d'ophtalmologie Dr Tabibian à Genève
-- Pas d'invention de contacts
 - Éviter banalités
 
 CONTEXTE RÉUNION:
@@ -248,9 +243,8 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "action": "create|skip",
-      "description": "Action concise et claire avec contexte ",
-      "assigned_to": ["Nom exact de l'utilisateur tel qu'il apparaît dans la liste"] ou null,
+      "description": "Action concise et claire avec contexte",
+      "assigned_to": ["Nom exact de l'utilisateur"] ou null,
       "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
       "hasRecommendation": true/false,
       "recommendation": "Recommandation détaillée ou 'Aucune recommandation nécessaire.'",
@@ -260,15 +254,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 }
 
 **RÈGLES POUR LES DATES D'ÉCHÉANCE:**
-- Si une date ou délai est mentionné dans la discussion ("dans 2 semaines", "avant le 15", "d'ici vendredi", "urgent"), calcule la date d'échéance correspondante
-- Utilise le format ISO standard : YYYY-MM-DDTHH:MM:SSZ pour les dates avec heure, ou YYYY-MM-DD pour les dates simples
+- Si une date ou délai est mentionné ("dans 2 semaines", "avant le 15", "d'ici vendredi", "urgent"), calcule la date d'échéance
+- Format ISO: YYYY-MM-DDTHH:MM:SSZ pour dates avec heure, ou YYYY-MM-DD pour dates simples
 - Date de référence : ${new Date().toISOString().split('T')[0]} (aujourd'hui)
-- Si aucune échéance n'est mentionnée, laisse due_date à null
-- Exemples de calculs :
-  * "dans 2 semaines" → ajouter 14 jours à aujourd'hui
-  * "avant vendredi" → calculer le prochain vendredi
-  * "fin du mois" → dernier jour du mois actuel
-  * "urgent" → dans 2-3 jours selon le contexte`;
+- Si aucune échéance mentionnée, laisse due_date à null`;
 
     console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-4.1`);
     
@@ -279,8 +268,12 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
 
-    // Parser la réponse
+    // Parser la réponse avec tolérance pour le champ action
     let tasksWithRecommendations = [];
+    let skippedAsDuplicate = 0;
+    let createdCount = 0;
+    let existingTodosForDedup = existingTodosContext;
+    
     try {
       console.log('📄 [UNIFIED-TODO-SERVICE] Raw response length:', unifiedResponse?.length || 0);
       
@@ -293,25 +286,118 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       const parsedData = JSON.parse(cleanedResponse);
       tasksWithRecommendations = parsedData.tasks || [];
       console.log(`📋 [UNIFIED-TODO-SERVICE] Parsed ${tasksWithRecommendations.length} tasks avec recommandations`);
+      
+      // Ignorer le champ action s'il existe encore (tolérance)
+      tasksWithRecommendations.forEach(task => {
+        if (task.action) {
+          console.log(`🔄 [UNIFIED-TODO-SERVICE] Ignoring legacy action field: ${task.action}`);
+          delete task.action;
+        }
+      });
+      
     } catch (parseError) {
       console.error('❌ [UNIFIED-TODO-SERVICE] Error parsing JSON:', parseError);
       console.log('📄 [UNIFIED-TODO-SERVICE] Raw response:', unifiedResponse);
       throw new Error('Failed to parse unified response');
     }
 
-    // Sauvegarder les tâches ET les recommandations simultanément
+    // Fonction de normalisation pour la déduplication côté code
+    const normalizeDescription = (desc: string): string => {
+      return desc
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^\w\s]/g, ' ') // Remove punctuation
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+    };
+
+    // Fonction de test de doublon
+    const isDuplicate = (candidate: string, existing: string): boolean => {
+      const candidateNorm = normalizeDescription(candidate);
+      const existingNorm = normalizeDescription(existing);
+      
+      // Test 1: Match exact sur description normalisée
+      if (candidateNorm === existingNorm) {
+        return true;
+      }
+      
+      // Test 2: Similarité par tokens (Jaccard)
+      const candidateTokens = new Set(candidateNorm.split(' ').filter(t => t.length > 2));
+      const existingTokens = new Set(existingNorm.split(' ').filter(t => t.length > 2));
+      
+      if (candidateTokens.size === 0 || existingTokens.size === 0) {
+        return false;
+      }
+      
+      const intersection = new Set([...candidateTokens].filter(x => existingTokens.has(x)));
+      const union = new Set([...candidateTokens, ...existingTokens]);
+      const jaccardSimilarity = intersection.size / union.size;
+      
+      if (jaccardSimilarity > 0.85) {
+        return true;
+      }
+      
+      // Test 3: Substring longue (inclusion)
+      if (candidateNorm.length > 25 && existingNorm.length > 25) {
+        if (candidateNorm.includes(existingNorm) || existingNorm.includes(candidateNorm)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
+    // Set pour éviter les doublons intra-lot
+    const processedDescriptions = new Set<string>();
+
+    // Filtrer les tâches en appliquant la déduplication côté code
+    const filteredTasks = [];
+    for (const taskData of tasksWithRecommendations) {
+      const description = taskData.description;
+      const normalizedDesc = normalizeDescription(description);
+      
+      // Vérifier contre les descriptions déjà traitées dans ce lot
+      if (processedDescriptions.has(normalizedDesc)) {
+        console.log(`🔄 [DEDUP] SKIP intra-batch duplicate: ${description}`);
+        skippedAsDuplicate++;
+        continue;
+      }
+      
+      // Vérifier contre les todos existants
+      let isExistingDuplicate = false;
+      for (const existingTodo of existingTodosForDedup) {
+        if (isDuplicate(description, existingTodo.description)) {
+          console.log(`🔄 [DEDUP] SKIP duplicate of existing: "${description}" vs "${existingTodo.description}"`);
+          isExistingDuplicate = true;
+          skippedAsDuplicate++;
+          break;
+        }
+      }
+      
+      if (!isExistingDuplicate) {
+        filteredTasks.push(taskData);
+        processedDescriptions.add(normalizedDesc);
+        console.log(`✅ [DEDUP] ACCEPTED new task: ${description}`);
+      }
+    }
+
+    console.log(`🔍 [DEDUP] Filtering results: ${tasksWithRecommendations.length} candidates → ${filteredTasks.length} accepted, ${skippedAsDuplicate} skipped as duplicates`);
+
+    // Sauvegarder les tâches filtrées
     let totalSuccessful = 0;
     let totalFailed = 0;
     let savedTasks = [];
 
-    console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde de ${tasksWithRecommendations.length} tâches avec recommandations`);
+    console.log(`💾 [CREATE-ONLY-SERVICE] Sauvegarde de ${filteredTasks.length} tâches nouvelles avec recommandations`);
 
-    for (let i = 0; i < tasksWithRecommendations.length; i++) {
-      const taskData = tasksWithRecommendations[i];
+    for (let i = 0; i < filteredTasks.length; i++) {
+      const taskData = filteredTasks[i];
       try {
-        console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description}`);
+        console.log(`💾 [CREATE-ONLY-SERVICE] Sauvegarde tâche ${i+1}/${filteredTasks.length}: ${taskData.description}`);
         
-        // 1. Gérer selon l'action demandée
+        // Forcer action create (plus de skip/update/link)
+        taskData.action = 'create';
         const savedTask = await saveTaskUnified(supabaseClient, taskData, meetingData.id, users, allUsers);
         
         if (savedTask) {
@@ -328,9 +414,9 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
               });
             
             if (recError) {
-              console.error(`❌ [UNIFIED-TODO-SERVICE] Erreur sauvegarde recommandation pour tâche ${savedTask.id}:`, recError);
+              console.error(`❌ [CREATE-ONLY-SERVICE] Erreur sauvegarde recommandation pour tâche ${savedTask.id}:`, recError);
             } else {
-              console.log(`✅ [UNIFIED-TODO-SERVICE] Recommandation sauvegardée pour tâche ${savedTask.id}`);
+              console.log(`✅ [CREATE-ONLY-SERVICE] Recommandation sauvegardée pour tâche ${savedTask.id}`);
             }
           }
           
@@ -341,25 +427,29 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
             .eq('id', savedTask.id);
           
           totalSuccessful++;
-          console.log(`✅ [UNIFIED-TODO-SERVICE] Tâche ${i+1} sauvegardée avec succès avec ID: ${savedTask.id}`);
+          createdCount++;
+          console.log(`✅ [CREATE-ONLY-SERVICE] Tâche ${i+1} sauvegardée avec succès avec ID: ${savedTask.id}`);
         }
         
       } catch (error) {
-        console.error(`❌ [UNIFIED-TODO-SERVICE] Erreur sauvegarde tâche ${i+1}:`, error);
+        console.error(`❌ [CREATE-ONLY-SERVICE] Erreur sauvegarde tâche ${i+1}:`, error);
         totalFailed++;
       }
     }
     
-    console.log(`🏁 [UNIFIED-TODO-SERVICE] Traitement unifié terminé: ${totalSuccessful} succès, ${totalFailed} échecs sur ${tasksWithRecommendations.length} tâches`);
+    console.log(`🏁 [CREATE-ONLY-SERVICE] Traitement terminé: ${createdCount} créées, ${skippedAsDuplicate} doublons ignorés, ${totalFailed} échecs sur ${tasksWithRecommendations.length} candidates`);
     
     return {
       processed: tasksWithRecommendations.length,
       successful: totalSuccessful,
       failed: totalFailed,
+      createdCount: createdCount,
+      skippedAsDuplicateCount: skippedAsDuplicate,
       fullyCompleted: true,
       savedTasks: savedTasks,
       unified: true,
-      model: 'gpt-4.1-2025-04-14'
+      createOnly: true,
+      model: 'gpt-4o'
     };
     
   } catch (error) {
@@ -377,22 +467,11 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 
 // Fonction pour sauvegarder UNIQUEMENT de nouvelles tâches (CREATE only)
 async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingUsers: any[], allUsers: any[]) {
-  console.log('💾 Processing task action:', task.action, '|', task.description);
+  console.log('💾 [CREATE-ONLY-SERVICE] Creating new task:', task.description);
+  console.log('👥 Tous les utilisateurs système:', allUsers?.map(u => ({ id: u.id, name: u.name })));
   console.log('👥 Participants de la réunion:', meetingUsers?.map(p => ({ id: p.id, name: p.name })));
   
   try {
-    // Skip action - ne rien faire
-    if (task.action === 'skip') {
-      console.log('⏭️ [CREATE-ONLY-SERVICE] Action SKIP - pas de sauvegarde');
-      return null;
-    }
-
-    // Seule action autorisée : CREATE
-    if (task.action !== 'create') {
-      console.warn(`⚠️ [CREATE-ONLY-SERVICE] Action "${task.action}" non autorisée, conversion en CREATE`);
-      task.action = 'create';
-    }
-
     // Fonction pour nettoyer les descriptions
     const makeDescriptionConcise = (description: string): string => {
       if (!description) return '';
@@ -409,7 +488,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
     const findBestUserMatch = (searchName: string, allUsers: any[]): any | null => {
       if (!searchName || !allUsers?.length) return null;
 
-      console.log(`🔍 [UNIFIED-TODO-SERVICE] Recherche "${searchName}" parmi TOUS les utilisateurs système`);
+      console.log(`🔍 [CREATE-ONLY-SERVICE] Recherche "${searchName}" parmi TOUS les utilisateurs système`);
 
       const normalizeUserName = (name: string): string => {
         return name
@@ -441,7 +520,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       };
 
       const variants = getNameVariants(searchName);
-      console.log(`🔄 [UNIFIED-TODO-SERVICE] Variantes testées:`, variants);
+      console.log(`🔄 [CREATE-ONLY-SERVICE] Variantes testées:`, variants);
       
       for (const variant of variants) {
         const normalizedVariant = normalizeUserName(variant);
@@ -454,7 +533,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
               normalizedEmail === normalizedVariant ||
               normalizedUserName.includes(normalizedVariant) ||
               normalizedVariant.includes(normalizedUserName)) {
-            console.log(`✅ [UNIFIED-TODO-SERVICE] Correspondance trouvée: ${user.name}`);
+            console.log(`✅ [CREATE-ONLY-SERVICE] Correspondance trouvée: ${user.name}`);
             return user;
           }
         }
@@ -464,95 +543,48 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       for (const user of allUsers) {
         const userFirstName = normalizeUserName(user.name.split(' ')[0]);
         if (userFirstName === firstName) {
-          console.log(`✅ [UNIFIED-TODO-SERVICE] Correspondance par prénom: ${user.name}`);
+          console.log(`✅ [CREATE-ONLY-SERVICE] Correspondance par prénom: ${user.name}`);
           return user;
         }
       }
       
-      console.log(`⚠️ [UNIFIED-TODO-SERVICE] Aucune correspondance trouvée pour "${searchName}"`);
+      console.log(`⚠️ [CREATE-ONLY-SERVICE] Aucune correspondance trouvée pour "${searchName}"`);
       return null;
     };
 
-    let savedTask;
+    const conciseDescription = makeDescriptionConcise(task.description);
+    console.log('📝 Description concise:', conciseDescription);
 
-    // Traiter selon l'action
-    if (task.action === 'create') {
-      console.log('🆕 [UNIFIED-TODO-SERVICE] CREATE nouvelle tâche');
-      
-      const conciseDescription = makeDescriptionConcise(task.description);
-      console.log('📝 Description concise:', conciseDescription);
+    // Créer UNIQUEMENT une nouvelle tâche
+    const { data: newTask, error } = await supabaseClient
+      .from('todos')
+      .insert([{
+        description: conciseDescription,
+        status: 'confirmed',
+        due_date: task.due_date || null
+      }])
+      .select()
+      .single();
 
-      // Créer la nouvelle tâche sans meeting_id
-      const { data: newTask, error } = await supabaseClient
-        .from('todos')
-        .insert([{
-          description: conciseDescription,
-          status: 'confirmed',
-          due_date: task.due_date || null
-        }])
-        .select()
-        .single();
+    if (error) {
+      console.error('❌ Error creating new task:', error);
+      throw error;
+    }
 
-      if (error) {
-        console.error('❌ Error creating new task:', error);
-        throw error;
-      }
+    console.log('✅ Nouvelle tâche créée avec ID:', newTask.id);
 
-      savedTask = newTask;
-      console.log('✅ Nouvelle tâche créée avec ID:', savedTask.id);
+    // Créer le lien avec la réunion
+    const { error: linkError } = await supabaseClient
+      .from('todo_meetings')
+      .insert([{
+        todo_id: newTask.id,
+        meeting_id: meetingId
+      }]);
 
-      // Créer le lien avec la réunion
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }]);
-
-      if (linkError) {
-        console.error('❌ Error linking task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche liée à la réunion:', meetingId);
-      }
-
+    if (linkError) {
+      console.error('❌ Error linking task to meeting:', linkError);
     } else {
-      console.log('ℹ️ [CREATE-ONLY-SERVICE] Action non-CREATE, création d\'une nouvelle tâche par défaut');
-      
-      const conciseDescription = makeDescriptionConcise(task.description);
-      console.log('📝 Description concise:', conciseDescription);
-
-      // Créer la nouvelle tâche 
-      const { data: newTask, error } = await supabaseClient
-        .from('todos')
-        .insert([{
-          description: conciseDescription,
-          status: 'confirmed',
-          due_date: task.due_date || null
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creating new task:', error);
-        throw error;
-      }
-
-      savedTask = newTask;
-      console.log('✅ Nouvelle tâche créée avec ID:', savedTask.id);
-
-      // Créer le lien avec la réunion
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }]);
-
-      if (linkError) {
-        console.error('❌ Error linking task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche liée à la réunion:', meetingId);
-      }
+      console.log('✅ Tâche liée à la réunion:', meetingId);
     }
 
     // Traiter les assignations avec TOUS les utilisateurs du système
@@ -566,29 +598,18 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
         const user = findBestUserMatch(userName.toString(), allUsers || []);
         
         if (user) {
-          // Vérifier si l'assignation existe déjà
-          const { data: existingAssignment } = await supabaseClient
+          // Créer l'assignation (pas de vérification d'existant car nouvelles tâches)
+          const { error: assignError } = await supabaseClient
             .from('todo_users')
-            .select('id')
-            .eq('todo_id', savedTask.id)
-            .eq('user_id', user.id)
-            .single();
-
-          if (!existingAssignment) {
-            const { error: assignError } = await supabaseClient
-              .from('todo_users')
-              .insert([{
-                todo_id: savedTask.id,
-                user_id: user.id
-              }]);
-            
-            if (assignError) {
-              console.error('❌ [CREATE-ONLY-SERVICE] Error assigning user:', assignError);
-            } else {  
-              console.log('✅ [CREATE-ONLY-SERVICE] User assigné:', user.name, 'to task:', savedTask.id);
-            }
-          } else {
-            console.log('ℹ️ [CREATE-ONLY-SERVICE] User déjà assigné:', user.name);
+            .insert([{
+              todo_id: newTask.id,
+              user_id: user.id
+            }]);
+          
+          if (assignError) {
+            console.error('❌ [CREATE-ONLY-SERVICE] Error assigning user:', assignError);
+          } else {  
+            console.log('✅ [CREATE-ONLY-SERVICE] User assigné:', user.name, 'to task:', newTask.id);
           }
         } else {
           console.warn(`⚠️ [CREATE-ONLY-SERVICE] User "${userName}" non trouvé dans le système`);
@@ -598,7 +619,7 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       console.log('ℹ️ [CREATE-ONLY-SERVICE] Pas de users à assigner pour cette tâche');
     }
 
-    return savedTask;
+    return newTask;
   } catch (error) {
     console.error('❌ [CREATE-ONLY-SERVICE] Error in saveTaskUnified:', error);
     throw error;
