@@ -47,8 +47,9 @@ RÈGLES :
 - Pour chaque point discuté, ajoute immédiatement à la ligne suivante la décision prise (avec → ) si il y en a eu une
 - Si aucune décision n'a été prise pour un point, ne mets pas de ligne avec →
 - Utilise les noms des participants dans les décisions/actions
-- Sois précis et concis
+- Sois précis et concis et ne fait pas de répétition
 - Ne renvoie que le résumé en Markdown avec les emojis
+- Renvoi uniquement le résumé
 
 Voici le transcript nettoyé de la réunion :
 ${cleanedTranscript}`;
