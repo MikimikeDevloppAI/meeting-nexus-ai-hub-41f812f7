@@ -714,6 +714,8 @@ export default function TimeTracking() {
           <OvertimeCalendar
             overtimeHours={overtimeHours.filter(overtime => overtime.user_id === user?.id)}
             vacations={vacations.filter(vacation => vacation.user_id === user?.id)}
+            vacationQuotas={vacationQuotas}
+            currentUserId={user?.id}
             onAddOvertime={onAddOvertime}
             onEditOvertime={onEditOvertime}
             onDeleteOvertime={onDeleteOvertimeCalendar}

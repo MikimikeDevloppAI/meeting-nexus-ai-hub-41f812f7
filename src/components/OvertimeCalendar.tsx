@@ -41,10 +41,19 @@ interface Vacation {
   }>;
 }
 
+interface VacationQuota {
+  id: string;
+  user_id: string;
+  year: number;
+  quota_days: number;
+}
+
 interface OvertimeCalendarProps {
   overtimeHours: OvertimeHour[];
   vacations?: Vacation[];
+  vacationQuotas?: VacationQuota[];
   selectedYear?: number;
+  currentUserId?: string;
   onAddOvertime: (data: {
     date: string;
     hours: number;
@@ -63,7 +72,9 @@ interface OvertimeCalendarProps {
 export function OvertimeCalendar({ 
   overtimeHours, 
   vacations = [],
+  vacationQuotas = [],
   selectedYear,
+  currentUserId,
   onAddOvertime, 
   onEditOvertime, 
   onDeleteOvertime 
@@ -436,11 +447,13 @@ export function OvertimeCalendar({
                 return total + vacation.days_count;
               }, 0);
 
-              // Quota de vacances (supposé 25 jours par défaut, à adapter selon vos besoins)
-              const vacationQuota = 25; // Vous pouvez passer cette valeur en prop si nécessaire
+              // Quota de vacances pour l'utilisateur actuel
+              const currentUserQuota = vacationQuotas.find(q => 
+                q.user_id === currentUserId && q.year === currentYear
+              )?.quota_days || 0;
 
               // Calcul des jours pris en plus du quota
-              const daysOverQuota = Math.max(0, vacationDaysTaken - vacationQuota);
+              const daysOverQuota = Math.max(0, vacationDaysTaken - currentUserQuota);
               
               // Calcul des jours récupérés (nombre de jours pris en plus × 8)
               const joursRecuperes = daysOverQuota * 8;
