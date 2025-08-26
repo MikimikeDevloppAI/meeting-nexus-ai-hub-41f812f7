@@ -470,26 +470,22 @@ export function OvertimeCalendar({
               return (
                 <div className="mb-4 pb-4 border-b">
                   <div className="grid grid-cols-2 gap-y-1 items-center mb-3">
-                    <span className="font-semibold">Total {currentYear}</span>
-                    <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
+                    <span className="font-semibold">Total après récupération {currentYear}</span>
+                    <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(totalApresRecuperation)}</span>
                   </div>
                   
-                  {daysOverQuota > 0 && (
-                    <div className="space-y-2 pt-3 border-t">
-                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
-                        <span className="text-muted-foreground">Total après récupération</span>
-                        <span className="font-medium text-orange-600 text-right">{formatHoursToHoursMinutes(totalApresRecuperation)}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
-                        <span className="text-muted-foreground">Total heures sup.</span>
-                        <span className="font-medium text-blue-600 text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
-                        <span className="text-muted-foreground">Jours récupérés</span>
-                        <span className="font-medium text-purple-600 text-right">{formatHoursToHoursMinutes(joursRecuperes)}</span>
-                      </div>
+                  <div className="space-y-2 pt-3 border-t">
+                    <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
+                      <span className="text-muted-foreground">Total heures sup.</span>
+                      <span className="font-medium text-black text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
                     </div>
-                  )}
+                    <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
+                      <span className="text-muted-foreground">Jours récupérés</span>
+                      <span className={`font-medium text-right ${joursRecuperes > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {joursRecuperes > 0 ? '-' : ''}{formatHoursToHoursMinutes(joursRecuperes)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
