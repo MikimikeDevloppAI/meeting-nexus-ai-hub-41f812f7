@@ -91,6 +91,7 @@ export const useSimpleMeetingCreation = () => {
 
           // Transcribe audio
           const participantCount = Math.max(selectedUserIds.length, 2);
+          console.log(`[TRANSCRIBE] Participants selected: ${selectedUserIds.length}, sending ${participantCount} to AssemblyAI for speaker diarization`);
           const transcript = await AudioProcessingService.transcribeAudio(
             audioFileUrl, 
             participantCount, 
