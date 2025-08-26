@@ -518,7 +518,7 @@ export default function IOLCalculator() {
                                   Calcul en cours...
                                 </>
                               ) : (
-                                "🚀 Soumettre à l'API IOL Calculator"
+                                "Soumettre à IOL Calculator"
                               )}
                             </Button>
                           </div>
