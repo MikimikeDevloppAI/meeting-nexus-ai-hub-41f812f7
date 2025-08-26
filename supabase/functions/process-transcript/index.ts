@@ -103,11 +103,11 @@ serve(async (req) => {
           return unifiedResult;
         })(),
         
-        // Génération du résumé avec gpt-5 sans température
+        // Génération du résumé avec gpt-5-mini
         (async () => {
-          console.log('📝 [PARALLEL] Generating summary with gpt-5 (no temperature)...');
+          console.log('📝 [PARALLEL] Generating summary with gpt-5-mini...');
           const startTime = Date.now();
-          const summary = await callOpenAI(summaryPrompt, openaiApiKey, null, 'gpt-5', 3, 4096);
+          const summary = await callOpenAI(summaryPrompt, openaiApiKey, undefined, 'gpt-5-mini-2025-08-07', 3, 10000);
           await saveSummary(supabaseClient, meetingId, summary);
           console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
           return summary;
