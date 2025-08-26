@@ -109,7 +109,7 @@ ${recentTodosContext.length > 0 ? recentTodosContext.map(todo =>
 **RÈGLES POUR LES RECOMMANDATIONS IA:**
 Pour chaque tâche, génère:
 1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils
-2. **Email pré-rédigé COMPLET** si communication nécessaire (interne: direct et concis / externe: professionnel avec contexte)
+2. **Email pré-rédigé COMPLET** créé une communication pour l'externe. l'email doit etre professionnel avec contexte pour que le destinaitaire commprenne la demande. si la tache ne necessite aucune communication externe créé une communication pour l'interne si nécessaire, clair et concis.
 3. Si la tâche est simple/évidente, marque hasRecommendation: false
 
 Critères qualité pour les recommandations:
