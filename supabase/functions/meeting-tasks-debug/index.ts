@@ -38,6 +38,10 @@ async function callOpenAI(prompt: string, openAIKey: string, temperature: number
         payload.max_tokens = defaultMaxTokens;
       }
 
+      console.log('🔧 [DEBUG] Model type:', isNewModel ? 'New (GPT-5/4.1+/O3/O4)' : 'Legacy (GPT-4o/etc)');
+      console.log('🌡️ [DEBUG] Temperature:', temperature, isNewModel ? '(ignored for new models)' : '(applied)');
+      console.log('🎯 [DEBUG] Using', isNewModel ? 'max_completion_tokens' : 'max_tokens', ':', defaultMaxTokens);
+
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -159,7 +163,7 @@ RÉPONDS UNIQUEMENT AVEC LE JSON, AUCUN AUTRE TEXTE.`;
   console.log('🔄 [DEBUG] Calling OpenAI...');
 
   try {
-    const aiResponse = await callOpenAI(prompt, openAIKey, 0.3, 'gpt-5-mini-2025-08-07');
+    const aiResponse = await callOpenAI(prompt, openAIKey, undefined, 'gpt-5-mini-2025-08-07');
     
     console.log('📥 [DEBUG] Raw AI Response:', aiResponse);
     console.log('📐 [DEBUG] Response length:', aiResponse.length);
