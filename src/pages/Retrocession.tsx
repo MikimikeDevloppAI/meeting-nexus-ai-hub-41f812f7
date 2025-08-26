@@ -1,11 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Legend, Line, LabelList } from "recharts";
+import { Plus, Edit, Trash2 } from "lucide-react";
+import { RetrocessionEntryDialog } from "@/components/retrocession/RetrocessionEntryDialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RetroRow {
   id: string;
@@ -43,9 +57,17 @@ const monthsRange = (from: Date, to: Date) => {
 const toFirstOfMonth = (yyyyMm: string) => new Date(`${yyyyMm}-01T00:00:00.000Z`);
 
 const Retrocession: React.FC = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   useEffect(() => {
     document.title = "Rétrocession | OphtaCare";
   }, []);
+
+  // États pour les dialogs
+  const [showDialog, setShowDialog] = useState(false);
+  const [editData, setEditData] = useState<RetroRow | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const now = new Date();
   const defaultStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1)); // YTD
@@ -134,12 +156,66 @@ const Retrocession: React.FC = () => {
       .sort((a, b) => (a.period_month < b.period_month ? 1 : -1));
   }, [data, doctorFilter]);
 
+  // Mutation pour supprimer une entrée
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("retrocessions")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["retrocessions"] });
+      toast({
+        title: "Succès",
+        description: "L'entrée a été supprimée avec succès",
+      });
+      setDeleteId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la suppression",
+      });
+    },
+  });
+
+  const handleEdit = (row: RetroRow) => {
+    setEditData(row);
+    setShowDialog(true);
+  };
+
+  const handleNew = () => {
+    setEditData(null);
+    setShowDialog(true);
+  };
+
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) {
+      deleteMutation.mutate(deleteId);
+    }
+  };
+
+  const handleDialogSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["retrocessions"] });
+  };
+
   const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
 
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
+        <Button onClick={handleNew} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Nouvelle entrée
+        </Button>
       </header>
 
       <Card className="shadow-md">
@@ -263,21 +339,22 @@ const Retrocession: React.FC = () => {
             <Table className="font-calibri text-[15px] md:text-base table-fixed w-full">
               <TableHeader className="bg-table-header">
                 <TableRow className="border-row">
-                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong">Période</TableHead>
-                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong">Docteur</TableHead>
-                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
-                  <TableHead className="w-1/4 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
+                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Période</TableHead>
+                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Docteur</TableHead>
+                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
+                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
+                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && (
+                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={4}>Chargement…</TableCell>
+                    <TableCell colSpan={5}>Chargement…</TableCell>
                   </TableRow>
                 )}
                 {!isLoading && history.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4}>Aucune donnée</TableCell>
+                    <TableCell colSpan={5}>Aucune donnée</TableCell>
                   </TableRow>
                 )}
                 {history.map((r) => (
@@ -286,6 +363,26 @@ const Retrocession: React.FC = () => {
                     <TableCell className="px-3 py-2">{r.doctor}</TableCell>
                     <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
                     <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(r)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(r.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -293,6 +390,34 @@ const Retrocession: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <RetrocessionEntryDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        editData={editData}
+        onSuccess={handleDialogSuccess}
+        existingDoctors={doctorOptions}
+      />
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette entrée ? Cette action ne peut pas être annulée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
