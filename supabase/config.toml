@@ -64,3 +64,6 @@ verify_jwt = false
 
 [functions.seed-branding-logo]
 verify_jwt = false
+
+[functions.meeting-tasks-debug]
+verify_jwt = false
