@@ -19,6 +19,7 @@ export default function IOLCalculator() {
   const [calculatedImage, setCalculatedImage] = useState<string | null>(null);
   const [apiRequestData, setApiRequestData] = useState<any>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isDataExtracted, setIsDataExtracted] = useState(false);
   const { toast } = useToast();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +66,8 @@ export default function IOLCalculator() {
 
     setIsProcessing(true);
     setIolData(null);
+    setIsDataExtracted(false);
+    setCalculatedImage(null);
     
     try {
       console.log("Extraction directe du PDF:", pdfFile.name, "Taille:", pdfFile.size);
@@ -81,7 +84,7 @@ export default function IOLCalculator() {
           variant: "destructive",
         });
       } else {
-        // Format data for calculate-iol edge function
+        // Format data for calculate-iol edge function - données modifiables
         const calculateIOLData = {
           gender: "Female", // Default - could be extracted from PDF later
           top_fields: {
@@ -112,58 +115,18 @@ export default function IOLCalculator() {
           }
         };
 
-        // Stocker les données formatées pour affichage
-        data.extractedDataForAPI = calculateIOLData;
         setApiRequestData(calculateIOLData);
-        setIsCalculating(true);
-
-        console.log("Calling calculate-iol edge function with data:", calculateIOLData);
-
-        // Call the calculate-iol edge function directly with fetch to handle image response
-        const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
-          },
-          body: JSON.stringify(calculateIOLData)
-        });
-
-        console.log("Calculate-IOL response status:", response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Edge function error: ${response.status} - ${errorText}`);
-        }
-
-        // Check if response is an image
-        const contentType = response.headers.get('content-type');
-        if (contentType?.startsWith('image/')) {
-          // Handle image response
-          const imageBlob = await response.blob();
-          const imageUrl = URL.createObjectURL(imageBlob);
-          setCalculatedImage(imageUrl);
-          console.log("Image received and set");
-        } else {
-          // Handle JSON response (fallback)
-          const result = await response.json();
-          console.log("JSON result received:", result);
-        }
-
         setIolData(data);
-        setIsCalculating(false);
+        setIsDataExtracted(true);
 
         toast({
-          title: "Extraction et calcul réussis",
-          description: calculatedImage 
-            ? "Le texte a été extrait et l'image de calcul IOL a été générée."
-            : "Le texte a été extrait et les calculs IOL ont été effectués.",
+          title: "Extraction réussie",
+          description: "Les données ont été extraites. Vérifiez et modifiez-les si nécessaire avant de soumettre.",
         });
       }
       
     } catch (error: any) {
       console.error("Erreur lors de l'extraction IOL:", error);
-      setIsCalculating(false);
       
       toast({
         title: "Erreur d'extraction",
@@ -172,6 +135,77 @@ export default function IOLCalculator() {
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleApiDataChange = (section: string, field: string, value: string) => {
+    if (!apiRequestData) return;
+    
+    setApiRequestData((prevData: any) => ({
+      ...prevData,
+      [section]: {
+        ...prevData[section],
+        [field]: value
+      }
+    }));
+  };
+
+  const submitToIOLAPI = async () => {
+    if (!apiRequestData) return;
+
+    setIsCalculating(true);
+    
+    try {
+      console.log("Envoi des données à l'API IOL Calculator:", apiRequestData);
+
+      const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
+        },
+        body: JSON.stringify(apiRequestData)
+      });
+
+      console.log("Calculate-IOL response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Edge function error: ${response.status} - ${errorText}`);
+      }
+
+      // Check if response is an image
+      const contentType = response.headers.get('content-type');
+      if (contentType?.startsWith('image/')) {
+        const imageBlob = await response.blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+        setCalculatedImage(imageUrl);
+        console.log("Image received and set");
+        
+        toast({
+          title: "Calcul IOL réussi",
+          description: "L'image de calcul IOL a été générée avec succès.",
+        });
+      } else {
+        const result = await response.json();
+        console.log("JSON result received:", result);
+        
+        toast({
+          title: "Calcul IOL réussi", 
+          description: "Les calculs IOL ont été effectués avec succès.",
+        });
+      }
+      
+    } catch (error: any) {
+      console.error("Erreur lors du calcul IOL:", error);
+      
+      toast({
+        title: "Erreur de calcul",
+        description: `Impossible de calculer l'IOL: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCalculating(false);
     }
   };
 
@@ -455,7 +489,133 @@ export default function IOLCalculator() {
                       </div>
                     )}
 
-                    {/* Image du calcul IOL */}
+                    {/* Données pour l'API IOL Calculator */}
+                    {isDataExtracted && apiRequestData && !isCalculating && (
+                      <Card className="border-green-200 bg-green-50">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-green-800">
+                            🎯 Données à envoyer à l'API IOL Calculator
+                          </CardTitle>
+                          <CardDescription className="text-green-700">
+                            Vérifiez et modifiez les données ci-dessous avant de soumettre le calcul IOL
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          {/* Informations du header */}
+                          <div className="space-y-4">
+                            <h4 className="font-semibold text-green-800">Informations générales</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div>
+                                <label className="text-sm font-medium">Chirurgien</label>
+                                <input
+                                  type="text"
+                                  value={apiRequestData.top_fields?.surgeon || ''}
+                                  onChange={(e) => handleApiDataChange('top_fields', 'surgeon', e.target.value)}
+                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Initiales patient</label>
+                                <input
+                                  type="text"
+                                  value={apiRequestData.top_fields?.patient_initials || ''}
+                                  onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
+                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">ID Patient</label>
+                                <input
+                                  type="text"
+                                  value={apiRequestData.top_fields?.id || ''}
+                                  onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
+                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium">Âge</label>
+                                <input
+                                  type="text"
+                                  value={apiRequestData.top_fields?.age || ''}
+                                  onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
+                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Données des yeux */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Œil droit */}
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-green-800">Œil Droit (OD)</h4>
+                              <div className="space-y-3">
+                                {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
+                                  <div key={key}>
+                                    <label className="text-sm font-medium">{key}</label>
+                                    <input
+                                      type="text"
+                                      value={value as string}
+                                      onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
+                                      className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                      placeholder={`Valeur pour ${key}`}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Œil gauche */}
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-green-800">Œil Gauche (OS)</h4>
+                              <div className="space-y-3">
+                                {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
+                                  <div key={key}>
+                                    <label className="text-sm font-medium">{key}</label>
+                                    <input
+                                      type="text"
+                                      value={value as string}
+                                      onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
+                                      className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                      placeholder={`Valeur pour ${key}`}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Aperçu JSON */}
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-green-800 text-sm">Aperçu des données JSON qui seront envoyées:</h4>
+                            <div className="bg-white p-3 rounded-lg border border-gray-200">
+                              <pre className="text-xs overflow-auto max-h-40 text-gray-600">
+                                {JSON.stringify(apiRequestData, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
+
+                          {/* Bouton de soumission */}
+                          <div className="flex justify-center pt-4">
+                            <Button 
+                              onClick={submitToIOLAPI}
+                              disabled={isCalculating}
+                              size="lg"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              {isCalculating ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Calcul en cours...
+                                </>
+                              ) : (
+                                "🚀 Soumettre à l'API IOL Calculator"
+                              )}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                     {calculatedImage && (
                       <div className="space-y-3">
                         <h3 className="font-semibold text-lg flex items-center gap-2">
