@@ -2,6 +2,7 @@ import React from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -39,6 +40,12 @@ export function RetrocessionEntryDialog({
           <DialogTitle>
             {isEditing ? "Modifier l'entrée" : "Nouvelle entrée de rétrocession"}
           </DialogTitle>
+          <DialogDescription>
+            {isEditing 
+              ? "Modifiez les informations de cette entrée de rétrocession."
+              : "Ajoutez une nouvelle entrée de rétrocession en remplissant les champs ci-dessous."
+            }
+          </DialogDescription>
         </DialogHeader>
         <RetrocessionEntryForm
           editData={editData}

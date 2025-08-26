@@ -121,14 +121,39 @@ const Retrocession: React.FC = () => {
   }, [data]);
 
   const byDoctor = useMemo(() => {
-    const map = new Map<string, { ca: number; retro: number }>();
+    const map = new Map<string, { ca: number; retro: number; lastEntry?: RetroRow }>();
+    
+    // Trier les données par date pour identifier la dernière entrée de chaque docteur
+    const sortedData = [...(data || [])].sort((a, b) => 
+      new Date(b.period_month).getTime() - new Date(a.period_month).getTime()
+    );
+    
     (data || []).forEach((r) => {
       const agg = map.get(r.doctor) || { ca: 0, retro: 0 };
       agg.ca += Number(r.chiffre_affaires || 0);
       agg.retro += Number(r.retrocession || 0);
+      
+      // Identifier la dernière entrée chronologique pour ce docteur
+      if (!agg.lastEntry || new Date(r.period_month) > new Date(agg.lastEntry.period_month)) {
+        agg.lastEntry = r;
+      }
+      
       map.set(r.doctor, agg);
     });
-    return Array.from(map.entries()).map(([doctor, vals]) => ({ doctor, ...vals, pct: vals.ca ? vals.retro / vals.ca : 0 }));
+    
+    return Array.from(map.entries()).map(([doctor, vals]) => {
+      // Utiliser le % de la dernière entrée chronologique
+      const lastEntryPct = vals.lastEntry 
+        ? (vals.lastEntry.chiffre_affaires ? vals.lastEntry.retrocession / vals.lastEntry.chiffre_affaires : 0)
+        : 0;
+      
+      return { 
+        doctor, 
+        ca: vals.ca, 
+        retro: vals.retro, 
+        pct: lastEntryPct 
+      };
+    });
   }, [data]);
 
   const chartData = useMemo(() => {
@@ -347,52 +372,57 @@ const Retrocession: React.FC = () => {
             <Table className="font-calibri text-[15px] md:text-base table-fixed w-full">
               <TableHeader className="bg-table-header">
                 <TableRow className="border-row">
-                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Période</TableHead>
-                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Docteur</TableHead>
-                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
-                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
-                  <TableHead className="w-1/5 px-3 py-2 font-semibold text-strong">Actions</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong">Période</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong">Docteur</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">%</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                  {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={5}>Chargement…</TableCell>
+                    <TableCell colSpan={6}>Chargement…</TableCell>
                   </TableRow>
                 )}
                 {!isLoading && history.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>Aucune donnée</TableCell>
+                    <TableCell colSpan={6}>Aucune donnée</TableCell>
                   </TableRow>
                 )}
-                {history.map((r) => (
-                  <TableRow key={r.id} className="border-row even:bg-row-alt">
-                    <TableCell className="px-3 py-2">{formatYYYYMM(r.period_month)}</TableCell>
-                    <TableCell className="px-3 py-2">{r.doctor}</TableCell>
-                    <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
-                    <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
-                    <TableCell className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(r)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(r.id)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {history.map((r) => {
+                  const percentage = r.chiffre_affaires ? (r.retrocession / r.chiffre_affaires * 100) : 0;
+                  return (
+                    <TableRow key={r.id} className="border-row even:bg-row-alt">
+                      <TableCell className="px-3 py-2">{formatYYYYMM(r.period_month)}</TableCell>
+                      <TableCell className="px-3 py-2">{r.doctor}</TableCell>
+                      <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
+                      <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
+                      <TableCell className="px-3 py-2 text-right">{Math.round(percentage)}%</TableCell>
+                      <TableCell className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(r)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(r.id)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
