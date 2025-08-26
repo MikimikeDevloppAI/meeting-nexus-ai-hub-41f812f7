@@ -11,11 +11,11 @@ export async function processTasksWithRecommendations(
     return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
-  console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5`);
-  console.log(`👥 [UNIFIED-TODO-SERVICE] Users fournis pour assignation:`, users?.map(p => ({ id: p.id, name: p.name, email: p.email })));
-  
-  const supabaseClient = createSupabaseClient();
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5-2025-08-07`);
+    console.log(`👥 [UNIFIED-TODO-SERVICE] Users fournis pour assignation:`, users?.map(p => ({ id: p.id, name: p.name, email: p.email })));
+    
+    const supabaseClient = createSupabaseClient();
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
@@ -157,10 +157,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   * "fin du mois" → dernier jour du mois actuel
   * "urgent" → dans 2-3 jours selon le contexte`;
 
-    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5`);
+    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5-2025-08-07`);
     
     const callStartTime = Date.now();
-    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5', 3, 16384);
+    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5-2025-08-07', 3, 16384);
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
@@ -181,8 +181,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       console.log(`📋 [UNIFIED-TODO-SERVICE] Parsed ${tasksWithRecommendations.length} tasks avec recommandations`);
     } catch (parseError) {
       console.error('❌ [UNIFIED-TODO-SERVICE] Error parsing JSON:', parseError);
-      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response:', unifiedResponse);
-      throw new Error('Failed to parse unified response');
+      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response (first 1000 chars):', unifiedResponse?.substring(0, 1000));
+      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response (last 1000 chars):', unifiedResponse?.substring(-1000));
+      console.error('🔍 [UNIFIED-TODO-SERVICE] Parse error details:', parseError.message);
+      throw new Error(`Failed to parse unified response: ${parseError.message}`);
     }
 
     // Sauvegarder les tâches ET les recommandations simultanément
@@ -245,18 +247,22 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       fullyCompleted: true,
       savedTasks: savedTasks,
       unified: true,
-      model: 'gpt-5'
+      model: 'gpt-5-2025-08-07'
     };
     
   } catch (error) {
     console.error('❌ [UNIFIED-TODO-SERVICE] Erreur générale:', error);
+    console.error('🔍 [UNIFIED-TODO-SERVICE] Stack trace:', error.stack);
+    console.error('🔍 [UNIFIED-TODO-SERVICE] Error type:', typeof error);
+    console.error('🔍 [UNIFIED-TODO-SERVICE] Error name:', error.name);
     return { 
       processed: 0, 
       successful: 0, 
       failed: 0,
       fullyCompleted: false,
       error: error.message,
-      unified: true
+      unified: true,
+      model: 'gpt-5-2025-08-07'
     };
   }
 }

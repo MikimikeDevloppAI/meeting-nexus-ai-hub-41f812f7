@@ -15,7 +15,7 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
     try {
       console.log(`📡 Attempt ${attempt}/${maxRetries} - Making request to OpenAI...`);
       
-      const isNewModel = /gpt-5|gpt-4\.1|o4|o3/.test(model);
+      const isNewModel = /gpt-5.*|gpt-4\.1.*|o4.*|o3.*/.test(model);
       const payload: any = {
         model,
         messages: [{ role: 'user', content: prompt }],
