@@ -338,17 +338,6 @@ export default function IOLCalculator() {
             </div>
           )}
 
-          {/* Animation d'envoi à l'API IOL Calculator */}
-          {isCalculating && (
-            <div className="fixed top-4 right-4 z-50 animate-fade-in">
-              <Card className="border-primary bg-background shadow-lg">
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="text-sm font-medium">Envoi en cours...</span>
-                </CardContent>
-              </Card>
-            </div>
-          )}
           
           {iolData && (
             <Card>
