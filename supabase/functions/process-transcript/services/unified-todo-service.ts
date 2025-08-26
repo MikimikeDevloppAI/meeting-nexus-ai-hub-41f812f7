@@ -162,33 +162,126 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
-    // Log a safe preview of the raw OpenAI response to diagnose parse issues
-    console.log('🧠 [UNIFIED-TODO-SERVICE] OpenAI raw response (first 2000 chars):', unifiedResponse?.slice(0, 2000));
+    
+    // ============= LOGS COMPLETS OPENAI RESPONSE =============
+    console.log(`📊 [UNIFIED-TODO-SERVICE] DIAGNOSTIC MEETING ${meetingData.id} - DÉBUT`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Timestamp: ${new Date().toISOString()}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Meeting Title: ${meetingData.title || 'N/A'}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Transcript Length: ${cleanedTranscript?.length || 0} chars`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Model Used: gpt-5-mini-2025-08-07`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Call Duration: ${callDuration}ms`);
+    
+    // LOG COMPLET DE LA RÉPONSE OPENAI (pas juste un aperçu)
+    console.log(`🧠 [UNIFIED-TODO-SERVICE] RÉPONSE OPENAI COMPLÈTE - Length: ${unifiedResponse?.length || 0}`);
+    console.log(`🧠 [UNIFIED-TODO-SERVICE] RÉPONSE OPENAI RAW START:`);
+    console.log(unifiedResponse || 'RESPONSE IS NULL/UNDEFINED');
+    console.log(`🧠 [UNIFIED-TODO-SERVICE] RÉPONSE OPENAI RAW END`);
 
-    // Parser la réponse
+    // Parser la réponse avec logs détaillés
     let tasksWithRecommendations = [];
+    let cleanedResponse = '';
+    let parsedData = null;
+    
     try {
-      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response length:', unifiedResponse?.length || 0);
+      console.log('🔄 [UNIFIED-TODO-SERVICE] ÉTAPE 1: Analyse de la réponse brute');
+      console.log(`📄 [UNIFIED-TODO-SERVICE] Raw response type: ${typeof unifiedResponse}`);
+      console.log(`📄 [UNIFIED-TODO-SERVICE] Raw response is null/undefined: ${!unifiedResponse}`);
+      console.log(`📄 [UNIFIED-TODO-SERVICE] Raw response length: ${unifiedResponse?.length || 0}`);
+      
+      if (!unifiedResponse) {
+        throw new Error('OpenAI response is null or undefined');
+      }
       
       // Nettoyer la réponse avant de parser
-      const cleanedResponse = unifiedResponse.trim()
+      console.log('🧼 [UNIFIED-TODO-SERVICE] ÉTAPE 2: Nettoyage de la réponse');
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Réponse AVANT nettoyage (premiers 500 chars):');
+      console.log(unifiedResponse.substring(0, 500));
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Réponse AVANT nettoyage (derniers 500 chars):');
+      console.log(unifiedResponse.substring(Math.max(0, unifiedResponse.length - 500)));
+      
+      cleanedResponse = unifiedResponse.trim()
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
         .replace(/\s*```\s*$/i, '');
-      // Aperçu sécurisé de la réponse nettoyée
-      console.log('🧼 [UNIFIED-TODO-SERVICE] Cleaned response for JSON parsing (first 2000 chars):', cleanedResponse.slice(0, 2000));
       
-      const parsedData = JSON.parse(cleanedResponse);
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Réponse APRÈS nettoyage - Length:', cleanedResponse.length);
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Réponse APRÈS nettoyage (premiers 500 chars):');
+      console.log(cleanedResponse.substring(0, 500));
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Réponse APRÈS nettoyage (derniers 500 chars):');
+      console.log(cleanedResponse.substring(Math.max(0, cleanedResponse.length - 500)));
+      
+      // Tentative de parsing JSON
+      console.log('📋 [UNIFIED-TODO-SERVICE] ÉTAPE 3: Tentative de parsing JSON');
+      console.log('📋 [UNIFIED-TODO-SERVICE] String to parse (first char):', cleanedResponse.charAt(0));
+      console.log('📋 [UNIFIED-TODO-SERVICE] String to parse (last char):', cleanedResponse.charAt(cleanedResponse.length - 1));
+      
+      parsedData = JSON.parse(cleanedResponse);
+      console.log('✅ [UNIFIED-TODO-SERVICE] JSON parsing successful!');
+      console.log('📋 [UNIFIED-TODO-SERVICE] Parsed data type:', typeof parsedData);
+      console.log('📋 [UNIFIED-TODO-SERVICE] Parsed data keys:', Object.keys(parsedData || {}));
+      
+      // Validation de la structure
+      console.log('🔍 [UNIFIED-TODO-SERVICE] ÉTAPE 4: Validation de la structure');
+      console.log('🔍 [UNIFIED-TODO-SERVICE] Has "tasks" property:', 'tasks' in (parsedData || {}));
+      console.log('🔍 [UNIFIED-TODO-SERVICE] Tasks property type:', typeof parsedData?.tasks);
+      console.log('🔍 [UNIFIED-TODO-SERVICE] Tasks is array:', Array.isArray(parsedData?.tasks));
+      
       tasksWithRecommendations = parsedData.tasks || [];
-      console.log(`📋 [UNIFIED-TODO-SERVICE] Parsed ${tasksWithRecommendations.length} tasks avec recommandations`);
-      if ((tasksWithRecommendations?.length || 0) === 0) {
-        console.warn('⚠️ [UNIFIED-TODO-SERVICE] 0 tâche parsée depuis OpenAI. Aperçu cleaned (first 2000):', cleanedResponse.slice(0, 2000));
+      console.log(`📋 [UNIFIED-TODO-SERVICE] Extracted ${tasksWithRecommendations.length} tasks`);
+      
+      // Log détaillé de chaque tâche
+      console.log('🔍 [UNIFIED-TODO-SERVICE] ÉTAPE 5: Validation des tâches individuelles');
+      tasksWithRecommendations.forEach((task, index) => {
+        console.log(`📋 [UNIFIED-TODO-SERVICE] Task ${index + 1}:`);
+        console.log(`   - Description: "${task.description || 'MISSING'}"`);
+        console.log(`   - Assigned to: ${JSON.stringify(task.assigned_to)}`);
+        console.log(`   - Due date: ${task.due_date || 'null'}`);
+        console.log(`   - Has recommendation: ${task.hasRecommendation}`);
+        console.log(`   - Recommendation length: ${task.recommendation?.length || 0}`);
+        console.log(`   - Has email draft: ${!!task.emailDraft}`);
+        
+        // Validation de chaque tâche
+        if (!task.description || task.description.trim() === '') {
+          console.warn(`⚠️ [UNIFIED-TODO-SERVICE] Task ${index + 1} has empty/missing description!`);
+        }
+        if (task.assigned_to && !Array.isArray(task.assigned_to)) {
+          console.warn(`⚠️ [UNIFIED-TODO-SERVICE] Task ${index + 1} assigned_to is not an array:`, typeof task.assigned_to);
+        }
+      });
+      
+      if (tasksWithRecommendations.length === 0) {
+        console.warn('⚠️ [UNIFIED-TODO-SERVICE] ALERTE: 0 tâche extraite!');
+        console.warn('⚠️ [UNIFIED-TODO-SERVICE] Parsed data full object:');
+        console.warn(JSON.stringify(parsedData, null, 2));
       }
+      
     } catch (parseError) {
-      console.error('❌ [UNIFIED-TODO-SERVICE] Error parsing JSON:', parseError);
-      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response (first 1000 chars):', unifiedResponse?.substring(0, 1000));
-      console.log('📄 [UNIFIED-TODO-SERVICE] Raw response (last 1000 chars):', unifiedResponse?.substring(-1000));
-      console.error('🔍 [UNIFIED-TODO-SERVICE] Parse error details:', parseError.message);
+      console.error('❌ [UNIFIED-TODO-SERVICE] ERREUR PARSING JSON - DIAGNOSTIC COMPLET');
+      console.error('❌ [UNIFIED-TODO-SERVICE] Error type:', parseError.constructor.name);
+      console.error('❌ [UNIFIED-TODO-SERVICE] Error message:', parseError.message);
+      console.error('❌ [UNIFIED-TODO-SERVICE] Error at position:', parseError.message.match(/position (\d+)/)?.[1] || 'unknown');
+      
+      // Log de la zone problématique
+      if (parseError.message.includes('position')) {
+        const position = parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0');
+        const start = Math.max(0, position - 100);
+        const end = Math.min(cleanedResponse.length, position + 100);
+        console.error('❌ [UNIFIED-TODO-SERVICE] Problematic area (±100 chars around error):');
+        console.error(cleanedResponse.substring(start, end));
+        console.error('❌ [UNIFIED-TODO-SERVICE] Error position marker (^):');
+        console.error(' '.repeat(position - start) + '^');
+      }
+      
+      // Log complete de debug
+      console.error('❌ [UNIFIED-TODO-SERVICE] Complete cleaned response for debug:');
+      console.error(cleanedResponse);
+      
+      // Caractères spéciaux
+      console.error('❌ [UNIFIED-TODO-SERVICE] First 10 chars codes:', 
+        Array.from(cleanedResponse.substring(0, 10)).map(c => c.charCodeAt(0)));
+      console.error('❌ [UNIFIED-TODO-SERVICE] Last 10 chars codes:', 
+        Array.from(cleanedResponse.substring(cleanedResponse.length - 10)).map(c => c.charCodeAt(0)));
+      
       throw new Error(`Failed to parse unified response: ${parseError.message}`);
     }
 
@@ -244,6 +337,22 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     }
     
     console.log(`🏁 [UNIFIED-TODO-SERVICE] Traitement unifié terminé: ${totalSuccessful} succès, ${totalFailed} échecs sur ${tasksWithRecommendations.length} tâches`);
+    
+    // ============= LOG RÉCAPITULATIF FINAL PAR RÉUNION =============
+    console.log(`📊 [UNIFIED-TODO-SERVICE] ===== RÉSUMÉ MEETING ${meetingData.id} =====`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Meeting: "${meetingData.title}"`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Timestamp fin: ${new Date().toISOString()}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Durée totale: ${Date.now() - callStartTime}ms`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Participants: ${users?.map(p => p.name).join(', ') || 'N/A'}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Transcript chars: ${cleanedTranscript?.length || 0}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] OpenAI Response chars: ${unifiedResponse?.length || 0}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Parsing success: ${tasksWithRecommendations.length > 0 ? 'OUI' : 'NON'}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Tasks extraites: ${tasksWithRecommendations.length}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Tasks sauvegardées: ${totalSuccessful}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Erreurs: ${totalFailed}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Success rate: ${tasksWithRecommendations.length > 0 ? Math.round((totalSuccessful / tasksWithRecommendations.length) * 100) : 0}%`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] Tasks sauvegardées IDs: ${savedTasks.map(t => t.id).join(', ') || 'AUCUNE'}`);
+    console.log(`📊 [UNIFIED-TODO-SERVICE] ===== FIN RÉSUMÉ MEETING ${meetingData.id} =====`);
     
     return {
       processed: tasksWithRecommendations.length,
