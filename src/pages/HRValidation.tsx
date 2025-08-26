@@ -1023,9 +1023,10 @@ export default function HRValidation() {
                         type="number"
                         min="0"
                         max="50"
+                        step="0.5"
                         value={currentQuota}
                         onChange={(e) => {
-                          const newValue = parseInt(e.target.value) || 0;
+                          const newValue = parseFloat(e.target.value) || 0;
                           setQuotaValues(prev => ({
                             ...prev,
                             [user.id]: newValue
