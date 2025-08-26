@@ -181,30 +181,30 @@ async function processTasksWithRecommendations(
     const allUserNames = allUsers?.map(u => u.name).join(', ') || '';
     const meetingUserNames = users?.map(p => p.name).join(', ') || '';
 
-    // Prompt unifié avec descriptions plus concises et contexte des todos existants
-    const unifiedPrompt = `Basé sur ce transcript de réunion, identifie et REGROUPE INTELLIGEMMENT toutes les tâches, actions et suivis par SUJETS COHÉRENTS pour éviter les doublons. Privilégie le regroupement pour minimiser le nombre de tâches.
+    // Récupérer seulement les todos récents pour éviter les vrais doublons
+    const recentTodosContext = existingTodosContext.slice(0, 10); // Top 10 plus récents
+
+    // Prompt modifié pour créer UNIQUEMENT de nouvelles tâches sans doublons
+    const unifiedPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les nouvelles tâches, actions et suivis mentionnés et CRÉÉ-LES comme nouvelles tâches SAUF si elles sont IDENTIQUES à une tâche existante.
 
 TOUS LES UTILISATEURS SYSTÈME : ${allUserNames}
 PARTICIPANTS À CETTE RÉUNION : ${meetingUserNames}
 
-**TODOS EXISTANTS À CONSIDÉRER (éviter doublons) :**
-${existingTodosContext.length > 0 ? existingTodosContext.map(todo => 
-  `- ID: ${todo.id} | ${todo.description} (${todo.status}) | Assigné: ${todo.assignedUsers.join(', ') || 'Non assigné'}`
-).join('\n') : 'Aucun todo existant'}
+**TODOS EXISTANTS RÉCENTS (pour éviter les doublons EXACTS uniquement) :**
+${recentTodosContext.length > 0 ? recentTodosContext.map(todo => 
+  `- ${todo.description} (${todo.status})`
+).join('\n') : 'Aucun todo existant récent'}
 
 **ACTIONS POSSIBLES:**
-- "action": "create" - Créer une nouvelle tâche
-- "action": "update" - Mettre à jour une tâche existante (fournir existing_todo_id)
-- "action": "link" - Lier cette réunion à une tâche existante (fournir existing_todo_id)
-- "action": "skip" - Ne rien faire (tâche déjà suffisamment couverte)
+- "action": "create" - Créer une nouvelle tâche (ACTION PRIVILÉGIÉE)
+- "action": "skip" - Ne rien faire car tâche IDENTIQUE existe déjà
 
-**RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
-- Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
-- Une tâche = un sujet principal avec un contexte CONCIS et ACTIONNABLE
-- Évite absolument les doublons (ex: "contacter X" et "appeler X" = 1 seule tâche)
-- Regroupe les actions séquentielles (ex: "demander devis" + "comparer prix" + "négocier" = 1 tâche complète)
-- Privilégie les macro-tâches sur les micro-actions
-- VÉRIFIE d'abord si une tâche similaire existe déjà avant de créer
+**RÈGLES DE CRÉATION NOUVELLES TÂCHES:**
+- CRÉE une nouvelle tâche pour CHAQUE action/sujet mentionné dans le transcript
+- Regroupe seulement les actions strictement liées au MÊME SUJET PRÉCIS
+- Une nouvelle discussion = une nouvelle tâche (même si le sujet est proche d'un existant)
+- SKIP seulement si la tâche est EXACTEMENT identique à une existante
+- Privilégie CREATE sur SKIP - en cas de doute, CRÉE
 
 **RÈGLES DE DESCRIPTION CONCISE:**
 - description concise mais qui donne le contexte nécessaire pour la compréhension
@@ -248,8 +248,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "action": "create|update|link|skip",
-      "existing_todo_id": "UUID existant si action update/link",
+      "action": "create|skip",
       "description": "Action concise et claire avec contexte ",
       "assigned_to": ["Nom exact de l'utilisateur tel qu'il apparaît dans la liste"] ou null,
       "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
@@ -376,17 +375,22 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   }
 }
 
-// Fonction pour sauvegarder une tâche selon l'action demandée
+// Fonction pour sauvegarder UNIQUEMENT de nouvelles tâches (CREATE only)
 async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingUsers: any[], allUsers: any[]) {
-  console.log('💾 Processing unified task action:', task.action, '|', task.description);
+  console.log('💾 Processing task action:', task.action, '|', task.description);
   console.log('👥 Participants de la réunion:', meetingUsers?.map(p => ({ id: p.id, name: p.name })));
-  console.log('👥 Tous les utilisateurs système:', allUsers?.map(u => ({ id: u.id, name: u.name })));
   
   try {
     // Skip action - ne rien faire
     if (task.action === 'skip') {
-      console.log('⏭️ [UNIFIED-TODO-SERVICE] Action SKIP - pas de sauvegarde');
+      console.log('⏭️ [CREATE-ONLY-SERVICE] Action SKIP - pas de sauvegarde');
       return null;
+    }
+
+    // Seule action autorisée : CREATE
+    if (task.action !== 'create') {
+      console.warn(`⚠️ [CREATE-ONLY-SERVICE] Action "${task.action}" non autorisée, conversion en CREATE`);
+      task.action = 'create';
     }
 
     // Fonction pour nettoyer les descriptions
@@ -511,64 +515,32 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
         console.log('✅ Tâche liée à la réunion:', meetingId);
       }
 
-    } else if (task.action === 'update' && task.existing_todo_id) {
-      console.log('🔄 [UNIFIED-TODO-SERVICE] UPDATE tâche existante:', task.existing_todo_id);
+    } else {
+      console.log('ℹ️ [CREATE-ONLY-SERVICE] Action non-CREATE, création d\'une nouvelle tâche par défaut');
       
       const conciseDescription = makeDescriptionConcise(task.description);
-      
-      // Mettre à jour la tâche existante
-      const { data: updatedTask, error } = await supabaseClient
+      console.log('📝 Description concise:', conciseDescription);
+
+      // Créer la nouvelle tâche 
+      const { data: newTask, error } = await supabaseClient
         .from('todos')
-        .update({
+        .insert([{
           description: conciseDescription,
+          status: 'confirmed',
           due_date: task.due_date || null
-        })
-        .eq('id', task.existing_todo_id)
+        }])
         .select()
         .single();
 
       if (error) {
-        console.error('❌ Error updating existing task:', error);
+        console.error('❌ Error creating new task:', error);
         throw error;
       }
 
-      savedTask = updatedTask;
-      console.log('✅ Tâche mise à jour:', savedTask.id);
+      savedTask = newTask;
+      console.log('✅ Nouvelle tâche créée avec ID:', savedTask.id);
 
-      // Créer le lien avec cette réunion (si pas déjà existant)
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }])
-        .select();
-
-      if (linkError && !linkError.message?.includes('duplicate')) {
-        console.error('❌ Error linking updated task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche mise à jour liée à la réunion:', meetingId);
-      }
-
-    } else if (task.action === 'link' && task.existing_todo_id) {
-      console.log('🔗 [UNIFIED-TODO-SERVICE] LINK tâche existante à cette réunion:', task.existing_todo_id);
-      
-      // Récupérer la tâche existante
-      const { data: existingTask, error } = await supabaseClient
-        .from('todos')
-        .select('*')
-        .eq('id', task.existing_todo_id)
-        .single();
-
-      if (error || !existingTask) {
-        console.error('❌ Error fetching existing task:', error);
-        throw new Error('Task not found');
-      }
-
-      savedTask = existingTask;
-      console.log('✅ Tâche existante récupérée:', savedTask.id);
-
-      // Créer le lien avec cette réunion
+      // Créer le lien avec la réunion
       const { error: linkError } = await supabaseClient
         .from('todo_meetings')
         .insert([{
@@ -576,25 +548,21 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
           meeting_id: meetingId
         }]);
 
-      if (linkError && !linkError.message?.includes('duplicate')) {
-        console.error('❌ Error linking existing task to meeting:', linkError);
+      if (linkError) {
+        console.error('❌ Error linking task to meeting:', linkError);
       } else {
-        console.log('✅ Tâche existante liée à la réunion:', meetingId);
+        console.log('✅ Tâche liée à la réunion:', meetingId);
       }
-
-    } else {
-      console.error('❌ [UNIFIED-TODO-SERVICE] Action non reconnue ou missing existing_todo_id:', task.action);
-      throw new Error('Invalid action or missing existing_todo_id');
     }
 
     // Traiter les assignations avec TOUS les utilisateurs du système
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
-      console.log('👥 [UNIFIED-TODO-SERVICE] Assignation demandée pour:', task.assigned_to);
+      console.log('👥 [CREATE-ONLY-SERVICE] Assignation demandée pour:', task.assigned_to);
       
       for (const userName of task.assigned_to) {
         if (!userName || typeof userName !== 'string') continue;
         
-        // Chercher parmi TOUS les utilisateurs du système
+        // Chercher parmi TOUS les utilisateurs du système  
         const user = findBestUserMatch(userName.toString(), allUsers || []);
         
         if (user) {
@@ -615,24 +583,24 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
               }]);
             
             if (assignError) {
-              console.error('❌ [UNIFIED-TODO-SERVICE] Error assigning user:', assignError);
-            } else {
-              console.log('✅ [UNIFIED-TODO-SERVICE] User assigné:', user.name, 'to task:', savedTask.id);
+              console.error('❌ [CREATE-ONLY-SERVICE] Error assigning user:', assignError);
+            } else {  
+              console.log('✅ [CREATE-ONLY-SERVICE] User assigné:', user.name, 'to task:', savedTask.id);
             }
           } else {
-            console.log('ℹ️ [UNIFIED-TODO-SERVICE] User déjà assigné:', user.name);
+            console.log('ℹ️ [CREATE-ONLY-SERVICE] User déjà assigné:', user.name);
           }
         } else {
-          console.warn(`⚠️ [UNIFIED-TODO-SERVICE] User "${userName}" non trouvé dans le système`);
+          console.warn(`⚠️ [CREATE-ONLY-SERVICE] User "${userName}" non trouvé dans le système`);
         }
       }
     } else {
-      console.log('ℹ️ [UNIFIED-TODO-SERVICE] Pas de users à assigner pour cette tâche');
+      console.log('ℹ️ [CREATE-ONLY-SERVICE] Pas de users à assigner pour cette tâche');
     }
 
     return savedTask;
   } catch (error) {
-    console.error('❌ [UNIFIED-TODO-SERVICE] Error in saveTaskUnified:', error);
+    console.error('❌ [CREATE-ONLY-SERVICE] Error in saveTaskUnified:', error);
     throw error;
   }
 }
