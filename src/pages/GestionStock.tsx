@@ -51,8 +51,8 @@ type Injection = {
 
 const SEO = () => {
   useEffect(() => {
-    const title = "Gestion du stock | OphtaCare Hub";
-    const desc = "Gestion du stock des produits d'injection: produits, commandes et injections";
+    const title = "Injection | OphtaCare Hub";
+    const desc = "Gestion des injections: produits, commandes et suivi des injections";
 
     document.title = title;
 
@@ -326,7 +326,7 @@ const GestionStock: React.FC = () => {
     <>
       <SEO />
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Gestion du stock</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Injection</h1>
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
@@ -403,7 +403,7 @@ const GestionStock: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Gestion du stock</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-2">Gestion des injections</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label>Seuil d'alerte</Label>

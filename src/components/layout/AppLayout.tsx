@@ -13,7 +13,7 @@ import {
   SidebarHeader,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings, Clock, UserCheck, Package, BarChart3 } from "lucide-react";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings, Clock, UserCheck, Syringe, BarChart3 } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -73,9 +73,9 @@ const menuItems = [
     permission: "retrocession",
   },
   {
-    title: "Gestion du stock",
+    title: "Injection",
     url: "/gestion-stock",
-    icon: Package,
+    icon: Syringe,
     permission: "stock-management",
   },
   {
