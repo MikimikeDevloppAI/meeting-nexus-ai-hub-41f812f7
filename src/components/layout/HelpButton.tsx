@@ -63,12 +63,12 @@ export const HelpButton: React.FC = () => {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          className="bg-white border-gray-200 hover:bg-gray-50"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-200 border-0"
         >
-          <HelpCircle className="h-4 w-4" />
-          <span className="ml-2 hidden sm:inline">Aide</span>
+          <HelpCircle className="h-5 w-5" />
+          <span className="ml-2 hidden sm:inline font-medium">Aide</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
