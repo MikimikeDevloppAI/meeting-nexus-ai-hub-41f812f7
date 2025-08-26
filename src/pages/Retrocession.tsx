@@ -377,7 +377,7 @@ const Retrocession: React.FC = () => {
                   <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">Chiffre d'affaires</TableHead>
                   <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">Rétrocession</TableHead>
                   <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">%</TableHead>
-                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong">Actions</TableHead>
+                  <TableHead className="w-1/6 px-3 py-2 font-semibold text-strong text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -400,8 +400,8 @@ const Retrocession: React.FC = () => {
                       <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
                       <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
                       <TableCell className="px-3 py-2 text-right">{Math.round(percentage)}%</TableCell>
-                      <TableCell className="px-3 py-2">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
