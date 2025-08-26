@@ -567,20 +567,16 @@ export default function HRValidation() {
                   <span className="font-semibold">{taken} j</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Heures supplémentaires</span>
-                  <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime)}</span>
-                </div>
-                <div className="flex items-baseline justify-between">
                   <span className="text-xs text-muted-foreground">Jours récupérés</span>
                   <span className="font-semibold">{Math.max(0, taken - quota)} j</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Nombre d'heures sup.</span>
+                  <span className="text-xs text-muted-foreground">Heures supplémentaires</span>
                   <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime)}</span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-muted-foreground">Heures sup. restantes</span>
-                  <span className="font-semibold">{formatHoursToHoursMinutes(Math.max(0, approvedOvertime - (Math.max(0, taken - quota) * 8)))}</span>
+                  <span className="font-semibold">{formatHoursToHoursMinutes(approvedOvertime - (Math.max(0, taken - quota) * 8))}</span>
                 </div>
               </CardContent>
             </Card>
