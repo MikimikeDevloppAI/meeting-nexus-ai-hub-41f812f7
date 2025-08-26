@@ -338,29 +338,16 @@ export default function IOLCalculator() {
             </div>
           )}
 
-          {/* API Request Status */}
-          {isCalculating && apiRequestData && (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-orange-800">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Envoi des données à l'API IOL Calculator...
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-orange-700 text-sm">
-                    Requête en cours d'envoi vers le serveur de calcul IOL
-                  </p>
-                  <div className="bg-white p-3 rounded-lg border">
-                    <h4 className="font-medium text-sm mb-2">Données envoyées:</h4>
-                    <pre className="text-xs overflow-auto max-h-40 text-gray-600">
-                      {JSON.stringify(apiRequestData, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Animation d'envoi à l'API IOL Calculator */}
+          {isCalculating && (
+            <div className="fixed top-4 right-4 z-50 animate-fade-in">
+              <Card className="border-primary bg-background shadow-lg">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Envoi en cours...</span>
+                </CardContent>
+              </Card>
+            </div>
           )}
           
           {iolData && (
@@ -416,9 +403,19 @@ export default function IOLCalculator() {
 
 
                     {/* Données pour l'API IOL Calculator */}
-                    {isDataExtracted && apiRequestData && !isCalculating && (
-                      <Card>
+                    {isDataExtracted && apiRequestData && (
+                      <Card className={`relative transition-all duration-300 ${isCalculating ? 'opacity-80' : ''}`}>
                         <CardContent className="space-y-6">
+                          {/* Animation de loading superposée */}
+                          {isCalculating && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg z-10">
+                              <div className="flex items-center gap-3 bg-background border rounded-lg p-4 shadow-lg animate-scale-in">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                <span className="font-medium">Calcul IOL en cours...</span>
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Informations du header */}
                           <div className="space-y-4">
                             <h4 className="font-semibold text-foreground">Informations générales</h4>
@@ -429,7 +426,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.surgeon || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'surgeon', e.target.value)}
-                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                 />
                               </div>
                               <div>
@@ -438,7 +435,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.patient_initials || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
-                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                 />
                               </div>
                               <div>
@@ -447,7 +444,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.id || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
-                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                 />
                               </div>
                               <div>
@@ -456,7 +453,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.age || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
-                                  className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                 />
                               </div>
                             </div>
@@ -475,7 +472,7 @@ export default function IOLCalculator() {
                                       type="text"
                                       value={value as string}
                                       onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                       placeholder={`Valeur pour ${key}`}
                                     />
                                   </div>
@@ -494,7 +491,7 @@ export default function IOLCalculator() {
                                       type="text"
                                       value={value as string}
                                       onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-2 border border-gray-300 rounded-md text-sm"
+                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
                                       placeholder={`Valeur pour ${key}`}
                                     />
                                   </div>
