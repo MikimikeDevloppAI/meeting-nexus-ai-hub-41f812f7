@@ -231,10 +231,20 @@ const PatientLetters = () => {
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
-        <p className="text-muted-foreground">
-          Créez des lettres médicales avec dictée vocale et assistance IA
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Création de Lettre Patient</h1>
+            <p className="text-muted-foreground">
+              Créez des lettres médicales avec dictée vocale et assistance IA
+            </p>
+          </div>
+          <button 
+            onClick={clearForm}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6 py-2 rounded-md text-sm font-medium transition-colors shadow-md"
+          >
+            ✨ Nouvelle lettre
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6">
@@ -316,15 +326,6 @@ const PatientLetters = () => {
           />
         )}
 
-        {/* 6. Action de reset */}
-        <div className="flex justify-center">
-          <button 
-            onClick={clearForm}
-            className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-6 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Nouvelle lettre
-          </button>
-        </div>
       </div>
     </div>
   );
