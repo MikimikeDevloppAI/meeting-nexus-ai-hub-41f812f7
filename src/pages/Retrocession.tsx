@@ -303,9 +303,9 @@ const Retrocession: React.FC = () => {
         <CardHeader>
           <CardTitle>Rétrocessions par mois (par docteur)</CardTitle>
         </CardHeader>
-        <CardContent className="h-80">
+        <CardContent className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.data}>
+            <BarChart data={chartData.data} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
               <XAxis dataKey="month" />
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
