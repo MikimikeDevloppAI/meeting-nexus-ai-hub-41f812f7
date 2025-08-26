@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadAudioToAssemblyAI, requestTranscription, pollForTranscription } from "@/lib/assemblyai";
 import { Participant } from "@/types/meeting";
 import { MeetingService } from "./meetingService";
+import { cleanFileName } from "@/utils/fileUtils";
 
 // Comprehensive text chunking ensuring complete coverage with sentence boundaries
 const chunkText = (text: string, minChunkSize: number = 300, maxChunkSize: number = 1000): string[] => {
@@ -168,7 +169,12 @@ export class AudioProcessingService {
       throw new Error("Le fichier audio est vide (0 octets)");
     }
     
-    const fileName = `meetings/${Date.now()}-${fileToUpload.name}`;
+    const originalName = fileToUpload.name;
+    const sanitizedName = cleanFileName(originalName);
+    if (sanitizedName !== originalName) {
+      console.log('[UPLOAD] Sanitized filename:', { originalName, sanitizedName });
+    }
+    const fileName = `meetings/${Date.now()}-${sanitizedName}`;
     console.log('[UPLOAD] Uploading audio file:', fileName, 'Size:', fileToUpload.size, 'bytes');
 
     try {

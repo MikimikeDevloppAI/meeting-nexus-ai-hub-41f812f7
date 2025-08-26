@@ -15,18 +15,26 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
     try {
       console.log(`📡 Attempt ${attempt}/${maxRetries} - Making request to OpenAI...`);
       
+      const isNewModel = /gpt-5|gpt-4\.1|o4|o3/.test(model);
+      const payload: any = {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+      };
+      if (isNewModel) {
+        // Newer models require 'max_completion_tokens'
+        payload.max_completion_tokens = defaultMaxTokens;
+      } else {
+        payload.max_tokens = defaultMaxTokens;
+      }
+
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature,
-          max_tokens: defaultMaxTokens,
-        }),
+        body: JSON.stringify(payload),
       });
 
       console.log(`📡 OpenAI response status (attempt ${attempt}):`, response.status);
