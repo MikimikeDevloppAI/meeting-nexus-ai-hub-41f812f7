@@ -421,17 +421,62 @@ export function OvertimeCalendar({
               const approvedNetTotal = monthlyStats.reduce((sum, stat) => sum + stat.approvedHours, 0);
               const pendingTotal = monthlyStats.reduce((sum, stat) => sum + stat.pendingHours, 0);
 
+              // Calcul des vacances prises (approuvées) pour l'année
+              const approvedVacationsThisYear = vacations.filter(v => 
+                v.status === 'approved' && 
+                isWithinInterval(parseISO(v.start_date), { start: yearStart, end: yearEnd })
+              );
+
+              const vacationDaysTaken = approvedVacationsThisYear.reduce((total, vacation) => {
+                if (vacation.vacation_days && vacation.vacation_days.length > 0) {
+                  return total + vacation.vacation_days.reduce((daySum, day) => {
+                    return daySum + (day.is_half_day ? 0.5 : 1);
+                  }, 0);
+                }
+                return total + vacation.days_count;
+              }, 0);
+
+              // Quota de vacances (supposé 25 jours par défaut, à adapter selon vos besoins)
+              const vacationQuota = 25; // Vous pouvez passer cette valeur en prop si nécessaire
+
+              // Calcul des jours pris en plus du quota
+              const daysOverQuota = Math.max(0, vacationDaysTaken - vacationQuota);
+              
+              // Calcul des jours récupérés (nombre de jours pris en plus × 8)
+              const joursRecuperes = daysOverQuota * 8;
+              
+              // Total heures supplémentaires après récupération
+              const totalApresRecuperation = approvedNetTotal - joursRecuperes;
+
               const formatDays = (d: number) => {
                 if (d === 0.5) return "1/2 journée";
                 const str = d.toString().replace(".", ",");
                 return `${str}j`;
               };
+
               return (
                 <div className="mb-4 pb-4 border-b">
-                  <div className="grid grid-cols-2 gap-y-1 items-center">
+                  <div className="grid grid-cols-2 gap-y-1 items-center mb-3">
                     <span className="font-semibold">Total {currentYear}</span>
                     <span className="font-bold text-xl text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
                   </div>
+                  
+                  {daysOverQuota > 0 && (
+                    <div className="space-y-2 pt-3 border-t">
+                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
+                        <span className="text-muted-foreground">Total après récupération</span>
+                        <span className="font-medium text-orange-600 text-right">{formatHoursToHoursMinutes(totalApresRecuperation)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
+                        <span className="text-muted-foreground">Total heures sup.</span>
+                        <span className="font-medium text-blue-600 text-right">{formatHoursToHoursMinutes(approvedNetTotal)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-1 items-center text-sm">
+                        <span className="text-muted-foreground">Jours récupérés</span>
+                        <span className="font-medium text-purple-600 text-right">{formatHoursToHoursMinutes(joursRecuperes)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
