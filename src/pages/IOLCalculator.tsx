@@ -503,15 +503,6 @@ export default function IOLCalculator() {
                             </div>
                           </div>
 
-                          {/* Aperçu JSON */}
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-green-800 text-sm">Aperçu des données JSON qui seront envoyées:</h4>
-                            <div className="bg-white p-3 rounded-lg border border-gray-200">
-                              <pre className="text-xs overflow-auto max-h-40 text-gray-600">
-                                {JSON.stringify(apiRequestData, null, 2)}
-                              </pre>
-                            </div>
-                          </div>
 
                           {/* Bouton de soumission */}
                           <div className="flex justify-center pt-4">
