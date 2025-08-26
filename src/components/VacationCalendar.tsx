@@ -279,7 +279,6 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               <SelectContent>
                 <SelectItem value="annual">Congés annuels</SelectItem>
                 <SelectItem value="sick">Congé maladie</SelectItem>
-                <SelectItem value="other">Autres</SelectItem>
               </SelectContent>
             </Select>
           </div>
