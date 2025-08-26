@@ -98,18 +98,26 @@ const Retrocession: React.FC = () => {
   const doctorOptions = useMemo(() => Array.from(new Set((data || []).map(r => r.doctor))).sort(), [data]);
 
   const allMonths = useMemo(() => {
-    const rangeStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 35, 1));
-    let min = rangeStart;
-    let max = new Date(Date.UTC(defaultEnd.getUTCFullYear(), defaultEnd.getUTCMonth(), 1));
+    const minDate = new Date(Date.UTC(2024, 0, 1)); // Janvier 2024
+    const currentDate = new Date();
+    const maxDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+    
+    // Étendre la plage si les données vont au-delà
+    let actualMin = minDate;
+    let actualMax = maxDate;
+    
     if (data && data.length > 0) {
       const earliest = new Date(data[0].period_month);
       const latest = new Date(data[data.length - 1].period_month);
       const earliestMonth = new Date(Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), 1));
       const latestMonth = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), 1));
-      if (earliestMonth < min) min = earliestMonth;
-      if (latestMonth > max) max = latestMonth;
+      
+      // Ne descendre en dessous de janvier 2024 que s'il y a des données antérieures
+      if (earliestMonth < minDate) actualMin = earliestMonth;
+      if (latestMonth > maxDate) actualMax = latestMonth;
     }
-    return monthsRange(min, max);
+    
+    return monthsRange(actualMin, actualMax).reverse(); // Ordre descendant
   }, [data]);
 
   const byDoctor = useMemo(() => {

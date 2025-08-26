@@ -118,13 +118,22 @@ export function RetrocessionEntryForm({
     createMutation.mutate(data);
   };
 
-  // Générer les options de mois (dernières 3 années + année actuelle)
+  // Générer les options de mois (janvier 2024 au mois en cours)
   const monthOptions = React.useMemo(() => {
     const options = [];
-    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() retourne 0-11
     
-    for (let year = currentYear - 2; year <= currentYear + 1; year++) {
-      for (let month = 1; month <= 12; month++) {
+    // Commencer en janvier 2024
+    const startYear = 2024;
+    const startMonth = 1;
+    
+    for (let year = startYear; year <= currentYear; year++) {
+      const monthStart = year === startYear ? startMonth : 1;
+      const monthEnd = year === currentYear ? currentMonth : 12;
+      
+      for (let month = monthStart; month <= monthEnd; month++) {
         const value = `${year}-${month.toString().padStart(2, '0')}`;
         const label = new Date(year, month - 1).toLocaleDateString('fr-FR', {
           year: 'numeric',
@@ -134,7 +143,7 @@ export function RetrocessionEntryForm({
       }
     }
     
-    return options.reverse(); // Plus récent en premier
+    return options.reverse(); // Plus récent en premier (ordre descendant)
   }, []);
 
   return (
