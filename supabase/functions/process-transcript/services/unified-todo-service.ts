@@ -162,6 +162,8 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
+    // Log a safe preview of the raw OpenAI response to diagnose parse issues
+    console.log('🧠 [UNIFIED-TODO-SERVICE] OpenAI raw response (first 2000 chars):', unifiedResponse?.slice(0, 2000));
 
     // Parser la réponse
     let tasksWithRecommendations = [];
@@ -173,10 +175,15 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
         .replace(/\s*```\s*$/i, '');
+      // Aperçu sécurisé de la réponse nettoyée
+      console.log('🧼 [UNIFIED-TODO-SERVICE] Cleaned response for JSON parsing (first 2000 chars):', cleanedResponse.slice(0, 2000));
       
       const parsedData = JSON.parse(cleanedResponse);
       tasksWithRecommendations = parsedData.tasks || [];
       console.log(`📋 [UNIFIED-TODO-SERVICE] Parsed ${tasksWithRecommendations.length} tasks avec recommandations`);
+      if ((tasksWithRecommendations?.length || 0) === 0) {
+        console.warn('⚠️ [UNIFIED-TODO-SERVICE] 0 tâche parsée depuis OpenAI. Aperçu cleaned (first 2000):', cleanedResponse.slice(0, 2000));
+      }
     } catch (parseError) {
       console.error('❌ [UNIFIED-TODO-SERVICE] Error parsing JSON:', parseError);
       console.log('📄 [UNIFIED-TODO-SERVICE] Raw response (first 1000 chars):', unifiedResponse?.substring(0, 1000));
