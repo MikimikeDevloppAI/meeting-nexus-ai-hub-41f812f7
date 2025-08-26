@@ -716,8 +716,8 @@ const GestionStock: React.FC = () => {
           </CardHeader>
           
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                <Card className="shadow-md border md:col-span-3 md:order-2">
+              <div className="space-y-6">
+                <Card className="shadow-md border">
                   <CardHeader>
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
                   </CardHeader>
@@ -771,7 +771,7 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-md border md:col-span-2 md:order-1">
+                <Card className="shadow-md border">
                   <CardHeader>
                     <CardTitle className="text-base">Injections récentes</CardTitle>
                   </CardHeader>
