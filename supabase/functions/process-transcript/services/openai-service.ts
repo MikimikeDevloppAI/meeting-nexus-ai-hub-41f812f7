@@ -19,8 +19,16 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
       const payload: any = {
         model,
         messages: [{ role: 'user', content: prompt }],
-        temperature,
       };
+      
+      // Only add temperature for older models
+      if (!isNewModel && temperature !== null && temperature !== undefined) {
+        payload.temperature = temperature;
+        console.log('🌡️ Adding temperature:', temperature, 'to older model');
+      } else if (isNewModel) {
+        console.log('🌡️ Skipping temperature for newer model:', model);
+      }
+      
       if (isNewModel) {
         // Newer models require 'max_completion_tokens'
         payload.max_completion_tokens = defaultMaxTokens;

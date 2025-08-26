@@ -67,13 +67,13 @@ serve(async (req) => {
 
     const participantNames = actualParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript - UTILISER GPT-4.1 avec retry et 16384 tokens
+    // 1. Nettoyer le transcript - UTILISER GPT-5-MINI sans température
     const cleaningStartTime = Date.now();
-    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-5-mini and retry mechanism...');
+    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-5-mini (no temperature)...');
     const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
     
     try {
-      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, 0.1, 'gpt-5-mini', 3, 16384);
+      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, null, 'gpt-5-mini', 3, 16384);
       await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
       console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
       console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
@@ -103,11 +103,11 @@ serve(async (req) => {
           return unifiedResult;
         })(),
         
-        // Génération du résumé avec retry et gpt-4o avec 4096 tokens
+        // Génération du résumé avec gpt-5 sans température
         (async () => {
-          console.log('📝 [PARALLEL] Generating summary with gpt-5 and retry...');
+          console.log('📝 [PARALLEL] Generating summary with gpt-5 (no temperature)...');
           const startTime = Date.now();
-          const summary = await callOpenAI(summaryPrompt, openaiApiKey, 0.2, 'gpt-5', 3, 4096);
+          const summary = await callOpenAI(summaryPrompt, openaiApiKey, null, 'gpt-5', 3, 4096);
           await saveSummary(supabaseClient, meetingId, summary);
           console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
           return summary;

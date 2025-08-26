@@ -160,7 +160,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
     console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5`);
     
     const callStartTime = Date.now();
-    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, 0.3, 'gpt-5', 3, 16384);
+    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5', 3, 16384);
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
