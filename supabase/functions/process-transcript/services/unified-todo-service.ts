@@ -11,7 +11,7 @@ export async function processTasksWithRecommendations(
     return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
-    console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5-2025-08-07`);
+    console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5-Mini`);
     console.log(`👥 [UNIFIED-TODO-SERVICE] Users fournis pour assignation:`, users?.map(p => ({ id: p.id, name: p.name, email: p.email })));
     
     const supabaseClient = createSupabaseClient();
@@ -73,16 +73,16 @@ export async function processTasksWithRecommendations(
 TOUS LES UTILISATEURS SYSTÈME : ${allUserNames}
 PARTICIPANTS À CETTE RÉUNION : ${meetingUserNames}
 
-**TODOS EXISTANTS À CONSIDÉRER (éviter doublons) :**
+**TODOS EXISTANTS À ÉVITER (ne pas recréer de doublons) :**
 ${existingTodosContext.length > 0 ? existingTodosContext.map(todo => 
-  `- ID: ${todo.id} | ${todo.description} (${todo.status}) | Assigné: ${todo.assignedUsers.join(', ') || 'Non assigné'}`
+  `- ${todo.description} (${todo.status}) | Assigné: ${todo.assignedUsers.join(', ') || 'Non assigné'}`
 ).join('\n') : 'Aucun todo existant'}
 
-**ACTIONS POSSIBLES:**
-- "action": "create" - Créer une nouvelle tâche
-- "action": "update" - Mettre à jour une tâche existante (fournir existing_todo_id)
-- "action": "link" - Lier cette réunion à une tâche existante (fournir existing_todo_id)
-- "action": "skip" - Ne rien faire (tâche déjà suffisamment couverte)
+**RÈGLE CRITIQUE : ÉVITER LES DOUBLONS**
+- VÉRIFIE attentivement les tâches existantes ci-dessus
+- Si une tâche similaire existe déjà (même sujet, même action), NE PAS la recréer
+- Seules les nouvelles tâches vraiment différentes doivent être créées
+- En cas de doute, privilégier de NE PAS créer plutôt que de dupliquer
 
 **RÈGLES DE REGROUPEMENT OBLIGATOIRES:**
 - Regroupe toutes les actions liées au MÊME SUJET/FOURNISSEUR/OUTIL en UNE SEULE tâche
@@ -134,8 +134,6 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "action": "create|update|link|skip",
-      "existing_todo_id": "UUID existant si action update/link",
       "description": "Action concise et claire avec contexte ",
       "assigned_to": ["Nom exact de l'utilisateur tel qu'il apparaît dans la liste"] ou null,
       "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
@@ -157,10 +155,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
   * "fin du mois" → dernier jour du mois actuel
   * "urgent" → dans 2-3 jours selon le contexte`;
 
-    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5-2025-08-07`);
+    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5-Mini-2025-08-07`);
     
     const callStartTime = Date.now();
-    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5-2025-08-07', 3, 16384);
+    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5-mini-2025-08-07', 3, 16384);
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
@@ -199,7 +197,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       try {
         console.log(`💾 [UNIFIED-TODO-SERVICE] Sauvegarde tâche ${i+1}/${tasksWithRecommendations.length}: ${taskData.description}`);
         
-        // 1. Gérer selon l'action demandée
+        // 1. Créer la nouvelle tâche
         const savedTask = await saveTaskUnified(supabaseClient, taskData, meetingData.id, users, allUsers);
         
         if (savedTask) {
@@ -247,7 +245,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       fullyCompleted: true,
       savedTasks: savedTasks,
       unified: true,
-      model: 'gpt-5-2025-08-07'
+      model: 'gpt-5-mini-2025-08-07'
     };
     
   } catch (error) {
@@ -262,23 +260,18 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       fullyCompleted: false,
       error: error.message,
       unified: true,
-      model: 'gpt-5-2025-08-07'
+      model: 'gpt-5-mini-2025-08-07'
     };
   }
 }
 
-// Fonction pour sauvegarder une tâche selon l'action demandée
+// Fonction pour sauvegarder une nouvelle tâche uniquement
 async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string, meetingUsers: any[], allUsers: any[]) {
-  console.log('💾 Processing unified task action:', task.action, '|', task.description);
+  console.log('💾 Creating new task:', task.description);
   console.log('👥 Participants de la réunion:', meetingUsers?.map(p => ({ id: p.id, name: p.name })));
   console.log('👥 Tous les utilisateurs système:', allUsers?.map(u => ({ id: u.id, name: u.name })));
   
   try {
-    // Skip action - ne rien faire
-    if (task.action === 'skip') {
-      console.log('⏭️ [UNIFIED-TODO-SERVICE] Action SKIP - pas de sauvegarde');
-      return null;
-    }
 
     // Fonction pour nettoyer les descriptions
     const makeDescriptionConcise = (description: string): string => {
@@ -360,124 +353,42 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
       return null;
     };
 
-    let savedTask;
+    console.log('🆕 [UNIFIED-TODO-SERVICE] CREATE nouvelle tâche');
+    
+    const conciseDescription = makeDescriptionConcise(task.description);
+    console.log('📝 Description concise:', conciseDescription);
 
-    // Traiter selon l'action
-    if (task.action === 'create') {
-      console.log('🆕 [UNIFIED-TODO-SERVICE] CREATE nouvelle tâche');
-      
-      const conciseDescription = makeDescriptionConcise(task.description);
-      console.log('📝 Description concise:', conciseDescription);
+    // Créer la nouvelle tâche sans meeting_id
+    const { data: newTask, error } = await supabaseClient
+      .from('todos')
+      .insert([{
+        description: conciseDescription,
+        status: 'confirmed',
+        due_date: task.due_date || null
+      }])
+      .select()
+      .single();
 
-      // Créer la nouvelle tâche sans meeting_id
-      const { data: newTask, error } = await supabaseClient
-        .from('todos')
-        .insert([{
-          description: conciseDescription,
-          status: 'confirmed',
-          due_date: task.due_date || null
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error creating new task:', error);
-        throw error;
-      }
-
-      savedTask = newTask;
-      console.log('✅ Nouvelle tâche créée avec ID:', savedTask.id);
-
-      // Créer le lien avec la réunion
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }]);
-
-      if (linkError) {
-        console.error('❌ Error linking task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche liée à la réunion:', meetingId);
-      }
-
-    } else if (task.action === 'update' && task.existing_todo_id) {
-      console.log('🔄 [UNIFIED-TODO-SERVICE] UPDATE tâche existante:', task.existing_todo_id);
-      
-      const conciseDescription = makeDescriptionConcise(task.description);
-      
-      // Mettre à jour la tâche existante
-      const { data: updatedTask, error } = await supabaseClient
-        .from('todos')
-        .update({
-          description: conciseDescription,
-          due_date: task.due_date || null
-        })
-        .eq('id', task.existing_todo_id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error updating existing task:', error);
-        throw error;
-      }
-
-      savedTask = updatedTask;
-      console.log('✅ Tâche mise à jour:', savedTask.id);
-
-      // Créer le lien avec cette réunion (si pas déjà existant)
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }])
-        .select();
-
-      if (linkError && !linkError.message?.includes('duplicate')) {
-        console.error('❌ Error linking updated task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche mise à jour liée à la réunion:', meetingId);
-      }
-
-    } else if (task.action === 'link' && task.existing_todo_id) {
-      console.log('🔗 [UNIFIED-TODO-SERVICE] LINK tâche existante à cette réunion:', task.existing_todo_id);
-      
-      // Récupérer la tâche existante
-      const { data: existingTask, error } = await supabaseClient
-        .from('todos')
-        .select('*')
-        .eq('id', task.existing_todo_id)
-        .single();
-
-      if (error || !existingTask) {
-        console.error('❌ Error fetching existing task:', error);
-        throw new Error('Task not found');
-      }
-
-      savedTask = existingTask;
-      console.log('✅ Tâche existante récupérée:', savedTask.id);
-
-      // Créer le lien avec cette réunion
-      const { error: linkError } = await supabaseClient
-        .from('todo_meetings')
-        .insert([{
-          todo_id: savedTask.id,
-          meeting_id: meetingId
-        }]);
-
-      if (linkError && !linkError.message?.includes('duplicate')) {
-        console.error('❌ Error linking existing task to meeting:', linkError);
-      } else {
-        console.log('✅ Tâche existante liée à la réunion:', meetingId);
-      }
-
-    } else {
-      console.error('❌ [UNIFIED-TODO-SERVICE] Action non reconnue ou missing existing_todo_id:', task.action);
-      throw new Error('Invalid action or missing existing_todo_id');
+    if (error) {
+      console.error('❌ Error creating new task:', error);
+      throw error;
     }
 
+    const savedTask = newTask;
+    console.log('✅ Nouvelle tâche créée avec ID:', savedTask.id);
+
+    // Créer le lien avec la réunion
+    const { error: linkError } = await supabaseClient
+      .from('todo_meetings')
+      .insert([{
+        todo_id: savedTask.id,
+        meeting_id: meetingId
+      }]);
+
+    if (linkError) {
+      console.error('❌ Error linking task to meeting:', linkError);
+    }
+    
     // Traiter les assignations avec TOUS les utilisateurs du système
     if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
       console.log('👥 [UNIFIED-TODO-SERVICE] Assignation demandée pour:', task.assigned_to);
