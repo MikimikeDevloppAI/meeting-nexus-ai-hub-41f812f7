@@ -1,12 +1,12 @@
 
-export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o', maxRetries: number = 3, maxTokens?: number) {
+export async function callOpenAI(prompt: string, openAIKey: string, temperature: number | null = 0.3, model: string = 'gpt-4o', maxRetries: number = 3, maxTokens?: number) {
   console.log('🔄 Making OpenAI API call...')
   console.log('🤖 Using model:', model)
   console.log('📏 Prompt length:', prompt.length, 'characters')
   console.log('🔁 Max retries:', maxRetries)
   
   // Définir max_tokens selon le modèle si non spécifié
-  const defaultMaxTokens = maxTokens || (model.includes('gpt-4.1') ? 16384 : 4096);
+  const defaultMaxTokens = maxTokens || (model.includes('gpt-5') ? 8192 : model.includes('gpt-4.1') ? 16384 : 4096);
   console.log('🎯 Max tokens:', defaultMaxTokens)
   
   let lastError: Error | null = null;
@@ -20,6 +20,17 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
         model,
         messages: [{ role: 'user', content: prompt }],
       };
+      
+      // Add web search tools for GPT-5
+      if (model.includes('gpt-5')) {
+        payload.tools = [
+          {
+            type: "web_search"
+          }
+        ];
+        payload.tool_choice = "auto";
+        console.log('🌐 Added web search tools for GPT-5');
+      }
       
       // Only add temperature for older models
       if (!isNewModel && temperature !== null && temperature !== undefined) {
