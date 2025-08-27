@@ -27,22 +27,35 @@ export async function processUnifiedGPT5(
   participants: string,
   meetingData: any,
   meetingUsers: any[],
-  openAIKey: string
+  openAIKey: string,
+  traceId?: string
 ): Promise<{ success: boolean; tasksCount: number; summaryGenerated: boolean; transcriptCleaned: boolean }> {
   
-  console.log('🚀 [UNIFIED-GPT5] Début traitement unifié');
-  console.log(`📏 [UNIFIED-GPT5] Transcript length: ${rawTranscript.length} characters`);
-  console.log(`👥 [UNIFIED-GPT5] Participants: ${participants}`);
-  console.log(`📋 [UNIFIED-GPT5] Meeting users count: ${meetingUsers.length}`);
+  const processTraceId = traceId || `gpt5_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const processStartTime = Date.now();
+  
+  console.log(`[TRACE:${processTraceId}] 🚀 Starting UNIFIED GPT-5 processing`);
+  console.log(`[TRACE:${processTraceId}] 📏 Input validation:`, {
+    transcriptLength: rawTranscript?.length || 0,
+    participantsString: participants || 'MISSING',
+    meetingId: meetingId || 'MISSING',
+    meetingUsersCount: meetingUsers?.length || 0,
+    meetingTitle: meetingData?.title || 'MISSING',
+    hasOpenAIKey: !!openAIKey,
+    timestamp: new Date().toISOString()
+  });
   
   try {
     // Créer le prompt unifié
+    console.log(`[TRACE:${processTraceId}] 📝 Creating unified prompt...`);
+    const promptStartTime = Date.now();
     const unifiedPrompt = createUnifiedPrompt(rawTranscript, participants, meetingData, meetingUsers);
+    console.log(`[TRACE:${processTraceId}] ✅ Unified prompt created in ${Date.now() - promptStartTime}ms (${unifiedPrompt.length} chars)`);
     
-    console.log('🤖 [UNIFIED-GPT5] Appel GPT-5 sans limite de tokens...');
-    console.log('🔍 [UNIFIED-GPT5] Web searches requested in prompt for recommendations');
+    console.log(`[TRACE:${processTraceId}] 🤖 Starting GPT-5 API call (unlimited tokens)...`);
+    console.log(`[TRACE:${processTraceId}] 🔍 Web searches requested in prompt for recommendations`);
     
-    const startTime = Date.now();
+    const gpt5StartTime = Date.now();
     
     // Appel GPT-5 avec configuration spécialisée
     const gpt5Response = await callOpenAI(
@@ -51,12 +64,17 @@ export async function processUnifiedGPT5(
       undefined, // pas de température pour GPT-5
       'gpt-5-2025-08-07',
       3, // max retries
-      undefined // pas de max tokens pour permettre les longs transcripts
+      undefined, // pas de max tokens pour permettre les longs transcripts
+      processTraceId // Pass trace ID to OpenAI service
     );
     
-    const processingTime = Date.now() - startTime;
-    console.log(`⏱️ [UNIFIED-GPT5] GPT-5 processing time: ${processingTime}ms`);
-    console.log(`📊 [UNIFIED-GPT5] Response length: ${gpt5Response.length} characters`);
+    const gpt5Duration = Date.now() - gpt5StartTime;
+    console.log(`[TRACE:${processTraceId}] ⏱️ GPT-5 API call completed in ${gpt5Duration}ms`);
+    console.log(`[TRACE:${processTraceId}] 📊 GPT-5 response received:`, {
+      responseLength: gpt5Response?.length || 0,
+      hasResponse: !!gpt5Response,
+      durationMs: gpt5Duration
+    });
     
     // Parser la réponse JSON
     console.log('📋 [UNIFIED-GPT5] Parsing JSON response...');

@@ -18,18 +18,49 @@ serve(async (req) => {
   }
 
   try {
-    const { meetingId, transcript, participants: meetingParticipants } = await req.json();
+    const { meetingId, transcript, participants: meetingParticipants, traceId } = await req.json();
+    const sessionTraceId = traceId || `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionStartTime = Date.now();
 
-    console.log(`🚀 [PROCESS-TRANSCRIPT] DÉBUT traitement UNIFIÉ - ${new Date().toISOString()}`);
-    console.log(`📝 [PROCESS-TRANSCRIPT] Processing transcript for meeting: ${meetingId}`);
-    console.log(`👥 [PROCESS-TRANSCRIPT] Meeting participants:`, JSON.stringify(meetingParticipants?.map(p => `"${p.name || p.email}"`)));
-    console.log(`📊 [PROCESS-TRANSCRIPT] Transcript length: ${transcript?.length || 0} characters`);
-    console.log(`🔧 [PROCESS-TRANSCRIPT] Payload validation:`, {
+    console.log(`🚀 [TRACE:${sessionTraceId}] DÉBUT traitement UNIFIÉ - ${new Date().toISOString()}`);
+    console.log(`📝 [TRACE:${sessionTraceId}] Processing transcript for meeting: ${meetingId}`);
+    console.log(`👥 [TRACE:${sessionTraceId}] Meeting participants:`, JSON.stringify(meetingParticipants?.map(p => `"${p.name || p.email}"`)));
+    console.log(`📊 [TRACE:${sessionTraceId}] Transcript length: ${transcript?.length || 0} characters`);
+    console.log(`🔧 [TRACE:${sessionTraceId}] Payload validation:`, {
       hasMeetingId: !!meetingId,
       hasTranscript: !!transcript,
       hasParticipants: !!meetingParticipants,
-      participantsIsArray: Array.isArray(meetingParticipants)
+      participantsIsArray: Array.isArray(meetingParticipants),
+      traceIdReceived: !!traceId,
+      requestMethod: req.method,
+      requestUrl: req.url,
+      timestamp: new Date().toISOString()
     });
+
+    // Critical validation with detailed logging
+    if (!meetingId) {
+      console.error(`[TRACE:${sessionTraceId}] ❌ CRITICAL VALIDATION FAILED: Missing meetingId`);
+      return new Response(JSON.stringify({ error: 'Meeting ID is required', traceId: sessionTraceId }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (!transcript) {
+      console.error(`[TRACE:${sessionTraceId}] ❌ CRITICAL VALIDATION FAILED: Missing transcript`);
+      return new Response(JSON.stringify({ error: 'Transcript is required', traceId: sessionTraceId }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (!Array.isArray(meetingParticipants) || meetingParticipants.length === 0) {
+      console.error(`[TRACE:${sessionTraceId}] ❌ CRITICAL VALIDATION FAILED: Invalid participants`);
+      return new Response(JSON.stringify({ error: 'Valid participants array is required', traceId: sessionTraceId }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -70,7 +101,7 @@ serve(async (req) => {
     const participantNames = actualParticipants?.map(p => p.name).join(', ') || '';
 
     // NOUVEAU: Traitement unifié avec GPT-5 (nettoyage + résumé + todos en un seul appel)
-    console.log('🚀 [PROCESS-TRANSCRIPT] Démarrage du traitement UNIFIÉ GPT-5...');
+    console.log(`[TRACE:${sessionTraceId}] 🚀 Starting UNIFIED GPT-5 processing...`);
     
     const { processUnifiedGPT5 } = await import('./services/unified-gpt5-processor.ts');
     const { handleDocumentProcessing } = await import('./services/document-service.ts');
@@ -78,10 +109,11 @@ serve(async (req) => {
     const parallelStartTime = Date.now();
     
     // Traitement en parallèle : GPT-5 unifié + embeddings
+    console.log(`[TRACE:${sessionTraceId}] 🔄 Starting parallel processing...`);
     const [unifiedResult, embeddingsResult] = await Promise.allSettled([
       // Traitement UNIFIÉ avec GPT-5 (nettoyage + résumé + todos + recommandations)
       (async () => {
-        console.log('🤖 [PARALLEL] Traitement COMPLET avec GPT-5 (nettoyage+résumé+todos)...');
+        console.log(`[TRACE:${sessionTraceId}] 🤖 [PARALLEL] Starting COMPLETE GPT-5 processing (cleaning+summary+todos)...`);
         const startTime = Date.now();
         const result = await processUnifiedGPT5(
           transcript, // transcript RAW directement
@@ -89,15 +121,16 @@ serve(async (req) => {
           participantNames,
           meetingData,
           actualParticipants,
-          openaiApiKey
+          openaiApiKey,
+          sessionTraceId // Pass trace ID
         );
-        console.log(`✅ [PARALLEL] Traitement GPT-5 unifié terminé (${Date.now() - startTime}ms)`);
+        console.log(`[TRACE:${sessionTraceId}] ✅ [PARALLEL] GPT-5 unified processing completed (${Date.now() - startTime}ms)`);
         return result;
       })(),
       
       // Traitement des embeddings (en parallèle)
       (async () => {
-        console.log('🔗 [PARALLEL] Processing document embeddings...');
+        console.log(`[TRACE:${sessionTraceId}] 🔗 [PARALLEL] Processing document embeddings...`);
         const startTime = Date.now();
         
         // Pour les embeddings, on utilise le transcript brut initialement
@@ -111,7 +144,7 @@ serve(async (req) => {
           new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
           chunks
         );
-        console.log(`✅ [PARALLEL] Document embeddings processed (${Date.now() - startTime}ms)`);
+        console.log(`[TRACE:${sessionTraceId}] ✅ [PARALLEL] Document embeddings processed (${Date.now() - startTime}ms)`);
         return documentResult;
       })()
     ]);
@@ -147,11 +180,11 @@ serve(async (req) => {
       console.error('❌ [PROCESS-TRANSCRIPT] Document embeddings processing failed:', embeddingsResult.reason);
     }
 
-    const totalTime = Date.now() - startTime;
-    console.log(`🏁 [PROCESS-TRANSCRIPT] TRAITEMENT UNIFIÉ COMPLÈTEMENT TERMINÉ (${totalTime}ms)`);
-    console.log(`📊 [PROCESS-TRANSCRIPT] RÉSUMÉ FINAL UNIFIÉ: ${tasksCreated} todos avec ${recommendationsGenerated} recommandations, résumé: ${summaryGenerated ? 'OUI' : 'NON'}`);
+    const totalTime = Date.now() - sessionStartTime;
+    console.log(`[TRACE:${sessionTraceId}] 🏁 UNIFIED PROCESSING COMPLETELY FINISHED (${totalTime}ms)`);
+    console.log(`[TRACE:${sessionTraceId}] 📊 FINAL UNIFIED SUMMARY: ${tasksCreated} todos with ${recommendationsGenerated} recommendations, summary: ${summaryGenerated ? 'YES' : 'NO'}`);
 
-    return new Response(JSON.stringify({
+    const finalResponse = {
       success: true,
       tasksCreated: tasksCreated,
       documentProcessed: documentProcessed,
@@ -170,22 +203,30 @@ serve(async (req) => {
       parallelProcessing: {
         unifiedGPT5Success: unifiedResult.status === 'fulfilled',
         embeddingsSuccess: embeddingsResult.status === 'fulfilled'
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+      traceId: sessionTraceId,
+      processingTimeMs: totalTime
+    };
+
+    console.log(`[TRACE:${sessionTraceId}] 🎉 FINAL SUCCESS - Returning response`);
+
+    return new Response(JSON.stringify(finalResponse), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('❌ [PROCESS-TRANSCRIPT] Error processing transcript:', error);
-    console.error('❌ [PROCESS-TRANSCRIPT] Stack trace:', error.stack);
+    const totalDuration = Date.now() - sessionStartTime;
+    console.error(`[TRACE:${sessionTraceId}] ❌ Error processing transcript after ${totalDuration}ms:`, error);
+    console.error(`[TRACE:${sessionTraceId}] ❌ Error stack:`, error.stack);
     
     // Essayer de sauvegarder au moins le transcript brut si le traitement unifié échoue
     try {
-      console.log('🔄 [PROCESS-TRANSCRIPT] Attempting to save raw transcript as fallback...');
+      console.log(`[TRACE:${sessionTraceId}] 🔄 Attempting to save raw transcript as fallback...`);
       const supabaseClient = createSupabaseClient();
       await saveTranscript(supabaseClient, meetingId, transcript);
+      console.log(`[TRACE:${sessionTraceId}] ✅ Raw transcript saved as fallback`);
     } catch (fallbackError) {
-      console.error('❌ [PROCESS-TRANSCRIPT] Failed to save fallback transcript:', fallbackError);
+      console.error(`[TRACE:${sessionTraceId}] ❌ Failed to save fallback transcript:`, fallbackError);
     }
     
     return new Response(JSON.stringify({
@@ -193,10 +234,12 @@ serve(async (req) => {
       error: error.message,
       fullyCompleted: false,
       unified: true,
-      gpt5Unified: true
+      gpt5Unified: true,
+      traceId: sessionTraceId,
+      processingTimeMs: totalDuration
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

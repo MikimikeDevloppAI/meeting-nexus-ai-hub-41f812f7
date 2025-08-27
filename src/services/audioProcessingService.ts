@@ -292,44 +292,86 @@ export class AudioProcessingService {
     participants: any[],
     meetingId: string
   ) {
-    console.log('[PROCESS-TRANSCRIPT] 🚀 Starting transcript processing...');
-    console.log('[PROCESS-TRANSCRIPT] 📊 Payload details:', {
-      meetingId,
-      participantsCount: participants.length,
-      participantNames: participants.map(p => p.name || p.email || 'Unknown'),
-      transcriptLength: transcript.length
+    // Generate a unique trace ID for this processing session
+    const traceId = `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
+    
+    console.log(`[TRACE:${traceId}] 🚀 Starting transcript processing session`);
+    console.log(`[TRACE:${traceId}] 📊 Payload validation:`, {
+      meetingId: meetingId || 'MISSING',
+      participantsCount: participants?.length || 0,
+      participantNames: participants?.map(p => p.name || p.email || 'Unknown') || [],
+      transcriptLength: transcript?.length || 0,
+      hasTranscript: !!transcript,
+      hasParticipants: Array.isArray(participants),
+      timestamp: new Date().toISOString()
     });
     
+    // Validate critical fields
+    if (!meetingId) {
+      console.error(`[TRACE:${traceId}] ❌ CRITICAL: Missing meetingId`);
+      throw new Error('Meeting ID is required');
+    }
+    if (!transcript) {
+      console.error(`[TRACE:${traceId}] ❌ CRITICAL: Missing transcript`);
+      throw new Error('Transcript is required');
+    }
+    if (!Array.isArray(participants) || participants.length === 0) {
+      console.error(`[TRACE:${traceId}] ❌ CRITICAL: Invalid or empty participants`);
+      throw new Error('Participants array is required');
+    }
+    
     try {
-      console.log('[PROCESS-TRANSCRIPT] 🔄 Calling process-transcript edge function...');
+      console.log(`[TRACE:${traceId}] 🔄 Calling process-transcript edge function...`);
+      console.log(`[TRACE:${traceId}] 📤 Sending payload:`, {
+        url: 'https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/process-transcript',
+        method: 'POST',
+        bodyKeys: ['meetingId', 'participants', 'transcript', 'traceId'],
+        bodySize: JSON.stringify({
+          meetingId,
+          participants,
+          transcript,
+          traceId
+        }).length + ' bytes'
+      });
+
+      const functionStartTime = Date.now();
       const response = await supabase.functions.invoke('process-transcript', {
         body: {
           meetingId,
           participants, // This will be destructured as 'meetingParticipants' in the edge function
-          transcript
+          transcript,
+          traceId // Pass the trace ID to the edge function
         }
       });
-
-      console.log('[PROCESS-TRANSCRIPT] 📡 Raw response received:', {
-        hasData: !!response.data,
-        hasError: !!response.error,
-        errorDetails: response.error
-      });
-
-      if (response.error) {
-        console.error('[PROCESS-TRANSCRIPT] ❌ Edge function error:', response.error);
-        throw new Error(`Process-transcript failed: ${response.error.message}`);
-      }
+      const functionDuration = Date.now() - functionStartTime;
 
       const result = response.data;
-      console.log('[OPENAI] Processing completed successfully:', result);
-
-      // CORRECTION: Ne plus traiter les embeddings ici car c'est déjà fait dans process-transcript
-      console.log('[EMBEDDINGS] Embeddings processing handled by process-transcript function');
-
-      return result;
+      const totalDuration = Date.now() - startTime;
+      
+      console.log(`[TRACE:${traceId}] ✅ AI processing completed successfully in ${totalDuration}ms`);
+      console.log(`[TRACE:${traceId}] 📊 Final result:`, {
+        hasResult: !!result,
+        resultKeys: result ? Object.keys(result) : [],
+        success: result?.success,
+        tasksCount: result?.tasksCount,
+        summaryGenerated: result?.summaryGenerated,
+        transcriptCleaned: result?.transcriptCleaned,
+        documentsProcessed: result?.documentsProcessed
+      });
+      
+      return { ...result, traceId };
     } catch (error: any) {
-      console.error('[OPENAI] Processing failed:', error);
+      const totalDuration = Date.now() - startTime;
+      console.error(`[TRACE:${traceId}] ❌ Processing error after ${totalDuration}ms:`, error);
+      console.error(`[TRACE:${traceId}] ❌ Error context:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        meetingId,
+        participantCount: participants?.length,
+        transcriptLength: transcript?.length
+      });
       throw error;
     }
   }
