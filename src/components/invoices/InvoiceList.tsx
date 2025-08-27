@@ -534,11 +534,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   // Fonction pour mettre à jour un champ directement
   const updateInvoiceField = async (invoiceId: string, field: string, value: any) => {
     try {
-      // Si le champ est 'compte' et que la valeur est vide/null, utiliser 'Commun' par défaut
-      if (field === 'compte' && (!value || value === '')) {
-        value = 'Commun';
-      }
-      
       const { error } = await supabase
         .from('invoices')
         .update({ [field]: value })

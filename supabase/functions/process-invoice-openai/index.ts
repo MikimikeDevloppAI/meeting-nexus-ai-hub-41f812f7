@@ -284,7 +284,7 @@ Return ONLY valid JSON in this exact format:
       payment_date: extractedData.payment_date || null,
       total_amount: extractedData.total_amount || null,
       currency: extractedData.currency || 'CHF',
-      compte: extractedData.compte || null,
+      compte: extractedData.compte !== undefined ? extractedData.compte : null,
       invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
