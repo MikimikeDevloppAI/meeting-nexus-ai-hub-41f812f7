@@ -21,15 +21,9 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
         messages: [{ role: 'user', content: prompt }],
       };
       
-      // Add web search tools for GPT-5
+      // GPT-5 has built-in web search capabilities, no explicit tools needed
       if (model.includes('gpt-5')) {
-        payload.tools = [
-          {
-            type: "web_search"
-          }
-        ];
-        payload.tool_choice = "auto";
-        console.log('🌐 Added web search tools for GPT-5');
+        console.log('🌐 Using GPT-5 with built-in web search capabilities');
       }
       
       // Only add temperature for older models
