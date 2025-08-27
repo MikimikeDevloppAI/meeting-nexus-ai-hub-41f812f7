@@ -87,7 +87,9 @@ serve(async (req) => {
     ];
 
     // Construire le prompt pour OpenAI
-    const prompt = `Analyze this invoice/receipt image and extract the following information in JSON format:
+    const prompt = `Analyze this invoice/receipt image and extract information for ALL invoices/receipts visible in the document.
+
+IMPORTANT: If there are multiple invoices/receipts in this single document, return an array with one object for each invoice. If there's only one invoice, still return an array with one object.
 
 EXISTING SUPPLIERS (use exact match if similar):
 ${existingSuppliers.map(s => `- "${s}"`).join('\n')}
@@ -95,7 +97,7 @@ ${existingSuppliers.map(s => `- "${s}"`).join('\n')}
 AVAILABLE INVOICE TYPES (choose the most appropriate category):
 ${categories.map(c => `- "${c}"`).join('\n')}
 
-EXTRACTION RULES:
+EXTRACTION RULES (for each invoice found):
 1. supplier_name: Match exactly with existing suppliers if similar, otherwise create new name
 2. payment_date:
    - If receipt: use the date shown on the receipt
@@ -114,16 +116,18 @@ EXTRACTION RULES:
    - Otherwise (no handwritten mention or David/perso mentions) → return "David Tabibian"
 7. is_receipt: true if this is a receipt, false if it's an invoice
 
-Return ONLY valid JSON in this exact format:
-{
-  "supplier_name": "",
-  "payment_date": "YYYY-MM-DD or null",
-  "total_amount": number,
-  "currency": "",
-  "invoice_type": "",
-  "compte": "",
-  "is_receipt": boolean
-}`;
+Return ONLY valid JSON array in this exact format (even for single invoice):
+[
+  {
+    "supplier_name": "",
+    "payment_date": "YYYY-MM-DD or null",
+    "total_amount": number,
+    "currency": "",
+    "invoice_type": "",
+    "compte": "",
+    "is_receipt": boolean
+  }
+]`;
 
     // Appeler OpenAI Vision API
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -167,48 +171,61 @@ Return ONLY valid JSON in this exact format:
     console.log('OpenAI extracted text:', extractedText);
 
     // Parser la réponse JSON
-    let extractedData;
+    let extractedDataArray;
     try {
       // Nettoyer la réponse pour extraire le JSON
       const cleaned = (extractedText || '').replace(/```json|```/g, '').trim();
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/) || cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No JSON found in OpenAI response');
       }
-      extractedData = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      // Si c'est un objet unique, le convertir en array
+      extractedDataArray = Array.isArray(parsed) ? parsed : [parsed];
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', extractedText);
       throw new Error(`Failed to parse extraction result: ${parseError.message}`);
     }
 
-    // Convertir la devise si nécessaire (utiliser la fonction existante)
-    let finalExchangeRate = 1;
-    let originalAmountChf = extractedData.total_amount;
+    console.log(`Found ${extractedDataArray.length} invoice(s) in the document`);
 
-    if (extractedData.currency !== 'CHF') {
+    // Traiter chaque facture
+    const processedInvoices = [];
+    const errors = [];
+
+    for (let i = 0; i < extractedDataArray.length; i++) {
+      const extractedData = extractedDataArray[i];
       try {
-        const conversionResponse = await fetch(`${supabaseUrl}/functions/v1/currency-converter`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            currency: extractedData.currency,
-            amount: extractedData.total_amount,
-            date: extractedData.payment_date || new Date().toISOString().split('T')[0]
-          }),
-        });
+        console.log(`Processing invoice ${i + 1}/${extractedDataArray.length}:`, extractedData);
 
-        if (conversionResponse.ok) {
-          const conversionResult = await conversionResponse.json();
-          finalExchangeRate = conversionResult.exchange_rate || 1;
-          originalAmountChf = extractedData.total_amount * finalExchangeRate;
+        // Convertir la devise si nécessaire (utiliser la fonction existante)
+        let finalExchangeRate = 1;
+        let originalAmountChf = extractedData.total_amount;
+
+        if (extractedData.currency !== 'CHF') {
+          try {
+            const conversionResponse = await fetch(`${supabaseUrl}/functions/v1/currency-converter`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                currency: extractedData.currency,
+                amount: extractedData.total_amount,
+                date: extractedData.payment_date || new Date().toISOString().split('T')[0]
+              }),
+            });
+
+            if (conversionResponse.ok) {
+              const conversionResult = await conversionResponse.json();
+              finalExchangeRate = conversionResult.exchange_rate || 1;
+              originalAmountChf = extractedData.total_amount * finalExchangeRate;
+            }
+          } catch (conversionError) {
+            console.error('Currency conversion failed:', conversionError);
+          }
         }
-      } catch (conversionError) {
-        console.error('Currency conversion failed:', conversionError);
-      }
-    }
 
     // Valider et nettoyer invoice_type pour respecter la contrainte EXACTE
     const validInvoiceTypes = [
@@ -286,59 +303,105 @@ Return ONLY valid JSON in this exact format:
       return 'fourniture de bureau';
     }
 
-    const invoiceType = normalizeInvoiceType(extractedData.invoice_type);
-    
-    // Résoudre la date de paiement: si facture (pas un reçu) et aucune date manuscrite, utiliser la date du jour
-    const resolvedPaymentDate = (!extractedData?.is_receipt && (!extractedData?.payment_date || extractedData?.payment_date === 'null'))
-      ? new Date().toISOString().split('T')[0]
-      : (extractedData?.payment_date || null);
-    
-    console.log(`DETAILED Invoice type validation:`);
-    console.log(`- Original: "${extractedData.invoice_type}"`);
-    console.log(`- Final: "${invoiceType}"`);
-    console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
+        const invoiceType = normalizeInvoiceType(extractedData.invoice_type);
+        
+        // Résoudre la date de paiement: si facture (pas un reçu) et aucune date manuscrite, utiliser la date du jour
+        const resolvedPaymentDate = (!extractedData?.is_receipt && (!extractedData?.payment_date || extractedData?.payment_date === 'null'))
+          ? new Date().toISOString().split('T')[0]
+          : (extractedData?.payment_date || null);
+        
+        console.log(`DETAILED Invoice type validation for invoice ${i + 1}:`);
+        console.log(`- Original: "${extractedData.invoice_type}"`);
+        console.log(`- Final: "${invoiceType}"`);
+        console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
 
-    // Mettre à jour la facture avec les données extraites
-    // Normaliser "compte" et s'assurer qu'une chaîne vide devient "David Tabibian"
-    let processedCompte = typeof extractedData.compte === 'string' ? extractedData.compte.trim() : extractedData.compte;
-    
-    // Si le compte est vide ou undefined, utiliser "David Tabibian" par défaut
-    if (!processedCompte || processedCompte === '') {
-      processedCompte = 'David Tabibian';
+        // Normaliser "compte" et s'assurer qu'une chaîne vide devient "David Tabibian"
+        let processedCompte = typeof extractedData.compte === 'string' ? extractedData.compte.trim() : extractedData.compte;
+        
+        // Si le compte est vide ou undefined, utiliser "David Tabibian" par défaut
+        if (!processedCompte || processedCompte === '') {
+          processedCompte = 'David Tabibian';
+        }
+
+        const updateData = {
+          supplier_name: extractedData.supplier_name || null,
+          payment_date: resolvedPaymentDate,
+          total_amount: extractedData.total_amount || null,
+          currency: extractedData.currency || 'CHF',
+          compte: processedCompte,
+          invoice_type: invoiceType,
+          exchange_rate: finalExchangeRate,
+          original_amount_chf: originalAmountChf,
+          status: 'completed',
+          processed_at: new Date().toISOString()
+        };
+
+        console.log(`Invoice ${i + 1} - Compte extracted (raw):`, JSON.stringify(extractedData.compte));
+        console.log(`Invoice ${i + 1} - Compte after processing:`, JSON.stringify(processedCompte));
+
+        // Pour la première facture, mettre à jour l'enregistrement existant
+        if (i === 0) {
+          const { error: updateError } = await supabase
+            .from('invoices')
+            .update(updateData)
+            .eq('id', invoiceId);
+
+          if (updateError) {
+            throw new Error(`Failed to update invoice 1: ${updateError.message}`);
+          }
+          processedInvoices.push({ ...updateData, id: invoiceId, isNew: false });
+        } else {
+          // Pour les factures supplémentaires, créer de nouveaux enregistrements
+          const newInvoiceData = {
+            ...updateData,
+            file_path: invoice.file_path,
+            original_filename: invoice.original_filename,
+            content_type: invoice.content_type,
+            file_size: invoice.file_size,
+            created_by: invoice.created_by
+          };
+
+          const { data: newInvoice, error: insertError } = await supabase
+            .from('invoices')
+            .insert(newInvoiceData)
+            .select()
+            .single();
+
+          if (insertError) {
+            throw new Error(`Failed to create invoice ${i + 1}: ${insertError.message}`);
+          }
+          processedInvoices.push({ ...newInvoice, isNew: true });
+        }
+
+        console.log(`Successfully processed invoice ${i + 1}/${extractedDataArray.length}`);
+
+      } catch (invoiceError) {
+        console.error(`Error processing invoice ${i + 1}:`, invoiceError);
+        errors.push({
+          index: i + 1,
+          error: invoiceError.message,
+          data: extractedData
+        });
+      }
     }
 
-    const updateData = {
-      supplier_name: extractedData.supplier_name || null,
-      payment_date: resolvedPaymentDate,
-      total_amount: extractedData.total_amount || null,
-      currency: extractedData.currency || 'CHF',
-      compte: processedCompte,
-      invoice_type: invoiceType,
-      exchange_rate: finalExchangeRate,
-      original_amount_chf: originalAmountChf,
-      status: 'completed',
-      processed_at: new Date().toISOString()
-    };
-
-    console.log('Compte extracted (raw):', JSON.stringify(extractedData.compte));
-    console.log('Compte after processing:', JSON.stringify(processedCompte));
-    console.log('Final compte value for DB:', processedCompte);
-    const { error: updateError } = await supabase
-      .from('invoices')
-      .update(updateData)
-      .eq('id', invoiceId);
-
-    if (updateError) {
-      throw new Error(`Failed to update invoice: ${updateError.message}`);
+    // Si toutes les factures ont échoué, lever une erreur
+    if (processedInvoices.length === 0) {
+      throw new Error(`Failed to process any invoices. Errors: ${errors.map(e => `Invoice ${e.index}: ${e.error}`).join('; ')}`);
     }
 
-    console.log(`Successfully processed invoice ${invoiceId} with OpenAI`);
+    const message = processedInvoices.length === 1 
+      ? 'Facture traitée avec succès'
+      : `${processedInvoices.length} factures traitées avec succès${errors.length > 0 ? ` (${errors.length} échecs)` : ''}`;
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Facture traitée avec succès',
-        data: updateData
+        message,
+        processedCount: processedInvoices.length,
+        errorCount: errors.length,
+        data: processedInvoices,
+        errors: errors.length > 0 ? errors : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
