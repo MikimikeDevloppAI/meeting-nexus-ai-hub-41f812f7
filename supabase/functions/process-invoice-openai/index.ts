@@ -288,7 +288,7 @@ Return ONLY valid JSON in this exact format:
       invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
-      status: 'processed',
+      status: 'completed',
       processed_at: new Date().toISOString()
     };
 
