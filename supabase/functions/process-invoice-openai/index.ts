@@ -68,18 +68,21 @@ serve(async (req) => {
 
     // Récupérer les catégories disponibles (valeurs autorisées par la contrainte)
     const categories = [
-      "équipement médicaux",
-      "fourniture médicales",
-      "fourniture injections intra-vitréennes",
-      "fourniture de bureau",
-      "informatique/logiciel",
-      "télécommunication",
       "assurance/cotisations sociales",
-      "marketing/communication",
+      "contactologie",
       "déplacement/formation",
+      "équipement médicaux",
+      "fourniture de bureau",
+      "fourniture injections intra-vitréennes",
+      "fourniture médicales",
       "frais bancaires/financiers",
+      "frais de locaux",
+      "frais de véhicule",
+      "informatique/logiciel",
       "investissement/amortissement",
+      "marketing/communication",
       "nourritures",
+      "télécommunication",
       "non assigné"
     ];
 
@@ -101,7 +104,10 @@ EXTRACTION RULES:
    - If extracted date is before 2025, assume current year (2025)
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
-5. invoice_type: Choose the most appropriate category from the available invoice types above based on what was purchased
+5. invoice_type: Choose the most appropriate category from the available invoice types above based on:
+   - The supplier name (e.g., medical suppliers → medical categories, IT companies → informatique/logiciel)
+   - The items/services being invoiced (analyze line items, descriptions, product names)
+   - Context clues from the invoice content
 6. compte: Look for handwritten "Commun", "David", "perso", "personnel", "personal" or similar handwritten text, then:
    - If "Commun" → return "Commun"
    - If "David", "perso", "personnel", "personal" or similar → return "David Tabibian"
@@ -206,18 +212,21 @@ Return ONLY valid JSON in this exact format:
 
     // Valider et nettoyer invoice_type pour respecter la contrainte EXACTE
     const validInvoiceTypes = [
-      'équipement médicaux',
-      'fourniture médicales',
-      'fourniture injections intra-vitréennes',
-      'fourniture de bureau',
-      'informatique/logiciel',
-      'télécommunication',
       'assurance/cotisations sociales',
-      'marketing/communication',
+      'contactologie',
       'déplacement/formation',
+      'équipement médicaux',
+      'fourniture de bureau',
+      'fourniture injections intra-vitréennes',
+      'fourniture médicales',
       'frais bancaires/financiers',
+      'frais de locaux',
+      'frais de véhicule',
+      'informatique/logiciel',
       'investissement/amortissement',
+      'marketing/communication',
       'nourritures',
+      'télécommunication',
       'non assigné'
     ];
 
