@@ -94,9 +94,9 @@ ${categories.map(c => `- "${c}"`).join('\n')}
 
 EXTRACTION RULES:
 1. supplier_name: Match exactly with existing suppliers if similar, otherwise create new name
-2. payment_date: 
+2. payment_date:
    - If receipt: use the date shown on the receipt
-   - If invoice: look for handwritten "date de paiement" or payment date, otherwise null
+   - If invoice: if no handwritten payment date is present, use today's date (YYYY-MM-DD)
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
 5. invoice_type: Choose the most appropriate category from the available invoice types above based on what was purchased
@@ -284,12 +284,15 @@ Return ONLY valid JSON in this exact format:
     console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
 
     // Mettre à jour la facture avec les données extraites
+    // Normaliser "compte" sans changer la valeur sémantique (trim uniquement)
+    const rawCompte = typeof extractedData.compte === 'string' ? extractedData.compte.trim() : extractedData.compte;
+
     const updateData = {
       supplier_name: extractedData.supplier_name || null,
       payment_date: resolvedPaymentDate,
       total_amount: extractedData.total_amount || null,
       currency: extractedData.currency || 'CHF',
-      compte: extractedData.compte !== undefined ? extractedData.compte : null,
+      compte: rawCompte !== undefined ? rawCompte : null,
       invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
@@ -297,6 +300,8 @@ Return ONLY valid JSON in this exact format:
       processed_at: new Date().toISOString()
     };
 
+    console.log('Compte extracted (raw):', JSON.stringify(extractedData.compte));
+    console.log('Compte after trim:', JSON.stringify(rawCompte));
     const { error: updateError } = await supabase
       .from('invoices')
       .update(updateData)
