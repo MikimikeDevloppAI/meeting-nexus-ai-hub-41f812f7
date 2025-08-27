@@ -1,13 +1,10 @@
-
-import { useState } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useState } from "react";
+import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, FileText, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 
 interface InvoiceUploadFormProps {
   onUploadSuccess: () => void;
@@ -15,13 +12,18 @@ interface InvoiceUploadFormProps {
 
 interface FileWithMetadata {
   file: File;
-  documentType: 'invoice' | 'receipt';
-  compte: 'David Tabibian' | 'Commun';
 }
 
 export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
   const [files, setFiles] = useState<FileWithMetadata[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const onDrop = (acceptedFiles: File[]) => {
+    const filesWithMetadata: FileWithMetadata[] = acceptedFiles.map(file => ({
+      file
+    }));
+    setFiles(prev => [...prev, ...filesWithMetadata]);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -31,30 +33,11 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     },
     maxSize: 5 * 1024 * 1024, // 5MB
     multiple: true,
-    onDrop: (acceptedFiles) => {
-      const newFiles = acceptedFiles.map(file => ({
-        file,
-        documentType: 'invoice' as const,
-        compte: 'Commun' as const
-      }));
-      setFiles(prev => [...prev, ...newFiles]);
-    }
+    onDrop
   });
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateFileType = (index: number, documentType: 'invoice' | 'receipt') => {
-    setFiles(prev => prev.map((item, i) => 
-      i === index ? { ...item, documentType } : item
-    ));
-  };
-
-  const updateFileCompte = (index: number, compte: 'David Tabibian' | 'Commun') => {
-    setFiles(prev => prev.map((item, i) => 
-      i === index ? { ...item, compte } : item
-    ));
+    setFiles(files.filter((_, i) => i !== index));
   };
 
   const handleUpload = async () => {
@@ -68,34 +51,33 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
     let errorCount = 0;
 
     try {
-      for (const { file, documentType, compte } of files) {
+      for (const fileItem of files) {
         try {
-          console.log(`Processing file: ${file.name} as ${documentType} for ${compte}`);
+          console.log(`Processing file: ${fileItem.file.name}`);
           
           // Generate unique filename
           const timestamp = Date.now();
-          const cleanFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const randomSuffix = Math.random().toString(36).substring(2, 8);
+          const fileName = `${timestamp}-${randomSuffix}-${fileItem.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
           
           // Upload to storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('invoices')
-            .upload(cleanFileName, file);
+            .upload(fileName, fileItem.file);
 
           if (uploadError) {
             throw new Error(`Upload error: ${uploadError.message}`);
           }
 
           // Create invoice record
-          const { data: invoice, error: insertError } = await supabase
+          const { data: invoiceData, error: insertError } = await supabase
             .from('invoices')
             .insert({
-              original_filename: file.name,
-              file_path: uploadData.path,
-              file_size: file.size,
-              content_type: file.type,
-              compte: compte,
+              original_filename: fileItem.file.name,
+              file_path: fileName,
+              content_type: fileItem.file.type,
+              file_size: fileItem.file.size,
               status: 'pending'
-              // payment_date sera défini lors du traitement automatique selon le type de document
             })
             .select()
             .single();
@@ -104,38 +86,40 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
             throw new Error(`Database error: ${insertError.message}`);
           }
 
-          // Process with appropriate API based on document type
-          const { error: processError } = await supabase.functions.invoke('process-invoice', {
+          // Traitement avec OpenAI Vision
+          const { error: processError } = await supabase.functions.invoke('process-invoice-openai', {
             body: { 
-              invoiceId: invoice.id,
-              documentType: documentType
+              invoiceId: invoiceData.id
             }
           });
 
           if (processError) {
-            throw new Error(`Processing error: ${processError.message}`);
+            console.error('Processing error:', processError);
+            // Ne pas faire échouer l'upload, juste loguer l'erreur
+            toast.warning(`Fichier ${fileItem.file.name} uploadé mais erreur de traitement`);
+          } else {
+            console.log(`Successfully processed ${fileItem.file.name}`);
           }
 
           successCount++;
         } catch (error) {
-          console.error(`Error processing file ${file.name}:`, error);
+          console.error(`Error processing file ${fileItem.file.name}:`, error);
           errorCount++;
+          toast.error(`Erreur avec ${fileItem.file.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
       }
 
       // Show results
       if (successCount > 0) {
-        toast.success(`${successCount} fichier(s) uploadé(s) et en cours de traitement`);
-      }
-      if (errorCount > 0) {
-        toast.error(`${errorCount} fichier(s) ont échoué`);
-      }
-
-      // Reset if at least one success
-      if (successCount > 0) {
+        toast.success(`${successCount} fichier(s) uploadé(s) et en cours de traitement automatique`);
         setFiles([]);
         onUploadSuccess();
       }
+      
+      if (errorCount > 0) {
+        toast.error(`${errorCount} fichier(s) ont échoué lors de l'upload`);
+      }
+
     } catch (error) {
       console.error('Unexpected error during upload process:', error);
       toast.error("Une erreur inattendue s'est produite");
@@ -149,7 +133,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5" />
-          Nouvelle facture
+          Nouvelle facture/reçu
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -182,13 +166,13 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
         {files.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Fichiers sélectionnés ({files.length})</h4>
-            {files.map((item, index) => (
-              <div key={index} className="p-4 bg-gray-50 rounded border space-y-3">
+            {files.map((fileItem, index) => (
+              <div key={index} className="p-4 bg-gray-50 rounded border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm flex-1">
                     <FileText className="h-4 w-4" />
-                    <span className="flex-1">{item.file.name}</span>
-                    <span className="text-gray-500">({(item.file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <span className="flex-1">{fileItem.file.name}</span>
+                    <span className="text-gray-500">({(fileItem.file.size / 1024 / 1024).toFixed(2)} MB)</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -200,44 +184,8 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Document Type */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-gray-700">Type de document</Label>
-                    <RadioGroup 
-                      value={item.documentType} 
-                      onValueChange={(value: 'invoice' | 'receipt') => updateFileType(index, value)}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="invoice" id={`invoice-${index}`} />
-                        <Label htmlFor={`invoice-${index}`} className="text-sm">Facture</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="receipt" id={`receipt-${index}`} />
-                        <Label htmlFor={`receipt-${index}`} className="text-sm">Reçu</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  {/* Account */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-gray-700">Compte</Label>
-                    <RadioGroup 
-                      value={item.compte} 
-                      onValueChange={(value: 'David Tabibian' | 'Commun') => updateFileCompte(index, value)}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Commun" id={`commun-${index}`} />
-                        <Label htmlFor={`commun-${index}`} className="text-sm">Commun</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="David Tabibian" id={`david-${index}`} />
-                        <Label htmlFor={`david-${index}`} className="text-sm">David Tabibian</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
+                <div className="text-sm text-muted-foreground mt-2">
+                  L'IA analysera automatiquement le type de document, le fournisseur, et les autres informations.
                 </div>
               </div>
             ))}
@@ -249,7 +197,7 @@ export function InvoiceUploadForm({ onUploadSuccess }: InvoiceUploadFormProps) {
           disabled={uploading || files.length === 0}
           className="w-full"
         >
-          {uploading ? 'Upload en cours...' : `Uploader et traiter ${files.length > 0 ? `(${files.length} fichier${files.length > 1 ? 's' : ''})` : ''}`}
+          {uploading ? 'Upload en cours...' : `Uploader et traiter automatiquement ${files.length > 0 ? `(${files.length} fichier${files.length > 1 ? 's' : ''})` : ''}`}
         </Button>
       </CardContent>
     </Card>
