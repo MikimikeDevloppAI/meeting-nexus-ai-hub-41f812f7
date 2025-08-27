@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,6 +116,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
   const [supplierDropdownStates, setSupplierDropdownStates] = useState<Record<string, boolean>>({});
+  const [supplierSearchValues, setSupplierSearchValues] = useState<Record<string, string>>({});
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
@@ -136,7 +137,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   });
 
-  // Query pour récupérer tous les fournisseurs existants (factures validées)
+  // Query pour récupérer tous les fournisseurs existants (factures validées) - trié par ordre alphabétique
   const { data: existingSuppliers = [] } = useQuery({
     queryKey: ['existing-suppliers', refreshKey],
     queryFn: async () => {
@@ -153,15 +154,42 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         throw error;
       }
 
-      // Récupérer les noms uniques et les nettoyer
-      const uniqueSuppliers = [...new Set(data.map(s => formatSupplierName(s.supplier_name)))];
-      console.log('Existing suppliers:', uniqueSuppliers);
+      // Récupérer les noms uniques et les nettoyer, puis trier par ordre alphabétique
+      const uniqueSuppliers = [...new Set(data.map(s => formatSupplierName(s.supplier_name)))]
+        .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+      console.log('Existing suppliers (sorted):', uniqueSuppliers);
       return uniqueSuppliers;
     }
   });
 
-  // Fonction pour déterminer si un fournisseur est nouveau
-  const isNewSupplier = (supplierName: string | null | undefined): boolean => {
+  // Fonction optimisée pour mettre à jour les champs des factures
+  const updateInvoiceField = useCallback(async (invoiceId: string, field: string, value: any) => {
+    console.log(`Updating invoice ${invoiceId}, field ${field} to:`, value);
+    
+    try {
+      const updateData = { [field]: value };
+      
+      const { error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .eq('id', invoiceId);
+
+      if (error) {
+        console.error('Error updating invoice:', error);
+        toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+        return;
+      }
+
+      // Refetch data après mise à jour
+      refetch();
+    } catch (error) {
+      console.error('Error in updateInvoiceField:', error);
+      toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+    }
+  }, [refetch]);
+
+  // Fonction optimisée pour déterminer si un fournisseur est nouveau
+  const isNewSupplier = useCallback((supplierName: string | null | undefined): boolean => {
     if (!supplierName) return true;
     
     const cleanedName = formatSupplierName(supplierName).toLowerCase().trim();
@@ -169,7 +197,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     return !existingSuppliers.some(existing => 
       existing.toLowerCase().trim() === cleanedName
     );
-  };
+  }, [existingSuppliers]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -535,22 +563,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     );
   }
 
-  // Fonction pour mettre à jour un champ directement
-  const updateInvoiceField = async (invoiceId: string, field: string, value: any) => {
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ [field]: value })
-        .eq('id', invoiceId);
-
-      if (error) throw error;
-      await refetch();
-    } catch (error) {
-      console.error('Error updating invoice field:', error);
-      toast.error(`Erreur lors de la mise à jour du champ ${field}`);
-    }
-  };
-
   // Fonctions pour gérer l'édition des factures validées
   const startEditingInvoice = (invoice: Invoice) => {
     console.log('Starting edit for invoice:', invoice.id);
@@ -677,41 +689,56 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0 bg-card border shadow-md z-[100]" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-                <Command>
-                  <CommandInput 
+                <div className="p-2">
+                  <Input 
                     placeholder="Rechercher ou saisir un fournisseur..." 
-                    value={invoice.supplier_name || ''}
-                    onValueChange={(value) => updateInvoiceField(invoice.id, 'supplier_name', value)}
+                    value={supplierSearchValues[invoice.id] || invoice.supplier_name || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSupplierSearchValues(prev => ({...prev, [invoice.id]: value}));
+                      updateInvoiceField(invoice.id, 'supplier_name', value);
+                    }}
+                    className="border-0 focus:ring-0 h-8"
+                    autoFocus
                   />
-                  <CommandList>
-                    <CommandEmpty>
-                      <div className="p-2 text-sm text-muted-foreground">
-                        Aucun fournisseur trouvé. Le texte saisi sera utilisé comme nouveau fournisseur.
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {existingSuppliers
+                    .filter(supplier => {
+                      const searchTerm = (supplierSearchValues[invoice.id] || invoice.supplier_name || '').toLowerCase();
+                      return supplier.toLowerCase().includes(searchTerm);
+                    })
+                    .map((supplier) => (
+                      <div
+                        key={supplier}
+                        onClick={() => {
+                          updateInvoiceField(invoice.id, 'supplier_name', supplier);
+                          setSupplierSearchValues(prev => ({...prev, [invoice.id]: supplier}));
+                          setSupplierDropdownStates(prev => ({...prev, [invoice.id]: false}));
+                        }}
+                        className="flex items-center px-2 py-2 text-sm cursor-pointer hover:bg-muted"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            invoice.supplier_name === supplier ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {supplier}
                       </div>
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {existingSuppliers.map((supplier) => (
-                        <CommandItem
-                          key={supplier}
-                          value={supplier}
-                          onSelect={(currentValue) => {
-                            updateInvoiceField(invoice.id, 'supplier_name', currentValue);
-                            setSupplierDropdownStates(prev => ({...prev, [invoice.id]: false}));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              invoice.supplier_name === supplier ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {supplier}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                    ))}
+                  {existingSuppliers.filter(supplier => {
+                    const searchTerm = (supplierSearchValues[invoice.id] || invoice.supplier_name || '').toLowerCase();
+                    return supplier.toLowerCase().includes(searchTerm);
+                  }).length === 0 && (
+                    <div className="p-2 text-sm text-muted-foreground">
+                      {(supplierSearchValues[invoice.id] || invoice.supplier_name) ? 
+                        'Nouveau fournisseur sera créé' : 
+                        'Tapez pour rechercher ou créer un nouveau fournisseur'
+                      }
+                    </div>
+                  )}
+                </div>
               </PopoverContent>
             </Popover>
           </div>
