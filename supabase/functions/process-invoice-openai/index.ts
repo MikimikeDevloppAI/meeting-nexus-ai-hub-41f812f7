@@ -110,9 +110,8 @@ EXTRACTION RULES:
    - Context clues from the invoice content
    - DO NOT use "non assigné" - always select the most relevant specific category even if it's an approximation
 6. compte: Look for handwritten "Commun", "David", "perso", "personnel", "personal" or similar handwritten text, then:
-   - If "Commun" → return "Commun"
-   - If "David", "perso", "personnel", "personal" or similar → return "David Tabibian"
-   - Otherwise leave empty
+   - If you see handwritten "Commun" → return "Commun"
+   - Otherwise (no handwritten mention or David/perso mentions) → return "David Tabibian"
 7. is_receipt: true if this is a receipt, false if it's an invoice
 
 Return ONLY valid JSON in this exact format:
@@ -300,15 +299,20 @@ Return ONLY valid JSON in this exact format:
     console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
 
     // Mettre à jour la facture avec les données extraites
-    // Normaliser "compte" sans changer la valeur sémantique (trim uniquement)
-    const rawCompte = typeof extractedData.compte === 'string' ? extractedData.compte.trim() : extractedData.compte;
+    // Normaliser "compte" et s'assurer qu'une chaîne vide devient "David Tabibian"
+    let processedCompte = typeof extractedData.compte === 'string' ? extractedData.compte.trim() : extractedData.compte;
+    
+    // Si le compte est vide ou undefined, utiliser "David Tabibian" par défaut
+    if (!processedCompte || processedCompte === '') {
+      processedCompte = 'David Tabibian';
+    }
 
     const updateData = {
       supplier_name: extractedData.supplier_name || null,
       payment_date: resolvedPaymentDate,
       total_amount: extractedData.total_amount || null,
       currency: extractedData.currency || 'CHF',
-      compte: rawCompte !== undefined ? rawCompte : null,
+      compte: processedCompte,
       invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
@@ -317,7 +321,8 @@ Return ONLY valid JSON in this exact format:
     };
 
     console.log('Compte extracted (raw):', JSON.stringify(extractedData.compte));
-    console.log('Compte after trim:', JSON.stringify(rawCompte));
+    console.log('Compte after processing:', JSON.stringify(processedCompte));
+    console.log('Final compte value for DB:', processedCompte);
     const { error: updateError } = await supabase
       .from('invoices')
       .update(updateData)
