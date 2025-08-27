@@ -756,6 +756,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
                 <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
                 <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                <SelectItem value="frais de locaux">Frais de locaux</SelectItem>
+                <SelectItem value="frais de véhicule">Frais de véhicule</SelectItem>
                 <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
                 <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                 <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
@@ -1087,6 +1089,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                     <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
                     <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
                     <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                    <SelectItem value="frais de locaux">Frais de locaux</SelectItem>
+                    <SelectItem value="frais de véhicule">Frais de véhicule</SelectItem>
                     <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
                     <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
                     <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
