@@ -348,6 +348,30 @@ export class AudioProcessingService {
 
       const result = response.data;
       const totalDuration = Date.now() - startTime;
+
+      // Handle the new async response (202 Accepted)
+      if (result?.status === 'processing') {
+        console.log(`[TRACE:${traceId}] ✅ AI processing started in background - continuing...`);
+        console.log(`[TRACE:${traceId}] 📊 Quick response received:`, {
+          hasResult: !!result,
+          resultKeys: result ? Object.keys(result) : [],
+          status: result?.status,
+          message: result?.message,
+          meetingId: result?.meetingId,
+          traceId: result?.traceId
+        });
+        
+        // Return success so the UI can continue
+        // The background processing will complete without blocking the client
+        return {
+          success: true,
+          message: 'AI processing started in background',
+          traceId: result.traceId,
+          meetingId: result.meetingId,
+          status: 'processing',
+          processingInBackground: true
+        };
+      }
       
       console.log(`[TRACE:${traceId}] ✅ AI processing completed successfully in ${totalDuration}ms`);
       console.log(`[TRACE:${traceId}] 📊 Final result:`, {
