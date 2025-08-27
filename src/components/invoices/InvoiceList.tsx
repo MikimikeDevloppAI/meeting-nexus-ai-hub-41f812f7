@@ -438,9 +438,11 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       if (error) throw error;
 
       if (data?.signedUrl) {
-        // Construct full URL from the relative signedUrl
-        const fullUrl = `https://ecziljpkvshvapjsxaty.supabase.co/storage/v1${data.signedUrl}`;
-        window.open(fullUrl, '_blank');
+        // Check if the URL is already absolute or needs the base URL
+        const url = data.signedUrl.startsWith('http') 
+          ? data.signedUrl 
+          : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
       } else {
         toast.error('Impossible de générer l\'URL du fichier');
       }

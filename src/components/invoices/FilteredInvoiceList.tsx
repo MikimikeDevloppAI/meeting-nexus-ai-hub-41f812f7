@@ -112,7 +112,12 @@ export function FilteredInvoiceList({
         .from('invoices')
         .createSignedUrl(filePath, 60 * 5); // 5 minutes
       if (error || !data?.signedUrl) throw error || new Error('No signed URL');
-      window.open(data.signedUrl, '_blank');
+      
+      // Check if the URL is already absolute or needs the base URL
+      const url = data.signedUrl.startsWith('http') 
+        ? data.signedUrl 
+        : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       console.error('Erreur d\'ouverture du fichier:', err);
     }
