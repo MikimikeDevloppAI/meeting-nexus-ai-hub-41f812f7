@@ -104,10 +104,11 @@ EXTRACTION RULES:
    - If extracted date is before 2025, assume current year (2025)
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
-5. invoice_type: Choose the most appropriate category from the available invoice types above based on:
+5. invoice_type: MANDATORY - You MUST choose one of the specific categories from the available invoice types above based on:
    - The supplier name (e.g., medical suppliers → medical categories, IT companies → informatique/logiciel)
    - The items/services being invoiced (analyze line items, descriptions, product names)
    - Context clues from the invoice content
+   - DO NOT use "non assigné" - always select the most relevant specific category even if it's an approximation
 6. compte: Look for handwritten "Commun", "David", "perso", "personnel", "personal" or similar handwritten text, then:
    - If "Commun" → return "Commun"
    - If "David", "perso", "personnel", "personal" or similar → return "David Tabibian"
@@ -282,7 +283,8 @@ Return ONLY valid JSON in this exact format:
         }
       }
 
-      return 'non assigné';
+      // En dernier recours, choisir la catégorie la plus générique appropriée
+      return 'fourniture de bureau';
     }
 
     const invoiceType = normalizeInvoiceType(extractedData.invoice_type);
