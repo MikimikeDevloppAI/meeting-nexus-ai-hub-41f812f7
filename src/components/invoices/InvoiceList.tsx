@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown, UserPlus, Users, ChevronsUpDown } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
+import { SupplierSelector } from "./SupplierSelector";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -115,8 +115,6 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
-  const [supplierDropdownStates, setSupplierDropdownStates] = useState<Record<string, boolean>>({});
-  const [supplierSearchValues, setSupplierSearchValues] = useState<Record<string, string>>({});
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
@@ -658,89 +656,14 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               <span className="text-sm font-medium text-gray-700">Fournisseur</span>
               <span className="text-red-500">*</span>
               {!invoice.supplier_name && <AlertCircle className="h-3 w-3 text-red-500" />}
-              {/* Badge pour indiquer si le fournisseur est nouveau ou existant */}
-              {invoice.supplier_name && (
-                isNewSupplier(invoice.supplier_name) ? (
-                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs ml-2">
-                    <UserPlus className="h-3 w-3 mr-1" />
-                    Nouveau
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs ml-2">
-                    <Users className="h-3 w-3 mr-1" />
-                    Existant
-                  </Badge>
-                )
-              )}
             </div>
-            <Popover 
-              open={supplierDropdownStates[invoice.id] || false} 
-              onOpenChange={(open) => setSupplierDropdownStates(prev => ({...prev, [invoice.id]: open}))}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={supplierDropdownStates[invoice.id] || false}
-                  className={`w-full h-8 justify-between ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
-                >
-                  {invoice.supplier_name || "Sélectionner ou saisir un fournisseur"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0 bg-card border shadow-md z-[100]" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-                <div className="p-2">
-                  <Input 
-                    placeholder="Rechercher ou saisir un fournisseur..." 
-                    value={supplierSearchValues[invoice.id] || invoice.supplier_name || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSupplierSearchValues(prev => ({...prev, [invoice.id]: value}));
-                      updateInvoiceField(invoice.id, 'supplier_name', value);
-                    }}
-                    className="border-0 focus:ring-0 h-8"
-                    autoFocus
-                  />
-                </div>
-                <div className="max-h-48 overflow-y-auto">
-                  {existingSuppliers
-                    .filter(supplier => {
-                      const searchTerm = (supplierSearchValues[invoice.id] || invoice.supplier_name || '').toLowerCase();
-                      return supplier.toLowerCase().includes(searchTerm);
-                    })
-                    .map((supplier) => (
-                      <div
-                        key={supplier}
-                        onClick={() => {
-                          updateInvoiceField(invoice.id, 'supplier_name', supplier);
-                          setSupplierSearchValues(prev => ({...prev, [invoice.id]: supplier}));
-                          setSupplierDropdownStates(prev => ({...prev, [invoice.id]: false}));
-                        }}
-                        className="flex items-center px-2 py-2 text-sm cursor-pointer hover:bg-muted"
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            invoice.supplier_name === supplier ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {supplier}
-                      </div>
-                    ))}
-                  {existingSuppliers.filter(supplier => {
-                    const searchTerm = (supplierSearchValues[invoice.id] || invoice.supplier_name || '').toLowerCase();
-                    return supplier.toLowerCase().includes(searchTerm);
-                  }).length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground">
-                      {(supplierSearchValues[invoice.id] || invoice.supplier_name) ? 
-                        'Nouveau fournisseur sera créé' : 
-                        'Tapez pour rechercher ou créer un nouveau fournisseur'
-                      }
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <SupplierSelector
+              value={invoice.supplier_name}
+              onChange={(value) => updateInvoiceField(invoice.id, 'supplier_name', value)}
+              existingSuppliers={existingSuppliers}
+              className={`h-8 ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
+              showBadge={true}
+            />
           </div>
 
           <div className="space-y-2">
@@ -1059,15 +982,18 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             <div>
               <span className="font-medium text-gray-700">Fournisseur:</span>
               {isEditing ? (
-                <Input
-                  value={invoice.supplier_name || ''}
-                  onChange={(e) => updateInvoiceField(invoice.id, 'supplier_name', e.target.value)}
-                  placeholder="Nom du fournisseur"
-                  className="h-8 mt-1"
-                />
+                <div className="mt-1">
+                  <SupplierSelector
+                    value={invoice.supplier_name}
+                    onChange={(value) => updateInvoiceField(invoice.id, 'supplier_name', value)}
+                    existingSuppliers={existingSuppliers}
+                    className="h-8"
+                    showBadge={true}
+                  />
+                </div>
               ) : (
                 <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
-                  {invoice.supplier_name || 'N/A'}
+                  {formatSupplierName(invoice.supplier_name) || 'N/A'}
                 </div>
               )}
             </div>
