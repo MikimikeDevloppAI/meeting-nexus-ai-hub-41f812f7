@@ -11,7 +11,7 @@ export async function processTasksWithRecommendations(
     return { processed: 0, successful: 0, failed: 0, fullyCompleted: true };
   }
 
-  console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-5`);
+  console.log(`⚡ [UNIFIED-TODO-SERVICE] DÉBUT génération UNIFIÉE todos + recommandations avec GPT-4o`);
   console.log(`👥 [UNIFIED-TODO-SERVICE] Users fournis pour assignation:`, users?.map(p => ({ id: p.id, name: p.name, email: p.email })));
   
   const supabaseClient = createSupabaseClient();
@@ -70,10 +70,8 @@ export async function processTasksWithRecommendations(
     // Récupérer seulement les todos récents pour éviter les doublons côté IA
     const recentTodosContext = existingTodosContext.slice(0, 15); // Top 15 plus récents
 
-    // Prompt optimisé pour GPT-5 avec recherche web intégrée
+    // Prompt simplifié pour créer UNIQUEMENT de nouvelles tâches
     const unifiedPrompt = `Basé sur ce transcript de réunion, identifie TOUTES les nouvelles tâches, actions et suivis mentionnés et CRÉÉ-LES comme nouvelles tâches.
-
-UTILISE LA RECHERCHE WEB pour enrichir chaque tâche avec des informations actuelles et pertinentes (coordonnées de prestataires, tarifs, contacts spécialisés, réglementations, etc.) spécifiquement pour le cabinet d'ophtalmologie Dr Tabibian à Genève.
 
 NE PRODUIS QUE des tâches nouvelles qui ne dupliquent pas les todos existantes listées ci-dessous. Si c'est un doublon évident, n'inclus pas cette tâche dans ta réponse.
 
@@ -87,19 +85,16 @@ ${recentTodosContext.length > 0 ? recentTodosContext.map(todo =>
 
 **RÈGLES DE CRÉATION:**
 - CRÉE une nouvelle tâche pour CHAQUE action/sujet distinct mentionné dans le transcript 
-- Regroupe toutes les tâches qui ont le même sujet ou le même outil pour éviter de créer trop de tâches similaires
-- Tout point abordé qui nécessite une action doit générer une tâche
+- Regroupe totues les taches qui ont le meme sujet ou le meme outil pour eviter de créér trop de taches semblable
+- tout point aborder qui necessite une action doit générer une tache
 - N'inclus dans ta réponse que les tâches réellement nouvelles
-- CRÉÉ automatiquement des sous-tâches (subtasks) pour décomposer les tâches complexes en étapes claires
 
 **RÈGLES DE DESCRIPTION:**
-- Description enrichie avec contexte complet nécessaire pour comprendre et exécuter la tâche
+- Description concise mais avec contexte nécessaire
 - Utilise un verbe d'action clair (Contacter, Organiser, Vérifier, Finaliser, etc.)
-- Format: "Action + Objet + Contexte détaillé + Informations trouvées via recherche web"
+- Format: "Action + Objet + Contexte"
 
-**RÈGLES D'ASSIGNATION MULTI-UTILISATEURS:**
-- Tu peux assigner à PLUSIEURS utilisateurs simultanément pour une même tâche
-- Format: "assigned_to": ["User1", "User2", "User3"]
+**RÈGLES D'ASSIGNATION:**
 - Tu peux assigner à N'IMPORTE QUEL utilisateur du système (liste complète ci-dessus)
 - PRIVILÉGIE les participants à cette réunion : ${meetingUserNames}
 - Variantes acceptées pour correspondance :
@@ -111,28 +106,16 @@ ${recentTodosContext.length > 0 ? recentTodosContext.map(todo =>
 - Si une personne dit "je vais faire X" → assigne à cette personne
 - Si aucune assignation claire, laisse "assigned_to" à null
 
-**RÈGLES POUR LES SOUS-TÂCHES:**
-- Décompose automatiquement les tâches complexes en étapes logiques
-- Chaque sous-tâche doit être une action spécifique et actionnable
-- Numérote les étapes dans l'ordre logique d'exécution
-- Format: "Étape X: Action spécifique à réaliser"
-
-**RÈGLES POUR LES RECOMMANDATIONS IA ENRICHIES PAR RECHERCHE WEB:**
-Pour chaque tâche, utilise la recherche web pour:
-1. **Trouver des prestataires/fournisseurs spécialisés** dans le domaine concerné à Genève
-2. **Obtenir des coordonnées réelles** (téléphone, email, adresse) quand pertinent
-3. **Vérifier les tarifs actuels** et réglementations en vigueur
-4. **Identifier des outils/solutions** recommandées dans le secteur médical
-
-Puis génère:
-1. **Recommandation détaillée enrichie** avec informations trouvées sur le web
-2. **Email pré-rédigé COMPLET** utilisant les coordonnées réelles trouvées, clair et professionnel
+**RÈGLES POUR LES RECOMMANDATIONS IA:**
+Pour chaque tâche, génère:
+1. **Recommandation détaillée** qui propose un plan d'exécution, signale les points d'attention, suggère des prestataires/outils
+2. **Email pré-rédigé COMPLET** créé une communication pour chaque tache avec un email clair et descriptif que l'utilisateur pourra envoyer pour effecture la tache (communication vers prestataire externe a privilégié).
 3. Si la tâche est simple/évidente, marque hasRecommendation: false
 
 Critères qualité pour les recommandations:
-- Structuré, actionnable, enrichi par des informations web actuelles  
+- structuré, actionnable
 - Valeur ajoutée réelle pour le cabinet d'ophtalmologie Dr Tabibian à Genève
-- Coordonnées et informations vérifiées par recherche web
+- Éviter banalités
 
 CONTEXTE RÉUNION:
 - Titre: ${meetingData.title || 'Réunion'}
@@ -146,23 +129,12 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
   "tasks": [
     {
-      "description": "Action détaillée avec contexte complet et informations web",
-      "assigned_to": ["Nom exact utilisateur 1", "Nom exact utilisateur 2"] ou null,
+      "description": "Action concise et claire avec contexte",
+      "assigned_to": ["Nom exact de l'utilisateur"] ou null,
       "due_date": "YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ si échéance mentionnée, sinon null",
       "hasRecommendation": true/false,
-      "recommendation": "Recommandation détaillée enrichie par recherche web",
-      "emailDraft": "Email COMPLET avec coordonnées réelles trouvées",
-      "subtasks": [
-        {
-          "description": "Étape 1: Action spécifique",
-          "order": 1
-        },
-        {
-          "description": "Étape 2: Action suivante", 
-          "order": 2
-        }
-      ],
-      "webResearchPerformed": true
+      "recommendation": "Recommandation détaillée",
+      "emailDraft": "Email COMPLET" 
     }
   ]
 }
@@ -173,10 +145,10 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 - Date de référence : ${new Date().toISOString().split('T')[0]} (aujourd'hui)
 - Si aucune échéance mentionnée, laisse due_date à null`;
 
-    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-5 + recherche web`);
+    console.log(`🚀 [UNIFIED-TODO-SERVICE] Traitement UNIFIÉ avec GPT-4o`);
     
     const callStartTime = Date.now();
-    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, null, 'gpt-5-2025-08-07', 3, 8192);
+    const unifiedResponse = await callOpenAI(unifiedPrompt, openaiApiKey, 0.3, 'gpt-4o', 3, 4096);
     const callDuration = Date.now() - callStartTime;
     
     console.log(`⏱️ [UNIFIED-TODO-SERVICE] Appel unifié terminé (${callDuration}ms)`);
@@ -314,28 +286,6 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
         if (savedTask) {
           savedTasks.push(savedTask);
           
-          // Créer les sous-tâches si elles existent
-          if (taskData.subtasks && Array.isArray(taskData.subtasks)) {
-            console.log(`📋 [CREATE-ONLY-SERVICE] Création de ${taskData.subtasks.length} sous-tâches pour tâche ${savedTask.id}`);
-            
-            for (const subtask of taskData.subtasks) {
-              const { error: subtaskError } = await supabaseClient
-                .from('todo_subtasks')
-                .insert({
-                  todo_id: savedTask.id,
-                  description: subtask.description,
-                  order: subtask.order || 1,
-                  completed: false
-                });
-              
-              if (subtaskError) {
-                console.error(`❌ [CREATE-ONLY-SERVICE] Erreur création sous-tâche:`, subtaskError);
-              } else {
-                console.log(`✅ [CREATE-ONLY-SERVICE] Sous-tâche créée: ${subtask.description}`);
-              }
-            }
-          }
-          
           // Créer la recommandation
           if (taskData.hasRecommendation !== false && taskData.recommendation) {
             const { error: recError } = await supabaseClient
@@ -382,7 +332,7 @@ IMPORTANT: Retourne UNIQUEMENT un JSON valide avec cette structure exacte :
       savedTasks: savedTasks,
       unified: true,
       createOnly: true,
-      model: 'gpt-5-2025-08-07'
+      model: 'gpt-4o'
     };
     
   } catch (error) {
@@ -521,13 +471,10 @@ async function saveTaskUnified(supabaseClient: any, task: any, meetingId: string
     }
 
     // Traiter les assignations avec TOUS les utilisateurs du système
-    if (task.assigned_to) {
+    if (task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.length > 0) {
       console.log('👥 [CREATE-ONLY-SERVICE] Assignation demandée pour:', task.assigned_to);
       
-      // Gérer à la fois les chaînes simples et les tableaux
-      const assignedUsers = Array.isArray(task.assigned_to) ? task.assigned_to : [task.assigned_to];
-      
-      for (const userName of assignedUsers) {
+      for (const userName of task.assigned_to) {
         if (!userName || typeof userName !== 'string') continue;
         
         // Chercher parmi TOUS les utilisateurs du système  
