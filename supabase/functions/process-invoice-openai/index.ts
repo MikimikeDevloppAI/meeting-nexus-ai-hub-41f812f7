@@ -100,7 +100,10 @@ EXTRACTION RULES:
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
 5. invoice_type: Choose the most appropriate category from the available invoice types above based on what was purchased
-6. compte: Look for handwritten "Commun" or "David", otherwise leave empty
+6. compte: Look for handwritten "Commun", "David", "perso", "personnel", "personal" or similar handwritten text, then:
+   - If "Commun" → return "Commun"
+   - If "David", "perso", "personnel", "personal" or similar → return "David Tabibian"
+   - Otherwise leave empty
 7. is_receipt: true if this is a receipt, false if it's an invoice
 
 Return ONLY valid JSON in this exact format:
