@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
@@ -47,19 +46,16 @@ serve(async (req) => {
       throw new Error(`Invoice not found: ${invoiceError?.message}`);
     }
 
-    // Télécharger le fichier depuis le storage
-    const { data: fileData, error: downloadError } = await supabase.storage
+    // Créer une URL signée pour l'image (valide 5 minutes)
+    const { data: signedUrlData, error: signedError } = await supabase.storage
       .from('invoices')
-      .download(invoice.file_path);
+      .createSignedUrl(invoice.file_path, 60 * 5);
 
-    if (downloadError || !fileData) {
-      throw new Error(`Failed to download file: ${downloadError?.message}`);
+    if (signedError || !signedUrlData?.signedUrl) {
+      throw new Error(`Failed to create signed URL: ${signedError?.message}`);
     }
 
-    // Convertir en base64 de manière sûre (gros fichiers)
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = base64Encode(new Uint8Array(arrayBuffer));
-    const mimeType = invoice.content_type || 'image/jpeg';
+    console.log('Created signed URL for image:', signedUrlData.signedUrl);
 
     // Récupérer les fournisseurs existants
     const { data: suppliers } = await supabase
@@ -139,7 +135,7 @@ Return ONLY valid JSON in this exact format:
               {
                 type: 'image_url',
                 image_url: {
-                  url: `data:${mimeType};base64,${base64}`
+                  url: signedUrlData.signedUrl
                 }
               }
             ]
