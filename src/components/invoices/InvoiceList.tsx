@@ -6,12 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown, UserPlus, Users } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown, UserPlus, Users, ChevronsUpDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Invoice {
   id: string;
@@ -112,6 +115,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
+  const [supplierDropdownStates, setSupplierDropdownStates] = useState<Record<string, boolean>>({});
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
@@ -657,12 +661,59 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                 )
               )}
             </div>
-            <Input
-              value={invoice.supplier_name || ''}
-              onChange={(e) => updateInvoiceField(invoice.id, 'supplier_name', e.target.value)}
-              placeholder="Nom du fournisseur"
-              className={`h-8 ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
-            />
+            <Popover 
+              open={supplierDropdownStates[invoice.id] || false} 
+              onOpenChange={(open) => setSupplierDropdownStates(prev => ({...prev, [invoice.id]: open}))}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={supplierDropdownStates[invoice.id] || false}
+                  className={`w-full h-8 justify-between ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
+                >
+                  {invoice.supplier_name || "Sélectionner ou saisir un fournisseur"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0 bg-card border shadow-md z-[100]" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                <Command>
+                  <CommandInput 
+                    placeholder="Rechercher ou saisir un fournisseur..." 
+                    value={invoice.supplier_name || ''}
+                    onValueChange={(value) => updateInvoiceField(invoice.id, 'supplier_name', value)}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className="p-2 text-sm text-muted-foreground">
+                        Aucun fournisseur trouvé. Le texte saisi sera utilisé comme nouveau fournisseur.
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {existingSuppliers.map((supplier) => (
+                        <CommandItem
+                          key={supplier}
+                          value={supplier}
+                          onSelect={(currentValue) => {
+                            updateInvoiceField(invoice.id, 'supplier_name', currentValue);
+                            setSupplierDropdownStates(prev => ({...prev, [invoice.id]: false}));
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              invoice.supplier_name === supplier ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {supplier}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
