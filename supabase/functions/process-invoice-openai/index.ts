@@ -273,6 +273,11 @@ Return ONLY valid JSON in this exact format:
 
     const invoiceType = normalizeInvoiceType(extractedData.invoice_type);
     
+    // Résoudre la date de paiement: si facture (pas un reçu) et aucune date manuscrite, utiliser la date du jour
+    const resolvedPaymentDate = (!extractedData?.is_receipt && (!extractedData?.payment_date || extractedData?.payment_date === 'null'))
+      ? new Date().toISOString().split('T')[0]
+      : (extractedData?.payment_date || null);
+    
     console.log(`DETAILED Invoice type validation:`);
     console.log(`- Original: "${extractedData.invoice_type}"`);
     console.log(`- Final: "${invoiceType}"`);
@@ -281,7 +286,7 @@ Return ONLY valid JSON in this exact format:
     // Mettre à jour la facture avec les données extraites
     const updateData = {
       supplier_name: extractedData.supplier_name || null,
-      payment_date: extractedData.payment_date || null,
+      payment_date: resolvedPaymentDate,
       total_amount: extractedData.total_amount || null,
       currency: extractedData.currency || 'CHF',
       compte: extractedData.compte !== undefined ? extractedData.compte : null,
