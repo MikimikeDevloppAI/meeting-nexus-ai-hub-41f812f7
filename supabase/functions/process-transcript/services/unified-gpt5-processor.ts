@@ -225,7 +225,7 @@ Recherche sur internet:
 Utilisateurs disponibles pour assignation: ${meetingUsers.map(u => u.name).join(', ')}
 
 RÈGLES TÂCHES:
-- Description COMPLÈTE avec contexte nécessaire
+- Description concise avec contexte nécessaire
 - Assignations multiples possibles: ["User1", "User2"]  
 - Recommandations UNIQUEMENT dans le champ "recommendation" avec infos web
 - Email pré-rédigé avec coordonnées trouvées via recherche web
@@ -241,14 +241,14 @@ RÉPONSE REQUISE - JSON EXACT:
   "summary": "Résumé markdown structuré avec emojis",
   "tasks": [
     {
-      "description": "Description enrichie avec contexte complet nécessaire",
+      "description": "Description concise avec contexte complet nécessaire",
       "assigned_to": ["Nom1", "Nom2"],
       "due_date": "YYYY-MM-DD", 
       "hasRecommendation": true,
       "recommendation": "Recommandation enrichie avec informations trouvées sur internet: coordonnées, prix, contacts spécialisés, solutions disponibles",
-      "emailDraft": "Email pré-rédigé avec coordonnées exactes trouvées via recherche web",
+      "emailDraft": "Email pré-rédigé pour communication externe, style professionel qui donne tout le contexte de la demande",
       "subtasks": [
-        {"description": "Étape 1: Action précise", "order": 1},
+        {"description": "Étape 1: Action précise et concise", "order": 1},
         {"description": "Étape 2: Suite logique", "order": 2}
       ]
     }
