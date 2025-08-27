@@ -66,22 +66,21 @@ serve(async (req) => {
 
     const existingSuppliers = [...new Set(suppliers?.map(s => s.supplier_name) || [])];
 
-    // Récupérer les catégories disponibles
+    // Récupérer les catégories disponibles (valeurs autorisées par la contrainte)
     const categories = [
-      "assurance/cotisations sociales",
-      "contactologie", 
-      "entretien/nettoyage",
-      "formation", 
-      "fourniture injections intra-vitréennes",
+      "équipement médicaux",
       "fourniture médicales",
-      "frais bancaires/financiers",
-      "frais de locaux",
-      "frais de véhicule", 
+      "fourniture injections intra-vitréennes",
+      "fourniture de bureau",
       "informatique/logiciel",
-      "investissement/amortissement",
+      "télécommunication",
+      "assurance/cotisations sociales",
       "marketing/communication",
-      "prestations extérieures",
-      "télécommunication"
+      "déplacement/formation",
+      "frais bancaires/financiers",
+      "investissement/amortissement",
+      "nourritures",
+      "non assigné"
     ];
 
     // Construire le prompt pour OpenAI
@@ -90,7 +89,7 @@ serve(async (req) => {
 EXISTING SUPPLIERS (use exact match if similar):
 ${existingSuppliers.map(s => `- "${s}"`).join('\n')}
 
-AVAILABLE CATEGORIES (choose one):
+AVAILABLE INVOICE TYPES (choose the most appropriate category):
 ${categories.map(c => `- "${c}"`).join('\n')}
 
 EXTRACTION RULES:
@@ -100,9 +99,9 @@ EXTRACTION RULES:
    - If invoice: look for handwritten "date de paiement" or payment date, otherwise null
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
-5. purchase_category: Choose from the available categories above
+5. invoice_type: Choose the most appropriate category from the available invoice types above based on what was purchased
 6. compte: Look for handwritten "Commun" or "David", otherwise leave empty
-7. document_type: "invoice" or "receipt" based on document characteristics
+7. is_receipt: true if this is a receipt, false if it's an invoice
 
 Return ONLY valid JSON in this exact format:
 {
@@ -110,9 +109,9 @@ Return ONLY valid JSON in this exact format:
   "payment_date": "YYYY-MM-DD or null",
   "total_amount": number,
   "currency": "",
-  "purchase_category": "",
+  "invoice_type": "",
   "compte": "",
-  "document_type": ""
+  "is_receipt": boolean
 }`;
 
     // Appeler OpenAI Vision API
@@ -200,15 +199,37 @@ Return ONLY valid JSON in this exact format:
       }
     }
 
+    // Valider et nettoyer invoice_type pour respecter la contrainte
+    const validInvoiceTypes = [
+      "équipement médicaux",
+      "fourniture médicales", 
+      "fourniture injections intra-vitréennes",
+      "fourniture de bureau",
+      "informatique/logiciel",
+      "télécommunication",
+      "assurance/cotisations sociales",
+      "marketing/communication",
+      "déplacement/formation",
+      "frais bancaires/financiers",
+      "investissement/amortissement",
+      "nourritures",
+      "non assigné"
+    ];
+    
+    const invoiceType = validInvoiceTypes.includes(extractedData.invoice_type) 
+      ? extractedData.invoice_type 
+      : 'non assigné';
+      
+    console.log(`Invoice type validation: "${extractedData.invoice_type}" -> "${invoiceType}"`);
+
     // Mettre à jour la facture avec les données extraites
     const updateData = {
       supplier_name: extractedData.supplier_name || null,
       payment_date: extractedData.payment_date || null,
       total_amount: extractedData.total_amount || null,
       currency: extractedData.currency || 'CHF',
-      purchase_category: extractedData.purchase_category || null,
       compte: extractedData.compte || null,
-      invoice_type: extractedData.document_type || 'non assigné',
+      invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
       status: 'processed',
