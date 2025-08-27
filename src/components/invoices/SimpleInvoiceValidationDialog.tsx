@@ -254,6 +254,7 @@ export function SimpleInvoiceValidationDialog({
                     <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
                     <SelectItem value="nourritures">Nourritures</SelectItem>
                     <SelectItem value="télécommunication">Télécommunication</SelectItem>
+                    <SelectItem value="non assigné">Non assigné</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
