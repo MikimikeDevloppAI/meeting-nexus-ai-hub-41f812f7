@@ -278,8 +278,8 @@ Return ONLY valid JSON in this exact format:
     console.log(`- Final: "${invoiceType}"`);
     console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
 
-    // Mettre à jour la facture avec les données extraites
-    const updateData = {
+    // Préparer les données extraites pour validation utilisateur
+    const extractedInvoiceData = {
       supplier_name: extractedData.supplier_name || null,
       payment_date: extractedData.payment_date || null,
       total_amount: extractedData.total_amount || null,
@@ -288,26 +288,36 @@ Return ONLY valid JSON in this exact format:
       invoice_type: invoiceType,
       exchange_rate: finalExchangeRate,
       original_amount_chf: originalAmountChf,
-      status: 'processed',
+      is_receipt: extractedData.is_receipt || false
+    };
+
+    console.log('Returning extracted data for validation:', extractedInvoiceData);
+
+    // Mettre à jour seulement le statut pour indiquer que l'extraction est terminée
+    const statusUpdateData = {
+      status: 'extracted',
       processed_at: new Date().toISOString()
     };
 
-    const { error: updateError } = await supabase
+    const { error: statusUpdateError } = await supabase
       .from('invoices')
-      .update(updateData)
+      .update(statusUpdateData)
       .eq('id', invoiceId);
 
-    if (updateError) {
-      throw new Error(`Failed to update invoice: ${updateError.message}`);
+    if (statusUpdateError) {
+      console.error('Failed to update status:', statusUpdateError);
     }
 
-    console.log(`Successfully processed invoice ${invoiceId} with OpenAI`);
+    console.log(`Successfully extracted invoice data ${invoiceId} with OpenAI - awaiting validation`);
 
+    // Retourner les données pour validation par l'utilisateur
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Facture traitée avec succès',
-        data: updateData
+        message: 'Données de facture extraites avec succès, en attente de validation',
+        extractedData: extractedInvoiceData,
+        invoiceId: invoiceId,
+        requiresValidation: true
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
