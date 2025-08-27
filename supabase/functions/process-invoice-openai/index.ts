@@ -199,28 +199,84 @@ Return ONLY valid JSON in this exact format:
       }
     }
 
-    // Valider et nettoyer invoice_type pour respecter la contrainte
+    // Valider et nettoyer invoice_type pour respecter la contrainte EXACTE
     const validInvoiceTypes = [
-      "équipement médicaux",
-      "fourniture médicales", 
-      "fourniture injections intra-vitréennes",
-      "fourniture de bureau",
-      "informatique/logiciel",
-      "télécommunication",
-      "assurance/cotisations sociales",
-      "marketing/communication",
-      "déplacement/formation",
-      "frais bancaires/financiers",
-      "investissement/amortissement",
-      "nourritures",
-      "non assigné"
+      'équipement médicaux',
+      'fourniture médicales',
+      'fourniture injections intra-vitréennes',
+      'fourniture de bureau',
+      'informatique/logiciel',
+      'télécommunication',
+      'assurance/cotisations sociales',
+      'marketing/communication',
+      'déplacement/formation',
+      'frais bancaires/financiers',
+      'investissement/amortissement',
+      'nourritures',
+      'non assigné'
     ];
-    
-    const invoiceType = validInvoiceTypes.includes(extractedData.invoice_type) 
-      ? extractedData.invoice_type 
-      : 'non assigné';
+
+    // Fonction de normalisation pour gérer les variations
+    function normalizeInvoiceType(input) {
+      if (!input || typeof input !== 'string') return 'non assigné';
       
-    console.log(`Invoice type validation: "${extractedData.invoice_type}" -> "${invoiceType}"`);
+      // Nettoyer et normaliser
+      const normalized = input.toLowerCase().trim()
+        .replace(/[àáâãäå]/g, 'a')
+        .replace(/[èéêë]/g, 'e')
+        .replace(/[ìíîï]/g, 'i')
+        .replace(/[òóôõö]/g, 'o')
+        .replace(/[ùúûü]/g, 'u')
+        .replace(/[ç]/g, 'c')
+        .replace(/\s+/g, ' ');
+
+      // Mapping des synonymes et variantes courantes
+      const mappings = {
+        'informatique': 'informatique/logiciel',
+        'logiciel': 'informatique/logiciel',
+        'software': 'informatique/logiciel',
+        'ordinateur': 'informatique/logiciel',
+        'materiel medical': 'équipement médicaux',
+        'equipement medical': 'équipement médicaux',
+        'medical': 'fourniture médicales',
+        'injection': 'fourniture injections intra-vitréennes',
+        'bureau': 'fourniture de bureau',
+        'telecommunication': 'télécommunication',
+        'assurance': 'assurance/cotisations sociales',
+        'marketing': 'marketing/communication',
+        'formation': 'déplacement/formation',
+        'deplacement': 'déplacement/formation',
+        'bancaire': 'frais bancaires/financiers',
+        'financier': 'frais bancaires/financiers',
+        'investissement': 'investissement/amortissement',
+        'nourriture': 'nourritures',
+        'alimentation': 'nourritures',
+        'restaurant': 'nourritures'
+      };
+
+      // Chercher une correspondance exacte d'abord
+      for (const validType of validInvoiceTypes) {
+        if (validType.toLowerCase() === normalized) {
+          return validType;
+        }
+      }
+
+      // Chercher dans les mappings
+      for (const [key, value] of Object.entries(mappings)) {
+        if (normalized.includes(key)) {
+          return value;
+        }
+      }
+
+      return 'non assigné';
+    }
+
+    const invoiceType = normalizeInvoiceType(extractedData.invoice_type);
+    
+    console.log(`DETAILED Invoice type validation:`);
+    console.log(`- Original: "${extractedData.invoice_type}"`);
+    console.log(`- Final: "${invoiceType}"`);
+    console.log(`- Is valid: ${validInvoiceTypes.includes(invoiceType)}`);
 
     // Mettre à jour la facture avec les données extraites
     const updateData = {
