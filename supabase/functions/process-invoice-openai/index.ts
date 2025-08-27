@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
@@ -16,11 +17,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (!openAIApiKey) {
+    return new Response(JSON.stringify({ error: 'Missing OPENAI_API_KEY' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let invoiceId: string | null = null;
+
   try {
-    const { invoiceId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    invoiceId = body?.invoiceId;
+    if (!invoiceId) {
+      throw new Error('invoiceId is required');
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
     console.log(`Processing invoice with OpenAI Vision: ${invoiceId}`);
 
     // Récupérer les informations de la facture
@@ -43,9 +56,9 @@ serve(async (req) => {
       throw new Error(`Failed to download file: ${downloadError?.message}`);
     }
 
-    // Convertir en base64
+    // Convertir en base64 de manière sûre (gros fichiers)
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64 = base64Encode(new Uint8Array(arrayBuffer));
     const mimeType = invoice.content_type || 'image/jpeg';
 
     // Récupérer les fournisseurs existants
@@ -151,7 +164,8 @@ Return ONLY valid JSON in this exact format:
     let extractedData;
     try {
       // Nettoyer la réponse pour extraire le JSON
-      const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
+      const cleaned = (extractedText || '').replace(/```json|```/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No JSON found in OpenAI response');
       }
@@ -228,22 +242,21 @@ Return ONLY valid JSON in this exact format:
   } catch (error) {
     console.error('Error in process-invoice-openai:', error);
     
-    // Marquer la facture comme erreur
-    if (req.body) {
-      try {
-        const { invoiceId } = await req.json();
+    // Marquer la facture comme erreur sans relire le body
+    try {
+      if (invoiceId) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         await supabase
           .from('invoices')
           .update({ 
             status: 'error', 
-            error_message: error.message,
+            error_message: String((error as any)?.message || error),
             processed_at: new Date().toISOString()
           })
           .eq('id', invoiceId);
-      } catch (updateError) {
-        console.error('Failed to update error status:', updateError);
       }
+    } catch (updateError) {
+      console.error('Failed to update error status:', updateError);
     }
 
     return new Response(
