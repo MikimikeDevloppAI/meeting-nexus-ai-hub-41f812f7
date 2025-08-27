@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HelpCircle, X, Sparkles } from 'lucide-react';
+import { HelpCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,33 +66,25 @@ export const HelpButton: React.FC = () => {
           variant="outline"
           size="sm"
           className="
-            relative group
-            bg-gradient-to-r from-blue-50 to-indigo-50 
-            border-2 border-blue-200 
+            bg-blue-50 
+            border border-blue-300 
             text-blue-700 
-            hover:from-blue-100 hover:to-indigo-100 
-            hover:border-blue-300 
+            hover:bg-blue-100 
+            hover:border-blue-400 
             hover:text-blue-800
-            shadow-md hover:shadow-lg 
-            transition-all duration-300 ease-in-out
-            transform hover:scale-105
+            transition-colors duration-200
             font-medium
-            animate-pulse hover:animate-none
           "
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 to-indigo-100/20 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <HelpCircle className="h-4 w-4 relative z-10" />
-          <Sparkles className="h-3 w-3 ml-1 relative z-10 animate-bounce" />
-          <span className="ml-2 hidden sm:inline font-semibold relative z-10">Aide</span>
+          <HelpCircle className="h-4 w-4" />
+          <span className="ml-2 hidden sm:inline font-semibold">Aide</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto border-2 border-blue-200 shadow-2xl">
-        <DialogHeader className="border-b border-blue-100 pb-4">
-          <DialogTitle className="flex items-center justify-between text-blue-800">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-blue-600" />
-              <span>Aide - {helpInfo.page_name}</span>
-            </div>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="flex items-center gap-2 text-gray-800">
+            <HelpCircle className="h-5 w-5 text-blue-600" />
+            <span>Aide - {helpInfo.page_name}</span>
           </DialogTitle>
         </DialogHeader>
         <div className="mt-6">
