@@ -433,15 +433,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     try {
       const { data, error } = await supabase.storage
         .from('invoices')
-        .download(filePath);
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
 
       if (error) throw error;
 
-      const url = URL.createObjectURL(data);
-      window.open(url, '_blank');
-      
-      // Clean up the URL after a short delay
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      } else {
+        toast.error('Impossible de générer l\'URL du fichier');
+      }
     } catch (error) {
       console.error('Error viewing file:', error);
       toast.error('Impossible d\'ouvrir le fichier');
