@@ -1,13 +1,8 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createSupabaseClient, saveRawTranscript, saveTranscript, saveSummary, getMeetingData } from './services/database-service.ts';
-import { callOpenAI } from './services/openai-service.ts';
-import { createTranscriptPrompt } from './prompts/transcript-prompt.ts';
-import { createSummaryPrompt } from './prompts/summary-prompt.ts';
-import { processTasksWithRecommendations } from './services/unified-todo-service.ts';
+import { createSupabaseClient, saveRawTranscript, saveTranscript, getMeetingData } from './services/database-service.ts';
 import { chunkText } from './utils/text-processing.ts';
-import { handleDocumentProcessing } from './services/document-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,147 +62,131 @@ serve(async (req) => {
 
     const participantNames = actualParticipants?.map(p => p.name).join(', ') || '';
 
-    // 1. Nettoyer le transcript - UTILISER GPT-5-MINI sans température
-    const cleaningStartTime = Date.now();
-    console.log('🧹 [PROCESS-TRANSCRIPT] Cleaning transcript with gpt-5-mini (no temperature)...');
-    const cleanPrompt = createTranscriptPrompt(participantNames, transcript);
+    // NOUVEAU: Traitement unifié avec GPT-5 (nettoyage + résumé + todos en un seul appel)
+    console.log('🚀 [PROCESS-TRANSCRIPT] Démarrage du traitement UNIFIÉ GPT-5...');
     
-    try {
-      const cleanedTranscript = await callOpenAI(cleanPrompt, openaiApiKey, null, 'gpt-5-mini', 3, 16384);
-      await saveTranscript(supabaseClient, meetingId, cleanedTranscript);
-      console.log(`✅ [PROCESS-TRANSCRIPT] Transcript cleaned and saved (${Date.now() - cleaningStartTime}ms)`);
-      console.log(`📏 [PROCESS-TRANSCRIPT] Cleaned transcript length: ${cleanedTranscript?.length || 0} characters`);
-
-      // 2. TRAITEMENT EN PARALLÈLE : todos unifiés, résumé, et embeddings
-      console.log('🔄 [PROCESS-TRANSCRIPT] Démarrage du traitement parallèle UNIFIÉ...');
+    const { processUnifiedGPT5 } = await import('./services/unified-gpt5-processor.ts');
+    const { handleDocumentProcessing } = await import('./services/document-service.ts');
+    
+    const parallelStartTime = Date.now();
+    
+    // Traitement en parallèle : GPT-5 unifié + embeddings
+    const [unifiedResult, embeddingsResult] = await Promise.allSettled([
+      // Traitement UNIFIÉ avec GPT-5 (nettoyage + résumé + todos + recommandations)
+      (async () => {
+        console.log('🤖 [PARALLEL] Traitement COMPLET avec GPT-5 (nettoyage+résumé+todos)...');
+        const startTime = Date.now();
+        const result = await processUnifiedGPT5(
+          transcript, // transcript RAW directement
+          meetingId,
+          participantNames,
+          meetingData,
+          actualParticipants,
+          openaiApiKey
+        );
+        console.log(`✅ [PARALLEL] Traitement GPT-5 unifié terminé (${Date.now() - startTime}ms)`);
+        return result;
+      })(),
       
-      const parallelStartTime = Date.now();
-      
-      // Préparer les prompts
-      const summaryPrompt = createSummaryPrompt(
-        meetingData.title,
-        new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
-        participantNames,
-        cleanedTranscript
-      );
-      const chunks = chunkText(cleanedTranscript, 1000, 200);
-
-      // Lancer les 3 opérations en parallèle (mais todos unifié maintenant)
-      const [todosResult, summaryResult, embeddingsResult] = await Promise.allSettled([
-        // Traitement UNIFIÉ des tâches + recommandations avec gpt-4.1
-        (async () => {
-          console.log('📋 [PARALLEL] TRAITEMENT UNIFIÉ todos + recommandations avec gpt-4.1...');
-          const startTime = Date.now();
-          const unifiedResult = await processTasksWithRecommendations(cleanedTranscript, meetingData, actualParticipants);
-          console.log(`✅ [PARALLEL] Traitement unifié terminé (${Date.now() - startTime}ms)`);
-          return unifiedResult;
-        })(),
+      // Traitement des embeddings (en parallèle)
+      (async () => {
+        console.log('🔗 [PARALLEL] Processing document embeddings...');
+        const startTime = Date.now();
         
-        // Génération du résumé avec gpt-5-mini
-        (async () => {
-          console.log('📝 [PARALLEL] Generating summary with gpt-5-mini...');
-          const startTime = Date.now();
-          const summary = await callOpenAI(summaryPrompt, openaiApiKey, undefined, 'gpt-5-mini-2025-08-07', 3, 10000);
-          await saveSummary(supabaseClient, meetingId, summary);
-          console.log(`✅ [PARALLEL] Summary generated and saved (${Date.now() - startTime}ms)`);
-          return summary;
-        })(),
-        
-        // Traitement des embeddings
-        (async () => {
-          console.log('🔗 [PARALLEL] Processing document embeddings...');
-          const startTime = Date.now();
-          const documentResult = await handleDocumentProcessing(
-            supabaseClient,
-            meetingId,
-            cleanedTranscript,
-            meetingData.title,
-            new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
-            chunks
-          );
-          console.log(`✅ [PARALLEL] Document embeddings processed (${Date.now() - startTime}ms)`);
-          return documentResult;
-        })()
-      ]);
+        // Pour les embeddings, on utilise le transcript brut initialement
+        // Les embeddings seront mis à jour quand le transcript nettoyé sera disponible
+        const chunks = chunkText(transcript, 1000, 200);
+        const documentResult = await handleDocumentProcessing(
+          supabaseClient,
+          meetingId,
+          transcript, // On commence avec le transcript brut
+          meetingData.title,
+          new Date(meetingData.created_at).toLocaleDateString('fr-FR'),
+          chunks
+        );
+        console.log(`✅ [PARALLEL] Document embeddings processed (${Date.now() - startTime}ms)`);
+        return documentResult;
+      })()
+    ]);
 
-      console.log(`⏱️ [PROCESS-TRANSCRIPT] Traitement parallèle UNIFIÉ terminé (${Date.now() - parallelStartTime}ms)`);
+    console.log(`⏱️ [PROCESS-TRANSCRIPT] Traitement UNIFIÉ GPT-5 terminé (${Date.now() - parallelStartTime}ms)`);
 
-      // Traiter le résultat des todos unifiés
-      let tasksCreated = 0;
-      let recommendationsGenerated = 0;
-      
-      if (todosResult.status === 'fulfilled') {
-        tasksCreated = todosResult.value.successful || 0;
-        recommendationsGenerated = todosResult.value.successful || 0; // Même nombre car traitement unifié
-        console.log(`✅ [PROCESS-TRANSCRIPT] Traitement unifié réussi: ${tasksCreated} todos créés avec recommandations`);
-      } else {
-        console.error('❌ [PROCESS-TRANSCRIPT] Traitement unifié échoué:', todosResult.reason);
-      }
-
-      // Vérifier les résultats des autres opérations parallèles
-      let summaryGenerated = false;
-      let documentProcessed = false;
-
-      if (summaryResult.status === 'fulfilled') {
-        summaryGenerated = true;
-        console.log('✅ [PROCESS-TRANSCRIPT] Summary generated successfully');
-      } else {
-        console.error('❌ [PROCESS-TRANSCRIPT] Summary generation failed:', summaryResult.reason);
-      }
-
-      if (embeddingsResult.status === 'fulfilled') {
-        documentProcessed = true;
-        console.log('✅ [PROCESS-TRANSCRIPT] Document embeddings processed successfully');
-      } else {
-        console.error('❌ [PROCESS-TRANSCRIPT] Document embeddings processing failed:', embeddingsResult.reason);
-      }
-
-      const totalTime = Date.now() - startTime;
-      console.log(`🏁 [PROCESS-TRANSCRIPT] TRAITEMENT UNIFIÉ COMPLÈTEMENT TERMINÉ (${totalTime}ms)`);
-      console.log(`📊 [PROCESS-TRANSCRIPT] RÉSUMÉ FINAL UNIFIÉ: ${tasksCreated} todos avec ${recommendationsGenerated} recommandations, résumé: ${summaryGenerated ? 'OUI' : 'NON'}`);
-
-      return new Response(JSON.stringify({
-        success: true,
-        tasksCreated: tasksCreated,
-        documentProcessed: documentProcessed,
-        chunksProcessed: embeddingsResult.status === 'fulfilled' ? embeddingsResult.value?.chunksCount || 0 : 0,
-        transcriptCleaned: true,
-        summaryGenerated: summaryGenerated,
-        recommendationsGenerated: recommendationsGenerated > 0,
-        recommendationStats: {
-          processed: tasksCreated,
-          successful: recommendationsGenerated,
-          failed: todosResult.status === 'fulfilled' ? todosResult.value.failed || 0 : 0
-        },
-        fullyCompleted: todosResult.status === 'fulfilled' ? todosResult.value.fullyCompleted || false : false,
-        unified: true,
-        parallelProcessing: {
-          todosSuccess: todosResult.status === 'fulfilled',
-          summarySuccess: summaryResult.status === 'fulfilled',
-          embeddingsSuccess: embeddingsResult.status === 'fulfilled'
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
-    } catch (cleaningError) {
-      console.error('❌ [PROCESS-TRANSCRIPT] Critical error during transcript cleaning:', cleaningError);
-      
-      // Essayer de sauvegarder au moins le transcript brut si le nettoyage échoue
-      console.log('🔄 [PROCESS-TRANSCRIPT] Attempting to save raw transcript as fallback...');
-      await saveTranscript(supabaseClient, meetingId, transcript);
-      
-      throw new Error(`Transcript cleaning failed: ${cleaningError.message}`);
+    // Traiter le résultat du traitement unifié GPT-5
+    let tasksCreated = 0;
+    let recommendationsGenerated = 0;
+    let transcriptCleaned = false;
+    let summaryGenerated = false;
+    
+    if (unifiedResult.status === 'fulfilled') {
+      tasksCreated = unifiedResult.value?.tasksCount || 0;
+      transcriptCleaned = unifiedResult.value?.transcriptCleaned || false;
+      summaryGenerated = unifiedResult.value?.summaryGenerated || false;
+      recommendationsGenerated = tasksCreated; // Chaque tâche a potentiellement une recommandation
+      console.log(`✅ [PROCESS-TRANSCRIPT] Traitement GPT-5 unifié réussi:`);
+      console.log(`   📋 ${tasksCreated} todos créés`);
+      console.log(`   🧹 Transcript nettoyé: ${transcriptCleaned ? 'OUI' : 'NON'}`);
+      console.log(`   📝 Résumé généré: ${summaryGenerated ? 'OUI' : 'NON'}`);
+    } else {
+      console.error('❌ [PROCESS-TRANSCRIPT] Traitement GPT-5 unifié échoué:', unifiedResult.reason);
     }
+
+    // Vérifier le résultat des embeddings
+    let documentProcessed = false;
+
+    if (embeddingsResult.status === 'fulfilled') {
+      documentProcessed = true;
+      console.log('✅ [PROCESS-TRANSCRIPT] Document embeddings processed successfully');
+    } else {
+      console.error('❌ [PROCESS-TRANSCRIPT] Document embeddings processing failed:', embeddingsResult.reason);
+    }
+
+    const totalTime = Date.now() - startTime;
+    console.log(`🏁 [PROCESS-TRANSCRIPT] TRAITEMENT UNIFIÉ COMPLÈTEMENT TERMINÉ (${totalTime}ms)`);
+    console.log(`📊 [PROCESS-TRANSCRIPT] RÉSUMÉ FINAL UNIFIÉ: ${tasksCreated} todos avec ${recommendationsGenerated} recommandations, résumé: ${summaryGenerated ? 'OUI' : 'NON'}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      tasksCreated: tasksCreated,
+      documentProcessed: documentProcessed,
+      chunksProcessed: embeddingsResult.status === 'fulfilled' ? embeddingsResult.value?.chunksCount || 0 : 0,
+      transcriptCleaned: transcriptCleaned,
+      summaryGenerated: summaryGenerated,
+      recommendationsGenerated: recommendationsGenerated > 0,
+      recommendationStats: {
+        processed: tasksCreated,
+        successful: recommendationsGenerated,
+        failed: unifiedResult.status === 'fulfilled' ? 0 : 1
+      },
+      fullyCompleted: unifiedResult.status === 'fulfilled' && embeddingsResult.status === 'fulfilled',
+      unified: true,
+      gpt5Unified: true,
+      parallelProcessing: {
+        unifiedGPT5Success: unifiedResult.status === 'fulfilled',
+        embeddingsSuccess: embeddingsResult.status === 'fulfilled'
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('❌ [PROCESS-TRANSCRIPT] Error processing transcript:', error);
     console.error('❌ [PROCESS-TRANSCRIPT] Stack trace:', error.stack);
+    
+    // Essayer de sauvegarder au moins le transcript brut si le traitement unifié échoue
+    try {
+      console.log('🔄 [PROCESS-TRANSCRIPT] Attempting to save raw transcript as fallback...');
+      const supabaseClient = createSupabaseClient();
+      await saveTranscript(supabaseClient, meetingId, transcript);
+    } catch (fallbackError) {
+      console.error('❌ [PROCESS-TRANSCRIPT] Failed to save fallback transcript:', fallbackError);
+    }
+    
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
       fullyCompleted: false,
-      unified: true
+      unified: true,
+      gpt5Unified: true
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

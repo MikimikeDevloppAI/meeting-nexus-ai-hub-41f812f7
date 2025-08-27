@@ -1,13 +1,13 @@
 
-export async function callOpenAI(prompt: string, openAIKey: string, temperature: number = 0.3, model: string = 'gpt-4o', maxRetries: number = 3, maxTokens?: number) {
+export async function callOpenAI(prompt: string, openAIKey: string, temperature?: number, model: string = 'gpt-4o', maxRetries: number = 3, maxTokens?: number) {
   console.log('🔄 Making OpenAI API call...')
   console.log('🤖 Using model:', model)
   console.log('📏 Prompt length:', prompt.length, 'characters')
   console.log('🔁 Max retries:', maxRetries)
   
-  // Définir max_tokens selon le modèle si non spécifié
-  const defaultMaxTokens = maxTokens || (model.includes('gpt-4.1') ? 16384 : 4096);
-  console.log('🎯 Max tokens:', defaultMaxTokens)
+  // Définir max_tokens selon le modèle si non spécifié - undefined permet des réponses illimitées
+  const defaultMaxTokens = maxTokens === undefined ? undefined : (maxTokens || (model.includes('gpt-4.1') ? 16384 : 4096));
+  console.log('🎯 Max tokens:', defaultMaxTokens === undefined ? 'UNLIMITED' : defaultMaxTokens)
   
   let lastError: Error | null = null;
   
@@ -16,24 +16,48 @@ export async function callOpenAI(prompt: string, openAIKey: string, temperature:
       console.log(`📡 Attempt ${attempt}/${maxRetries} - Making request to OpenAI...`);
       
       const isNewModel = /gpt-5.*|gpt-4\.1.*|o4.*|o3.*/.test(model);
+      const isGPT5 = /gpt-5.*/.test(model);
+      
       const payload: any = {
         model,
         messages: [{ role: 'user', content: prompt }],
       };
       
-      // Only add temperature for older models
-      if (!isNewModel && temperature !== null && temperature !== undefined) {
-        payload.temperature = temperature;
-        console.log('🌡️ Adding temperature:', temperature, 'to older model');
-      } else if (isNewModel) {
-        console.log('🌡️ Skipping temperature for newer model:', model);
-      }
-      
-      if (isNewModel) {
-        // Newer models require 'max_completion_tokens'
-        payload.max_completion_tokens = defaultMaxTokens;
+      // GPT-5 specific configuration
+      if (isGPT5) {
+        console.log('⚡ GPT-5 detected - applying specialized configuration');
+        payload.reasoning_effort = 'medium'; // Équilibrer qualité/performance
+        console.log('🧠 Setting reasoning_effort to medium for GPT-5');
+        
+        // GPT-5 ne supporte pas temperature
+        console.log('🌡️ Skipping temperature for GPT-5 (not supported)');
+        
+        // Ajouter max_completion_tokens seulement si spécifié
+        if (defaultMaxTokens !== undefined) {
+          payload.max_completion_tokens = defaultMaxTokens;
+          console.log('🎯 Adding max_completion_tokens:', defaultMaxTokens);
+        } else {
+          console.log('🔄 No token limit - allowing unlimited response for GPT-5');
+        }
       } else {
-        payload.max_tokens = defaultMaxTokens;
+        // Configuration pour modèles plus anciens
+        if (!isNewModel && temperature !== null && temperature !== undefined) {
+          payload.temperature = temperature;
+          console.log('🌡️ Adding temperature:', temperature, 'to older model');
+        } else if (isNewModel) {
+          console.log('🌡️ Skipping temperature for newer model:', model);
+        }
+        
+        if (isNewModel) {
+          // Newer models require 'max_completion_tokens'
+          if (defaultMaxTokens !== undefined) {
+            payload.max_completion_tokens = defaultMaxTokens;
+          }
+        } else {
+          if (defaultMaxTokens !== undefined) {
+            payload.max_tokens = defaultMaxTokens;
+          }
+        }
       }
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
