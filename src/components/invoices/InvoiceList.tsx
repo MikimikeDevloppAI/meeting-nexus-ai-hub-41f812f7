@@ -431,20 +431,44 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   const viewFile = async (filePath: string, filename: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('invoices')
-        .createSignedUrl(filePath, 3600); // 1 hour expiry
+      const fileExtension = filename.toLowerCase().split('.').pop();
+      const isPdf = fileExtension === 'pdf';
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '');
 
-      if (error) throw error;
+      if (isPdf) {
+        // Pour les PDFs, télécharger le fichier
+        const { data, error } = await supabase.storage
+          .from('invoices')
+          .download(filePath);
 
-      if (data?.signedUrl) {
-        // Check if the URL is already absolute or needs the base URL
-        const url = data.signedUrl.startsWith('http') 
-          ? data.signedUrl 
-          : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        if (error) throw error;
+
+        if (data) {
+          const url = URL.createObjectURL(data);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      } else if (isImage) {
+        // Pour les images, visualiser en ligne
+        const { data, error } = await supabase.storage
+          .from('invoices')
+          .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+        if (error) throw error;
+
+        if (data?.signedUrl) {
+          const url = data.signedUrl.startsWith('http') 
+            ? data.signedUrl 
+            : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
       } else {
-        toast.error('Impossible de générer l\'URL du fichier');
+        toast.error('Type de fichier non supporté');
       }
     } catch (error) {
       console.error('Error viewing file:', error);

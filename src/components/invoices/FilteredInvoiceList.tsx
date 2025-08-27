@@ -106,18 +106,44 @@ export function FilteredInvoiceList({
   });
 
   // Function to view file in bucket (signed URL because invoices bucket is private)
-  const viewFile = async (filePath: string) => {
+  const viewFile = async (filePath: string, filename?: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('invoices')
-        .createSignedUrl(filePath, 60 * 5); // 5 minutes
-      if (error || !data?.signedUrl) throw error || new Error('No signed URL');
-      
-      // Check if the URL is already absolute or needs the base URL
-      const url = data.signedUrl.startsWith('http') 
-        ? data.signedUrl 
-        : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const fileExtension = filename?.toLowerCase().split('.').pop() || filePath.toLowerCase().split('.').pop();
+      const isPdf = fileExtension === 'pdf';
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '');
+
+      if (isPdf) {
+        // Pour les PDFs, télécharger le fichier
+        const { data, error } = await supabase.storage
+          .from('invoices')
+          .download(filePath);
+
+        if (error) throw error;
+
+        if (data) {
+          const url = URL.createObjectURL(data);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename || filePath.split('/').pop() || 'invoice.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      } else if (isImage) {
+        // Pour les images, visualiser en ligne
+        const { data, error } = await supabase.storage
+          .from('invoices')
+          .createSignedUrl(filePath, 60 * 5); // 5 minutes
+        if (error || !data?.signedUrl) throw error || new Error('No signed URL');
+        
+        const url = data.signedUrl.startsWith('http') 
+          ? data.signedUrl 
+          : `https://ecziljpkvshvapjsxaty.supabase.co${data.signedUrl}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        console.error('Type de fichier non supporté');
+      }
     } catch (err) {
       console.error('Erreur d\'ouverture du fichier:', err);
     }
@@ -325,7 +351,7 @@ export function FilteredInvoiceList({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => viewFile(invoice.file_path)}
+                        onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
                         className="flex items-center gap-1"
                       >
                         <Eye className="h-4 w-4" />
