@@ -832,7 +832,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Commun">Commun</SelectItem>
-                <SelectItem value="David">David</SelectItem>
+                <SelectItem value="David Tabibian">David Tabibian</SelectItem>
               </SelectContent>
             </Select>
           </div>
