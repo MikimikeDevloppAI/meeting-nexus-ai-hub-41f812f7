@@ -97,6 +97,8 @@ EXTRACTION RULES:
 2. payment_date:
    - If receipt: use the date shown on the receipt
    - If invoice: if no handwritten payment date is present, use today's date (YYYY-MM-DD)
+   - IMPORTANT: All dates must be in 2025 or later. If year is missing or unclear, use current year (2025)
+   - If extracted date is before 2025, assume current year (2025)
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
 5. invoice_type: Choose the most appropriate category from the available invoice types above based on what was purchased

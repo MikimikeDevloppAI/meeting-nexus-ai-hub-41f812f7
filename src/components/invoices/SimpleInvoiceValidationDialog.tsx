@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building, Calendar, DollarSign, User } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface Invoice {
   id: string;
@@ -60,6 +61,25 @@ export function SimpleInvoiceValidationDialog({
     exchange_rate: 1
   });
   const [saving, setSaving] = useState(false);
+
+  // Récupérer les fournisseurs existants
+  const { data: existingSuppliers = [] } = useQuery({
+    queryKey: ['existing-suppliers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('supplier_name')
+        .eq('status', 'validated')
+        .not('supplier_name', 'is', null)
+        .not('supplier_name', 'eq', '');
+
+      if (error) throw error;
+
+      // Récupérer les noms uniques et les nettoyer
+      const uniqueSuppliers = [...new Set(data.map(s => s.supplier_name))];
+      return uniqueSuppliers.sort();
+    }
+  });
 
   useEffect(() => {
     if (invoice) {
@@ -136,11 +156,30 @@ export function SimpleInvoiceValidationDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Input
-                  value={formData.supplier_name}
-                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
-                  placeholder="Nom du fournisseur"
-                />
+                <Select 
+                  value={formData.supplier_name} 
+                  onValueChange={(value) => handleInputChange('supplier_name', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un fournisseur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingSuppliers.map((supplier) => (
+                      <SelectItem key={supplier} value={supplier}>
+                        {supplier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Option pour saisir un nouveau fournisseur */}
+                <div className="mt-2">
+                  <Input
+                    value={formData.supplier_name}
+                    onChange={(e) => handleInputChange('supplier_name', e.target.value)}
+                    placeholder="Ou saisir un nouveau fournisseur"
+                    className="text-sm"
+                  />
+                </div>
               </CardContent>
             </Card>
 
