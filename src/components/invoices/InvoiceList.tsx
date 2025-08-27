@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown, UserPlus, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
@@ -131,6 +131,41 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       return data as Invoice[];
     }
   });
+
+  // Query pour récupérer tous les fournisseurs existants (factures validées)
+  const { data: existingSuppliers = [] } = useQuery({
+    queryKey: ['existing-suppliers', refreshKey],
+    queryFn: async () => {
+      console.log('Fetching existing suppliers...');
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('supplier_name')
+        .eq('status', 'validated')
+        .not('supplier_name', 'is', null)
+        .not('supplier_name', 'eq', '');
+
+      if (error) {
+        console.error('Error fetching existing suppliers:', error);
+        throw error;
+      }
+
+      // Récupérer les noms uniques et les nettoyer
+      const uniqueSuppliers = [...new Set(data.map(s => formatSupplierName(s.supplier_name)))];
+      console.log('Existing suppliers:', uniqueSuppliers);
+      return uniqueSuppliers;
+    }
+  });
+
+  // Fonction pour déterminer si un fournisseur est nouveau
+  const isNewSupplier = (supplierName: string | null | undefined): boolean => {
+    if (!supplierName) return true;
+    
+    const cleanedName = formatSupplierName(supplierName).toLowerCase().trim();
+    
+    return !existingSuppliers.some(existing => 
+      existing.toLowerCase().trim() === cleanedName
+    );
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -607,6 +642,20 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               <span className="text-sm font-medium text-gray-700">Fournisseur</span>
               <span className="text-red-500">*</span>
               {!invoice.supplier_name && <AlertCircle className="h-3 w-3 text-red-500" />}
+              {/* Badge pour indiquer si le fournisseur est nouveau ou existant */}
+              {invoice.supplier_name && (
+                isNewSupplier(invoice.supplier_name) ? (
+                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs ml-2">
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Nouveau
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs ml-2">
+                    <Users className="h-3 w-3 mr-1" />
+                    Existant
+                  </Badge>
+                )
+              )}
             </div>
             <Input
               value={invoice.supplier_name || ''}
