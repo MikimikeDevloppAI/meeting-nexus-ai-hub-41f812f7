@@ -20,9 +20,16 @@ serve(async (req) => {
   try {
     const { meetingId, transcript, participants: meetingParticipants } = await req.json();
 
+    console.log(`🚀 [PROCESS-TRANSCRIPT] DÉBUT traitement UNIFIÉ - ${new Date().toISOString()}`);
     console.log(`📝 [PROCESS-TRANSCRIPT] Processing transcript for meeting: ${meetingId}`);
-    console.log(`👥 [PROCESS-TRANSCRIPT] Meeting participants:`, meetingParticipants?.map(p => p.name));
+    console.log(`👥 [PROCESS-TRANSCRIPT] Meeting participants:`, JSON.stringify(meetingParticipants?.map(p => `"${p.name || p.email}"`)));
     console.log(`📊 [PROCESS-TRANSCRIPT] Transcript length: ${transcript?.length || 0} characters`);
+    console.log(`🔧 [PROCESS-TRANSCRIPT] Payload validation:`, {
+      hasMeetingId: !!meetingId,
+      hasTranscript: !!transcript,
+      hasParticipants: !!meetingParticipants,
+      participantsIsArray: Array.isArray(meetingParticipants)
+    });
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {

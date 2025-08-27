@@ -109,14 +109,21 @@ export const useSimpleMeetingCreation = () => {
           console.log('[PROCESS] 🎯 Redirection automatique simple activée - vérifiera les todos créés');
           
           // Start AI processing without waiting (let it run in background)
+          console.log('[PROCESS] 🎯 Starting GPT-5 unified processing with participants:', selectedUsers.map(u => u.name));
           AudioProcessingService.processTranscriptWithAI(
             transcript,
             selectedUsers,
             meetingId
           ).then(result => {
-            console.log('[PROCESS] ✅ AI processing completed:', result);
+            console.log('[PROCESS] ✅ GPT-5 unified processing completed:', result);
           }).catch(error => {
-            console.error('[PROCESS] ❌ AI processing error:', error);
+            console.error('[PROCESS] ❌ GPT-5 unified processing error:', error);
+            console.error('[PROCESS] Error details:', {
+              message: error.message,
+              stack: error.stack,
+              meetingId,
+              participantCount: selectedUsers.length
+            });
           });
 
           toast({

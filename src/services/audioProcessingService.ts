@@ -292,20 +292,33 @@ export class AudioProcessingService {
     participants: any[],
     meetingId: string
   ) {
-    console.log('[OPENAI] Starting transcript processing...');
+    console.log('[PROCESS-TRANSCRIPT] 🚀 Starting transcript processing...');
+    console.log('[PROCESS-TRANSCRIPT] 📊 Payload details:', {
+      meetingId,
+      participantsCount: participants.length,
+      participantNames: participants.map(p => p.name || p.email || 'Unknown'),
+      transcriptLength: transcript.length
+    });
     
     try {
+      console.log('[PROCESS-TRANSCRIPT] 🔄 Calling process-transcript edge function...');
       const response = await supabase.functions.invoke('process-transcript', {
         body: {
           meetingId,
-          participants,
-          transcript // Pass the transcript directly
+          participants, // This will be destructured as 'meetingParticipants' in the edge function
+          transcript
         }
       });
 
+      console.log('[PROCESS-TRANSCRIPT] 📡 Raw response received:', {
+        hasData: !!response.data,
+        hasError: !!response.error,
+        errorDetails: response.error
+      });
+
       if (response.error) {
-        console.error('[OPENAI] Edge function error:', response.error);
-        throw new Error(`OpenAI processing failed: ${response.error.message}`);
+        console.error('[PROCESS-TRANSCRIPT] ❌ Edge function error:', response.error);
+        throw new Error(`Process-transcript failed: ${response.error.message}`);
       }
 
       const result = response.data;
