@@ -5,17 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building, Calendar, DollarSign, User } from "lucide-react";
+import { Building, Calendar, DollarSign, User, Check, ChevronsUpDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 interface Invoice {
   id: string;
   original_filename: string;
   status: string;
   compte: string;
-  purchase_category?: string;
+  invoice_type?: string;
   invoice_date?: string;
   payment_date?: string;
   total_amount?: number;
@@ -54,13 +57,14 @@ export function SimpleInvoiceValidationDialog({
   const [formData, setFormData] = useState({
     supplier_name: '',
     payment_date: '',
-    purchase_category: '',
+    invoice_type: '',
     currency: 'CHF',
     compte: 'Commun',
     total_amount: 0,
     exchange_rate: 1
   });
   const [saving, setSaving] = useState(false);
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
 
   // Récupérer les fournisseurs existants
   const { data: existingSuppliers = [] } = useQuery({
@@ -86,7 +90,7 @@ export function SimpleInvoiceValidationDialog({
       setFormData({
         supplier_name: invoice.supplier_name || '',
         payment_date: formatDateForInput(invoice.payment_date || invoice.invoice_date),
-        purchase_category: invoice.purchase_category || '',
+        invoice_type: invoice.invoice_type || '',
         currency: invoice.currency || 'CHF',
         compte: invoice.compte || 'Commun',
         total_amount: invoice.total_amount || 0,
@@ -100,7 +104,7 @@ export function SimpleInvoiceValidationDialog({
   };
 
   const handleSave = async () => {
-    if (!formData.supplier_name || !formData.payment_date || !formData.purchase_category) {
+    if (!formData.supplier_name || !formData.payment_date || !formData.invoice_type) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -110,7 +114,7 @@ export function SimpleInvoiceValidationDialog({
       const updateData = {
         supplier_name: formData.supplier_name,
         payment_date: formData.payment_date,
-        purchase_category: formData.purchase_category,
+        invoice_type: formData.invoice_type,
         currency: formData.currency,
         compte: formData.compte,
         total_amount: formData.total_amount,
@@ -156,30 +160,56 @@ export function SimpleInvoiceValidationDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Select 
-                  value={formData.supplier_name} 
-                  onValueChange={(value) => handleInputChange('supplier_name', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un fournisseur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingSuppliers.map((supplier) => (
-                      <SelectItem key={supplier} value={supplier}>
-                        {supplier}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* Option pour saisir un nouveau fournisseur */}
-                <div className="mt-2">
-                  <Input
-                    value={formData.supplier_name}
-                    onChange={(e) => handleInputChange('supplier_name', e.target.value)}
-                    placeholder="Ou saisir un nouveau fournisseur"
-                    className="text-sm"
-                  />
-                </div>
+                <Popover open={supplierDropdownOpen} onOpenChange={setSupplierDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={supplierDropdownOpen}
+                      className="w-full justify-between"
+                    >
+                      {formData.supplier_name || "Sélectionner ou saisir un fournisseur"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0 bg-card border shadow-md z-[100]" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                    <Command>
+                      <CommandInput 
+                        placeholder="Rechercher ou saisir un fournisseur..." 
+                        value={formData.supplier_name}
+                        onValueChange={(value) => handleInputChange('supplier_name', value)}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          <div className="p-2 text-sm text-muted-foreground">
+                            Aucun fournisseur trouvé. Le texte saisi sera utilisé comme nouveau fournisseur.
+                          </div>
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {existingSuppliers.map((supplier) => (
+                            <CommandItem
+                              key={supplier}
+                              value={supplier}
+                              onSelect={(currentValue) => {
+                                handleInputChange('supplier_name', currentValue);
+                                setSupplierDropdownOpen(false);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.supplier_name === supplier ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {supplier}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </CardContent>
             </Card>
 
@@ -204,7 +234,7 @@ export function SimpleInvoiceValidationDialog({
                 <CardTitle className="text-lg">Catégorie</CardTitle>
               </CardHeader>
               <CardContent>
-                <Select value={formData.purchase_category} onValueChange={(value) => handleInputChange('purchase_category', value)}>
+                <Select value={formData.invoice_type} onValueChange={(value) => handleInputChange('invoice_type', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
@@ -224,7 +254,6 @@ export function SimpleInvoiceValidationDialog({
                     <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
                     <SelectItem value="nourritures">Nourritures</SelectItem>
                     <SelectItem value="télécommunication">Télécommunication</SelectItem>
-                    <SelectItem value="non assigné">Non assigné</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
