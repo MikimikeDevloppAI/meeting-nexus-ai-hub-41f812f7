@@ -55,6 +55,33 @@ interface SearchFilters {
   maxAmount?: number;
 }
 
+// Helper function to properly decode and display supplier names
+function formatSupplierName(supplierName?: string): string {
+  if (!supplierName) return '';
+  
+  try {
+    let decoded = supplierName;
+    
+    // First handle common UTF-8 encoding issues
+    decoded = decoded
+      .replace(/Ã©/g, 'é')
+      .replace(/Ã¨/g, 'è')
+      .replace(/Ã /g, 'à')
+      .replace(/Ã§/g, 'ç')
+      .replace(/Ã´/g, 'ô')
+      .replace(/Ã¢/g, 'â')
+      .replace(/Ã¯/g, 'ï')
+      .replace(/Ã«/g, 'ë')
+      .replace(/Ã¹/g, 'ù')
+      .replace(/Ã»/g, 'û');
+    
+    return decoded || supplierName;
+  } catch (error) {
+    console.error('Error decoding supplier name:', error, 'Original:', supplierName);
+    return supplierName || '';
+  }
+}
+
 export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   // Fonction pour créer une date au format YYYY-MM-DD sans problème de fuseau horaire
   const formatDateForInput = (year: number, month: number, day: number): string => {
@@ -157,7 +184,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       if (filters.compte && invoice.compte !== filters.compte) return false;
       
       // Filtre par fournisseur (insensible à la casse)
-      if (filters.supplier && invoice.supplier_name?.toLowerCase() !== filters.supplier.toLowerCase()) return false;
+      if (filters.supplier && !formatSupplierName(invoice.supplier_name)?.toUpperCase().includes(filters.supplier.toUpperCase())) return false;
       
       return true;
     });

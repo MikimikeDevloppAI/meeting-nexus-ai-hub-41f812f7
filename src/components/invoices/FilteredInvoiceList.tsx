@@ -166,7 +166,7 @@ export function FilteredInvoiceList({
         return false;
       }
       
-      if (filters.supplier !== 'all' && !formatSupplierName(invoice.supplier_name)?.toUpperCase().includes(filters.supplier)) {
+      if (filters.supplier !== 'all' && !formatSupplierName(invoice.supplier_name)?.toUpperCase().includes(filters.supplier.toUpperCase())) {
         return false;
       }
       
