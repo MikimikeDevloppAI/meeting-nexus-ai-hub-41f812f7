@@ -673,7 +673,7 @@ export default function Todos() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="w-full mt-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                          className="w-full mt-2 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
                         >
                           {isExpanded ? (
                             <>
@@ -689,7 +689,7 @@ export default function Todos() {
                         </Button>
                       </CollapsibleTrigger>
                       
-                      <CollapsibleContent className="space-y-4 pt-4">
+                      <CollapsibleContent className="space-y-4 pt-2">
                         {/* Attachments and Subtasks */}
                         <div className="space-y-4 pt-4 border-t border-gray-100">
                           <TodoAttachments todoId={todo.id} />
