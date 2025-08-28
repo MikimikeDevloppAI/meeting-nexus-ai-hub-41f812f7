@@ -138,11 +138,9 @@ const AppSidebar: React.FC = () => {
     <Sidebar className="bg-background border-r border-border">
       <SidebarHeader className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-            <CheckSquare className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <Logo size="lg" />
           <div>
-            <h1 className="text-lg font-semibold text-foreground">OphtaCare Pro</h1>
+            <h1 className="text-lg font-semibold text-foreground">OphtaCare</h1>
           </div>
         </div>
       </SidebarHeader>
@@ -150,7 +148,7 @@ const AppSidebar: React.FC = () => {
       <SidebarContent className="px-4 py-6">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+            <SidebarMenu className="space-y-1">
               {/* Menu items filtrés par permissions */}
               {menuItems
                 .filter(item => {
@@ -164,7 +162,7 @@ const AppSidebar: React.FC = () => {
                   const menuButton = (
                     <SidebarMenuButton
                       onClick={() => handleNavigation(item.url)}
-                      className={`flex items-center gap-4 w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                      className={`flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 ${
                         isActive 
                           ? "bg-primary text-primary-foreground font-medium shadow-sm" 
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -202,7 +200,7 @@ const AppSidebar: React.FC = () => {
               {/* Badge todos toujours monté pour garantir la mise à jour en temps réel même pendant le chargement des permissions */}
               {loading && menuItems.find(item => item.permission === "todos") && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="flex items-center gap-4 w-full px-4 py-3 rounded-xl text-muted-foreground">
+                  <SidebarMenuButton className="flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-muted-foreground">
                     <CheckSquare className="h-5 w-5 flex-shrink-0" />
                     <span className="text-base font-medium">À faire</span>
                     <div className="ml-auto">
