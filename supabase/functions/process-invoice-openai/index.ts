@@ -61,10 +61,10 @@ serve(async (req) => {
     const isPdf = invoice.file_path.toLowerCase().endsWith('.pdf') || 
                   invoice.content_type === 'application/pdf';
     
-    let imageUrlForAnalysis = signedUrlData.signedUrl;
+    let imageUrlsForAnalysis = [signedUrlData.signedUrl];
     
     if (isPdf) {
-      console.log('PDF detected, converting to image for OpenAI analysis...');
+      console.log('PDF detected, converting to image(s) for OpenAI analysis...');
       
       try {
         // Appeler la fonction de conversion PDF vers image
@@ -77,12 +77,12 @@ serve(async (req) => {
         }
 
         const conversionData = conversionResponse.data;
-        if (!conversionData?.success || !conversionData?.imageUrl) {
-          throw new Error('PDF conversion did not return a valid image URL');
+        if (!conversionData?.success || !conversionData?.imageUrls || !Array.isArray(conversionData.imageUrls)) {
+          throw new Error('PDF conversion did not return valid image URLs');
         }
 
-        imageUrlForAnalysis = conversionData.imageUrl;
-        console.log('PDF successfully converted to image for analysis');
+        imageUrlsForAnalysis = conversionData.imageUrls;
+        console.log(`PDF successfully converted to ${imageUrlsForAnalysis.length} image(s) for analysis`);
         
       } catch (conversionError) {
         console.error('PDF conversion error:', conversionError);
@@ -120,9 +120,9 @@ serve(async (req) => {
     ];
 
     // Construire le prompt pour OpenAI
-    const prompt = `Analyze this invoice/receipt image and extract information for ALL invoices/receipts visible in the document.
+    const prompt = `Analyze ${imageUrlsForAnalysis.length === 1 ? 'this invoice/receipt image' : `these ${imageUrlsForAnalysis.length} pages of invoice/receipt images`} and extract information for ALL invoices/receipts visible across ${imageUrlsForAnalysis.length === 1 ? 'the document' : 'all pages'}.
 
-IMPORTANT: If there are multiple invoices/receipts in this single document, return an array with one object for each invoice. If there's only one invoice, still return an array with one object.
+IMPORTANT: ${imageUrlsForAnalysis.length > 1 ? `You are analyzing ${imageUrlsForAnalysis.length} pages of the same document. Look across ALL pages to find invoices/receipts.` : ''} If there are multiple invoices/receipts in this document, return an array with one object for each invoice. If there's only one invoice, still return an array with one object.
 
 EXISTING SUPPLIERS (use exact match if similar):
 ${existingSuppliers.map(s => `- "${s}"`).join('\n')}
@@ -162,6 +162,20 @@ Return ONLY valid JSON array in this exact format (even for single invoice):
   }
 ]`;
 
+    // Construire le contenu avec toutes les images
+    const messageContent = [
+      {
+        type: 'text',
+        text: prompt
+      },
+      ...imageUrlsForAnalysis.map(url => ({
+        type: 'image_url',
+        image_url: {
+          url: url
+        }
+      }))
+    ];
+
     // Appeler OpenAI Vision API
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -174,21 +188,10 @@ Return ONLY valid JSON array in this exact format (even for single invoice):
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageUrlForAnalysis
-                }
-              }
-            ]
+            content: messageContent
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0.1
       }),
     });

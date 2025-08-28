@@ -168,10 +168,6 @@ serve(async (req) => {
               }
             },
             {
-              Name: 'PageRange',
-              Value: '1'
-            },
-            {
               Name: 'StoreFile',
               Value: true
             }
@@ -212,90 +208,76 @@ serve(async (req) => {
       );
     }
 
-    const imageUrl = conversionResult.Files[0].Url;
+    console.log(`📄 Found ${conversionResult.Files.length} page(s) to process`);
 
-    // Step 5: Download the converted image
-    console.log('📥 Downloading converted image from:', imageUrl);
-    let imageArrayBuffer: ArrayBuffer;
+    // Step 5: Download and upload all converted images
+    const imageUrls: string[] = [];
+    const timestamp = Date.now();
     
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    for (let i = 0; i < conversionResult.Files.length; i++) {
+      const file = conversionResult.Files[i];
+      const pageNumber = i + 1;
       
-      const imageResponse = await fetch(imageUrl, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!imageResponse.ok) {
-        throw new Error(`HTTP ${imageResponse.status}: ${imageResponse.statusText}`);
-      }
-
-      const imageBlob = await imageResponse.blob();
-      imageArrayBuffer = await imageBlob.arrayBuffer();
-      console.log('📥 Downloaded image size:', imageArrayBuffer.byteLength);
-      
-    } catch (imageDownloadError) {
-      console.error('❌ Image download error:', imageDownloadError);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Failed to download converted image: ${imageDownloadError.message}`,
-          stage: 'image_download'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
-      );
-    }
-
-    // Step 6: Upload the image to Supabase Storage
-    const fileName = `pdf_conversion_${Date.now()}.png`;
-    console.log('📤 Uploading to Supabase Storage as:', fileName);
-    
-    try {
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('letter-templates')
-        .upload(fileName, imageArrayBuffer, {
-          contentType: 'image/png',
-          cacheControl: '3600'
+      try {
+        console.log(`📥 Processing page ${pageNumber}/${conversionResult.Files.length} from: ${file.Url}`);
+        
+        // Download the converted image
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        const imageResponse = await fetch(file.Url, {
+          signal: controller.signal
         });
-
-      if (uploadError) {
-        console.error('❌ Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      console.log('✅ Upload successful:', uploadData);
-
-      // Step 7: Get public URL
-      const { data: urlData } = supabase.storage
-        .from('letter-templates')
-        .getPublicUrl(fileName);
-
-      console.log('🔗 Public URL generated:', urlData.publicUrl);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          imageUrl: urlData.publicUrl,
-          originalPdfUrl: pdfUrl
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
+        
+        clearTimeout(timeoutId);
+        
+        if (!imageResponse.ok) {
+          throw new Error(`HTTP ${imageResponse.status}: ${imageResponse.statusText}`);
         }
-      );
-      
-    } catch (uploadError) {
-      console.error('❌ Storage upload error:', uploadError);
+
+        const imageBlob = await imageResponse.blob();
+        const imageArrayBuffer = await imageBlob.arrayBuffer();
+        console.log(`📥 Downloaded page ${pageNumber} image size:`, imageArrayBuffer.byteLength);
+        
+        // Upload to Supabase Storage with page number
+        const fileName = `pdf_conversion_${timestamp}_page_${pageNumber}.png`;
+        console.log(`📤 Uploading page ${pageNumber} to Supabase Storage as:`, fileName);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('letter-templates')
+          .upload(fileName, imageArrayBuffer, {
+            contentType: 'image/png',
+            cacheControl: '3600'
+          });
+
+        if (uploadError) {
+          console.error(`❌ Upload error for page ${pageNumber}:`, uploadError);
+          throw uploadError;
+        }
+
+        console.log(`✅ Upload successful for page ${pageNumber}:`, uploadData);
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('letter-templates')
+          .getPublicUrl(fileName);
+
+        imageUrls.push(urlData.publicUrl);
+        console.log(`🔗 Public URL generated for page ${pageNumber}:`, urlData.publicUrl);
+        
+      } catch (pageError) {
+        console.error(`❌ Error processing page ${pageNumber}:`, pageError);
+        // Continuer avec les autres pages même si une échoue
+        continue;
+      }
+    }
+
+    if (imageUrls.length === 0) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to upload image to storage: ${uploadError.message}`,
-          stage: 'storage_upload'
+          error: 'No pages could be processed successfully',
+          stage: 'image_processing'
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -303,6 +285,21 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log(`✅ Successfully processed ${imageUrls.length}/${conversionResult.Files.length} pages`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        imageUrls: imageUrls,
+        pageCount: imageUrls.length,
+        originalPdfUrl: pdfUrl
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
 
   } catch (error) {
     console.error('❌ Unexpected error in PDF to image conversion:', error);
