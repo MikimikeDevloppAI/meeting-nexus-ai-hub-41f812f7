@@ -67,7 +67,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
           />
           <div className="flex flex-col leading-tight">
             <span className="text-xl font-bold text-foreground">OphtaCare</span>
-            <span className="text-xl text-purple-600 font-bold">Hub</span>
+            <span className="text-xl text-primary font-bold">Hub</span>
           </div>
         </>
       )}
