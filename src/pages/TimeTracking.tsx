@@ -673,29 +673,28 @@ export default function TimeTracking() {
           <h1 className="text-2xl font-bold">Gestion du temps</h1>
           <p className="text-muted-foreground">Gérer vos heures supplémentaires et vacances</p>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Label htmlFor="year-select">Année :</Label>
-        <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-          <SelectTrigger className="w-[100px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(() => {
-              const currentYear = new Date().getFullYear();
-              const years = [];
-              for (let year = 2025; year <= currentYear; year++) {
-                years.push(year);
-              }
-              return years.map(year => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ));
-            })()}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="year-select">Année :</Label>
+          <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(() => {
+                const currentYear = new Date().getFullYear();
+                const years = [];
+                for (let year = 2025; year <= currentYear; year++) {
+                  years.push(year);
+                }
+                return years.map(year => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ));
+              })()}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="overtime" className="space-y-6">
@@ -778,7 +777,7 @@ export default function TimeTracking() {
             const overtimeDaysHalf = Math.floor(((netOvertimeHoursYear / 8)) * 2) / 2;
             
             return (
-                <Card>
+                <Card className="shadow-md hover:shadow-lg transition-shadow">
                  <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
@@ -832,14 +831,14 @@ export default function TimeTracking() {
 
           <div className="grid gap-4">
             {vacations.filter(vacation => vacation.user_id === user?.id).length === 0 ? (
-              <Card>
+              <Card className="shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="text-center py-8">
                   <p className="text-gray-500">Aucune demande de vacances trouvée</p>
                 </CardContent>
               </Card>
             ) : (
               vacations.filter(vacation => vacation.user_id === user?.id).map((vacation) => (
-                <Card key={vacation.id}>
+                <Card key={vacation.id} className="shadow-md hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start">
                       <div className="space-y-2">
