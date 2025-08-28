@@ -212,7 +212,44 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
               dot={{ fill: chartConfig.total.color, strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6, fill: chartConfig.total.color, strokeWidth: 2 }}
               connectNulls={false}
-            />
+            >
+              <LabelList 
+                dataKey="total" 
+                position="top"
+                content={({ x, y, width, value }) => {
+                  if (!value || value === 0) return null;
+                  const xPos = Number(x) || 0;
+                  const yPos = Number(y) || 0;
+                  
+                  return (
+                    <g>
+                      <rect
+                        x={xPos - 35}
+                        y={yPos - 25}
+                        width="70"
+                        height="20"
+                        rx="10"
+                        ry="10"
+                        fill="hsla(var(--background) / 0.95)"
+                        stroke="hsl(var(--border))"
+                        strokeWidth="1"
+                        style={{ filter: 'drop-shadow(0 2px 4px hsla(0, 0%, 0%, 0.1))' }}
+                      />
+                      <text
+                        x={xPos}
+                        y={yPos - 12}
+                        textAnchor="middle"
+                        fill="hsl(var(--foreground))"
+                        fontSize="11"
+                        fontWeight="500"
+                      >
+                        {formatAmount(Number(value))}
+                      </text>
+                    </g>
+                  );
+                }}
+              />
+            </Line>
           </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
