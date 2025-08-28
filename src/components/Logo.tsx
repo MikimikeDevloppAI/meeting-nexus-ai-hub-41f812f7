@@ -58,12 +58,18 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showText && (
-        <img
-          src="/lovable-uploads/962abc47-605f-4377-a4e1-73a3a102d544.png"
-          alt="OphtaCare Hub Logo"
-          className="w-full h-16 object-contain"
-          loading="lazy"
-        />
+        <>
+          <img
+            src="/lovable-uploads/c22506f3-bb81-420d-800e-b3eb3f527868.png"
+            alt="OphtaCare Hub Logo"
+            className="h-12 w-12 object-contain"
+            loading="lazy"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-xl font-bold text-foreground">OphtaCare</span>
+            <span className="text-xl text-purple-600 font-bold">Hub</span>
+          </div>
+        </>
       )}
     </div>
   );
