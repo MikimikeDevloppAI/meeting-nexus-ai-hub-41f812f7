@@ -883,8 +883,8 @@ const GestionStock: React.FC = () => {
                     <CardHeader>
                       <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="h-64 flex items-center justify-center">
+                    <CardContent className="flex items-center justify-center">
+                      <div className="h-64 w-full flex items-center justify-center">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={monthsData}>
                             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
