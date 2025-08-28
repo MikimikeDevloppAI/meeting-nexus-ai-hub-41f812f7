@@ -580,7 +580,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   if (!invoices || invoices.length === 0) {
     return (
-      <Card>
+      <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardContent className="text-center py-8">
           <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600">Aucune facture trouvée</p>
@@ -654,7 +654,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
   // Fonction pour afficher une facture à valider avec champs modifiables
   const renderInvoiceToValidate = (invoice: Invoice) => (
-    <Card key={invoice.id} className="mb-4">
+    <Card key={invoice.id} className="mb-4 shadow-md hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -982,7 +982,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     const isEditing = editingInvoiceId === invoice.id;
     
     return (
-      <Card key={invoice.id} className="mb-4">
+      <Card key={invoice.id} className="mb-4 shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
