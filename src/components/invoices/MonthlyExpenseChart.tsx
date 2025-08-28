@@ -1,7 +1,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList, Tooltip, Legend } from "recharts";
 import { useMemo } from "react";
 
 interface Invoice {
@@ -17,18 +16,20 @@ interface MonthlyExpenseChartProps {
   dateTo?: string;
 }
 
+const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)'];
+
 const chartConfig = {
   commun: {
     label: "Commun",
-    color: "#3b82f6", // Bleu standard
+    color: palette[0],
   },
   david: {
-    label: "David Tabibian",
-    color: "#1d4ed8", // Bleu plus foncé
+    label: "David Tabibian", 
+    color: palette[1],
   },
   total: {
     label: "Tendance totale",
-    color: "#1e3a8a", // Bleu très foncé pour contraste
+    color: "hsl(var(--primary))",
   },
 };
 
@@ -106,71 +107,113 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
     return `${Math.round(value).toLocaleString('fr-CH')} CHF`;
   };
 
-  // Composant personnalisé pour les labels de la courbe de tendance avec style noir et centré
-  const TrendLineLabel = ({ x, y, value, viewBox }: any) => {
-    if (!value || value === 0) return null;
-    
-    const formattedValue = formatAmount(value);
-    const labelX = x;
-    const labelY = y; // Centré verticalement par rapport au point
-    
-    // Calculer la largeur du texte plus précisément
-    const textWidth = formattedValue.length * 5.5;
-    
-    return (
-      <g>
-        <rect
-          x={labelX - textWidth / 2}
-          y={labelY - 10}
-          width={textWidth}
-          height={20}
-          fill="#f3f4f6"
-          stroke="#d1d5db"
-          strokeWidth={1}
-          rx={4}
-          opacity={0.95}
-        />
-        <text
-          x={labelX}
-          y={labelY}
-          textAnchor="middle"
-          fontSize={10}
-          fill="#000000"
-          fontWeight="600"
-          dominantBaseline="middle"
-        >
-          {formattedValue}
-        </text>
-      </g>
-    );
-  };
-
   return (
-    <Card className="col-span-full">
+    <Card className="col-span-full shadow-md">
       <CardHeader>
         <CardTitle>Évolution Mensuelle des Dépenses</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ComposedChart data={monthlyData} margin={{ top: 50, right: 30, left: 20, bottom: 5 }}>
-            <XAxis dataKey="month" />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <ChartLegend content={<ChartLegendContent />} />
-            <Bar dataKey="commun" fill="var(--color-commun)" name="Commun" />
-            <Bar dataKey="david" fill="var(--color-david)" name="David Tabibian" />
+      <CardContent className="h-96">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={monthlyData} margin={{ top: 60, right: 30, left: 20, bottom: 20 }}>
+            <XAxis 
+              dataKey="month"
+              axisLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 }}
+              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            />
+            <YAxis />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                
+                return (
+                  <div style={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    boxShadow: '0 4px 12px hsla(0, 0%, 0%, 0.15)',
+                    minWidth: '180px'
+                  }}>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: 'hsl(var(--foreground))',
+                      marginBottom: '8px',
+                      textAlign: 'center',
+                      padding: '4px 8px',
+                      backgroundColor: 'hsl(var(--muted))',
+                      borderRadius: '6px'
+                    }}>
+                      {label}
+                    </div>
+                    {payload.map((entry, index) => (
+                      <div key={index} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '4px'
+                      }}>
+                        <div style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: entry.color,
+                        }} />
+                        <span style={{
+                          fontSize: '13px',
+                          color: 'hsl(var(--foreground))',
+                          flex: 1
+                        }}>
+                          {entry.name}
+                        </span>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: 'hsl(var(--foreground))'
+                        }}>
+                          {formatAmount(Number(entry.value))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }}
+            />
+            <Legend
+              verticalAlign="bottom"
+              align="center" 
+              iconType="circle"
+              wrapperStyle={{ paddingTop: '20px' }}
+              formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
+            />
+            <Bar 
+              dataKey="commun" 
+              fill={chartConfig.commun.color} 
+              name="Commun"
+              radius={[4, 4, 0, 0]}
+              stroke="hsl(var(--border))"
+              strokeWidth={1}
+            />
+            <Bar 
+              dataKey="david" 
+              fill={chartConfig.david.color} 
+              name="David Tabibian"
+              radius={[4, 4, 0, 0]}
+              stroke="hsl(var(--border))"
+              strokeWidth={1}
+            />
             <Line 
               type="monotone" 
               dataKey="total" 
-              stroke="var(--color-total)" 
+              stroke={chartConfig.total.color}
               strokeWidth={3}
               strokeDasharray="8 4"
               name="Tendance totale"
-              dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 5 }}
-            >
-              <LabelList content={TrendLineLabel} />
-            </Line>
+              dot={{ fill: chartConfig.total.color, strokeWidth: 2, r: 5 }}
+            />
           </ComposedChart>
-        </ChartContainer>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );
