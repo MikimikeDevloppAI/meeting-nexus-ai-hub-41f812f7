@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PlusCircle, ClipboardList, Pencil, Trash2, Phone } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
 // our new tables. We cast to any locally to avoid TS issues.
@@ -743,26 +744,26 @@ const GestionStock: React.FC = () => {
                           .map((c) => {
                             const prod = produits.find((p) => p.id === c.produit_id);
                             return (
-                              <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                <TableCell>{prod?.produit || ""}</TableCell>
-                                <TableCell>{c.numero_commande || "-"}</TableCell>
-                                <TableCell>{c.quantite_commande}</TableCell>
-                                <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                                <TableCell>{formatDateShort(c.date_commande)}</TableCell>
-                                <TableCell>{formatDateShort(c.date_reception)}</TableCell>
-                                <TableCell>{c.montant ?? "-"}</TableCell>
-                                <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
+                               <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                                 <TableCell>{prod?.produit || ""}</TableCell>
+                                 <TableCell>{c.numero_commande}</TableCell>
+                                 <TableCell>{c.quantite_commande}</TableCell>
+                                 <TableCell>{c.quantite_recue ?? 0}</TableCell>
+                                 <TableCell>{formatDateShort(c.date_commande)}</TableCell>
+                                 <TableCell>{formatDateShort(c.date_reception)}</TableCell>
+                                 <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
+                                 <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
+                                 <TableCell className="text-center">
+                                   <div className="flex items-center justify-center gap-1">
+                                     <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
+                                       <Pencil className="h-4 w-4" />
+                                     </Button>
+                                     <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   </div>
+                                 </TableCell>
+                               </TableRow>
                             );
                           })}
                       </TableBody>
@@ -770,50 +771,148 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-md border">
-                  <CardHeader>
-                    <CardTitle className="text-base">Injections récentes</CardTitle>
-                  </CardHeader>
-                  
-                  <CardContent>
-                    <Table className="font-calibri text-[15px] md:text-base">
-                      <TableHeader className="bg-table-header">
-                        <TableRow className="border-row">
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
-                          <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {injections
-                          .slice()
-                          .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
-                          .slice(0, 10)
-                          .map((inj) => {
-                            const prod = produits.find((p) => p.id === inj.produit_id);
-                            return (
-                              <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                <TableCell>{prod?.produit || ""}</TableCell>
-                                <TableCell>{inj.quantite ?? 1}</TableCell>
-                                <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="shadow-md border">
+                    <CardHeader>
+                      <CardTitle className="text-base">Injections récentes</CardTitle>
+                    </CardHeader>
+                    
+                    <CardContent>
+                      <Table className="font-calibri text-[15px] md:text-base">
+                        <TableHeader className="bg-table-header">
+                          <TableRow className="border-row">
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
+                            <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {injections
+                            .slice()
+                            .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
+                            .slice(0, 10)
+                            .map((inj) => {
+                              const prod = produits.find((p) => p.id === inj.produit_id);
+                              return (
+                                <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                                  <TableCell>{prod?.produit || ""}</TableCell>
+                                  <TableCell>{inj.quantite ?? 1}</TableCell>
+                                  <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-md border">
+                    <CardHeader>
+                      <CardTitle className="text-base">Tendance des injections par mois</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const monthsData = useMemo(() => {
+                          const months = [];
+                          const now = new Date();
+                          
+                          // Générer les 12 derniers mois
+                          for (let i = 11; i >= 0; i--) {
+                            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                            const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+                            const monthLabel = date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+                            
+                            months.push({
+                              month: monthKey,
+                              monthLabel,
+                              data: {}
+                            });
+                          }
+
+                          // Compter les injections par mois et par produit
+                          injections.forEach((inj) => {
+                            const injectionMonth = inj.date_injection.slice(0, 7);
+                            const monthData = months.find(m => m.month === injectionMonth);
+                            
+                            if (monthData) {
+                              const prod = produits.find(p => p.id === inj.produit_id);
+                              const produitName = prod?.produit || 'Inconnu';
+                              
+                              if (!monthData.data[produitName]) {
+                                monthData.data[produitName] = 0;
+                              }
+                              monthData.data[produitName] += inj.quantite ?? 1;
+                            }
+                          });
+
+                          // Obtenir tous les produits utilisés
+                          const allProducts = [...new Set(injections.map(inj => {
+                            const prod = produits.find(p => p.id === inj.produit_id);
+                            return prod?.produit || 'Inconnu';
+                          }))];
+
+                          // Transformer les données pour le graphique
+                          return months.map(m => {
+                            const result = { month: m.monthLabel };
+                            allProducts.forEach(product => {
+                              result[product] = m.data[product] || 0;
+                            });
+                            return result;
+                          });
+                        }, [injections, produits]);
+
+                        const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
+                        const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
+
+                        return (
+                          <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={monthsData}>
+                                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                                <XAxis 
+                                  dataKey="month" 
+                                  tick={{ fontSize: 12 }}
+                                  interval={1}
+                                />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'hsl(var(--background))',
+                                    border: '1px solid hsl(var(--border))',
+                                    borderRadius: '6px'
+                                  }}
+                                />
+                                <Legend />
+                                {products.slice(0, 6).map((product, index) => (
+                                  <Line
+                                    key={product}
+                                    type="monotone"
+                                    dataKey={product}
+                                    stroke={colors[index % colors.length]}
+                                    strokeWidth={2}
+                                    dot={{ r: 3 }}
+                                    activeDot={{ r: 5 }}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </CardContent>
           </Card>
