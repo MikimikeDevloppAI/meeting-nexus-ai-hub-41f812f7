@@ -872,19 +872,6 @@ export default function HRValidation() {
             })
           )}
 
-          {/* Sélecteur d'année pour les vacances */}
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">Année d'analyse :</label>
-            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           <TeamVacationCalendar vacations={vacations} />
         </TabsContent>
