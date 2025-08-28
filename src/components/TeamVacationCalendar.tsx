@@ -125,21 +125,6 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Légende */}
-          <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
-            <h4 className="font-medium text-sm w-full mb-2">Légende :</h4>
-            {TEAM_MEMBERS.map((member) => (
-              <div key={member.email} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    backgroundColor: member.color
-                  }}
-                />
-                <span className="text-sm font-medium">{member.displayName}</span>
-              </div>
-            ))}
-          </div>
 
           {/* Calendrier avec rendu personnalisé */}
           <div className="w-full rounded-md border p-3">
