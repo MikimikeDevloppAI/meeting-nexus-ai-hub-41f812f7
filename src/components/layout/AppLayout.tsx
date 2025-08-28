@@ -81,19 +81,19 @@ const menuItems = [
     permission: "stock-management",
   },
   {
-    title: "Gestion du temps",
+    title: "Mon temps",
     url: "/time-tracking",
     icon: Clock,
     permission: "time-tracking",
   },
   {
-    title: "Validation RH",
+    title: "Validation",
     url: "/hr-validation",
     icon: UserCheck,
     permission: "hr-validation",
   },
   {
-    title: "Gestion Utilisateurs",
+    title: "Paramètres",
     url: "/users",
     icon: Settings,
     permission: "users",
