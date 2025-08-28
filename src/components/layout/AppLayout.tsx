@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/Logo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -203,8 +204,20 @@ const AppSidebar: React.FC = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        
+        {/* Divider et bouton déconnexion */}
+        <div className="mt-auto">
+          <Separator className="mb-3" />
+          <Button
+            onClick={signOut}
+            variant="ghost"
+            className="w-full justify-start gap-4 px-4 py-2.5 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span className="text-base font-medium">Se déconnecter</span>
+          </Button>
+        </div>
       </SidebarContent>
-
 
     </Sidebar>
   );
