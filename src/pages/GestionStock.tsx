@@ -834,54 +834,9 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
-                {/* Two column layout: Chart left, Recent injections right */}
+                {/* Two column layout: Recent injections left, Chart right */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Chart section */}
-                  <Card className="shadow-md border">
-                    <CardHeader>
-                      <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={monthsData}>
-                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                            <XAxis 
-                              dataKey="month" 
-                              tick={{ fontSize: 12 }}
-                              interval={0}
-                            />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip 
-                              contentStyle={{ 
-                                backgroundColor: 'hsl(var(--background))',
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '6px'
-                              }}
-                            />
-                            <Legend />
-                            {(() => {
-                              const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
-                              const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
-                              return products.slice(0, 6).map((product, index) => (
-                                <Line
-                                  key={product}
-                                  type="monotone"
-                                  dataKey={product}
-                                  stroke={colors[index % colors.length]}
-                                  strokeWidth={2}
-                                  dot={{ r: 3 }}
-                                  activeDot={{ r: 5 }}
-                                />
-                              ));
-                            })()}
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Injections table on the right */}
+                  {/* Injections table on the left */}
                   <Card className="shadow-md border">
                     <CardHeader>
                       <CardTitle className="text-base">Injections récentes</CardTitle>
@@ -930,6 +885,51 @@ const GestionStock: React.FC = () => {
                           Faites défiler pour voir plus d'injections
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Chart section on the right */}
+                  <Card className="shadow-md border">
+                    <CardHeader>
+                      <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64 flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthsData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis 
+                              dataKey="month" 
+                              tick={{ fontSize: 12 }}
+                              interval={0}
+                            />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--background))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '6px'
+                              }}
+                            />
+                            <Legend />
+                            {(() => {
+                              const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
+                              const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
+                              return products.slice(0, 6).map((product, index) => (
+                                <Line
+                                  key={product}
+                                  type="monotone"
+                                  dataKey={product}
+                                  stroke={colors[index % colors.length]}
+                                  strokeWidth={2}
+                                  dot={{ r: 3 }}
+                                  activeDot={{ r: 5 }}
+                                />
+                              ));
+                            })()}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
