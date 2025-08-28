@@ -794,14 +794,21 @@ const GestionStock: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {commandes
-                            .slice()
-                            .sort((a, b) => new Date(b.date_commande).getTime() - new Date(a.date_commande).getTime())
-                            .slice(0, 8)
-                            .map((c) => {
-                              const prod = produits.find((p) => p.id === c.produit_id);
-                              return (
-                                <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                           {commandes
+                             .slice()
+                             .sort((a, b) => new Date(b.date_commande).getTime() - new Date(a.date_commande).getTime())
+                             .slice(0, 8)
+                             .map((c) => {
+                               const prod = produits.find((p) => p.id === c.produit_id);
+                               // Vérifier si la commande a des informations manquantes
+                               const isIncomplete = !c.numero_commande || !c.date_reception || !c.montant || !c.date_paiement;
+                               return (
+                                 <TableRow 
+                                   key={c.id} 
+                                   className={`border-row even:bg-row-alt hover:bg-muted/50 transition-colors ${
+                                     isIncomplete ? 'border-l-4 border-l-orange-200 bg-orange-50/30' : ''
+                                   }`}
+                                 >
                                   <TableCell>{prod?.produit || ""}</TableCell>
                                   <TableCell>{c.numero_commande}</TableCell>
                                   <TableCell>{c.quantite_commande}</TableCell>
