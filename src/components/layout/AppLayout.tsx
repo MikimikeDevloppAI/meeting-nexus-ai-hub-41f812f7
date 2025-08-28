@@ -205,16 +205,7 @@ const AppSidebar: React.FC = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <Button
-          onClick={signOut}
-          variant="outline"
-          className="w-full bg-red-50 border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300 hover:text-red-700 transition-colors"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Se déconnecter
-        </Button>
-      </SidebarFooter>
+
     </Sidebar>
   );
 };
