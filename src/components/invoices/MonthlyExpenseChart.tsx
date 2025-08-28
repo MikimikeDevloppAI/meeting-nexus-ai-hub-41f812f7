@@ -108,7 +108,7 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
   };
 
   return (
-    <Card className="col-span-full shadow-md">
+    <Card className="col-span-full shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
         <CardTitle>Évolution Mensuelle des Dépenses</CardTitle>
       </CardHeader>

@@ -316,7 +316,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         </div>
 
         {/* Boutons de filtre de date */}
-        <Card>
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filtres de période</CardTitle>
           </CardHeader>
@@ -348,7 +348,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
 
         {/* Statistiques principales - 4 cartes maintenant */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total TTC</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -367,7 +367,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             dateTo={filters.dateTo}
           />
 
-          <Card>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Compte Commun</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -380,7 +380,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">David Tabibian</CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />

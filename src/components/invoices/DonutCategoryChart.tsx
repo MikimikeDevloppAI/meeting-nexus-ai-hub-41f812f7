@@ -51,7 +51,7 @@ export function DonutCategoryChart({ invoices }: InvoiceTypeBarChartProps) {
   const minWidth = Math.max(600, chartData.length * 80);
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
         <CardTitle>Répartition par Type de Facture</CardTitle>
       </CardHeader>

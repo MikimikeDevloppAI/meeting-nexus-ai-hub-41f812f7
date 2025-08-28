@@ -206,7 +206,7 @@ export function FilteredInvoiceList({
   ];
 
   return (
-    <Card>
+    <Card className="shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
         <CardTitle>Recherche de factures</CardTitle>
       </CardHeader>

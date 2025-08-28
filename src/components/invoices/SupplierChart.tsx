@@ -72,7 +72,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
   const minWidth = Math.max(600, supplierData.length * 80);
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
         <CardTitle>Répartition des fournisseurs</CardTitle>
       </CardHeader>
