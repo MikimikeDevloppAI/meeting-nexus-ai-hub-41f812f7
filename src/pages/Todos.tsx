@@ -594,7 +594,7 @@ export default function Todos() {
               <Card key={todo.id} className={`shadow-md hover:shadow-lg transition-shadow ${
                 todo.priority === 'high' ? 'ring-2 ring-orange-200' : ''
               }`}>
-                <CardContent className="p-6">
+                <CardContent className="px-4 pt-4 pb-2">
                   <div className="space-y-4">
                     {/* Due date, priority, and participants header */}
                     <div className="flex items-center justify-between">
