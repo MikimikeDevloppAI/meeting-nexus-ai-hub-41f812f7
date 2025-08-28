@@ -135,7 +135,7 @@ const AppSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar className="bg-background border-r border-border">
+    <Sidebar className="bg-background border-r border-border rounded-2xl shadow-lg m-2">
       <SidebarHeader className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
           <Logo size="lg" />
@@ -159,14 +159,14 @@ const AppSidebar: React.FC = () => {
                   const menuButton = (
                     <SidebarMenuButton
                       onClick={() => handleNavigation(item.url)}
-                      className={`flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 ${
+                      className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left transition-all duration-200 ${
                         isActive 
                           ? "bg-primary text-primary-foreground font-medium shadow-sm" 
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-base font-medium">{item.title}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm font-medium">{item.title}</span>
                       <div className="ml-auto flex items-center gap-1">
                         {/* Badge pour les tâches en cours */}
                         {item.permission === "todos" && <TodoSidebarBadge />}
@@ -197,9 +197,9 @@ const AppSidebar: React.FC = () => {
               {/* Badge todos toujours monté pour garantir la mise à jour en temps réel même pendant le chargement des permissions */}
               {loading && menuItems.find(item => item.permission === "todos") && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-muted-foreground">
-                    <CheckSquare className="h-5 w-5 flex-shrink-0" />
-                    <span className="text-base font-medium">À faire</span>
+                  <SidebarMenuButton className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-muted-foreground">
+                    <CheckSquare className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-sm font-medium">À faire</span>
                     <div className="ml-auto">
                       <TodoSidebarBadge />
                     </div>
