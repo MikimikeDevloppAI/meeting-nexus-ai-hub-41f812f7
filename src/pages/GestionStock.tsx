@@ -685,79 +685,79 @@ const GestionStock: React.FC = () => {
 
         {/* Stock table */}
         <section aria-labelledby="stock-section">
-          <div className="modern-table shadow-lg">
-            <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
-              <h2 id="stock-section" className="text-lg font-semibold">Stocks par produit</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <Table className="font-inter text-sm">
-                <TableHeader className="modern-table-header">
-                  <TableRow>
-                      <TableHead className="modern-table-header-cell">Produit</TableHead>
-                      <TableHead className="modern-table-header-cell hidden md:table-cell">Molécule</TableHead>
-                      <TableHead className="modern-table-header-cell hidden md:table-cell">Fabricant</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Seuil alerte</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Stock cible</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Moy. inj/mois (3m)</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Stock</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Commande en cours</TableHead>
-                      <TableHead className="modern-table-header-cell text-center">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {!loading && produits
-                      .slice()
-                      .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
-                      .map((p) => {
-                        const stock = stockParProduit[p.id] ?? 0;
-                        const seuil = p.seuil_alerte ?? 0;
-                        const below = seuil > 0 && stock <= seuil;
-                        const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
-                        return (
-                          <TableRow key={p.id} className="modern-table-row">
-                            <TableCell className="modern-table-cell font-medium">{p.produit}</TableCell>
-                            <TableCell className="modern-table-cell text-muted-foreground hidden md:table-cell">{p.molecule}</TableCell>
-                            <TableCell className="modern-table-cell text-muted-foreground hidden md:table-cell">{p.fabricant}</TableCell>
-                            <TableCell className="modern-table-cell text-center text-muted-foreground">{seuil}</TableCell>
-                            <TableCell className="modern-table-cell text-center text-muted-foreground">{p.stock_cible ?? 0}</TableCell>
-                            <TableCell className="modern-table-cell text-center text-muted-foreground">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                            <TableCell className="modern-table-cell text-center">
-                              <div className="inline-flex items-center gap-2">
-                                {stock > 0 && (
-                                  <span className={below ? 'text-danger-strong font-semibold' : 'font-medium'}>{stock}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="modern-table shadow-lg">
+              <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+                <h2 id="stock-section" className="text-lg font-semibold">Stocks par produit</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <Table className="font-inter text-sm">
+                  <TableHeader className="modern-table-header">
+                    <TableRow>
+                        <TableHead className="modern-table-header-cell">Produit</TableHead>
+                        <TableHead className="modern-table-header-cell hidden md:table-cell">Fabricant</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Seuil alerte</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Stock cible</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Moy. inj/mois (3m)</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Stock</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Commande en cours</TableHead>
+                        <TableHead className="modern-table-header-cell text-center">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!loading && produits
+                        .slice()
+                        .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
+                        .map((p) => {
+                          const stock = stockParProduit[p.id] ?? 0;
+                          const seuil = p.seuil_alerte ?? 0;
+                          const below = seuil > 0 && stock <= seuil;
+                          const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
+                          return (
+                            <TableRow key={p.id} className="modern-table-row">
+                              <TableCell className="modern-table-cell font-medium">{p.produit}</TableCell>
+                              <TableCell className="modern-table-cell text-muted-foreground hidden md:table-cell">{p.fabricant}</TableCell>
+                              <TableCell className="modern-table-cell text-center text-muted-foreground">{seuil}</TableCell>
+                              <TableCell className="modern-table-cell text-center text-muted-foreground">{p.stock_cible ?? 0}</TableCell>
+                              <TableCell className="modern-table-cell text-center text-muted-foreground">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                              <TableCell className="modern-table-cell text-center">
+                                <div className="inline-flex items-center gap-2">
+                                  {stock > 0 && (
+                                    <span className={below ? 'text-danger-strong font-semibold' : 'font-medium'}>{stock}</span>
+                                  )}
+                                  {stock === 0 && (
+                                    <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                      Rupture
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="modern-table-cell text-center">
+                                {commandeEnCours > 0 ? (
+                                  <span className="text-foreground font-medium">{commandeEnCours}</span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
                                 )}
-                                {stock === 0 && (
-                                  <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
-                                    Rupture
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="modern-table-cell text-center">
-                              {commandeEnCours > 0 ? (
-                                <span className="text-foreground font-medium">{commandeEnCours}</span>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="modern-table-cell text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts" className="shadow-sm hover:shadow-md transition-shadow">
-                                  <Phone className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
+                              </TableCell>
+                              <TableCell className="modern-table-cell text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts" className="shadow-sm hover:shadow-md transition-shadow">
+                                    <Phone className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+              </div>
             </div>
           </div>
         </section>
@@ -799,12 +799,12 @@ const GestionStock: React.FC = () => {
                                // Vérifier si la commande a des informations manquantes
                                const isIncomplete = !c.numero_commande || !c.date_reception || !c.montant || !c.date_paiement;
                                return (
-                                  <TableRow 
-                                    key={c.id} 
-                                    className={`modern-table-row ${
-                                      isIncomplete ? 'border-l-4 border-l-orange-300 bg-orange-50/50' : ''
-                                    }`}
-                                  >
+                                   <TableRow 
+                                     key={c.id} 
+                                     className={`modern-table-row ${
+                                       isIncomplete ? 'border-l-4 border-l-orange-300' : ''
+                                     }`}
+                                   >
                                    <TableCell className="modern-table-cell font-medium">{prod?.produit || ""}</TableCell>
                                    <TableCell className="modern-table-cell text-muted-foreground">{c.numero_commande}</TableCell>
                                    <TableCell className="modern-table-cell font-medium">{c.quantite_commande}</TableCell>
