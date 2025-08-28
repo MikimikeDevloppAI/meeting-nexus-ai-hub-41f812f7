@@ -184,6 +184,56 @@ const GestionStock: React.FC = () => {
     return enCours;
   }, [commandes]);
 
+  // Préparer les données pour le graphique des 6 derniers mois
+  const monthsData = useMemo(() => {
+    const months = [];
+    const now = new Date();
+    
+    // Générer les 6 derniers mois
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+      const monthLabel = date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+      
+      months.push({
+        month: monthKey,
+        monthLabel,
+        data: {}
+      });
+    }
+
+    // Compter les injections par mois et par produit
+    injections.forEach((inj) => {
+      const injectionMonth = inj.date_injection.slice(0, 7);
+      const monthData = months.find(m => m.month === injectionMonth);
+      
+      if (monthData) {
+        const prod = produits.find(p => p.id === inj.produit_id);
+        const produitName = prod?.produit || 'Inconnu';
+        
+        if (!monthData.data[produitName]) {
+          monthData.data[produitName] = 0;
+        }
+        monthData.data[produitName] += inj.quantite ?? 1;
+      }
+    });
+
+    // Obtenir tous les produits utilisés
+    const allProducts = [...new Set(injections.map(inj => {
+      const prod = produits.find(p => p.id === inj.produit_id);
+      return prod?.produit || 'Inconnu';
+    }))];
+
+    // Transformer les données pour le graphique
+    return months.map(m => {
+      const result = { month: m.monthLabel };
+      allProducts.forEach(product => {
+        result[product] = m.data[product] || 0;
+      });
+      return result;
+    });
+  }, [injections, produits]);
+
   const resetProduitForm = () => {
     setEditingId(null);
     setProduitForm({ produit: "", molecule: "", fabricant: "", concentration: "", presentation: "", prix_patient: undefined, prix_achat: undefined, representant: "", telephone: "", email: "", seuil_alerte: 0, stock_cible: 0 });
@@ -331,13 +381,16 @@ const GestionStock: React.FC = () => {
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un produit
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Ajouter un produit
           </Button>
           <Button variant="outline" onClick={() => { setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 }); setOpenCommande(true); }}>
-            <ClipboardList className="mr-2 h-4 w-4" /> Enregistrer une commande
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Enregistrer une commande
           </Button>
         </div>
       </header>
+
       <main className="mt-6 space-y-10">
         <Dialog open={openProduit} onOpenChange={setOpenProduit}>
           <DialogContent className="sm:max-w-5xl max-w-[95vw]">
@@ -606,6 +659,7 @@ const GestionStock: React.FC = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Form for quick injection entry */}
         <section aria-labelledby="injection-form-section">
           <Card className="shadow-md">
             <CardHeader>
@@ -629,6 +683,7 @@ const GestionStock: React.FC = () => {
           </Card>
         </section>
 
+        {/* Stock table */}
         <section aria-labelledby="stock-section">
           <Card className="shadow-md border">
             <CardHeader>
@@ -637,71 +692,71 @@ const GestionStock: React.FC = () => {
             <CardContent>
               <div className="overflow-x-auto">
                 <Table className="font-inter text-[15px]">
-                   <TableHeader className="bg-table-header">
-                     <TableRow className="border-row">
-                       <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                       <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
-                       <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
-                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
-                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
-                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
-                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
-                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
-                     </TableRow>
-                   </TableHeader>
+                  <TableHeader className="bg-table-header">
+                    <TableRow className="border-row">
+                      <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
+                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
+                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {!loading && produits
                       .slice()
                       .sort((a, b) => (moyenneInjections3Mois[b.id] ?? 0) - (moyenneInjections3Mois[a.id] ?? 0))
                       .map((p) => {
-                       const stock = stockParProduit[p.id] ?? 0;
-                       const seuil = p.seuil_alerte ?? 0;
-                       const below = seuil > 0 && stock <= seuil;
-                       const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
-                       return (
+                        const stock = stockParProduit[p.id] ?? 0;
+                        const seuil = p.seuil_alerte ?? 0;
+                        const below = seuil > 0 && stock <= seuil;
+                        const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
+                        return (
                           <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
                             <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
                             <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
                             <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
-                             <TableCell className="px-3 py-2 text-center text-muted-2">{seuil}</TableCell>
-                             <TableCell className="px-3 py-2 text-center text-muted-2">{p.stock_cible ?? 0}</TableCell>
-                             <TableCell className="px-3 py-2 text-center text-muted-2">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                             <TableCell className="px-3 py-2 text-center">
-                               <div className="inline-flex items-center gap-2">
-                                 {stock > 0 && (
-                                   <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
-                                 )}
-                                 {stock === 0 && (
-                                   <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
-                                     Rupture
-                                   </span>
-                                 )}
-                               </div>
-                             </TableCell>
-                             <TableCell className="px-3 py-2 text-center">
-                               {commandeEnCours > 0 ? (
-                                 <span className="text-info-strong font-medium">{commandeEnCours}</span>
-                               ) : (
-                                 "-"
-                               )}
-                             </TableCell>
-                          <TableCell className="px-3 py-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
-                                <Phone className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                            <TableCell className="px-3 py-2 text-center text-muted-2">{seuil}</TableCell>
+                            <TableCell className="px-3 py-2 text-center text-muted-2">{p.stock_cible ?? 0}</TableCell>
+                            <TableCell className="px-3 py-2 text-center text-muted-2">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                            <TableCell className="px-3 py-2 text-center">
+                              <div className="inline-flex items-center gap-2">
+                                {stock > 0 && (
+                                  <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                                )}
+                                {stock === 0 && (
+                                  <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                    Rupture
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center">
+                              {commandeEnCours > 0 ? (
+                                <span className="text-info-strong font-medium">{commandeEnCours}</span>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
+                                  <Phone className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                   </TableBody>
                 </Table>
               </div>
@@ -709,14 +764,15 @@ const GestionStock: React.FC = () => {
           </Card>
         </section>
 
+        {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
           <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle id="historique-section">Historique</CardTitle>
-          </CardHeader>
-          
+            <CardHeader>
+              <CardTitle id="historique-section">Historique</CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                {/* Commands table */}
                 <Card className="shadow-md border">
                   <CardHeader>
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
@@ -744,26 +800,26 @@ const GestionStock: React.FC = () => {
                           .map((c) => {
                             const prod = produits.find((p) => p.id === c.produit_id);
                             return (
-                               <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                 <TableCell>{prod?.produit || ""}</TableCell>
-                                 <TableCell>{c.numero_commande}</TableCell>
-                                 <TableCell>{c.quantite_commande}</TableCell>
-                                 <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                                 <TableCell>{formatDateShort(c.date_commande)}</TableCell>
-                                 <TableCell>{formatDateShort(c.date_reception)}</TableCell>
-                                 <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
-                                 <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
-                                 <TableCell className="text-center">
-                                   <div className="flex items-center justify-center gap-1">
-                                     <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
-                                       <Pencil className="h-4 w-4" />
-                                     </Button>
-                                     <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
-                                       <Trash2 className="h-4 w-4" />
-                                     </Button>
-                                   </div>
-                                 </TableCell>
-                               </TableRow>
+                              <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                                <TableCell>{prod?.produit || ""}</TableCell>
+                                <TableCell>{c.numero_commande}</TableCell>
+                                <TableCell>{c.quantite_commande}</TableCell>
+                                <TableCell>{c.quantite_recue ?? 0}</TableCell>
+                                <TableCell>{formatDateShort(c.date_commande)}</TableCell>
+                                <TableCell>{formatDateShort(c.date_reception)}</TableCell>
+                                <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
+                                <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
                             );
                           })}
                       </TableBody>
@@ -771,130 +827,37 @@ const GestionStock: React.FC = () => {
                   </CardContent>
                 </Card>
 
+                {/* Two column layout: Chart + Recent injections */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="shadow-md border">
-                    <CardHeader>
-                      <CardTitle className="text-base">Injections récentes</CardTitle>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      <Table className="font-calibri text-[15px] md:text-base">
-                        <TableHeader className="bg-table-header">
-                          <TableRow className="border-row">
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
-                            <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {injections
-                            .slice()
-                            .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
-                            .slice(0, 10)
-                            .map((inj) => {
-                              const prod = produits.find((p) => p.id === inj.produit_id);
-                              return (
-                                <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                  <TableCell>{prod?.produit || ""}</TableCell>
-                                  <TableCell>{inj.quantite ?? 1}</TableCell>
-                                  <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
-                                  <TableCell className="text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-md border">
-                    <CardHeader>
-                      <CardTitle className="text-base">Tendance des injections par mois</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {(() => {
-                        const monthsData = useMemo(() => {
-                          const months = [];
-                          const now = new Date();
-                          
-                          // Générer les 12 derniers mois
-                          for (let i = 11; i >= 0; i--) {
-                            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                            const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
-                            const monthLabel = date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
-                            
-                            months.push({
-                              month: monthKey,
-                              monthLabel,
-                              data: {}
-                            });
-                          }
-
-                          // Compter les injections par mois et par produit
-                          injections.forEach((inj) => {
-                            const injectionMonth = inj.date_injection.slice(0, 7);
-                            const monthData = months.find(m => m.month === injectionMonth);
-                            
-                            if (monthData) {
-                              const prod = produits.find(p => p.id === inj.produit_id);
-                              const produitName = prod?.produit || 'Inconnu';
-                              
-                              if (!monthData.data[produitName]) {
-                                monthData.data[produitName] = 0;
-                              }
-                              monthData.data[produitName] += inj.quantite ?? 1;
-                            }
-                          });
-
-                          // Obtenir tous les produits utilisés
-                          const allProducts = [...new Set(injections.map(inj => {
-                            const prod = produits.find(p => p.id === inj.produit_id);
-                            return prod?.produit || 'Inconnu';
-                          }))];
-
-                          // Transformer les données pour le graphique
-                          return months.map(m => {
-                            const result = { month: m.monthLabel };
-                            allProducts.forEach(product => {
-                              result[product] = m.data[product] || 0;
-                            });
-                            return result;
-                          });
-                        }, [injections, produits]);
-
-                        const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
-                        const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
-
-                        return (
-                          <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={monthsData}>
-                                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                                <XAxis 
-                                  dataKey="month" 
-                                  tick={{ fontSize: 12 }}
-                                  interval={1}
-                                />
-                                <YAxis tick={{ fontSize: 12 }} />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: 'hsl(var(--background))',
-                                    border: '1px solid hsl(var(--border))',
-                                    borderRadius: '6px'
-                                  }}
-                                />
-                                <Legend />
-                                {products.slice(0, 6).map((product, index) => (
+                  {/* Chart section */}
+                  <div className="space-y-6">
+                    <Card className="shadow-md border">
+                      <CardHeader>
+                        <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={monthsData}>
+                              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                              <XAxis 
+                                dataKey="month" 
+                                tick={{ fontSize: 12 }}
+                                interval={0}
+                              />
+                              <YAxis tick={{ fontSize: 12 }} />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--background))',
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '6px'
+                                }}
+                              />
+                              <Legend />
+                              {(() => {
+                                const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
+                                const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
+                                return products.slice(0, 6).map((product, index) => (
                                   <Line
                                     key={product}
                                     type="monotone"
@@ -904,14 +867,59 @@ const GestionStock: React.FC = () => {
                                     dot={{ r: 3 }}
                                     activeDot={{ r: 5 }}
                                   />
-                                ))}
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        );
-                      })()}
-                    </CardContent>
-                  </Card>
+                                ));
+                              })()}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Injections table below chart */}
+                    <Card className="shadow-md border">
+                      <CardHeader>
+                        <CardTitle className="text-base">Injections récentes</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Table className="font-calibri text-[15px] md:text-base">
+                          <TableHeader className="bg-table-header">
+                            <TableRow className="border-row">
+                              <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                              <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
+                              <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
+                              <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {injections
+                              .slice()
+                              .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
+                              .slice(0, 10)
+                              .map((inj) => {
+                                const prod = produits.find((p) => p.id === inj.produit_id);
+                                return (
+                                  <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                                    <TableCell>{prod?.produit || ""}</TableCell>
+                                    <TableCell>{inj.quantite ?? 1}</TableCell>
+                                    <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
+                                    <TableCell className="text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
+                                          <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               </div>
             </CardContent>
