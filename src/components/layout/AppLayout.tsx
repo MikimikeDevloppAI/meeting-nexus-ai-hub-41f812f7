@@ -142,10 +142,10 @@ const AppSidebar: React.FC = () => {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="px-4 py-6">
+      <SidebarContent className="px-4 py-3">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5">
               {/* Menu items filtrés par permissions */}
               {menuItems
                 .filter(item => {
