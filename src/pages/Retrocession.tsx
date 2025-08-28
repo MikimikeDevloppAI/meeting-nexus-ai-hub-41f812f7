@@ -338,11 +338,11 @@ const Retrocession: React.FC = () => {
         </CardHeader>
         <CardContent className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.data} margin={{ top: 30, right: 30, left: 20, bottom: 20 }}>
+            <BarChart data={chartData.data} margin={{ top: 60, right: 30, left: 20, bottom: 20 }}>
               <XAxis 
                 dataKey="month" 
-                axisLine={{ stroke: 'hsl(var(--border))' }}
-                tickLine={{ stroke: 'hsl(var(--border))' }}
+                axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip
@@ -353,6 +353,9 @@ const Retrocession: React.FC = () => {
                 labelStyle={{ color: 'hsl(0 0% 0%)' }}
               />
               <Legend
+                verticalAlign="top"
+                align="right"
+                wrapperStyle={{ paddingBottom: '20px' }}
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
               />
               {chartData.doctors.map((doc, idx) => {
@@ -378,7 +381,40 @@ const Retrocession: React.FC = () => {
                           return value ? formatCHF0(value) : '';
                         }
                         return '';
-                      }} 
+                      }}
+                      content={({ x, y, value, width }) => {
+                        if (!value || value === 0) return null;
+                        const xPos = Number(x) || 0;
+                        const yPos = Number(y) || 0;
+                        const barWidth = Number(width) || 0;
+                        
+                        return (
+                          <g>
+                            <rect
+                              x={xPos + barWidth/2 - 35}
+                              y={yPos - 25}
+                              width="70"
+                              height="20"
+                              rx="10"
+                              ry="10"
+                              fill="hsla(var(--background) / 0.95)"
+                              stroke="hsl(var(--border))"
+                              strokeWidth="1"
+                              style={{ filter: 'drop-shadow(0 2px 4px hsla(0, 0%, 0%, 0.1))' }}
+                            />
+                            <text
+                              x={xPos + barWidth/2}
+                              y={yPos - 12}
+                              textAnchor="middle"
+                              fill="hsl(var(--foreground))"
+                              fontSize="11"
+                              fontWeight="500"
+                            >
+                              {formatCHF0(Number(value))}
+                            </text>
+                          </g>
+                        );
+                      }}
                     />
                   </Bar>
                 );
