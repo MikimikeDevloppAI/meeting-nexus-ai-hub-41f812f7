@@ -10,38 +10,14 @@ interface LogoProps {
 
 const LOGO_BUCKET = 'branding';
 const LOGO_PATH = 'logo/ophtacare-logo.png';
-const FALLBACK_SRC = "/lovable-uploads/43c39c6c-3c4c-4d3c-bf99-696a345b96e1.png";
+const FALLBACK_SRC = "/lovable-uploads/5eb31ec3-a7d9-431f-b326-be18bb954a15.png";
 
 export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps) => {
   const [src, setSrc] = useState<string>(FALLBACK_SRC);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        // Try to use the most recently updated file in branding/logo
-        const { data: files, error } = await supabase.storage
-          .from(LOGO_BUCKET)
-          .list('logo', { limit: 1, sortBy: { column: 'updated_at', order: 'desc' } });
-
-        let resolvedPath = LOGO_PATH;
-        if (!error && files && files.length > 0) {
-          resolvedPath = `logo/${files[0].name}`;
-        }
-
-        const { data } = supabase.storage
-          .from(LOGO_BUCKET)
-          .getPublicUrl(resolvedPath);
-
-        const publicUrl = data.publicUrl;
-        if (!cancelled) setSrc(`${publicUrl}?v=${Date.now()}`);
-      } catch (e) {
-        if (!cancelled) setSrc(FALLBACK_SRC);
-      }
-    };
-
-    load();
-    return () => { cancelled = true; };
+    // Use the new logo directly
+    setSrc(FALLBACK_SRC);
   }, []);
 
   const sizes = {
@@ -60,7 +36,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
       <div className={`relative ${wrapperSize} flex items-center justify-center`}>
         <img
           src={src}
-          alt="Logo OphtaCare Hub – cercle rayonnant"
+          alt="OphtaCare HUB Logo"
           className={`${imgSize} object-contain`}
           loading="lazy"
           onError={() => setSrc(FALLBACK_SRC)}
