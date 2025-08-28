@@ -216,22 +216,11 @@ const AppSidebar: React.FC = () => {
           <Button
             onClick={() => signOut()}
             variant="ghost" 
-            className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted w-full justify-start"
+            size="sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted"
           >
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                {((user as any).user_metadata?.first_name || user.email?.charAt(0) || 'U').charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-medium text-foreground truncate">
-                {(user as any).user_metadata?.first_name || (user as any).user_metadata?.last_name 
-                  ? `${(user as any).user_metadata?.first_name || ''} ${(user as any).user_metadata?.last_name || ''}`.trim()
-                  : user.email}
-              </p>
-              <p className="text-xs text-muted-foreground">Cliquer pour se déconnecter</p>
-            </div>
-            <LogOut className="h-4 w-4 text-muted-foreground" />
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm">Se déconnecter</span>
           </Button>
         )}
       </SidebarFooter>
