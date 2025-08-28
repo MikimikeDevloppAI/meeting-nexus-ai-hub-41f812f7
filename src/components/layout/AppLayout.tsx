@@ -216,32 +216,6 @@ const AppSidebar: React.FC = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-border">
-        {user && (
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                {user.email?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {user.email}
-              </p>
-              <p className="text-xs text-muted-foreground">Coach</p>
-            </div>
-          </div>
-        )}
-        
-        <Button
-          onClick={() => signOut()}
-          variant="ghost"
-          className="w-full justify-start gap-3 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Déconnexion</span>
-        </Button>
-      </SidebarFooter>
     </Sidebar>
   );
 };
