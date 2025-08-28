@@ -10,46 +10,22 @@ interface LogoProps {
 
 const LOGO_BUCKET = 'branding';
 const LOGO_PATH = 'logo/ophtacare-logo.png';
-const FALLBACK_SRC = "/lovable-uploads/8ce318ba-8c34-4795-bcd0-3b4ca32a9da8.png";
+const FALLBACK_SRC = "/lovable-uploads/5eb31ec3-a7d9-431f-b326-be18bb954a15.png";
 
 export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps) => {
   const [src, setSrc] = useState<string>(FALLBACK_SRC);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        // Try to use the most recently updated file in branding/logo
-        const { data: files, error } = await supabase.storage
-          .from(LOGO_BUCKET)
-          .list('logo', { limit: 1, sortBy: { column: 'updated_at', order: 'desc' } });
-
-        let resolvedPath = LOGO_PATH;
-        if (!error && files && files.length > 0) {
-          resolvedPath = `logo/${files[0].name}`;
-        }
-
-        const { data } = supabase.storage
-          .from(LOGO_BUCKET)
-          .getPublicUrl(resolvedPath);
-
-        const publicUrl = data.publicUrl;
-        if (!cancelled) setSrc(`${publicUrl}?v=${Date.now()}`);
-      } catch (e) {
-        if (!cancelled) setSrc(FALLBACK_SRC);
-      }
-    };
-
-    load();
-    return () => { cancelled = true; };
+    // Use the new logo directly
+    setSrc(FALLBACK_SRC);
   }, []);
 
   const sizes = {
-    sm: { wrapper: "w-10 h-10", img: "h-8 w-8" },
-    md: { wrapper: "w-12 h-12", img: "h-10 w-10" },
-    lg: { wrapper: "w-16 h-16", img: "h-14 w-14" },
-    xl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
-    xxl: { wrapper: "w-24 h-24", img: "h-20 w-20" },
+    sm: { wrapper: "w-16 h-16", img: "h-14 w-14" },
+    md: { wrapper: "w-20 h-20", img: "h-16 w-16" },
+    lg: { wrapper: "w-24 h-24", img: "h-20 w-20" },
+    xl: { wrapper: "w-32 h-32", img: "h-28 w-28" },
+    xxl: { wrapper: "w-40 h-40", img: "h-32 w-32" },
   } as const;
 
   const wrapperSize = sizes[size].wrapper;
@@ -60,7 +36,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
       <div className={`relative ${wrapperSize} flex items-center justify-center`}>
         <img
           src={src}
-          alt="Logo OphtaCare Hub – cercle rayonnant"
+          alt="OphtaCare HUB Logo"
           className={`${imgSize} object-contain`}
           loading="lazy"
           onError={() => setSrc(FALLBACK_SRC)}
