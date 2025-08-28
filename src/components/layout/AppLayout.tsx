@@ -220,11 +220,11 @@ export const AppLayout: React.FC = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gray-50">
+      <div className="min-h-screen flex w-full bg-app-background">
         <AppSidebar />
 
         <div className="flex-1 flex flex-col min-h-screen min-w-0">
-          <main className="flex-1 p-3 lg:p-6 overflow-auto min-w-0 bg-gray-50">
+          <main className="flex-1 p-3 lg:p-6 overflow-auto min-w-0 bg-app-background">
             <div className="w-full max-w-full">
               <Outlet />
             </div>
