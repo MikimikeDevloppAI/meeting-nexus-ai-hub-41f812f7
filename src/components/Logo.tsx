@@ -23,9 +23,9 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
   const sizes = {
     sm: { wrapper: "w-10 h-10", img: "h-8 w-8" },
     md: { wrapper: "w-12 h-12", img: "h-10 w-10" },
-    lg: { wrapper: "w-16 h-16", img: "h-14 w-14" },
-    xl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
-    xxl: { wrapper: "w-24 h-24", img: "h-20 w-20" },
+    lg: { wrapper: "w-20 h-20", img: "h-16 w-16" },
+    xl: { wrapper: "w-28 h-28", img: "h-24 w-24" },
+    xxl: { wrapper: "w-32 h-32", img: "h-28 w-28" },
   } as const;
 
   const wrapperSize = sizes[size].wrapper;
