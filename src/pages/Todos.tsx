@@ -669,25 +669,18 @@ export default function Todos() {
                     <Collapsible open={isExpanded} onOpenChange={(open) => 
                       setExpandedTodos(prev => ({ ...prev, [todo.id]: open }))
                     }>
-                      <CollapsibleTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="w-full mt-2 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="h-4 w-4" />
-                              Voir moins
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4" />
-                              Voir plus
-                            </>
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
+                      {!isExpanded && (
+                        <CollapsibleTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full mt-2 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                            Voir plus
+                          </Button>
+                        </CollapsibleTrigger>
+                      )}
                       
                       <CollapsibleContent className="space-y-4 pt-2">
                         {/* Attachments and Subtasks */}
@@ -761,6 +754,18 @@ export default function Todos() {
 
                         {/* Inline Comments section */}
                         <TodoComments todoId={todo.id} />
+
+                        {/* Voir moins button at the bottom of expanded content */}
+                        <CollapsibleTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full mt-4 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                            Voir moins
+                          </Button>
+                        </CollapsibleTrigger>
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
