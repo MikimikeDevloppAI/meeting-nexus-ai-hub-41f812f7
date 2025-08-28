@@ -339,7 +339,10 @@ const Retrocession: React.FC = () => {
         <CardContent className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData.data} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
-              <XAxis dataKey="month" />
+              <XAxis 
+                dataKey="month" 
+                interval={Math.ceil(chartData.data.length / 5)} 
+              />
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
                 labelFormatter={(label) => `Mois: ${label}`}
@@ -351,7 +354,14 @@ const Retrocession: React.FC = () => {
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
               />
               {chartData.doctors.map((doc, idx) => (
-                <Bar key={doc} dataKey={doc} fill={palette[idx % palette.length]}>
+                <Bar 
+                  key={doc} 
+                  dataKey={doc} 
+                  fill={palette[idx % palette.length]}
+                  radius={[4, 4, 0, 0]}
+                  stroke="hsl(var(--border))"
+                  strokeWidth={1}
+                >
                   <LabelList dataKey={doc} position="top" formatter={(val: any) => (Number(val) ? formatCHF0(Number(val)) : '')} />
                 </Bar>
               ))}
