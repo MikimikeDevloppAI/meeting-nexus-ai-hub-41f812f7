@@ -604,12 +604,6 @@ export default function Todos() {
                           dueDate={todo.due_date}
                           onUpdate={fetchTodos}
                         />
-                        {todo.meetings?.[0] && (
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {todo.meetings[0].title}
-                          </Badge>
-                        )}
                         <div className="text-xs text-gray-600 flex items-center gap-2">
                     <TodoUserManager
                             todoId={todo.id}
