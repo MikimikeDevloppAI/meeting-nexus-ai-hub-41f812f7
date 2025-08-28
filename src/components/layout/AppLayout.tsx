@@ -11,10 +11,11 @@ import {
   SidebarMenuButton,
   SidebarTrigger,
   SidebarHeader,
+  SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings, Clock, UserCheck, Syringe, BarChart3 } from "lucide-react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { Calendar, MessageSquare, FileAudio, CheckSquare, FileText, Receipt, User, LogOut, PenTool, Menu, Calculator, Settings, Clock, UserCheck, Syringe, BarChart3, X } from "lucide-react";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
@@ -28,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TodoSidebarBadge } from "./TodoSidebarBadge";
 import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
 import { HelpButton } from "./HelpButton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const menuItems = [
   {
@@ -113,11 +115,12 @@ const menuItems = [
 
 const AppSidebar: React.FC = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { setOpenMobile } = useSidebar();
   const isMobile = useIsMobile();
   const { hasPermission, isAdmin, loading, permissions } = useUserPermissions();
   const { getHoverText } = usePageHover();
+  const location = useLocation();
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -127,36 +130,54 @@ const AppSidebar: React.FC = () => {
     }
   };
 
+  const isActiveRoute = (url: string) => {
+    return location.pathname === url;
+  };
+
   return (
-    <Sidebar className="border-r bg-white shadow-sm">
-      <SidebarHeader className="px-4 lg:px-6 py-4 border-b bg-white">
-        <Logo size="lg" />
+    <Sidebar className="bg-background border-r border-border">
+      <SidebarHeader className="p-6 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+            <CheckSquare className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">OphtaCare Pro</h1>
+          </div>
+        </div>
       </SidebarHeader>
-      <SidebarContent className="bg-white">
+      
+      <SidebarContent className="px-4 py-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-600 font-medium">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {/* Menu items filtrés par permissions - debugging */}
+            <SidebarMenu className="space-y-2">
+              {/* Menu items filtrés par permissions */}
               {menuItems
                 .filter(item => {
                   const hasPerms = hasPermission(item.permission);
-                  console.log(`Permission for ${item.permission}:`, hasPerms);
                   return !loading && hasPerms;
                 })
                 .map((item) => {
                   const hoverText = getHoverText(item.permission);
+                  const isActive = isActiveRoute(item.url);
+                  
                   const menuButton = (
                     <SidebarMenuButton
                       onClick={() => handleNavigation(item.url)}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
+                      className={`flex items-center gap-4 w-full px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                        isActive 
+                          ? "bg-primary text-primary-foreground font-medium shadow-sm" 
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                     >
-                      <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-                      <span className="text-sm lg:text-base truncate font-medium">{item.title}</span>
-                      {/* Badge pour les tâches en cours - toujours monté pour garantir la mise à jour temps réel */}
-                      {item.permission === "todos" && <TodoSidebarBadge />}
-                      {/* Badge pour les validations RH en attente */}
-                      {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="text-base font-medium">{item.title}</span>
+                      <div className="ml-auto flex items-center gap-1">
+                        {/* Badge pour les tâches en cours */}
+                        {item.permission === "todos" && <TodoSidebarBadge />}
+                        {/* Badge pour les validations RH en attente */}
+                        {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
+                      </div>
                     </SidebarMenuButton>
                   );
 
@@ -181,27 +202,46 @@ const AppSidebar: React.FC = () => {
               {/* Badge todos toujours monté pour garantir la mise à jour en temps réel même pendant le chargement des permissions */}
               {loading && menuItems.find(item => item.permission === "todos") && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700">
-                    <CheckSquare className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-                    <span className="text-sm lg:text-base truncate font-medium">À faire</span>
-                    <TodoSidebarBadge />
+                  <SidebarMenuButton className="flex items-center gap-4 w-full px-4 py-3 rounded-xl text-muted-foreground">
+                    <CheckSquare className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-base font-medium">À faire</span>
+                    <div className="ml-auto">
+                      <TodoSidebarBadge />
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => signOut()}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-200 mt-2"
-                >
-                  <LogOut className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-                  <span className="text-sm lg:text-base truncate font-medium">Se déconnecter</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-4 border-t border-border">
+        {user && (
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                {user.email?.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {user.email}
+              </p>
+              <p className="text-xs text-muted-foreground">Coach</p>
+            </div>
+          </div>
+        )}
+        
+        <Button
+          onClick={() => signOut()}
+          variant="ghost"
+          className="w-full justify-start gap-3 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Déconnexion</span>
+        </Button>
+      </SidebarFooter>
     </Sidebar>
   );
 };
