@@ -347,11 +347,62 @@ const Retrocession: React.FC = () => {
                 style={{ zIndex: 10 }}
               />
               <Tooltip
-                formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
-                labelFormatter={(label) => `Mois: ${label}`}
-                itemStyle={{ color: 'hsl(0 0% 0%)' }}
-                contentStyle={{ color: 'hsl(0 0% 0%)' }}
-                labelStyle={{ color: 'hsl(0 0% 0%)' }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  
+                  return (
+                    <div style={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      boxShadow: '0 4px 12px hsla(0, 0%, 0%, 0.15)',
+                      minWidth: '180px'
+                    }}>
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: 'hsl(var(--foreground))',
+                        marginBottom: '8px',
+                        textAlign: 'center',
+                        padding: '4px 8px',
+                        backgroundColor: 'hsl(var(--muted))',
+                        borderRadius: '6px'
+                      }}>
+                        {label}
+                      </div>
+                      {payload.map((entry, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '4px'
+                        }}>
+                          <div style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: entry.color,
+                          }} />
+                          <span style={{
+                            fontSize: '13px',
+                            color: 'hsl(var(--foreground))',
+                            flex: 1
+                          }}>
+                            {entry.name}
+                          </span>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            color: 'hsl(var(--foreground))'
+                          }}>
+                            {formatCHF(Number(entry.value))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
               />
               <Legend
                 verticalAlign="bottom"
