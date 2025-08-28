@@ -139,9 +139,6 @@ const AppSidebar: React.FC = () => {
       <SidebarHeader className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
           <Logo size="lg" />
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">OphtaCare</h1>
-          </div>
         </div>
       </SidebarHeader>
       
