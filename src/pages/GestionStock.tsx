@@ -661,9 +661,9 @@ const GestionStock: React.FC = () => {
 
         {/* Form for quick injection entry */}
         <section aria-labelledby="injection-form-section">
-          <Card className="shadow-lg">
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle id="injection-form-section">Enregistrer une injection</CardTitle>
+              <CardTitle id="injection-form-section" className="text-2xl font-bold">Enregistrer une injection</CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -686,9 +686,9 @@ const GestionStock: React.FC = () => {
         {/* Stock table */}
         <section aria-labelledby="stock-section">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="modern-table shadow-lg">
+            <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
               <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
-                <h2 id="stock-section" className="text-lg font-semibold">Stocks par produit</h2>
+                <h2 id="stock-section" className="text-2xl font-bold">Stocks par produit</h2>
               </div>
               <div className="overflow-x-auto">
                 <Table className="font-inter text-sm">
@@ -764,13 +764,13 @@ const GestionStock: React.FC = () => {
 
         {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
-          <div className="modern-table shadow-lg">
+          <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
             <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
-              <h2 id="historique-section" className="text-lg font-semibold">Historique</h2>
+              <h2 id="historique-section" className="text-2xl font-bold">Historique</h2>
             </div>
             <div className="space-y-4 p-6">
               {/* Commands table */}
-              <div className="modern-table shadow-md">
+              <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
                 <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                   <h3 className="text-base font-semibold">Commandes récentes</h3>
                 </div>
@@ -834,7 +834,7 @@ const GestionStock: React.FC = () => {
                 {/* Two column layout: Recent injections left, Chart right */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Injections table on the left */}
-                  <div className="modern-table shadow-md">
+                  <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
                     <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                       <h3 className="text-base font-semibold">Injections récentes</h3>
                     </div>
@@ -879,7 +879,7 @@ const GestionStock: React.FC = () => {
                   </div>
 
                   {/* Chart section on the right */}
-                  <div className="modern-table shadow-md">
+                  <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
                     <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                       <h3 className="text-base font-semibold">Tendance des injections - 6 derniers mois</h3>
                     </div>
