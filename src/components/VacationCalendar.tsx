@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarDays, X } from "lucide-react";
 import { format, eachDayOfInterval, isWithinInterval, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { formatDateToLocalString } from "@/utils/dateUtils";
 
 interface VacationCalendarProps {
   onSubmit: (data: {
@@ -66,7 +67,7 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
       return;
     }
 
-    const dates = selectedDates.map(date => date.toISOString().split('T')[0]);
+    const dates = selectedDates.map(date => formatDateToLocalString(date));
 
     onSubmit({
       dates,
@@ -101,12 +102,12 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
       }
     })
     // Déduplication par jour
-    .filter((date, idx, arr) => idx === arr.findIndex(d => d.toISOString().split('T')[0] === date.toISOString().split('T')[0]));
+    .filter((date, idx, arr) => idx === arr.findIndex(d => formatDateToLocalString(d) === formatDateToLocalString(date)));
 
   // Fonction pour vérifier si une date est déjà en vacances
   const isVacationDate = (date: Date) => {
     return existingVacationDates.some(vacDate => 
-      date.toISOString().split('T')[0] === vacDate.toISOString().split('T')[0]
+      formatDateToLocalString(date) === formatDateToLocalString(vacDate)
     );
   };
 
@@ -125,8 +126,8 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
     const mappedKey = key as keyof typeof typeDateMap;
     
     const pushUnique = (d: Date) => {
-      const ymd = d.toISOString().split('T')[0];
-      if (!typeDateMap[mappedKey].some(x => x.toISOString().split('T')[0] === ymd)) {
+      const ymd = formatDateToLocalString(d);
+      if (!typeDateMap[mappedKey].some(x => formatDateToLocalString(x) === ymd)) {
         typeDateMap[mappedKey].push(d);
       }
     };
