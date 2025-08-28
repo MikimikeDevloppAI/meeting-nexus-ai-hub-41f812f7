@@ -61,7 +61,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
         <img
           src="/lovable-uploads/962abc47-605f-4377-a4e1-73a3a102d544.png"
           alt="OphtaCare Hub Logo"
-          className="h-8 object-contain"
+          className="h-12 object-contain"
           loading="lazy"
         />
       )}
