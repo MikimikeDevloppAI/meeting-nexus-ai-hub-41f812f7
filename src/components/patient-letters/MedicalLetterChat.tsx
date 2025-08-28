@@ -119,14 +119,14 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
   };
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+    <div className="bg-card text-card-foreground rounded-lg border shadow-md">
       <div className="p-6 pb-0">
         <h3 className="text-lg font-semibold mb-4">Assistant de Modification de Lettre</h3>
       </div>
       
       <div className="p-6 pt-0">
         {/* Zone de chat */}
-        <div className="border rounded-lg mb-4">
+        <div className="border rounded-lg mb-4 shadow-md">
           <div className="h-80 overflow-y-auto p-4 space-y-4">
             {chatHistory.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
@@ -183,13 +183,13 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Tapez votre message... (Entrée pour envoyer, Shift+Entrée pour nouvelle ligne)"
-                className="flex-1 min-h-[60px] resize-none border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="flex-1 min-h-[60px] resize-none border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shadow-md"
                 disabled={isLoading}
               />
               <button
                 onClick={sendMessage}
                 disabled={isLoading || !currentMessage.trim()}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed h-[60px] px-4 rounded-md flex items-center gap-2 text-sm font-medium transition-colors"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed h-[60px] px-4 rounded-md flex items-center gap-2 text-sm font-medium transition-colors shadow-md"
               >
                 <Send className="h-4 w-4" />
               </button>

@@ -249,7 +249,7 @@ const PatientLetters = () => {
         
         {/* Indicateur de traitement */}
         {isRewriting && (
-          <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200 shadow-md">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-sm text-blue-700 mt-2">
               Traitement de la lettre en cours...
@@ -259,13 +259,13 @@ const PatientLetters = () => {
         
         {/* 3. Transcript brut éditable */}
         {rawTranscript && (
-          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+          <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Transcript Brut</h3>
                 <button 
                   onClick={() => copyToClipboard(rawTranscript, "Transcript brut")}
-                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors shadow-md"
                 >
                   Copier
                 </button>
@@ -275,7 +275,7 @@ const PatientLetters = () => {
               <Textarea
                 value={rawTranscript}
                 onChange={(e) => setRawTranscript(e.target.value)}
-                className="min-h-[200px] font-mono text-sm"
+                className="min-h-[200px] font-mono text-sm shadow-md"
                 placeholder="Le transcript de l'audio apparaîtra ici et pourra être modifié..."
               />
             </div>
@@ -284,13 +284,13 @@ const PatientLetters = () => {
 
         {/* 4. Contenu de la lettre médicale éditable */}
         {letterContent && (
-          <div className="bg-card text-card-foreground rounded-lg border shadow-sm">
+          <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Lettre Médicale</h3>
                 <button 
                   onClick={() => copyToClipboard(letterContent, "Lettre médicale")}
-                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors shadow-md"
                 >
                   Copier
                 </button>
@@ -300,7 +300,7 @@ const PatientLetters = () => {
               <Textarea
                 value={letterContent}
                 onChange={(e) => setLetterContent(e.target.value)}
-                className="min-h-[200px] font-serif text-sm"
+                className="min-h-[200px] font-serif text-sm shadow-md"
                 placeholder="La lettre médicale apparaîtra ici et pourra être modifiée..."
               />
             </div>
@@ -320,7 +320,7 @@ const PatientLetters = () => {
         <div className="flex justify-center">
           <button 
             onClick={clearForm}
-            className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-6 py-2 rounded-md text-sm font-medium transition-colors"
+            className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-6 py-2 rounded-md text-sm font-medium transition-colors shadow-md"
           >
             Nouvelle lettre
           </button>

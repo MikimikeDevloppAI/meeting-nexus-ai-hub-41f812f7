@@ -35,7 +35,7 @@ export const VoiceRecordingCard = ({
     fileInputRef.current?.click();
   };
   return (
-    <Card>
+    <Card className="shadow-md">
       <CardHeader>
         <CardTitle>Dictée Vocale</CardTitle>
       </CardHeader>
