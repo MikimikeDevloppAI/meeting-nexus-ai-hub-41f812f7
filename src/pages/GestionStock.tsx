@@ -687,9 +687,6 @@ const GestionStock: React.FC = () => {
         {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
           <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
-            <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
-              <h2 id="historique-section" className="text-2xl font-bold">Historique</h2>
-            </div>
             <div className="space-y-4 p-6">
               {/* Stock table */}
               <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
