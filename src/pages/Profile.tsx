@@ -107,7 +107,7 @@ const Profile = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Informations du profil</CardTitle>
             <CardDescription>Mettez à jour vos informations personnelles</CardDescription>
@@ -157,7 +157,7 @@ const Profile = () => {
           </CardFooter>
         </Card>
 
-        <Card>
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Sécurité</CardTitle>
             <CardDescription>Gérez la sécurité de votre compte</CardDescription>

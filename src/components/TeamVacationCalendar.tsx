@@ -116,7 +116,7 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5" />

@@ -675,7 +675,7 @@ const Documents = () => {
       </div>
 
       {/* Upload Section */}
-      <Card className="mb-4">
+      <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Upload className="h-4 w-4" />
@@ -774,7 +774,7 @@ const Documents = () => {
         />
       )}
 
-      <Card>
+      <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

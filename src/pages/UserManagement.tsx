@@ -286,7 +286,7 @@ const UserManagement = () => {
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-96">
+        <Card className="w-96 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="text-center">
             <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <CardTitle>Accès refusé</CardTitle>
@@ -329,7 +329,7 @@ const UserManagement = () => {
         <TabsContent value="users" className="flex-1 flex flex-col space-y-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
+            <Card className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total utilisateurs</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -339,7 +339,7 @@ const UserManagement = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Utilisateurs approuvés</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
@@ -349,7 +349,7 @@ const UserManagement = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">En attente d'approbation</CardTitle>
                 <XCircle className="h-4 w-4 text-orange-600" />
@@ -361,7 +361,7 @@ const UserManagement = () => {
           </div>
 
           {/* Search and Filters */}
-          <Card>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Rechercher des utilisateurs</CardTitle>
             </CardHeader>
@@ -378,7 +378,7 @@ const UserManagement = () => {
           </Card>
 
           {/* Users Table */}
-          <Card className="flex-1">
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Liste des utilisateurs</CardTitle>
               <CardDescription>
@@ -447,7 +447,7 @@ const UserManagement = () => {
         </TabsContent>
 
         <TabsContent value="permissions" className="flex-1 flex flex-col">
-          <Card className="flex-1">
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -514,7 +514,7 @@ const UserManagement = () => {
         </TabsContent>
 
         <TabsContent value="help" className="flex-1 flex flex-col">
-          <Card className="flex-1">
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Gestion de l'Aide</CardTitle>
               <CardDescription>
