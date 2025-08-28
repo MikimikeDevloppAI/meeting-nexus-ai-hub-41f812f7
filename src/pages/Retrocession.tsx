@@ -338,10 +338,29 @@ const Retrocession: React.FC = () => {
         </CardHeader>
         <CardContent className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.data} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={chartData.data} margin={{ top: 30, right: 30, left: 20, bottom: 20 }}>
               <XAxis 
                 dataKey="month" 
-                interval={Math.ceil(chartData.data.length / 5)} 
+                axisLine={{ stroke: 'hsl(var(--border))' }}
+                tickLine={{ stroke: 'hsl(var(--border))' }}
+                tick={(props) => {
+                  const { x, y, payload, index } = props;
+                  const isFirstOrLast = index === 0 || index === chartData.data.length - 1;
+                  
+                  if (!isFirstOrLast) return null;
+                  
+                  return (
+                    <text 
+                      x={x} 
+                      y={y + 15} 
+                      textAnchor="middle" 
+                      fill="hsl(var(--muted-foreground))" 
+                      fontSize="12"
+                    >
+                      {payload.value}
+                    </text>
+                  );
+                }}
               />
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
