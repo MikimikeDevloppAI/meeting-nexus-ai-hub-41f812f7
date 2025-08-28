@@ -1215,13 +1215,13 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-2 border-t">
-            {invoice.file_path && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
-                className="flex items-center gap-1"
-              >
+             {invoice.file_path && (
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
+                 className="flex items-center gap-1 hover-scale transition-all duration-200"
+               >
                 <Eye className="h-4 w-4" />
                 Visualiser
               </Button>
@@ -1229,43 +1229,43 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             
             {isEditing ? (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={saveEditingInvoice}
-                  className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                >
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={saveEditingInvoice}
+                   className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 hover-scale transition-all duration-200"
+                 >
                   <Check className="h-4 w-4" />
                   Valider
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={cancelEditingInvoice}
-                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={cancelEditingInvoice}
+                   className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 hover-scale transition-all duration-200"
+                 >
                   <Trash2 className="h-4 w-4" />
                   Annuler
                 </Button>
               </>
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => startEditingInvoice(invoice)}
-                  className="flex items-center gap-1"
-                >
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => startEditingInvoice(invoice)}
+                   className="flex items-center gap-1 hover-scale transition-all duration-200"
+                 >
                   <Edit className="h-4 w-4" />
                   Modifier
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteInvoice(invoice)}
-                  disabled={deletingInvoiceId === invoice.id}
-                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => deleteInvoice(invoice)}
+                   disabled={deletingInvoiceId === invoice.id}
+                   className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 hover-scale transition-all duration-200"
+                 >
                   <Trash2 className="h-4 w-4" />
                   {deletingInvoiceId === invoice.id ? 'Suppression...' : 'Supprimer'}
                 </Button>
@@ -1308,8 +1308,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               {Object.keys(organizedValidatedInvoices)
                 .sort((a, b) => parseInt(b) - parseInt(a)) // Années décroissantes
                 .map((year) => (
-                  <AccordionItem key={year} value={year} className="border rounded-lg">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                   <AccordionItem key={year} value={year} className="border rounded-lg">
+                     <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors duration-200 hover-scale">
                       <div className="flex items-center gap-3">
                         <Calendar className="h-5 w-5 text-primary" />
                         <span className="text-lg font-semibold">{year}</span>
@@ -1324,8 +1324,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                             const month = monthKey.split('-')[1];
                             const invoicesList = organizedValidatedInvoices[year][monthKey];
                             return (
-                              <AccordionItem key={`${year}-${monthKey}`} value={`${year}-${monthKey}`} className="border rounded-md">
-                                <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+                               <AccordionItem key={`${year}-${monthKey}`} value={`${year}-${monthKey}`} className="border rounded-md">
+                                 <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline hover:bg-muted/50 transition-colors duration-200 hover-scale">
                                   <div className="flex items-center gap-2">
                                     <ChevronDown className="h-4 w-4" />
                                     <span className="font-medium capitalize">{month}</span>
