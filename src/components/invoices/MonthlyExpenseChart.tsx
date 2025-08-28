@@ -29,7 +29,7 @@ const chartConfig = {
   },
   total: {
     label: "Tendance totale",
-    color: "hsl(var(--primary))",
+    color: "#ef4444", // Rouge pour se démarquer
   },
 };
 
@@ -210,7 +210,9 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
               strokeWidth={3}
               strokeDasharray="8 4"
               name="Tendance totale"
-              dot={{ fill: chartConfig.total.color, strokeWidth: 2, r: 5 }}
+              dot={{ fill: chartConfig.total.color, strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, fill: chartConfig.total.color, strokeWidth: 2 }}
+              connectNulls={false}
             />
           </ComposedChart>
         </ResponsiveContainer>

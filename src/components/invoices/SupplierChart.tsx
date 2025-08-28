@@ -78,7 +78,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
       </CardHeader>
       <CardContent>
         <div className="w-full overflow-x-auto">
-          <div className="h-[600px]" style={{ minWidth: `${minWidth}px` }}>
+          <div className="h-[360px]" style={{ minWidth: `${minWidth}px` }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={supplierData} margin={{ top: 60, right: 30, left: 20, bottom: 80 }}>
                 <XAxis 
