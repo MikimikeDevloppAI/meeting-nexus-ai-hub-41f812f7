@@ -136,7 +136,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <Sidebar className="bg-background border-r border-border rounded-r-xl shadow-md">
-      <SidebarContent className="px-4 py-3 shadow-lg rounded-br-2xl">
+      <SidebarContent className="px-4 py-3 shadow-lg rounded-tr-xl rounded-br-xl">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
