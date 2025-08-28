@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Separator } from "@/components/ui/separator";
-import { Logo } from "@/components/Logo";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePageHover } from "@/hooks/usePageHover";
@@ -137,10 +137,6 @@ const AppSidebar: React.FC = () => {
 
   return (
     <Sidebar className="bg-background border-r border-border rounded-r-xl shadow-md">
-      <SidebarHeader className="px-4 py-3">
-        <Logo size="md" showText={false} />
-        <Separator className="mt-3" />
-      </SidebarHeader>
       <SidebarContent className="px-4 py-3 shadow-lg rounded-tr-xl rounded-br-xl">
         <SidebarGroup>
           <SidebarGroupContent>
