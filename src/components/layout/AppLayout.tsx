@@ -142,7 +142,7 @@ const AppSidebar: React.FC = () => {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="px-4 py-2">
+      <SidebarContent className="px-4 pt-0 pb-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
