@@ -19,9 +19,9 @@ interface TeamVacationCalendarProps {
 }
 
 const TEAM_MEMBERS = [
-  { name: "Sybille", email: "sybille@example.com", color: "bg-blue-500", textColor: "text-blue-500" },
-  { name: "Émilie", email: "emilie@example.com", color: "bg-pink-500", textColor: "text-pink-500" },
-  { name: "Leïla", email: "leila@example.com", color: "bg-green-500", textColor: "text-green-500" }
+  { displayName: "Sybille", email: "contacto@eyung.ch", color: "rgba(59, 130, 246, 0.3)", border: "rgb(59, 130, 246)" },
+  { displayName: "Emilie",  email: "emilie.eyung@gmail.com", color: "rgba(236, 72, 153, 0.3)", border: "rgb(236, 72, 153)" },
+  { displayName: "Leila",   email: "leila.eyung@gmail.com",  color: "rgba(34, 197, 94, 0.3)",  border: "rgb(34, 197, 94)" }
 ];
 
 export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
@@ -30,30 +30,19 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
   // Filtrer les vacances des membres de l'équipe spécifiés
   const teamVacations = vacations.filter(vacation => {
     const userEmail = vacation.users?.email?.toLowerCase();
-    return TEAM_MEMBERS.some(member => 
-      userEmail && (
-        userEmail.includes(member.name.toLowerCase()) ||
-        userEmail === member.email.toLowerCase()
-      )
-    );
+    return !!userEmail && TEAM_MEMBERS.some(member => userEmail === member.email.toLowerCase());
   });
 
   // Créer une carte des dates de vacances par utilisateur
-  const vacationDatesByUser: Record<string, { dates: Date[], color: string, textColor: string }> = {};
+  const vacationDatesByUser: Record<string, Date[]> = {};
   
   teamVacations.forEach(vacation => {
     const userEmail = vacation.users?.email?.toLowerCase() || '';
-    const member = TEAM_MEMBERS.find(m => 
-      userEmail.includes(m.name.toLowerCase()) || userEmail === m.email.toLowerCase()
-    );
+    const member = TEAM_MEMBERS.find(m => userEmail === m.email.toLowerCase());
     
     if (member && vacation.status === 'approved') {
-      if (!vacationDatesByUser[member.name]) {
-        vacationDatesByUser[member.name] = { 
-          dates: [], 
-          color: member.color,
-          textColor: member.textColor
-        };
+      if (!vacationDatesByUser[member.displayName]) {
+        vacationDatesByUser[member.displayName] = [];
       }
 
       // Utiliser uniquement vacation_days pour les vacances validées
@@ -61,7 +50,7 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
         vacation.vacation_days.forEach(day => {
           try {
             const date = parseISO(day.vacation_date);
-            vacationDatesByUser[member.name].dates.push(date);
+            vacationDatesByUser[member.displayName].push(date);
           } catch (error) {
             console.error('Error parsing vacation date:', error);
           }
@@ -71,32 +60,20 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
     }
   });
 
-  // Créer les modifiers pour le calendrier
   const modifiers: Record<string, Date[]> = {};
   const modifiersStyles: Record<string, React.CSSProperties> = {};
+  const colorMap = Object.fromEntries(TEAM_MEMBERS.map(m => [m.displayName, m]));
 
   Object.entries(vacationDatesByUser).forEach(([userName, userData]) => {
     const modifierKey = userName.toLowerCase();
-    modifiers[modifierKey] = userData.dates;
+    modifiers[modifierKey] = userData;
     
-    // Style avec couleur de fond semi-transparente
-    if (userName === "Sybille") {
+    const memberColors = colorMap[userName];
+    if (memberColors) {
       modifiersStyles[modifierKey] = {
-        backgroundColor: 'rgba(59, 130, 246, 0.3)', // blue-500 avec transparence
+        backgroundColor: memberColors.color,
         borderRadius: '50%',
-        border: '2px solid rgb(59, 130, 246)'
-      };
-    } else if (userName === "Émilie") {
-      modifiersStyles[modifierKey] = {
-        backgroundColor: 'rgba(236, 72, 153, 0.3)', // pink-500 avec transparence
-        borderRadius: '50%',
-        border: '2px solid rgb(236, 72, 153)'
-      };
-    } else if (userName === "Leïla") {
-      modifiersStyles[modifierKey] = {
-        backgroundColor: 'rgba(34, 197, 94, 0.3)', // green-500 avec transparence
-        borderRadius: '50%',
-        border: '2px solid rgb(34, 197, 94)'
+        border: `2px solid ${memberColors.border}`
       };
     }
   });
@@ -115,19 +92,15 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
           <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
             <h4 className="font-medium text-sm w-full mb-2">Légende :</h4>
             {TEAM_MEMBERS.map((member) => (
-              <div key={member.name} className="flex items-center gap-2">
+              <div key={member.email} className="flex items-center gap-2">
                 <div 
                   className="w-4 h-4 rounded-full border-2"
                   style={{
-                    backgroundColor: member.name === "Sybille" ? 'rgba(59, 130, 246, 0.3)' :
-                                   member.name === "Émilie" ? 'rgba(236, 72, 153, 0.3)' :
-                                   'rgba(34, 197, 94, 0.3)',
-                    borderColor: member.name === "Sybille" ? 'rgb(59, 130, 246)' :
-                               member.name === "Émilie" ? 'rgb(236, 72, 153)' :
-                               'rgb(34, 197, 94)'
+                    backgroundColor: member.color,
+                    borderColor: member.border
                   }}
                 />
-                <span className="text-sm font-medium">{member.name}</span>
+                <span className="text-sm font-medium">{member.displayName}</span>
               </div>
             ))}
           </div>
@@ -158,21 +131,17 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
           {/* Statistiques */}
           <div className="grid grid-cols-3 gap-4">
             {TEAM_MEMBERS.map((member) => {
-              const vacationCount = vacationDatesByUser[member.name]?.dates.length || 0;
+              const vacationCount = (vacationDatesByUser[member.displayName]?.length) || 0;
               return (
-                <div key={member.name} className="text-center p-4 bg-muted/30 rounded-lg">
+                <div key={member.email} className="text-center p-4 bg-muted/30 rounded-lg">
                   <div 
                     className="w-5 h-5 rounded-full border-2 mx-auto mb-2"
                     style={{
-                      backgroundColor: member.name === "Sybille" ? 'rgba(59, 130, 246, 0.3)' :
-                                     member.name === "Émilie" ? 'rgba(236, 72, 153, 0.3)' :
-                                     'rgba(34, 197, 94, 0.3)',
-                      borderColor: member.name === "Sybille" ? 'rgb(59, 130, 246)' :
-                                 member.name === "Émilie" ? 'rgb(236, 72, 153)' :
-                                 'rgb(34, 197, 94)'
+                      backgroundColor: member.color,
+                      borderColor: member.border
                     }}
                   />
-                  <div className="font-medium text-sm">{member.name}</div>
+                  <div className="font-medium text-sm">{member.displayName}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     {vacationCount} jour{vacationCount !== 1 ? 's' : ''} de congé
                   </div>
