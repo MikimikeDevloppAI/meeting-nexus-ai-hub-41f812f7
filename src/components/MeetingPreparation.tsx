@@ -185,7 +185,7 @@ export const MeetingPreparation = () => {
   }
 
   return (
-    <Card className="mb-6 shadow-lg">
+    <Card className="mb-6 shadow-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
