@@ -343,24 +343,7 @@ const Retrocession: React.FC = () => {
                 dataKey="month" 
                 axisLine={{ stroke: 'hsl(var(--border))' }}
                 tickLine={{ stroke: 'hsl(var(--border))' }}
-                tick={(props) => {
-                  const { x, y, payload, index } = props;
-                  const isFirstOrLast = index === 0 || index === chartData.data.length - 1;
-                  
-                  if (!isFirstOrLast) return null;
-                  
-                  return (
-                    <text 
-                      x={x} 
-                      y={y + 15} 
-                      textAnchor="middle" 
-                      fill="hsl(var(--muted-foreground))" 
-                      fontSize="12"
-                    >
-                      {payload.value}
-                    </text>
-                  );
-                }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
@@ -372,21 +355,34 @@ const Retrocession: React.FC = () => {
               <Legend
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
               />
-              {chartData.doctors.map((doc, idx) => (
-                <Bar 
-                  key={doc} 
-                  dataKey={doc} 
-                  fill={palette[idx % palette.length]}
-                  radius={[4, 4, 0, 0]}
-                  stroke="hsl(var(--border))"
-                  strokeWidth={1}
-                >
-                  <LabelList dataKey={doc} position="top" formatter={(val: any) => (Number(val) ? formatCHF0(Number(val)) : '')} />
-                </Bar>
-              ))}
-              <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot>
-                <LabelList dataKey="total" position="top" formatter={(val: any) => (Number(val) ? formatCHF0(Number(val)) : '')} />
-              </Line>
+              {chartData.doctors.map((doc, idx) => {
+                const values = chartData.data.map(d => Number(d[doc] || 0));
+                const maxValue = Math.max(...values);
+                const minValue = Math.min(...values.filter(v => v > 0));
+                
+                return (
+                  <Bar 
+                    key={doc} 
+                    dataKey={doc} 
+                    fill={palette[idx % palette.length]}
+                    radius={[4, 4, 0, 0]}
+                    stroke="hsl(var(--border))"
+                    strokeWidth={1}
+                  >
+                    <LabelList 
+                      dataKey={doc} 
+                      position="top" 
+                      formatter={(val: any, entry: any) => {
+                        const value = Number(val);
+                        if (value === maxValue || value === minValue) {
+                          return value ? formatCHF0(value) : '';
+                        }
+                        return '';
+                      }} 
+                    />
+                  </Bar>
+                );
+              })}
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
