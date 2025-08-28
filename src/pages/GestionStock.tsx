@@ -735,7 +735,7 @@ const GestionStock: React.FC = () => {
                             </TableCell>
                             <TableCell className="modern-table-cell text-center">
                               {commandeEnCours > 0 ? (
-                                <span className="text-primary font-medium">{commandeEnCours}</span>
+                                <span className="text-foreground font-medium">{commandeEnCours}</span>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}

@@ -41,9 +41,9 @@
 
     /* Table design tokens */
     --table-header: 0 0% 100%;          /* Pure white header */
-    --table-row-alt: 234 89% 97%;       /* Very light primary */
-    --table-border: 234 89% 90%;        /* Pastel primary border */
-    --table-separator: 234 89% 92%;     /* Ultra pastel primary separator */
+    --table-row-alt: 234 89% 98.5%;     /* Ultra light primary */
+    --table-border: 234 89% 96%;        /* Very subtle primary border */
+    --table-separator: 234 89% 97%;     /* Almost invisible primary separator */
     --text-strong: 222.2 84% 4.9%;      /* #0f172a */
     --text-muted-2: 215 16% 47%;        /* ~#475569 */
     --danger-soft: 0 93% 94%;           /* #fee2e2 */
