@@ -21,11 +21,11 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
   }, []);
 
   const sizes = {
-    sm: { wrapper: "w-15 h-15", img: "h-12 w-12" },
-    md: { wrapper: "w-18 h-18", img: "h-15 w-15" },
-    lg: { wrapper: "w-30 h-30", img: "h-24 w-24" },
-    xl: { wrapper: "w-42 h-42", img: "h-36 w-36" },
-    xxl: { wrapper: "w-48 h-48", img: "h-42 w-42" },
+    sm: { wrapper: "w-8 h-8", img: "h-7 w-7" },
+    md: { wrapper: "w-10 h-10", img: "h-9 w-9" },
+    lg: { wrapper: "w-12 h-12", img: "h-10 w-10" },
+    xl: { wrapper: "w-16 h-16", img: "h-14 w-14" },
+    xxl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
   } as const;
 
   const wrapperSize = sizes[size].wrapper;

@@ -138,7 +138,7 @@ const AppSidebar: React.FC = () => {
     <Sidebar className="bg-background border-r border-border rounded-r-xl shadow-lg">
       <SidebarHeader className="px-2 py-0 border-b border-border -mb-2">
         <div className="flex items-center justify-center -my-2">
-          <Logo size="xl" showText={false} />
+          <Logo size="lg" showText={false} />
         </div>
       </SidebarHeader>
       
