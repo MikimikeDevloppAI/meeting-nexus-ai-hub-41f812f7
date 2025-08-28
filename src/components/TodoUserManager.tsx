@@ -195,7 +195,7 @@ export const TodoUserManager = ({
           <div className="flex flex-wrap gap-1">
             {currentUsers.map((user) => (
               <Badge key={user.id} variant="secondary" className="text-xs">
-                {user.name}
+                {user.name.split(' ')[0]}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -239,7 +239,7 @@ export const TodoUserManager = ({
           {currentUsers.map((user) => (
             <div key={user.id} className="flex items-center justify-between p-2 border rounded">
               <div>
-                <span className="font-medium">{user.name}</span>
+                <span className="font-medium">{user.name.split(' ')[0]}</span>
                 <span className="text-sm text-muted-foreground ml-2"></span>
               </div>
               <Button
@@ -267,7 +267,7 @@ export const TodoUserManager = ({
                   onChange={() => toggleUserSelection(user.id)}
                   className="rounded"
                 />
-                <span>{user.name}</span>
+                <span>{user.name.split(' ')[0]}</span>
               </label>
             ))}
           </div>
