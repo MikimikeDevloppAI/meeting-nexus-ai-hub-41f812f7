@@ -355,7 +355,12 @@ const Retrocession: React.FC = () => {
               <Legend
                 verticalAlign="top"
                 align="right"
-                wrapperStyle={{ paddingBottom: '20px' }}
+                iconType="circle"
+                wrapperStyle={{ 
+                  paddingBottom: '30px', 
+                  paddingRight: '20px',
+                  marginTop: '-20px'
+                }}
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
               />
               {chartData.doctors.map((doc, idx) => {
