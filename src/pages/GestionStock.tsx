@@ -826,11 +826,6 @@ const GestionStock: React.FC = () => {
                         </TableBody>
                       </Table>
                     </div>
-                    {commandes.length > 8 && (
-                      <div className="text-center text-sm text-muted-foreground mt-2">
-                        Faites défiler pour voir plus de commandes
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
@@ -880,11 +875,6 @@ const GestionStock: React.FC = () => {
                           </TableBody>
                         </Table>
                       </div>
-                      {injections.length > 8 && (
-                        <div className="text-center text-sm text-muted-foreground mt-2">
-                          Faites défiler pour voir plus d'injections
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
 
