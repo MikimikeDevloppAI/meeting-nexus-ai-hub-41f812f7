@@ -211,19 +211,6 @@ const AppSidebar: React.FC = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        {user && (
-          <Button
-            onClick={() => signOut()}
-            variant="ghost" 
-            size="sm"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="text-sm">Se déconnecter</span>
-          </Button>
-        )}
-      </SidebarFooter>
 
     </Sidebar>
   );
