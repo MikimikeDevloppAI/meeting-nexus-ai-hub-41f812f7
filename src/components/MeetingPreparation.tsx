@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { Trash2, Plus, Calendar } from "lucide-react";
+import { 
+  Collapsible, 
+  CollapsibleContent, 
+  CollapsibleTrigger 
+} from "@/components/ui/collapsible";
+import { Trash2, Plus, Calendar, ChevronDown } from "lucide-react";
 
 interface Todo {
   id: string;
@@ -29,6 +34,8 @@ export const MeetingPreparation = () => {
   const [customPoints, setCustomPoints] = useState<CustomPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newPoint, setNewPoint] = useState("");
+  const [todosOpen, setTodosOpen] = useState(false);
+  const [pointsOpen, setPointsOpen] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -178,7 +185,7 @@ export const MeetingPreparation = () => {
   }
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
@@ -188,94 +195,103 @@ export const MeetingPreparation = () => {
       <CardContent className="space-y-6">
         
         {/* Tâches en cours */}
-        <div>
-          <h3 className="font-semibold mb-3">
-            Tâches en cours ({todos.length})
-          </h3>
-          
-          {todos.length === 0 ? (
-            <div className="text-center py-3 text-muted-foreground text-sm">
-              Aucune tâche en cours
-            </div>
-          ) : (
-            <ul className="space-y-2 pl-4">
-              {todos.map((todo) => (
-                <li key={todo.id} className="flex items-start gap-2">
-                  <span className="text-muted-foreground mt-0.5 text-sm">•</span>
-                  <span className="text-sm flex-1">{todo.description}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Séparateur visuel */}
-        <div className="border-t pt-6">
-          {/* Points à ajouter à l'ordre du jour */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold">
-                Points à ajouter à l'ordre du jour
-              </h3>
-              {customPoints.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={clearAllCustomPoints}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Effacer tous les points
-                </Button>
-              )}
-            </div>
-            
-            {/* Ajouter un point */}
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="Ajouter un point à l'ordre du jour..."
-                value={newPoint}
-                onChange={(e) => setNewPoint(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addCustomPoint()}
-                className="flex-1"
-              />
-              <Button onClick={addCustomPoint} disabled={!newPoint.trim()}>
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter
-              </Button>
-            </div>
-
-            {/* Liste des points */}
-            {customPoints.length > 0 ? (
+        <Collapsible open={todosOpen} onOpenChange={setTodosOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+            <h3 className="font-semibold">
+              Tâches en cours ({todos.length})
+            </h3>
+            <ChevronDown className={`h-4 w-4 transition-transform ${todosOpen ? 'transform rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3">
+            {todos.length === 0 ? (
+              <div className="text-center py-3 text-muted-foreground text-sm">
+                Aucune tâche en cours
+              </div>
+            ) : (
               <ul className="space-y-2 pl-4">
-                {customPoints.map((point) => (
-                  <li key={point.id} className="flex items-start gap-2">
+                {todos.map((todo) => (
+                  <li key={todo.id} className="flex items-start gap-2">
                     <span className="text-muted-foreground mt-0.5 text-sm">•</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <div className="flex-1">
-                        <span className="text-sm">{point.point_text}</span>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Ajouté par {point.users?.name || 'Utilisateur inconnu'}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteCustomPoint(point.id)}
-                        className="text-red-600 hover:text-red-700 h-6 w-6 p-0 ml-2 flex-shrink-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <span className="text-sm flex-1">{todo.description}</span>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <div className="text-center py-3 text-muted-foreground text-sm">
-                Aucun point ajouté à l'ordre du jour
-              </div>
             )}
-          </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Séparateur visuel avec ombre */}
+        <div className="border-t pt-6 shadow-sm">
+          {/* Points à ajouter à l'ordre du jour */}
+          <Collapsible open={pointsOpen} onOpenChange={setPointsOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors mb-3">
+              <h3 className="font-semibold">
+                Points à ajouter à l'ordre du jour
+              </h3>
+              <ChevronDown className={`h-4 w-4 transition-transform ${pointsOpen ? 'transform rotate-180' : ''}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3">
+              {customPoints.length > 0 && (
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={clearAllCustomPoints}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Effacer tous les points
+                  </Button>
+                </div>
+              )}
+              
+              {/* Ajouter un point */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ajouter un point à l'ordre du jour..."
+                  value={newPoint}
+                  onChange={(e) => setNewPoint(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomPoint()}
+                  className="flex-1"
+                />
+                <Button onClick={addCustomPoint} disabled={!newPoint.trim()}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter
+                </Button>
+              </div>
+
+              {/* Liste des points */}
+              {customPoints.length > 0 ? (
+                <ul className="space-y-2 pl-4">
+                  {customPoints.map((point) => (
+                    <li key={point.id} className="flex items-start gap-2">
+                      <span className="text-muted-foreground mt-0.5 text-sm">•</span>
+                      <div className="flex-1 flex justify-between items-start">
+                        <div className="flex-1">
+                          <span className="text-sm">{point.point_text}</span>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Ajouté par {point.users?.name || 'Utilisateur inconnu'}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteCustomPoint(point.id)}
+                          className="text-red-600 hover:text-red-700 h-6 w-6 p-0 ml-2 flex-shrink-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-3 text-muted-foreground text-sm">
+                  Aucun point ajouté à l'ordre du jour
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </CardContent>
     </Card>
