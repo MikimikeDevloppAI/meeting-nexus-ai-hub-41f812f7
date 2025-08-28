@@ -341,9 +341,10 @@ const Retrocession: React.FC = () => {
             <BarChart data={chartData.data} margin={{ top: 60, right: 30, left: 20, bottom: 20 }}>
               <XAxis 
                 dataKey="month" 
-                axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                axisLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 }}
                 tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                style={{ zIndex: 10 }}
               />
               <Tooltip
                 formatter={(value: any, name) => [formatCHF(Number(value)), String(name)]}
@@ -353,13 +354,11 @@ const Retrocession: React.FC = () => {
                 labelStyle={{ color: 'hsl(0 0% 0%)' }}
               />
               <Legend
-                verticalAlign="top"
-                align="right"
+                verticalAlign="bottom"
+                align="center"
                 iconType="circle"
                 wrapperStyle={{ 
-                  paddingBottom: '30px', 
-                  paddingRight: '20px',
-                  marginTop: '-20px'
+                  paddingTop: '20px'
                 }}
                 formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{String(value)}</span>}
               />
