@@ -56,7 +56,7 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
         };
       }
 
-      // Utiliser vacation_days si disponible, sinon utiliser la plage de dates
+      // Utiliser uniquement vacation_days pour les vacances validées
       if (vacation.vacation_days && vacation.vacation_days.length > 0) {
         vacation.vacation_days.forEach(day => {
           try {
@@ -66,16 +66,8 @@ export function TeamVacationCalendar({ vacations }: TeamVacationCalendarProps) {
             console.error('Error parsing vacation date:', error);
           }
         });
-      } else {
-        try {
-          const startDate = parseISO(vacation.start_date);
-          const endDate = parseISO(vacation.end_date);
-          const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
-          vacationDatesByUser[member.name].dates.push(...dateRange);
-        } catch (error) {
-          console.error('Error parsing vacation date range:', error);
-        }
       }
+      // Ne pas utiliser start_date/end_date comme fallback pour les vacances validées
     }
   });
 
