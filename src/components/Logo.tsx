@@ -45,7 +45,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
   }, []);
 
   const sizes = {
-    sm: { wrapper: "w-10 h-10", img: "h-8 w-8" },
+    sm: { wrapper: "w-10 h-15", img: "h-8 w-8" },
     md: { wrapper: "w-12 h-12", img: "h-10 w-10" },
     lg: { wrapper: "w-16 h-16", img: "h-14 w-14" },
     xl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
