@@ -661,22 +661,22 @@ const GestionStock: React.FC = () => {
 
         {/* Form for quick injection entry */}
         <section aria-labelledby="injection-form-section">
-          <Card className="shadow-md">
+          <Card className="shadow-lg">
             <CardHeader>
               <CardTitle id="injection-form-section">Enregistrer une injection</CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
-                <select className="border rounded-md px-3 py-2 w-full md:w-auto md:col-span-2 min-w-[220px]" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
+                <select className="border rounded-md px-3 py-2 w-full md:w-auto md:col-span-2 min-w-[220px] shadow-sm" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
                   <option value="">Sélectionner un produit</option>
                   {produits.map((p) => (
                     <option key={p.id} value={p.id}>{p.produit}</option>
                   ))}
                 </select>
-                <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required />
+                <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required className="shadow-sm" />
                 <div className="flex items-center gap-2 md:col-span-2">
-                  <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required />
-                  <Button type="submit">Ajouter</Button>
+                  <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required className="shadow-sm" />
+                  <Button type="submit" className="shadow-sm">Ajouter</Button>
                 </div>
               </form>
             </CardContent>
@@ -685,7 +685,7 @@ const GestionStock: React.FC = () => {
 
         {/* Stock table */}
         <section aria-labelledby="stock-section">
-          <div className="modern-table">
+          <div className="modern-table shadow-lg">
             <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
               <h2 id="stock-section" className="text-lg font-semibold">Stocks par produit</h2>
             </div>
@@ -742,13 +742,13 @@ const GestionStock: React.FC = () => {
                             </TableCell>
                             <TableCell className="modern-table-cell text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
+                                <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts" className="shadow-sm hover:shadow-md transition-shadow">
                                   <Phone className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditProduit(p)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer">
+                                <Button variant="ghost" size="icon" onClick={() => requestDelete('produit', p.id, p.produit)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -764,13 +764,13 @@ const GestionStock: React.FC = () => {
 
         {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
-          <div className="modern-table">
+          <div className="modern-table shadow-lg">
             <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
               <h2 id="historique-section" className="text-lg font-semibold">Historique</h2>
             </div>
             <div className="space-y-4 p-6">
               {/* Commands table */}
-              <div className="modern-table">
+              <div className="modern-table shadow-md">
                 <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                   <h3 className="text-base font-semibold">Commandes récentes</h3>
                 </div>
@@ -814,14 +814,14 @@ const GestionStock: React.FC = () => {
                                    <TableCell className="modern-table-cell font-medium">{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
                                    <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(c.date_paiement)}</TableCell>
                                    <TableCell className="modern-table-cell text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
+                                     <div className="flex items-center justify-center gap-1">
+                                       <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
+                                         <Pencil className="h-4 w-4" />
+                                       </Button>
+                                       <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
+                                         <Trash2 className="h-4 w-4" />
+                                       </Button>
+                                     </div>
                                   </TableCell>
                                 </TableRow>
                               );
@@ -834,7 +834,7 @@ const GestionStock: React.FC = () => {
                 {/* Two column layout: Recent injections left, Chart right */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Injections table on the left */}
-                  <div className="modern-table">
+                  <div className="modern-table shadow-md">
                     <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                       <h3 className="text-base font-semibold">Injections récentes</h3>
                     </div>
@@ -862,10 +862,10 @@ const GestionStock: React.FC = () => {
                                     <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(inj.date_injection)}</TableCell>
                                     <TableCell className="modern-table-cell text-center">
                                       <div className="flex items-center justify-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
                                           <Pencil className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer">
+                                        <Button variant="ghost" size="icon" onClick={() => requestDelete('injection', inj.id)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
                                       </div>
@@ -879,7 +879,7 @@ const GestionStock: React.FC = () => {
                   </div>
 
                   {/* Chart section on the right */}
-                  <div className="modern-table">
+                  <div className="modern-table shadow-md">
                     <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
                       <h3 className="text-base font-semibold">Tendance des injections - 6 derniers mois</h3>
                     </div>
