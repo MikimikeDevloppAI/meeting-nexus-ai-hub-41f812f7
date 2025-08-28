@@ -663,9 +663,9 @@ const GestionStock: React.FC = () => {
                             <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
                             <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
                             <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">{p.stock_cible ?? 0}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                             <TableCell className="px-3 py-2 text-center text-muted-2">{seuil}</TableCell>
+                             <TableCell className="px-3 py-2 text-center text-muted-2">{p.stock_cible ?? 0}</TableCell>
+                             <TableCell className="px-3 py-2 text-center text-muted-2">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
                              <TableCell className="px-3 py-2 text-center">
                                <div className="inline-flex items-center gap-2">
                                  {stock > 0 && (
