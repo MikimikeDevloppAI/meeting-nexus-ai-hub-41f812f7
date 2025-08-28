@@ -136,13 +136,13 @@ const AppSidebar: React.FC = () => {
 
   return (
     <Sidebar className="bg-background border-r border-border rounded-r-xl shadow-lg">
-      <SidebarHeader className="px-2 py-0 border-b border-border -mb-2">
-        <div className="flex items-center justify-center -my-2">
-          <Logo size="lg" showText={false} />
+      <SidebarHeader className="px-4 py-6 border-b border-border">
+        <div className="flex items-center justify-center">
+          <Logo size="xxl" showText={false} />
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="px-4 pt-0 pb-2">
+      <SidebarContent className="px-4 pt-6 pb-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
