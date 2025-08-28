@@ -886,21 +886,7 @@ export default function HRValidation() {
             </Select>
           </div>
 
-          {/* Décompte des vacances par utilisateur */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Décompte des vacances {selectedYear}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Nombre de jours de vacances approuvés depuis le début de l'année
-              </p>
-            </CardHeader>
-            <CardContent>
-              <TeamVacationCalendar vacations={vacations} />
-            </CardContent>
-          </Card>
+          <TeamVacationCalendar vacations={vacations} />
         </TabsContent>
 
         <TabsContent value="quotas" className="space-y-4">
