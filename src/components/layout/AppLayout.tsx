@@ -211,7 +211,7 @@ const AppSidebar: React.FC = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-border">
+      <SidebarFooter className="p-4">
         {user && (
           <Button
             onClick={() => signOut()}
