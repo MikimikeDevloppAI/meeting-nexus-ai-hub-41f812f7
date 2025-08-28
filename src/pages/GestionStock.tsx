@@ -391,7 +391,7 @@ const GestionStock: React.FC = () => {
         </div>
       </header>
 
-      <main className="mt-6 space-y-10">
+      <main className="mt-6 space-y-6">
         <Dialog open={openProduit} onOpenChange={setOpenProduit}>
           <DialogContent className="sm:max-w-5xl max-w-[95vw]">
             <DialogHeader>
@@ -685,24 +685,23 @@ const GestionStock: React.FC = () => {
 
         {/* Stock table */}
         <section aria-labelledby="stock-section">
-          <Card className="shadow-md border">
-            <CardHeader>
-              <CardTitle id="stock-section">Stocks par produit</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table className="font-inter text-sm">
-                  <TableHeader className="bg-table-header">
-                    <TableRow className="border-row">
-                      <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
-                      <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
-                      <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+          <div className="modern-table">
+            <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+              <h2 id="stock-section" className="text-lg font-semibold">Stocks par produit</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <Table className="font-inter text-sm">
+                <TableHeader className="modern-table-header">
+                  <TableRow>
+                      <TableHead className="modern-table-header-cell">Produit</TableHead>
+                      <TableHead className="modern-table-header-cell hidden md:table-cell">Molécule</TableHead>
+                      <TableHead className="modern-table-header-cell hidden md:table-cell">Fabricant</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Seuil alerte</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Stock cible</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Moy. inj/mois (3m)</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Stock</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Commande en cours</TableHead>
+                      <TableHead className="modern-table-header-cell text-center">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -715,17 +714,17 @@ const GestionStock: React.FC = () => {
                         const below = seuil > 0 && stock <= seuil;
                         const commandeEnCours = commandeEnCoursParProduit[p.id] ?? 0;
                         return (
-                          <TableRow key={p.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                            <TableCell className="px-3 py-2 text-strong">{p.produit}</TableCell>
-                            <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.molecule}</TableCell>
-                            <TableCell className="px-3 py-2 text-muted-2 hidden md:table-cell">{p.fabricant}</TableCell>
-                            <TableCell className="px-3 py-2 text-center text-muted-2">{seuil}</TableCell>
-                            <TableCell className="px-3 py-2 text-center text-muted-2">{p.stock_cible ?? 0}</TableCell>
-                            <TableCell className="px-3 py-2 text-center text-muted-2">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">
+                          <TableRow key={p.id} className="modern-table-row">
+                            <TableCell className="modern-table-cell font-medium">{p.produit}</TableCell>
+                            <TableCell className="modern-table-cell text-muted-foreground hidden md:table-cell">{p.molecule}</TableCell>
+                            <TableCell className="modern-table-cell text-muted-foreground hidden md:table-cell">{p.fabricant}</TableCell>
+                            <TableCell className="modern-table-cell text-center text-muted-foreground">{seuil}</TableCell>
+                            <TableCell className="modern-table-cell text-center text-muted-foreground">{p.stock_cible ?? 0}</TableCell>
+                            <TableCell className="modern-table-cell text-center text-muted-foreground">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
+                            <TableCell className="modern-table-cell text-center">
                               <div className="inline-flex items-center gap-2">
                                 {stock > 0 && (
-                                  <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                                  <span className={below ? 'text-danger-strong font-semibold' : 'font-medium'}>{stock}</span>
                                 )}
                                 {stock === 0 && (
                                   <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
@@ -734,14 +733,14 @@ const GestionStock: React.FC = () => {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="px-3 py-2 text-center">
+                            <TableCell className="modern-table-cell text-center">
                               {commandeEnCours > 0 ? (
-                                <span className="text-info-strong font-medium">{commandeEnCours}</span>
+                                <span className="text-primary font-medium">{commandeEnCours}</span>
                               ) : (
-                                "-"
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="px-3 py-2 text-center">
+                            <TableCell className="modern-table-cell text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
                                   <Phone className="h-4 w-4" />
@@ -759,38 +758,35 @@ const GestionStock: React.FC = () => {
                       })}
                   </TableBody>
                 </Table>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </section>
 
         {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle id="historique-section">Historique</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Commands table */}
-                <Card className="shadow-md border">
-                  <CardHeader>
-                    <CardTitle className="text-base">Commandes récentes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-80 overflow-y-auto">
-                      <Table className="font-calibri text-sm">
-                        <TableHeader className="bg-table-header sticky top-0">
-                          <TableRow className="border-row">
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">N°</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Qté cmd</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Qté reçue</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Date cmd</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Date réception</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Montant</TableHead>
-                            <TableHead className="px-3 py-2 font-semibold text-strong">Date paiement</TableHead>
-                            <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+          <div className="modern-table">
+            <div className="px-6 py-4 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+              <h2 id="historique-section" className="text-lg font-semibold">Historique</h2>
+            </div>
+            <div className="space-y-4 p-6">
+              {/* Commands table */}
+              <div className="modern-table">
+                <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+                  <h3 className="text-base font-semibold">Commandes récentes</h3>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  <Table className="font-calibri text-sm">
+                    <TableHeader className="modern-table-header sticky top-0">
+                      <TableRow>
+                            <TableHead className="modern-table-header-cell">Produit</TableHead>
+                            <TableHead className="modern-table-header-cell">N°</TableHead>
+                            <TableHead className="modern-table-header-cell">Qté cmd</TableHead>
+                            <TableHead className="modern-table-header-cell">Qté reçue</TableHead>
+                            <TableHead className="modern-table-header-cell">Date cmd</TableHead>
+                            <TableHead className="modern-table-header-cell">Date réception</TableHead>
+                            <TableHead className="modern-table-header-cell">Montant</TableHead>
+                            <TableHead className="modern-table-header-cell">Date paiement</TableHead>
+                            <TableHead className="modern-table-header-cell text-center">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -803,21 +799,21 @@ const GestionStock: React.FC = () => {
                                // Vérifier si la commande a des informations manquantes
                                const isIncomplete = !c.numero_commande || !c.date_reception || !c.montant || !c.date_paiement;
                                return (
-                                 <TableRow 
-                                   key={c.id} 
-                                   className={`border-row even:bg-row-alt hover:bg-muted/50 transition-colors ${
-                                     isIncomplete ? 'border-l-4 border-l-orange-200 bg-orange-50/30' : ''
-                                   }`}
-                                 >
-                                  <TableCell>{prod?.produit || ""}</TableCell>
-                                  <TableCell>{c.numero_commande}</TableCell>
-                                  <TableCell>{c.quantite_commande}</TableCell>
-                                  <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                                  <TableCell>{formatDateShort(c.date_commande)}</TableCell>
-                                  <TableCell>{formatDateShort(c.date_reception)}</TableCell>
-                                  <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
-                                  <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
-                                  <TableCell className="text-center">
+                                  <TableRow 
+                                    key={c.id} 
+                                    className={`modern-table-row ${
+                                      isIncomplete ? 'border-l-4 border-l-orange-300 bg-orange-50/50' : ''
+                                    }`}
+                                  >
+                                   <TableCell className="modern-table-cell font-medium">{prod?.produit || ""}</TableCell>
+                                   <TableCell className="modern-table-cell text-muted-foreground">{c.numero_commande}</TableCell>
+                                   <TableCell className="modern-table-cell font-medium">{c.quantite_commande}</TableCell>
+                                   <TableCell className="modern-table-cell">{c.quantite_recue ?? 0}</TableCell>
+                                   <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(c.date_commande)}</TableCell>
+                                   <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(c.date_reception)}</TableCell>
+                                   <TableCell className="modern-table-cell font-medium">{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
+                                   <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(c.date_paiement)}</TableCell>
+                                   <TableCell className="modern-table-cell text-center">
                                     <div className="flex items-center justify-center gap-1">
                                       <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
                                         <Pencil className="h-4 w-4" />
@@ -832,26 +828,24 @@ const GestionStock: React.FC = () => {
                             })}
                         </TableBody>
                       </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
 
                 {/* Two column layout: Recent injections left, Chart right */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Injections table on the left */}
-                  <Card className="shadow-md border">
-                    <CardHeader>
-                      <CardTitle className="text-base">Injections récentes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="max-h-80 overflow-y-auto">
-                        <Table className="font-calibri text-sm">
-                          <TableHeader className="bg-table-header sticky top-0">
-                            <TableRow className="border-row">
-                              <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                              <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
-                              <TableHead className="px-3 py-2 font-semibold text-strong">Date</TableHead>
-                              <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                  <div className="modern-table">
+                    <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+                      <h3 className="text-base font-semibold">Injections récentes</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      <Table className="font-calibri text-sm">
+                        <TableHeader className="modern-table-header sticky top-0">
+                          <TableRow>
+                              <TableHead className="modern-table-header-cell">Produit</TableHead>
+                              <TableHead className="modern-table-header-cell">Quantité</TableHead>
+                              <TableHead className="modern-table-header-cell">Date</TableHead>
+                              <TableHead className="modern-table-header-cell text-center">Action</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -862,11 +856,11 @@ const GestionStock: React.FC = () => {
                               .map((inj) => {
                                 const prod = produits.find((p) => p.id === inj.produit_id);
                                 return (
-                                  <TableRow key={inj.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                    <TableCell>{prod?.produit || ""}</TableCell>
-                                    <TableCell>{inj.quantite ?? 1}</TableCell>
-                                    <TableCell>{formatDateShort(inj.date_injection)}</TableCell>
-                                    <TableCell className="text-center">
+                                  <TableRow key={inj.id} className="modern-table-row">
+                                    <TableCell className="modern-table-cell font-medium">{prod?.produit || ""}</TableCell>
+                                    <TableCell className="modern-table-cell font-medium">{inj.quantite ?? 1}</TableCell>
+                                    <TableCell className="modern-table-cell text-muted-foreground">{formatDateShort(inj.date_injection)}</TableCell>
+                                    <TableCell className="modern-table-cell text-center">
                                       <div className="flex items-center justify-center gap-1">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditInjection(inj)} aria-label="Modifier">
                                           <Pencil className="h-4 w-4" />
@@ -881,17 +875,16 @@ const GestionStock: React.FC = () => {
                               })}
                           </TableBody>
                         </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Chart section on the right */}
-                  <Card className="shadow-md border">
-                    <CardHeader>
-                      <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-8 flex items-center justify-start pl-4">
-                      <div className="h-64 w-full flex items-center justify-start mt-4 pr-8">
+                  <div className="modern-table">
+                    <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
+                      <h3 className="text-base font-semibold">Tendance des injections - 6 derniers mois</h3>
+                    </div>
+                    <div className="p-6 pt-8 flex items-center justify-start">
+                      <div className="h-64 w-full flex items-center justify-start">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={monthsData}>
                             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
@@ -927,12 +920,11 @@ const GestionStock: React.FC = () => {
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
         </section>
       </main>
     </>

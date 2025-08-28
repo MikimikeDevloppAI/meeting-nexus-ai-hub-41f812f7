@@ -40,13 +40,14 @@
     --ring: 234 89% 74%;
 
     /* Table design tokens */
-    --table-header: 210 40% 96.1%; /* #f1f5f9 */
-    --table-row-alt: 210 40% 98%;   /* #f9fafb */
-    --table-border: 214.3 31.8% 91.4%; /* #e5e7eb */
-    --text-strong: 222.2 84% 4.9%;   /* #0f172a */
-    --text-muted-2: 215 16% 47%;     /* ~#475569 */
-    --danger-soft: 0 93% 94%;        /* #fee2e2 */
-    --danger-strong: 0 72% 40%;      /* ~#b91c1c */
+    --table-header: 0 0% 100%;          /* Pure white header */
+    --table-row-alt: 234 89% 97%;       /* Very light primary */
+    --table-border: 234 89% 90%;        /* Pastel primary border */
+    --table-separator: 234 89% 92%;     /* Ultra pastel primary separator */
+    --text-strong: 222.2 84% 4.9%;      /* #0f172a */
+    --text-muted-2: 215 16% 47%;        /* ~#475569 */
+    --danger-soft: 0 93% 94%;           /* #fee2e2 */
+    --danger-strong: 0 72% 40%;         /* ~#b91c1c */
 
     /* Sidebar variables */
     --sidebar-background: 0 0% 100%;
@@ -179,12 +180,43 @@
     @apply m-3 sm:m-4 lg:m-6;
   }
 
-  /* Table utilities */
+  /* Modern table utilities */
+  .modern-table {
+    @apply bg-white rounded-lg shadow-sm border border-border overflow-hidden;
+  }
+  
+  .modern-table-header {
+    @apply bg-white border-b-2;
+    border-bottom-color: hsl(var(--table-separator));
+  }
+  
+  .modern-table-row {
+    @apply border-b hover:bg-muted/30 transition-colors duration-200;
+    border-bottom-color: hsl(var(--table-separator));
+  }
+  
+  .modern-table-row:nth-child(even) {
+    background-color: hsl(var(--table-row-alt));
+  }
+  
+  .modern-table-row:hover {
+    background-color: hsl(var(--primary) / 0.05) !important;
+  }
+  
+  .modern-table-cell {
+    @apply px-4 py-3 text-sm;
+  }
+  
+  .modern-table-header-cell {
+    @apply px-4 py-3 text-sm font-semibold text-foreground;
+  }
+  
+  /* Legacy table utilities for backward compatibility */
   .bg-table-header { background-color: hsl(var(--table-header)); }
   .bg-row-alt { background-color: hsl(var(--table-row-alt)); }
   .text-strong { color: hsl(var(--text-strong)); }
   .text-muted-2 { color: hsl(var(--text-muted-2)); }
-  .border-row { border-bottom-color: hsl(var(--table-border)); }
+  .border-row { border-bottom-color: hsl(var(--table-separator)); }
   .bg-danger-soft { background-color: hsl(var(--danger-soft)); }
   .text-danger-strong { color: hsl(var(--danger-strong)); }
 }
