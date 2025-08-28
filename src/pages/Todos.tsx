@@ -16,6 +16,7 @@ import { TodoPriorityButton } from "@/components/TodoPriorityButton";
 import { TodoSubtasks } from "@/components/TodoSubtasks";
 import { TodoAttachments } from "@/components/TodoAttachments";
 import { Todo } from "@/types/meeting";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -79,6 +80,7 @@ export default function Todos() {
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeAITools, setActiveAITools] = useState<Record<string, ActiveAITool>>({});
   const [deepSearchResults, setDeepSearchResults] = useState<Record<string, boolean>>({});
+  const [expandedTodos, setExpandedTodos] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { user } = useAuth();
   const todoCount = useTodoCounter();
@@ -586,6 +588,7 @@ export default function Todos() {
           {filteredTodos.map((todo) => {
             const activeTool = activeAITools[todo.id] || 'none';
             const hasDeepSearchResults = deepSearchResults[todo.id] || false;
+            const isExpanded = expandedTodos[todo.id] || false;
             
             return (
               <Card key={todo.id} className={`shadow-md hover:shadow-lg transition-shadow ${
@@ -668,77 +671,104 @@ export default function Todos() {
                       />
                     </div>
 
-                    {/* Attachments and Subtasks */}
-                    <div className="space-y-4 pt-4 border-t border-gray-100">
-                      <TodoAttachments todoId={todo.id} />
-                      <TodoSubtasks todoId={todo.id} />
-                    </div>
-
-                    {/* AI Tools - Style professionnel sans background coloré */}
-                    <div className="space-y-3">
-                      <div className="flex gap-3 border-t pt-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
-                          className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
-                            activeTool === 'recommendation' 
-                              ? 'border-blue-400 bg-blue-50/50 shadow-sm' 
-                              : 'hover:border-gray-300 hover:bg-gray-50/50'
-                          }`}
+                    {/* Collapsible section for additional content */}
+                    <Collapsible open={isExpanded} onOpenChange={(open) => 
+                      setExpandedTodos(prev => ({ ...prev, [todo.id]: open }))
+                    }>
+                      <CollapsibleTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full mt-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
                         >
-                          <div className="flex items-center gap-3">
-                            <Mail className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-900">Communication</span>
-                          </div>
-                          {activeTool === 'recommendation' ? (
-                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                          {isExpanded ? (
+                            <>
+                              <ChevronUp className="h-4 w-4" />
+                              Voir moins
+                            </>
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                            <>
+                              <ChevronDown className="h-4 w-4" />
+                              Voir plus
+                            </>
                           )}
                         </Button>
+                      </CollapsibleTrigger>
+                      
+                      <CollapsibleContent className="space-y-4 pt-4">
+                        {/* Attachments and Subtasks */}
+                        <div className="space-y-4 pt-4 border-t border-gray-100">
+                          <TodoAttachments todoId={todo.id} />
+                          <TodoSubtasks todoId={todo.id} />
+                        </div>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAIToolToggle(todo.id, 'assistant')}
-                          className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
-                            activeTool === 'assistant' 
-                              ? 'border-green-400 bg-green-50/50 shadow-sm' 
-                              : 'hover:border-gray-300 hover:bg-gray-50/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Bot className="h-4 w-4 text-green-600" />
-                            <span className="text-sm font-medium text-gray-900">Assistant IA</span>
+                        {/* AI Tools - Style professionnel sans background coloré */}
+                        <div className="space-y-3">
+                          <div className="flex gap-3 border-t pt-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAIToolToggle(todo.id, 'recommendation')}
+                              className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
+                                activeTool === 'recommendation' 
+                                  ? 'border-blue-400 bg-blue-50/50 shadow-sm' 
+                                  : 'hover:border-gray-300 hover:bg-gray-50/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Mail className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-gray-900">Communication</span>
+                              </div>
+                              {activeTool === 'recommendation' ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAIToolToggle(todo.id, 'assistant')}
+                              className={`flex-1 h-11 flex items-center justify-between px-4 border border-gray-200 rounded-lg transition-all ${
+                                activeTool === 'assistant' 
+                                  ? 'border-green-400 bg-green-50/50 shadow-sm' 
+                                  : 'hover:border-gray-300 hover:bg-gray-50/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Bot className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-gray-900">Assistant IA</span>
+                              </div>
+                              {activeTool === 'assistant' ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </Button>
                           </div>
-                          {activeTool === 'assistant' ? (
-                            <ChevronUp className="h-4 w-4 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
-                          )}
-                        </Button>
-                      </div>
 
-                      {/* AI Tool Content */}
-                      {activeTool !== 'none' && (
-                        <div className="w-full bg-gray-50/30 rounded-lg p-4 border border-gray-100">
-                          {activeTool === 'recommendation' && (
-                            <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
-                          )}
-                          {activeTool === 'assistant' && (
-                            <TodoAssistantContent 
-                              todoId={todo.id} 
-                              todoDescription={todo.description}
-                              onUpdate={fetchTodos}
-                            />
+                          {/* AI Tool Content */}
+                          {activeTool !== 'none' && (
+                            <div className="w-full bg-gray-50/30 rounded-lg p-4 border border-gray-100">
+                              {activeTool === 'recommendation' && (
+                                <TodoAIRecommendationContent todoId={todo.id} autoOpenEmail={true} />
+                              )}
+                              {activeTool === 'assistant' && (
+                                <TodoAssistantContent 
+                                  todoId={todo.id} 
+                                  todoDescription={todo.description}
+                                  onUpdate={fetchTodos}
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* Inline Comments section */}
-                    <TodoComments todoId={todo.id} />
+                        {/* Inline Comments section */}
+                        <TodoComments todoId={todo.id} />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 </CardContent>
               </Card>
