@@ -778,111 +778,118 @@ const GestionStock: React.FC = () => {
                     <CardTitle className="text-base">Commandes récentes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table className="font-calibri text-[15px] md:text-base">
-                      <TableHeader className="bg-table-header">
-                        <TableRow className="border-row">
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">N°</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Qté cmd</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Qté reçue</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Date cmd</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Date réception</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Montant</TableHead>
-                          <TableHead className="px-3 py-2 font-semibold text-strong">Date paiement</TableHead>
-                          <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {commandes
-                          .slice()
-                          .sort((a, b) => new Date(b.date_commande).getTime() - new Date(a.date_commande).getTime())
-                          .slice(0, 10)
-                          .map((c) => {
-                            const prod = produits.find((p) => p.id === c.produit_id);
-                            return (
-                              <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
-                                <TableCell>{prod?.produit || ""}</TableCell>
-                                <TableCell>{c.numero_commande}</TableCell>
-                                <TableCell>{c.quantite_commande}</TableCell>
-                                <TableCell>{c.quantite_recue ?? 0}</TableCell>
-                                <TableCell>{formatDateShort(c.date_commande)}</TableCell>
-                                <TableCell>{formatDateShort(c.date_reception)}</TableCell>
-                                <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
-                                <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                      </TableBody>
-                    </Table>
+                    <div className="max-h-80 overflow-y-auto">
+                      <Table className="font-calibri text-[15px] md:text-base">
+                        <TableHeader className="bg-table-header sticky top-0">
+                          <TableRow className="border-row">
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">N°</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Qté cmd</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Qté reçue</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Date cmd</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Date réception</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Montant</TableHead>
+                            <TableHead className="px-3 py-2 font-semibold text-strong">Date paiement</TableHead>
+                            <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {commandes
+                            .slice()
+                            .sort((a, b) => new Date(b.date_commande).getTime() - new Date(a.date_commande).getTime())
+                            .slice(0, 8)
+                            .map((c) => {
+                              const prod = produits.find((p) => p.id === c.produit_id);
+                              return (
+                                <TableRow key={c.id} className="border-row even:bg-row-alt hover:bg-muted/50 transition-colors">
+                                  <TableCell>{prod?.produit || ""}</TableCell>
+                                  <TableCell>{c.numero_commande}</TableCell>
+                                  <TableCell>{c.quantite_commande}</TableCell>
+                                  <TableCell>{c.quantite_recue ?? 0}</TableCell>
+                                  <TableCell>{formatDateShort(c.date_commande)}</TableCell>
+                                  <TableCell>{formatDateShort(c.date_reception)}</TableCell>
+                                  <TableCell>{c.montant ? `CHF ${Number(c.montant).toFixed(2)}` : "-"}</TableCell>
+                                  <TableCell>{formatDateShort(c.date_paiement)}</TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button variant="ghost" size="icon" onClick={() => handleEditCommande(c)} aria-label="Modifier">
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" onClick={() => requestDelete('commande', c.id)} aria-label="Supprimer">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {commandes.length > 8 && (
+                      <div className="text-center text-sm text-muted-foreground mt-2">
+                        Faites défiler pour voir plus de commandes
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Two column layout: Chart + Recent injections */}
+                {/* Two column layout: Chart left, Recent injections right */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Chart section */}
-                  <div className="space-y-6">
-                    <Card className="shadow-md border">
-                      <CardHeader>
-                        <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-64">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={monthsData}>
-                              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                              <XAxis 
-                                dataKey="month" 
-                                tick={{ fontSize: 12 }}
-                                interval={0}
-                              />
-                              <YAxis tick={{ fontSize: 12 }} />
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: 'hsl(var(--background))',
-                                  border: '1px solid hsl(var(--border))',
-                                  borderRadius: '6px'
-                                }}
-                              />
-                              <Legend />
-                              {(() => {
-                                const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
-                                const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
-                                return products.slice(0, 6).map((product, index) => (
-                                  <Line
-                                    key={product}
-                                    type="monotone"
-                                    dataKey={product}
-                                    stroke={colors[index % colors.length]}
-                                    strokeWidth={2}
-                                    dot={{ r: 3 }}
-                                    activeDot={{ r: 5 }}
-                                  />
-                                ));
-                              })()}
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  <Card className="shadow-md border">
+                    <CardHeader>
+                      <CardTitle className="text-base">Tendance des injections - 6 derniers mois</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthsData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis 
+                              dataKey="month" 
+                              tick={{ fontSize: 12 }}
+                              interval={0}
+                            />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--background))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '6px'
+                              }}
+                            />
+                            <Legend />
+                            {(() => {
+                              const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316'];
+                              const products = Object.keys(monthsData[0] || {}).filter(key => key !== 'month');
+                              return products.slice(0, 6).map((product, index) => (
+                                <Line
+                                  key={product}
+                                  type="monotone"
+                                  dataKey={product}
+                                  stroke={colors[index % colors.length]}
+                                  strokeWidth={2}
+                                  dot={{ r: 3 }}
+                                  activeDot={{ r: 5 }}
+                                />
+                              ));
+                            })()}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    {/* Injections table below chart */}
-                    <Card className="shadow-md border">
-                      <CardHeader>
-                        <CardTitle className="text-base">Injections récentes</CardTitle>
-                      </CardHeader>
-                      <CardContent>
+                  {/* Injections table on the right */}
+                  <Card className="shadow-md border">
+                    <CardHeader>
+                      <CardTitle className="text-base">Injections récentes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="max-h-80 overflow-y-auto">
                         <Table className="font-calibri text-[15px] md:text-base">
-                          <TableHeader className="bg-table-header">
+                          <TableHeader className="bg-table-header sticky top-0">
                             <TableRow className="border-row">
                               <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
                               <TableHead className="px-3 py-2 font-semibold text-strong">Quantité</TableHead>
@@ -894,7 +901,7 @@ const GestionStock: React.FC = () => {
                             {injections
                               .slice()
                               .sort((a, b) => new Date(b.date_injection).getTime() - new Date(a.date_injection).getTime())
-                              .slice(0, 10)
+                              .slice(0, 8)
                               .map((inj) => {
                                 const prod = produits.find((p) => p.id === inj.produit_id);
                                 return (
@@ -917,9 +924,14 @@ const GestionStock: React.FC = () => {
                               })}
                           </TableBody>
                         </Table>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </div>
+                      {injections.length > 8 && (
+                        <div className="text-center text-sm text-muted-foreground mt-2">
+                          Faites défiler pour voir plus d'injections
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </CardContent>
