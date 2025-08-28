@@ -277,12 +277,9 @@ export default function IOLCalculator() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center space-x-2">
-        <FileText className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold">IOL Calculator</h1>
-      </div>
+      <h1 className="text-3xl font-bold mb-6">IOL Calculator</h1>
 
-      <Card>
+      <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>
           <CardTitle>Extraction de texte depuis PDF</CardTitle>
           <CardDescription>
@@ -340,7 +337,7 @@ export default function IOLCalculator() {
 
           
           {iolData && (
-            <Card>
+            <Card className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -393,7 +390,7 @@ export default function IOLCalculator() {
 
                     {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && (
-                      <Card className={`relative transition-all duration-300 ${isCalculating ? 'opacity-80' : ''}`}>
+                      <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow ${isCalculating ? 'opacity-80' : ''}`}>
                         <CardContent className="space-y-6">
                           {/* Animation de loading superposée */}
                           {isCalculating && (
@@ -560,7 +557,7 @@ export default function IOLCalculator() {
           )}
 
           {automationResult && (
-            <Card className="mt-6">
+            <Card className="mt-6 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   🤖 Résultat de l'automatisation ESCRS
