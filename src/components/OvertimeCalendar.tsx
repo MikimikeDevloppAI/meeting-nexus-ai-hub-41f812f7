@@ -252,7 +252,7 @@ export function OvertimeCalendar({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Calendrier principal */}
       <div className="lg:col-span-2 space-y-6">
-        <Card>
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -356,7 +356,7 @@ export function OvertimeCalendar({
 
         {/* Liste des heures supplémentaires récentes */}
         {overtimeHours.length > 0 && (
-          <Card>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Heures récentes</CardTitle>
             </CardHeader>
@@ -413,7 +413,7 @@ export function OvertimeCalendar({
 
       {/* Statistiques mensuelles */}
       <div className="space-y-6">
-        <Card>
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
