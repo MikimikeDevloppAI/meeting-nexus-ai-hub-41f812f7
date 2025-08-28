@@ -691,7 +691,7 @@ const GestionStock: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table className="font-inter text-[15px]">
+                <Table className="font-inter text-sm">
                   <TableHeader className="bg-table-header">
                     <TableRow className="border-row">
                       <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
@@ -779,7 +779,7 @@ const GestionStock: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-80 overflow-y-auto">
-                      <Table className="font-calibri text-[15px] md:text-base">
+                      <Table className="font-calibri text-sm">
                         <TableHeader className="bg-table-header sticky top-0">
                           <TableRow className="border-row">
                             <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
@@ -845,7 +845,7 @@ const GestionStock: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="max-h-80 overflow-y-auto">
-                        <Table className="font-calibri text-[15px] md:text-base">
+                        <Table className="font-calibri text-sm">
                           <TableHeader className="bg-table-header sticky top-0">
                             <TableRow className="border-row">
                               <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
