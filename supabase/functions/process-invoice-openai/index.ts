@@ -46,7 +46,7 @@ serve(async (req) => {
       throw new Error(`Invoice not found: ${invoiceError?.message}`);
     }
 
-    // Créer une URL signée pour l'image (valide 5 minutes)
+    // Créer une URL signée pour le fichier (valide 5 minutes)
     const { data: signedUrlData, error: signedError } = await supabase.storage
       .from('invoices')
       .createSignedUrl(invoice.file_path, 60 * 5);
@@ -55,7 +55,40 @@ serve(async (req) => {
       throw new Error(`Failed to create signed URL: ${signedError?.message}`);
     }
 
-    console.log('Created signed URL for image:', signedUrlData.signedUrl);
+    console.log('Created signed URL for file:', signedUrlData.signedUrl);
+
+    // Détecter si c'est un PDF et le convertir si nécessaire
+    const isPdf = invoice.file_path.toLowerCase().endsWith('.pdf') || 
+                  invoice.content_type === 'application/pdf';
+    
+    let imageUrlForAnalysis = signedUrlData.signedUrl;
+    
+    if (isPdf) {
+      console.log('PDF detected, converting to image for OpenAI analysis...');
+      
+      try {
+        // Appeler la fonction de conversion PDF vers image
+        const conversionResponse = await supabase.functions.invoke('convert-pdf-to-image', {
+          body: { pdfUrl: signedUrlData.signedUrl }
+        });
+
+        if (conversionResponse.error) {
+          throw new Error(`PDF conversion failed: ${conversionResponse.error.message}`);
+        }
+
+        const conversionData = conversionResponse.data;
+        if (!conversionData?.success || !conversionData?.imageUrl) {
+          throw new Error('PDF conversion did not return a valid image URL');
+        }
+
+        imageUrlForAnalysis = conversionData.imageUrl;
+        console.log('PDF successfully converted to image for analysis');
+        
+      } catch (conversionError) {
+        console.error('PDF conversion error:', conversionError);
+        throw new Error(`Failed to convert PDF for analysis: ${conversionError.message}`);
+      }
+    }
 
     // Récupérer les fournisseurs existants
     const { data: suppliers } = await supabase
@@ -149,7 +182,7 @@ Return ONLY valid JSON array in this exact format (even for single invoice):
               {
                 type: 'image_url',
                 image_url: {
-                  url: signedUrlData.signedUrl
+                  url: imageUrlForAnalysis
                 }
               }
             ]
