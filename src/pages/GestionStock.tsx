@@ -641,11 +641,11 @@ const GestionStock: React.FC = () => {
                        <TableHead className="px-3 py-2 font-semibold text-strong">Produit</TableHead>
                        <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Molécule</TableHead>
                        <TableHead className="px-3 py-2 font-semibold text-strong hidden md:table-cell">Fabricant</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
-                       <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
+                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Seuil alerte</TableHead>
+                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock cible</TableHead>
+                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Moy. inj/mois (3m)</TableHead>
+                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Stock</TableHead>
+                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Commande en cours</TableHead>
                        <TableHead className="px-3 py-2 text-center font-semibold text-strong">Action</TableHead>
                      </TableRow>
                    </TableHeader>
@@ -666,25 +666,25 @@ const GestionStock: React.FC = () => {
                             <TableCell className="px-3 py-2 text-center">{seuil}</TableCell>
                             <TableCell className="px-3 py-2 text-center">{p.stock_cible ?? 0}</TableCell>
                             <TableCell className="px-3 py-2 text-center">{(moyenneInjections3Mois[p.id] ?? 0).toFixed(1)}</TableCell>
-                            <TableCell className="px-3 py-2 text-center">
-                              {commandeEnCours > 0 ? (
-                                <span className="text-info-strong font-medium">{commandeEnCours}</span>
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-center">
-                              <div className="inline-flex items-center gap-2">
-                                {stock > 0 && (
-                                  <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
-                                )}
-                                {stock === 0 && (
-                                  <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
-                                    Rupture
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
+                             <TableCell className="px-3 py-2 text-center">
+                               <div className="inline-flex items-center gap-2">
+                                 {stock > 0 && (
+                                   <span className={below ? 'text-danger-strong font-semibold' : ''}>{stock}</span>
+                                 )}
+                                 {stock === 0 && (
+                                   <span className="inline-flex items-center rounded-full bg-danger-soft text-danger-strong px-2 py-0.5 text-xs font-medium">
+                                     Rupture
+                                   </span>
+                                 )}
+                               </div>
+                             </TableCell>
+                             <TableCell className="px-3 py-2 text-center">
+                               {commandeEnCours > 0 ? (
+                                 <span className="text-info-strong font-medium">{commandeEnCours}</span>
+                               ) : (
+                                 "-"
+                               )}
+                             </TableCell>
                           <TableCell className="px-3 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button variant="ghost" size="icon" onClick={() => { setContactProduit(p); setOpenContact(true); }} aria-label="Contacts">
