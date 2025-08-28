@@ -80,7 +80,7 @@ export function SupplierChart({ invoices }: SupplierChartProps) {
         <div className="w-full overflow-x-auto">
           <div className="h-[360px]" style={{ minWidth: `${minWidth}px` }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={supplierData} margin={{ top: 60, right: 30, left: 20, bottom: 80 }}>
+              <BarChart data={supplierData} margin={{ top: 40, right: 20, left: 10, bottom: 80 }}>
                 <XAxis 
                   dataKey="name" 
                   angle={-45} 

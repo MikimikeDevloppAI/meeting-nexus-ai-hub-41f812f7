@@ -29,7 +29,7 @@ const chartConfig = {
   },
   total: {
     label: "Tendance totale",
-    color: "#ef4444", // Rouge pour se démarquer
+    color: "hsl(var(--muted-foreground))", // Gris foncé
   },
 };
 
@@ -114,7 +114,7 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
       </CardHeader>
       <CardContent className="h-96">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={monthlyData} margin={{ top: 60, right: 30, left: 20, bottom: 20 }}>
+          <ComposedChart data={monthlyData} margin={{ top: 40, right: 20, left: 10, bottom: 20 }}>
             <XAxis 
               dataKey="month"
               axisLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 }}
@@ -208,7 +208,6 @@ export function MonthlyExpenseChart({ invoices, dateFrom, dateTo }: MonthlyExpen
               dataKey="total" 
               stroke={chartConfig.total.color}
               strokeWidth={3}
-              strokeDasharray="8 4"
               name="Tendance totale"
               dot={{ fill: chartConfig.total.color, strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6, fill: chartConfig.total.color, strokeWidth: 2 }}
