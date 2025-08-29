@@ -121,7 +121,10 @@ export const MedicalLetterChat: React.FC<MedicalLetterChatProps> = ({
   return (
     <div className="bg-card text-card-foreground rounded-lg border shadow-md">
       <div className="p-6 pb-0">
-        <h3 className="text-lg font-semibold mb-4">Assistant de Modification de Lettre</h3>
+        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2 mb-4">
+          <Bot className="h-5 w-5 text-blue-600" />
+          Assistant de Modification de Lettre
+        </h3>
       </div>
       
       <div className="p-6 pt-0">
