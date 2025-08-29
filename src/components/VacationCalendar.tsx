@@ -263,26 +263,21 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Détails des vacances</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Type de congé</Label>
-            <Select value={vacationType} onValueChange={setVacationType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="annual">Congés annuels</SelectItem>
-                <SelectItem value="sick">Congé maladie</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Détails des vacances intégrés */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="space-y-2">
+              <Label>Type de congé</Label>
+              <Select value={vacationType} onValueChange={setVacationType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annual">Congés annuels</SelectItem>
+                  <SelectItem value="sick">Congé maladie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
@@ -307,8 +302,10 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
                 rows={3}
               />
             </div>
+          </div>
         </CardContent>
       </Card>
+
 
       <div className="flex gap-3 justify-end">
         <Button variant="outline" onClick={onCancel}>
