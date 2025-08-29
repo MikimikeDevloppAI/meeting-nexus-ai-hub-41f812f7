@@ -141,11 +141,11 @@ const AppSidebar: React.FC = () => {
     <Sidebar className="bg-background border-r border-border rounded-r-xl shadow-md hover:shadow-lg transition-shadow">
       <SidebarContent className="px-4 py-3 shadow-lg rounded-tr-xl rounded-br-xl">
         {/* Logo en haut */}
-        <div className="mb-3 pb-2 border-b ml-4">
+        <div className="mb-6 pb-3 border-b ml-4">
           <Logo size="md" showText={true} />
         </div>
         
-        <SidebarGroup>
+        <SidebarGroup className="mt-3">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
               {/* Menu items filtrés par permissions */}
