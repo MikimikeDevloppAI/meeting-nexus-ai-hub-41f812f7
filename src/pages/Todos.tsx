@@ -591,7 +591,7 @@ export default function Todos() {
             const isExpanded = expandedTodos[todo.id] || false;
             
             return (
-              <Card key={todo.id} className={`shadow-md hover:shadow-lg transition-shadow ${
+              <Card key={todo.id} className={`shadow-md hover:shadow-lg transition-shadow bg-white ${
                 todo.priority === 'high' ? 'ring-2 ring-orange-200' : ''
               }`}>
                 <CardContent className="px-4 pt-4 pb-2">

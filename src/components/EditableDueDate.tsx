@@ -63,7 +63,7 @@ export function EditableDueDate({ todoId, dueDate, onUpdate }: EditableDueDatePr
           className={cn(
             "h-8 justify-start text-left font-normal",
             !date && "text-muted-foreground",
-            isOverdue && "text-red-600 border-red-300 bg-red-50"
+            isOverdue && "text-red-600 border-red-300 bg-white"
           )}
         >
           <Calendar className="mr-2 h-4 w-4" />
