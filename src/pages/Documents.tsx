@@ -774,47 +774,44 @@ const Documents = () => {
                 selectedCategory={selectedCategory}
               />
             </div>
+
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  Documents & Meetings 
+                  {filteredDocuments.length !== documents?.length && (
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      ({filteredDocuments.length} sur {documents?.length} éléments)
+                    </span>
+                  )}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Vue unifiée de vos documents uploadés et meetings transcrits.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <DocumentCleanupDialog 
+                  documents={documents}
+                  onCleanupComplete={handleDocumentUpdate}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={isLoading}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                Documents & Meetings 
-                {filteredDocuments.length !== documents?.length && (
-                  <span className="text-sm font-normal text-muted-foreground ml-2">
-                    ({filteredDocuments.length} sur {documents?.length} éléments)
-                  </span>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Vue unifiée de vos documents uploadés et meetings transcrits. Traitement séquentiel des uploads multiples.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {documents && documents.length > 0 && (
-                <DocumentCleanupDialog 
-                  documents={documents}
-                  onCleanupComplete={handleDocumentUpdate}
-                />
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={isLoading}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Actualiser
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
