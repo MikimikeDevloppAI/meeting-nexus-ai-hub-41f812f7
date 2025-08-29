@@ -159,27 +159,29 @@ const AppSidebar: React.FC = () => {
                   const isActive = isActiveRoute(item.url);
                   
                   const menuButton = (
-                    <SidebarMenuButton
-                      onClick={() => handleNavigation(item.url)}
-                      className={`group relative flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                        isActive 
-                          ? "bg-primary text-primary-foreground font-medium shadow-sm" 
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-base font-medium whitespace-nowrap">{item.title}</span>
-                      <div className="ml-auto flex items-center gap-1 opacity-100 group-hover:opacity-0 transition-opacity duration-200">
-                        {/* Badge pour les tâches en cours */}
-                        {item.permission === "todos" && <TodoSidebarBadge />}
-                        {/* Badge pour les validations RH en attente */}
-                        {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
-                      </div>
-                      {/* Bouton d'aide qui apparaît au hover de cet élément spécifique */}
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                        <NavigationHelpButton pageId={item.permission} />
-                      </div>
-                    </SidebarMenuButton>
+                    <div className="relative">
+                      <SidebarMenuButton
+                        onClick={() => handleNavigation(item.url)}
+                        className={`group flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 ${
+                          isActive 
+                            ? "bg-primary text-primary-foreground font-medium shadow-sm" 
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-base font-medium whitespace-nowrap">{item.title}</span>
+                        <div className="ml-auto flex items-center gap-1 opacity-100 group-hover:opacity-0 transition-opacity duration-200">
+                          {/* Badge pour les tâches en cours */}
+                          {item.permission === "todos" && <TodoSidebarBadge />}
+                          {/* Badge pour les validations RH en attente */}
+                          {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
+                        </div>
+                        {/* Bouton d'aide qui apparaît au hover de cet élément spécifique */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+                          <NavigationHelpButton pageId={item.permission} />
+                        </div>
+                      </SidebarMenuButton>
+                    </div>
                   );
 
                   return (
