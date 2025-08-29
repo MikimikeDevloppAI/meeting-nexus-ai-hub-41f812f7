@@ -93,7 +93,6 @@ export default function TimeTracking() {
   const [vacationQuotas, setVacationQuotas] = useState<VacationQuota[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOvertimeDialog, setShowOvertimeDialog] = useState(false);
-  const [showVacationDialog, setShowVacationDialog] = useState(false);
   const [showVacationCalendar, setShowVacationCalendar] = useState(false);
   const [editingOvertime, setEditingOvertime] = useState<OvertimeHour | null>(null);
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
@@ -356,8 +355,6 @@ export default function TimeTracking() {
       }
 
       fetchVacations();
-      setShowVacationDialog(false);
-      setShowVacationCalendar(false);
       setEditingVacation(null);
       vacationForm.reset();
     } catch (error: any) {
@@ -616,7 +613,12 @@ export default function TimeTracking() {
 
   const editVacation = (vacation: Vacation) => {
     setEditingVacation(vacation);
-    setShowVacationCalendar(true);
+    vacationForm.reset({
+      start_date: vacation.start_date,
+      end_date: vacation.end_date,
+      vacation_type: vacation.vacation_type,
+      description: vacation.description || ""
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -728,10 +730,6 @@ export default function TimeTracking() {
               <Calendar className="h-5 w-5 text-blue-600" />
               Mes vacances
             </h2>
-            <Button onClick={() => setShowVacationCalendar(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Demander des vacances
-            </Button>
           </div>
 
           {/* Décompte des vacances pour l'année sélectionnée */}
@@ -831,6 +829,77 @@ export default function TimeTracking() {
               </Card>
             );
           })()}
+
+          {/* Formulaire de demande de vacances */}
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+            <CardHeader className="bg-white">
+              <CardTitle>
+                {editingVacation ? "Modifier la demande de vacances" : "Demander des vacances"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="bg-white">
+              <form onSubmit={vacationForm.handleSubmit(onSubmitVacation)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="start_date">Date de début</Label>
+                    <Input
+                      id="start_date"
+                      type="date"
+                      {...vacationForm.register("start_date", { required: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end_date">Date de fin</Label>
+                    <Input
+                      id="end_date"
+                      type="date"
+                      {...vacationForm.register("end_date", { required: true })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vacation_type">Type de congé</Label>
+                  <Select 
+                    value={vacationForm.watch("vacation_type")} 
+                    onValueChange={(value) => vacationForm.setValue("vacation_type", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner le type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="annual">Congés annuels</SelectItem>
+                      <SelectItem value="sick">Congé maladie</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vacation_description">Description (optionnel)</Label>
+                  <Textarea
+                    id="vacation_description"
+                    {...vacationForm.register("description")}
+                    placeholder="Raison ou détails des vacances..."
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  {editingVacation && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setEditingVacation(null);
+                        vacationForm.reset();
+                      }}
+                    >
+                      Annuler
+                    </Button>
+                  )}
+                  <Button type="submit">
+                    {editingVacation ? "Modifier" : "Demander"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
           <div className="grid gap-4">
             {vacations.filter(vacation => vacation.user_id === user?.id).length === 0 ? (
@@ -1029,68 +1098,6 @@ export default function TimeTracking() {
                 })()}
               >
                 {editingOvertime ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog pour les vacances */}
-      <Dialog open={showVacationDialog} onOpenChange={setShowVacationDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingVacation ? "Modifier la demande de vacances" : "Demander des vacances"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={vacationForm.handleSubmit(onSubmitVacation)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start_date">Date de début</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  {...vacationForm.register("start_date", { required: true })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end_date">Date de fin</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  {...vacationForm.register("end_date", { required: true })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="vacation_type">Type de congé</Label>
-              <Select 
-                value={vacationForm.watch("vacation_type")} 
-                onValueChange={(value) => vacationForm.setValue("vacation_type", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner le type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="annual">Congés annuels</SelectItem>
-                  <SelectItem value="sick">Congé maladie</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="vacation_description">Description (optionnel)</Label>
-              <Textarea
-                id="vacation_description"
-                {...vacationForm.register("description")}
-                placeholder="Raison ou détails des vacances..."
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowVacationDialog(false)}>
-                Annuler
-              </Button>
-              <Button type="submit">
-                {editingVacation ? "Modifier" : "Demander"}
               </Button>
             </DialogFooter>
           </form>
