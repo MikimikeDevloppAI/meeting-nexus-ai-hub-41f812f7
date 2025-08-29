@@ -761,17 +761,21 @@ const Documents = () => {
       <DocumentSearchAssistant />
 
       {documents && documents.length > 0 && (
-        <DocumentSearch 
-          onSearch={setSearchFilters}
-          documents={documents}
-        />
-      )}
-
-      {documents && documents.length > 0 && (
-        <KeywordsDisplay 
-          onCategoryClick={setSelectedCategory}
-          selectedCategory={selectedCategory}
-        />
+        <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="pt-6">
+            <DocumentSearch 
+              onSearch={setSearchFilters}
+              documents={documents}
+            />
+            
+            <div className="mt-4">
+              <KeywordsDisplay 
+                onCategoryClick={setSelectedCategory}
+                selectedCategory={selectedCategory}
+              />
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
