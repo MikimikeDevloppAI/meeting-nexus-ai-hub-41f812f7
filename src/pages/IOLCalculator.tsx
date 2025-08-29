@@ -284,7 +284,7 @@ export default function IOLCalculator() {
         </div>
       </header>
 
-      <Card className="shadow-md hover:shadow-lg transition-shadow">
+      <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
         <CardHeader>
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-600" />
@@ -342,7 +342,7 @@ export default function IOLCalculator() {
 
           
           {iolData && (
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -398,7 +398,7 @@ export default function IOLCalculator() {
 
                     {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && (
-                      <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow ${isCalculating ? 'opacity-80' : ''}`}>
+                      <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow bg-white ${isCalculating ? 'opacity-80' : ''}`}>
                         <CardContent className="space-y-6">
                           {/* Animation de loading superposée */}
                           {isCalculating && (
@@ -420,7 +420,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.surgeon || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'surgeon', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 />
                               </div>
                               <div>
@@ -429,7 +429,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.patient_initials || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 />
                               </div>
                               <div>
@@ -438,7 +438,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.id || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 />
                               </div>
                               <div>
@@ -447,7 +447,7 @@ export default function IOLCalculator() {
                                   type="text"
                                   value={apiRequestData.top_fields?.age || ''}
                                   onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 />
                               </div>
                             </div>
@@ -466,7 +466,7 @@ export default function IOLCalculator() {
                                       type="text"
                                       value={value as string}
                                       onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                       placeholder={`Valeur pour ${key}`}
                                     />
                                   </div>
@@ -485,7 +485,7 @@ export default function IOLCalculator() {
                                       type="text"
                                       value={value as string}
                                       onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50"
+                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                       placeholder={`Valeur pour ${key}`}
                                     />
                                   </div>
@@ -565,7 +565,7 @@ export default function IOLCalculator() {
           )}
 
           {automationResult && (
-            <Card className="mt-6 shadow-md hover:shadow-lg transition-shadow">
+            <Card className="mt-6 shadow-md hover:shadow-lg transition-shadow bg-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   🤖 Résultat de l'automatisation ESCRS
