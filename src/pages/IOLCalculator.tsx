@@ -503,43 +503,43 @@ export default function IOLCalculator() {
                         </CardContent>
                       </Card>
                     )}
-                    {calculatedImage && (
-                      <div className="space-y-3">
-                        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                          <Calculator className="h-5 w-5 text-blue-600" />
-                          Résultat du calcul IOL
-                        </h3>
-                        <div className="border border-border rounded-lg p-4 bg-card">
-                          <img 
-                            src={calculatedImage} 
-                            alt="Résultat du calcul IOL"
-                            className="max-w-full h-auto rounded border"
-                          />
-                          <div className="flex gap-2 mt-4">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                // Créer un nom de fichier avec les initiales et date de naissance
-                                const initials = iolData?.patientInitials || 'Patient';
-                                const dateOfBirth = iolData?.dateOfBirth || '';
-                                // Nettoyer la date pour enlever les caractères spéciaux
-                                const cleanDate = dateOfBirth.replace(/[^0-9]/g, '');
-                                const fileName = `${initials}${cleanDate}.png`;
-                                
-                                const link = document.createElement('a');
-                                link.href = calculatedImage;
-                                link.download = fileName;
-                                link.click();
-                              }}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Télécharger l'image
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                     {calculatedImage && (
+                       <>
+                         <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                           <Calculator className="h-5 w-5 text-blue-600" />
+                           Résultat du calcul IOL
+                         </h3>
+                         <div className="border border-border rounded-lg p-4 bg-card">
+                           <img 
+                             src={calculatedImage} 
+                             alt="Résultat du calcul IOL"
+                             className="max-w-full h-auto rounded border"
+                           />
+                           <div className="flex gap-2 mt-4">
+                             <Button 
+                               variant="outline" 
+                               size="sm"
+                               onClick={() => {
+                                 // Créer un nom de fichier avec les initiales et date de naissance
+                                 const initials = iolData?.patientInitials || 'Patient';
+                                 const dateOfBirth = iolData?.dateOfBirth || '';
+                                 // Nettoyer la date pour enlever les caractères spéciaux
+                                 const cleanDate = dateOfBirth.replace(/[^0-9]/g, '');
+                                 const fileName = `${initials}${cleanDate}.png`;
+                                 
+                                 const link = document.createElement('a');
+                                 link.href = calculatedImage;
+                                 link.download = fileName;
+                                 link.click();
+                               }}
+                             >
+                               <Download className="h-4 w-4 mr-2" />
+                               Télécharger l'image
+                             </Button>
+                           </div>
+                         </div>
+                       </>
+                     )}
                   </>
                 )}
                 
