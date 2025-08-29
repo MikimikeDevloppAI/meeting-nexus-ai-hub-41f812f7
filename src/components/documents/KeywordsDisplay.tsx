@@ -1,9 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Filter, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface KeywordsDisplayProps {
@@ -78,65 +77,51 @@ export const KeywordsDisplay = ({ onCategoryClick, selectedCategory }: KeywordsD
 
   if (isLoading) {
     return (
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="text-center text-muted-foreground">
-            Chargement des catégories...
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center text-muted-foreground py-2">
+        Chargement des catégories...
+      </div>
     );
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5" />
-          <CardTitle>Filtrer par catégorie</CardTitle>
+    <div className="flex flex-wrap gap-2">
+      {/* Bouton "Toutes les catégories" */}
+      <Badge
+        variant={selectedCategory === null ? "default" : "secondary"}
+        className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+        onClick={() => onCategoryClick?.(null)}
+      >
+        Toutes les catégories
+      </Badge>
+      
+      {/* Filtres par catégorie disponible */}
+      {categories.map((category, index) => (
+        <Badge
+          key={index}
+          variant={selectedCategory === category ? "default" : "secondary"}
+          className={`cursor-pointer hover:bg-primary hover:text-primary-foreground flex items-center gap-1 ${
+            category === "Meeting" ? "bg-blue-100 text-blue-800 hover:bg-blue-500 hover:text-white" : ""
+          }`}
+          onClick={() => onCategoryClick?.(category)}
+        >
+          {category}
+          {selectedCategory === category && (
+            <X 
+              className="h-3 w-3 ml-1" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onCategoryClick?.(null);
+              }}
+            />
+          )}
+        </Badge>
+      ))}
+      
+      {categories.length === 0 && (
+        <div className="text-center text-muted-foreground py-4">
+          Aucune catégorie disponible
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {/* Bouton "Toutes les catégories" */}
-          <Badge
-            variant={selectedCategory === null ? "default" : "secondary"}
-            className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
-            onClick={() => onCategoryClick?.(null)}
-          >
-            Toutes les catégories
-          </Badge>
-          
-          {/* Filtres par catégorie disponible */}
-          {categories.map((category, index) => (
-            <Badge
-              key={index}
-              variant={selectedCategory === category ? "default" : "secondary"}
-              className={`cursor-pointer hover:bg-primary hover:text-primary-foreground flex items-center gap-1 ${
-                category === "Meeting" ? "bg-blue-100 text-blue-800 hover:bg-blue-500 hover:text-white" : ""
-              }`}
-              onClick={() => onCategoryClick?.(category)}
-            >
-              {category}
-              {selectedCategory === category && (
-                <X 
-                  className="h-3 w-3 ml-1" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCategoryClick?.(null);
-                  }}
-                />
-              )}
-            </Badge>
-          ))}
-        </div>
-        
-        {categories.length === 0 && (
-          <div className="text-center text-muted-foreground py-4">
-            Aucune catégorie disponible
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
