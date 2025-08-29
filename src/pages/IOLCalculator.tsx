@@ -400,7 +400,7 @@ export default function IOLCalculator() {
                           
                           {/* Informations du header */}
                           <div className="space-y-4">
-                            <h4 className="font-semibold text-foreground">Informations générales</h4>
+                            <h4 className="font-semibold text-foreground mt-4">Informations générales</h4>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div>
                                 <label className="text-sm font-medium">Chirurgien</label>
