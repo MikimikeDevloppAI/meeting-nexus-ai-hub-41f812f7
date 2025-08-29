@@ -69,7 +69,7 @@ const Meetings = () => {
     <div className="animate-fade-in">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <header>
-          <h1 className="text-2xl font-semibold tracking-tight">Réunions</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Réunions</h1>
           <p className="text-muted-foreground">Gérer et consulter toutes les réunions</p>
         </header>
         <Button onClick={handleCreateMeeting}>

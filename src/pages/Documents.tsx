@@ -669,7 +669,7 @@ const Documents = () => {
     <div className="space-y-6">
       <header className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Gestion des Documents & Meetings</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Gestion des Documents & Meetings</h1>
           <p className="text-muted-foreground">
             Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
           </p>

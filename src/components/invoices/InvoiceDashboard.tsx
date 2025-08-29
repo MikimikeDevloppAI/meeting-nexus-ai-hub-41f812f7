@@ -304,7 +304,7 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Dashboard Factures</h2>
+            <h2 className="text-lg font-bold">Dashboard Factures</h2>
             <p className="text-muted-foreground">
               Analyse et statistiques de vos factures
             </p>
