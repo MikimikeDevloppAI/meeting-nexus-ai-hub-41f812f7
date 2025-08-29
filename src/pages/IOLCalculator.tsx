@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -343,12 +342,6 @@ export default function IOLCalculator() {
           
           {iolData && (
             <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Données IOL extraites
-                </CardTitle>
-              </CardHeader>
               <CardContent className="space-y-6">
                 {iolData.error ? (
                   <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
@@ -357,8 +350,6 @@ export default function IOLCalculator() {
                   </div>
                 ) : (
                   <>
-
-
                     {/* Informations personnelles du patient */}
                     {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
                       <div className="space-y-3">
