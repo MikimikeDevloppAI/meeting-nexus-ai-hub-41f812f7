@@ -350,7 +350,7 @@ export default function IOLCalculator() {
                   <>
                     {/* Informations personnelles du patient */}
                     {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
-                      <div className="space-y-3">
+                      <div>
                         <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
                           <User className="h-5 w-5 text-blue-600" />
                           Informations patient
