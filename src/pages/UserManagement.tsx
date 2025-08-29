@@ -312,15 +312,15 @@ const UserManagement = () => {
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-3 bg-white gap-2">
-          <TabsTrigger value="users" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-100 data-[state=inactive]:text-gray-600">
+          <TabsTrigger value="users" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary">
             <Users className="h-4 w-4" />
             Utilisateurs
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-100 data-[state=inactive]:text-gray-600">
+          <TabsTrigger value="permissions" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary">
             <Settings className="h-4 w-4" />
             Permissions
           </TabsTrigger>
-          <TabsTrigger value="help" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-100 data-[state=inactive]:text-gray-600">
+          <TabsTrigger value="help" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary">
             <HelpCircle className="h-4 w-4" />
             Aide
           </TabsTrigger>
