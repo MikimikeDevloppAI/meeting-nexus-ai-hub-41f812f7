@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, ClipboardList, Pencil, Trash2, Phone, Syringe } from "lucide-react";
+import { PlusCircle, ClipboardList, Pencil, Trash2, Phone, Syringe, Package } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
@@ -705,6 +705,10 @@ const GestionStock: React.FC = () => {
         <section aria-labelledby="historique-section">
           <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
             <div className="space-y-4 p-6">
+              <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                <Package className="h-5 w-5 text-blue-600" />
+                Gestion des stocks
+              </h3>
               {/* Stock table */}
               <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
                 <div className="px-6 py-3 border-b" style={{ borderBottomColor: 'hsl(var(--table-separator))' }}>
