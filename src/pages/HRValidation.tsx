@@ -585,16 +585,16 @@ export default function HRValidation() {
       </div>
 
       <Tabs defaultValue="overtime" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-white hover:bg-gray-50 transition-colors">
-          <TabsTrigger value="overtime" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-3 bg-white hover:bg-gray-50 transition-colors gap-2">
+          <TabsTrigger value="overtime" className="flex items-center gap-2 border border-gray-200 hover:border-primary transition-all duration-200">
             <Clock className="h-4 w-4" />
             Heures supplémentaires ({filteredOvertimeHours.length})
           </TabsTrigger>
-          <TabsTrigger value="vacations" className="flex items-center gap-2">
+          <TabsTrigger value="vacations" className="flex items-center gap-2 border border-gray-200 hover:border-primary transition-all duration-200">
             <Calendar className="h-4 w-4" />
             Vacances ({filteredVacations.length})
           </TabsTrigger>
-          <TabsTrigger value="quotas" className="flex items-center gap-2">
+          <TabsTrigger value="quotas" className="flex items-center gap-2 border border-gray-200 hover:border-primary transition-all duration-200">
             <Settings className="h-4 w-4" />
             Quotas de vacances
           </TabsTrigger>
