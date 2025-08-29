@@ -80,77 +80,80 @@ const Meetings = () => {
       {/* Composant de préparation de réunion */}
       <MeetingPreparation />
 
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Rechercher des réunions..."
-            className="pl-10 shadow-md"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-2/3 mb-2" />
-                <Skeleton className="h-3 w-1/3" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-3 w-full mb-2" />
-                <Skeleton className="h-3 w-4/5" />
-              </CardContent>
-              <CardFooter>
-                <Skeleton className="h-3 w-1/3" />
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : filteredMeetings.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMeetings.map((meeting) => (
-            <Card
-              key={meeting.id}
-              className="cursor-pointer shadow-md hover:shadow-lg transition-shadow"
-              onClick={() => handleMeetingClick(meeting.id)}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle>{meeting.title}</CardTitle>
-                <CardDescription>
-                  <div className="flex items-center text-xs">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {format(new Date(meeting.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
-                  </div>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-2">
-                <div className="text-sm text-muted-foreground">
-                  Voir les détails de la réunion, le compte-rendu, le résumé et les tâches
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 rounded-lg border shadow-md">
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <Calendar className="h-6 w-6 text-primary" />
+      <Card className="shadow-md">
+        <CardHeader className="pb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Rechercher des réunions..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <h3 className="font-semibold mb-1">Aucune réunion trouvée</h3>
-          <p className="text-muted-foreground mb-4">
-            {searchQuery
-              ? `Aucune réunion correspondant à "${searchQuery}"`
-              : "Vous n'avez pas encore créé de réunions"}
-          </p>
-          <Button onClick={handleCreateMeeting}>
-            <Plus className="mr-2 h-4 w-4" /> Nouvelle Réunion
-          </Button>
-        </div>
-      )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-2/3 mb-2" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-3 w-full mb-2" />
+                    <Skeleton className="h-3 w-4/5" />
+                  </CardContent>
+                  <CardFooter>
+                    <Skeleton className="h-3 w-1/3" />
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : filteredMeetings.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMeetings.map((meeting) => (
+                <Card
+                  key={meeting.id}
+                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow"
+                  onClick={() => handleMeetingClick(meeting.id)}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle>{meeting.title}</CardTitle>
+                    <CardDescription>
+                      <div className="flex items-center text-xs">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {format(new Date(meeting.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="text-sm text-muted-foreground">
+                      Voir les détails de la réunion, le compte-rendu, le résumé et les tâches
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 rounded-lg border">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-1">Aucune réunion trouvée</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery
+                  ? `Aucune réunion correspondant à "${searchQuery}"`
+                  : "Vous n'avez pas encore créé de réunions"}
+              </p>
+              <Button onClick={handleCreateMeeting}>
+                <Plus className="mr-2 h-4 w-4" /> Nouvelle Réunion
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
