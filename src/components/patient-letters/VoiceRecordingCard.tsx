@@ -37,7 +37,10 @@ export const VoiceRecordingCard = ({
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <CardTitle>Dictée Vocale</CardTitle>
+        <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <Mic className="h-5 w-5 text-blue-600" />
+          Dictée Vocale
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
