@@ -553,7 +553,7 @@ export default function HRValidation() {
 
           const firstName = person.name.split(' ')[0];
           return (
-            <Card key={person.email} className="shadow-md hover:shadow-lg transition-shadow">
+            <Card key={person.email} className="shadow-md hover:shadow-lg transition-shadow bg-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">{firstName}</CardTitle>
               </CardHeader>
@@ -585,7 +585,7 @@ export default function HRValidation() {
       </div>
 
       <Tabs defaultValue="overtime" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 bg-white hover:bg-gray-50 transition-colors">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Heures supplémentaires ({filteredOvertimeHours.length})
@@ -601,7 +601,7 @@ export default function HRValidation() {
         </TabsList>
 
         <TabsContent value="overtime" className="space-y-4">
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
             <CardContent className="pt-6">
               {/* Filtres */}
               <div className="flex gap-2 mb-4">
@@ -642,7 +642,7 @@ export default function HRValidation() {
               ) : (
                 <div className="space-y-4">
                   {filteredOvertimeHours.map((overtime) => (
-                    <Card key={overtime.id} className="border">
+                    <Card key={overtime.id} className="border bg-white">
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                           <div className="space-y-2">
@@ -699,7 +699,7 @@ export default function HRValidation() {
           </Card>
 
           {/* Tableau mensuel des heures supplémentaires */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -767,7 +767,7 @@ export default function HRValidation() {
         </TabsContent>
 
         <TabsContent value="vacations" className="space-y-4">
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
             <CardContent className="pt-6">
               {/* Filtres */}
               <div className="flex gap-2 mb-4">
@@ -814,7 +814,7 @@ export default function HRValidation() {
                       : vacation.days_count;
 
                     return (
-                      <Card key={vacation.id} className="border">
+                      <Card key={vacation.id} className="border bg-white">
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start">
                             <div className="space-y-2">
@@ -929,7 +929,7 @@ export default function HRValidation() {
             </Select>
           </div>
 
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
@@ -945,7 +945,7 @@ export default function HRValidation() {
                 const currentQuota = quotaValues[user.id] || 0;
                 
                 return (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-white">
                     <div>
                       <h3 className="font-medium">{user.name}</h3>
                       <p className="text-sm text-gray-600">{user.email}</p>
@@ -995,7 +995,7 @@ export default function HRValidation() {
                         if (!user) return null;
                         
                         return (
-                          <div key={quota.id} className="p-3 bg-gray-50 rounded border">
+                          <div key={quota.id} className="p-3 bg-white rounded border">
                             <div className="text-sm font-medium">{user.name}</div>
                             <div className="text-lg font-bold text-blue-600">{quota.quota_days} jours</div>
                             <div className="text-xs text-gray-500">
