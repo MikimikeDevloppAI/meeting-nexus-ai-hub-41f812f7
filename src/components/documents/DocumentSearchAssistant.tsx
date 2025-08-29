@@ -265,7 +265,7 @@ export const DocumentSearchAssistant = () => {
 
   return (
     <div className="w-full">
-      <Card className="mt-4 mb-4">
+      <Card className="mt-4 mb-4 bg-white">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

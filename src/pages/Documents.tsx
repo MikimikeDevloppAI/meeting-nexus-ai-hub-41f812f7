@@ -677,7 +677,7 @@ const Documents = () => {
       </header>
 
       {/* Upload Section */}
-      <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow bg-white">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <Upload className="h-5 w-5 text-blue-600" />
@@ -763,7 +763,7 @@ const Documents = () => {
       <DocumentSearchAssistant />
 
       {documents && documents.length > 0 && (
-        <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
+        <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow bg-white">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-6">
               <div>
