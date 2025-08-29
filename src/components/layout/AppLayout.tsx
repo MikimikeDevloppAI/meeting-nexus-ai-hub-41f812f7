@@ -239,10 +239,12 @@ const AppSidebar: React.FC = () => {
 const MobileTopNavigation: React.FC = () => {
   return (
     <div className="bg-background border-b border-border p-3 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger />
-        <Logo size="sm" showText={true} />
-      </div>
+      <Logo size="sm" showText={true} />
+      <Button variant="ghost" size="sm" asChild>
+        <SidebarTrigger>
+          <Menu className="h-5 w-5" />
+        </SidebarTrigger>
+      </Button>
     </div>
   );
 };
