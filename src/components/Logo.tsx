@@ -60,7 +60,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
     <div className={`flex items-center gap-3 ${className}`}>
       {showText && (
         <>
-          	<img
+          <img
             src="/lovable-uploads/c22506f3-bb81-420d-800e-b3eb3f527868.png"
             alt="OphtaCare Hub Logo"
             className={size === "auth" ? "h-20 w-20 object-contain" : "h-12 w-12 object-contain"}
