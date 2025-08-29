@@ -170,8 +170,8 @@ export const MeetingPreparation = () => {
     return (
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-blue-600" />
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-blue-600" />
             Préparation de la prochaine réunion
           </CardTitle>
         </CardHeader>
@@ -187,8 +187,8 @@ export const MeetingPreparation = () => {
   return (
     <Card className="mb-6 shadow-md">
       <CardHeader>
-        <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-          <ClipboardList className="h-6 w-6 text-blue-600" />
+        <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-blue-600" />
           Préparation de la prochaine réunion
         </CardTitle>
       </CardHeader>
