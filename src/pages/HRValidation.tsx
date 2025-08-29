@@ -767,100 +767,135 @@ export default function HRValidation() {
         </TabsContent>
 
         <TabsContent value="vacations" className="space-y-4">
-          {filteredVacations.length === 0 ? (
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">Aucune demande de vacances trouvée</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredVacations.map((vacation) => {
-              // Calculer le nombre de jours réel basé sur vacation_days
-              const actualDaysCount = vacation.vacation_days && vacation.vacation_days.length > 0 
-                ? vacation.vacation_days.reduce((sum, day) => sum + (day.is_half_day ? 0.5 : 1), 0)
-                : vacation.days_count;
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              {/* Filtres */}
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant={statusFilter === "pending" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("pending")}
+                >
+                  En attente
+                </Button>
+                <Button
+                  variant={statusFilter === "approved" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("approved")}
+                >
+                  Approuvé
+                </Button>
+                <Button
+                  variant={statusFilter === "rejected" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("rejected")}
+                >
+                  Rejeté
+                </Button>
+                <Button
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Tout
+                </Button>
+              </div>
 
-              return (
-                <Card key={vacation.id} className="shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-medium">{vacation.users.name}</h3>
-                          <Badge variant="outline">{vacation.users.email}</Badge>
-                          <Badge variant="outline">{getVacationTypeLabel(vacation.vacation_type)}</Badge>
-                          <Badge variant="outline">
-                            {actualDaysCount} jour{actualDaysCount > 1 ? 's' : ''}
-                          </Badge>
-                          {getStatusBadge(vacation.status)}
-                        </div>
-                        <p className="text-sm">
-                          Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
-                        </p>
-                        
-                        {/* Affichage détaillé des jours */}
-                        {vacation.vacation_days && vacation.vacation_days.length > 0 && (
-                          <div className="mt-3">
-                            <p className="text-sm font-medium text-gray-700 mb-2">Détail des jours :</p>
-                            <div className="flex flex-wrap gap-1">
-                              {vacation.vacation_days
-                                .sort((a, b) => new Date(a.vacation_date).getTime() - new Date(b.vacation_date).getTime())
-                                .map((day, index) => (
-                                <Badge 
-                                  key={index} 
-                                  variant="secondary" 
-                                  className={`text-xs ${day.is_half_day ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}
-                                >
-                                  {new Date(day.vacation_date).toLocaleDateString('fr-FR', { 
-                                    day: '2-digit', 
-                                    month: '2-digit' 
-                                  })}
-                                  {day.is_half_day && ' (½j)'}
+              {filteredVacations.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Aucune demande de vacances trouvée</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredVacations.map((vacation) => {
+                    // Calculer le nombre de jours réel basé sur vacation_days
+                    const actualDaysCount = vacation.vacation_days && vacation.vacation_days.length > 0 
+                      ? vacation.vacation_days.reduce((sum, day) => sum + (day.is_half_day ? 0.5 : 1), 0)
+                      : vacation.days_count;
+
+                    return (
+                      <Card key={vacation.id} className="border">
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <h3 className="font-medium">{vacation.users.name}</h3>
+                                <Badge variant="outline">{vacation.users.email}</Badge>
+                                <Badge variant="outline">{getVacationTypeLabel(vacation.vacation_type)}</Badge>
+                                <Badge variant="outline">
+                                  {actualDaysCount} jour{actualDaysCount > 1 ? 's' : ''}
                                 </Badge>
-                              ))}
+                                {getStatusBadge(vacation.status)}
+                              </div>
+                              <p className="text-sm">
+                                Du {new Date(vacation.start_date).toLocaleDateString('fr-FR')} au {new Date(vacation.end_date).toLocaleDateString('fr-FR')}
+                              </p>
+                              
+                              {/* Affichage détaillé des jours */}
+                              {vacation.vacation_days && vacation.vacation_days.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-sm font-medium text-gray-700 mb-2">Détail des jours :</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {vacation.vacation_days
+                                      .sort((a, b) => new Date(a.vacation_date).getTime() - new Date(b.vacation_date).getTime())
+                                      .map((day, index) => (
+                                      <Badge 
+                                        key={index} 
+                                        variant="secondary" 
+                                        className={`text-xs ${day.is_half_day ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}
+                                      >
+                                        {new Date(day.vacation_date).toLocaleDateString('fr-FR', { 
+                                          day: '2-digit', 
+                                          month: '2-digit' 
+                                        })}
+                                        {day.is_half_day && ' (½j)'}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {vacation.description && (
+                                <p className="text-sm text-gray-600">{vacation.description}</p>
+                              )}
+                              <p className="text-xs text-gray-500">
+                                Demandé {formatDistanceToNow(new Date(vacation.created_at), { 
+                                  addSuffix: true, 
+                                  locale: fr 
+                                })}
+                              </p>
                             </div>
+                            {vacation.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateVacationStatus(vacation.id, 'approved')}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Approuver
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateVacationStatus(vacation.id, 'rejected')}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Rejeter
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        
-                        {vacation.description && (
-                          <p className="text-sm text-gray-600">{vacation.description}</p>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          Demandé {formatDistanceToNow(new Date(vacation.created_at), { 
-                            addSuffix: true, 
-                            locale: fr 
-                          })}
-                        </p>
-                      </div>
-                      {vacation.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateVacationStatus(vacation.id, 'approved')}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Approuver
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateVacationStatus(vacation.id, 'rejected')}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Rejeter
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <TeamVacationCalendar vacations={vacations} />
         </TabsContent>
