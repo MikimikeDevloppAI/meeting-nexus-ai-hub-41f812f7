@@ -522,7 +522,7 @@ const Retrocession: React.FC = () => {
                 {history.map((r) => {
                   const percentage = r.chiffre_affaires ? (r.retrocession / r.chiffre_affaires * 100) : 0;
                   return (
-                    <TableRow key={r.id} className="border-row even:bg-row-alt">
+                    <TableRow key={r.id} className="border-row">
                       <TableCell className="px-3 py-2">{formatYYYYMM(r.period_month)}</TableCell>
                       <TableCell className="px-3 py-2">{r.doctor}</TableCell>
                       <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
@@ -532,17 +532,19 @@ const Retrocession: React.FC = () => {
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleEdit(r)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 shadow-sm hover:shadow-md transition-shadow"
+                            aria-label="Modifier"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleDelete(r.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive shadow-sm hover:shadow-md transition-shadow"
+                            aria-label="Supprimer"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
