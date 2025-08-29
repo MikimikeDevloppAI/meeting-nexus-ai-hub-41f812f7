@@ -96,7 +96,7 @@ const Meetings = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((item) => (
-                <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow">
+                <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow bg-app-background">
                   <CardHeader className="pb-2">
                     <Skeleton className="h-4 w-2/3 mb-2" />
                     <Skeleton className="h-3 w-1/3" />
@@ -116,7 +116,7 @@ const Meetings = () => {
               {filteredMeetings.map((meeting) => (
                 <Card
                   key={meeting.id}
-                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow"
+                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow bg-app-background"
                   onClick={() => handleMeetingClick(meeting.id)}
                 >
                   <CardHeader className="pb-2">
