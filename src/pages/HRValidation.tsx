@@ -584,38 +584,6 @@ export default function HRValidation() {
         })}
       </div>
 
-      {/* Filtres */}
-      <div className="flex gap-2">
-        <Button
-          variant={statusFilter === "pending" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setStatusFilter("pending")}
-        >
-          En attente
-        </Button>
-        <Button
-          variant={statusFilter === "approved" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setStatusFilter("approved")}
-        >
-          Approuvé
-        </Button>
-        <Button
-          variant={statusFilter === "rejected" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setStatusFilter("rejected")}
-        >
-          Rejeté
-        </Button>
-        <Button
-          variant={statusFilter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setStatusFilter("all")}
-        >
-          Tout
-        </Button>
-      </div>
-
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overtime" className="flex items-center gap-2">
@@ -633,6 +601,38 @@ export default function HRValidation() {
         </TabsList>
 
         <TabsContent value="overtime" className="space-y-4">
+          {/* Filtres */}
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === "pending" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("pending")}
+            >
+              En attente
+            </Button>
+            <Button
+              variant={statusFilter === "approved" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("approved")}
+            >
+              Approuvé
+            </Button>
+            <Button
+              variant={statusFilter === "rejected" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("rejected")}
+            >
+              Rejeté
+            </Button>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+            >
+              Tout
+            </Button>
+          </div>
+
           {filteredOvertimeHours.length === 0 ? (
             <Card className="shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="text-center py-8">
