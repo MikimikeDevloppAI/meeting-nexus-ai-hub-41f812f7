@@ -311,9 +311,9 @@ const Retrocession: React.FC = () => {
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 bg-white p-4 rounded-lg shadow-sm">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {byDoctor.filter(d => doctorFilter === "all" || d.doctor === doctorFilter).map((d) => (
-          <Card key={d.doctor} className="shadow-md border">
+          <Card key={d.doctor} className="shadow-md border bg-white">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{d.doctor}</span>
