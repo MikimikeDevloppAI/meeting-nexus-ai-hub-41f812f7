@@ -806,43 +806,41 @@ const Documents = () => {
                 </Button>
               </div>
             </div>
+
+            <div className="mt-6">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Chargement...</span>
+                </div>
+              ) : !documents || documents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun document ou meeting pour le moment
+                </div>
+              ) : filteredDocuments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun élément ne correspond à votre recherche
+                </div>
+              ) : (
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-3">
+                    {filteredDocuments.map((document) => (
+                      <CompactDocumentItem
+                        key={`${document.type}-${document.id}-${refreshKey}-${document.processed ? 'processed' : 'processing'}`}
+                        document={document}
+                        onDownload={() => handleDownload(document)}
+                        onDelete={() => deleteMutation.mutate(document)}
+                        isDeleting={deleteMutation.isPending}
+                        onUpdate={handleDocumentUpdate}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
-
-      <Card className="shadow-md hover:shadow-lg transition-shadow">
-        <CardContent className="pt-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Chargement...</span>
-            </div>
-          ) : !documents || documents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Aucun document ou meeting pour le moment
-            </div>
-          ) : filteredDocuments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Aucun élément ne correspond à votre recherche
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-3">
-                {filteredDocuments.map((document) => (
-                  <CompactDocumentItem
-                    key={`${document.type}-${document.id}-${refreshKey}-${document.processed ? 'processed' : 'processing'}`}
-                    document={document}
-                    onDownload={() => handleDownload(document)}
-                    onDelete={() => deleteMutation.mutate(document)}
-                    isDeleting={deleteMutation.isPending}
-                    onUpdate={handleDocumentUpdate}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };
