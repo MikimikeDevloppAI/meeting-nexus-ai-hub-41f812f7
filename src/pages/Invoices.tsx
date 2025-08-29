@@ -44,12 +44,12 @@ const Invoices = () => {
   return (
     <div className="animate-fade-in">
       <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Gestion des factures</h1>
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion des factures</h1>
           <p className="text-muted-foreground">
             Uploadez vos factures PDF ou images, ou créez-les manuellement
           </p>
-        </div>
+        </header>
         <div className="flex gap-2">
           <Button 
             variant="outline" 

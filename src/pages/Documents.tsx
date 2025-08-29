@@ -667,12 +667,12 @@ const Documents = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Gestion des Documents & Meetings</h1>
+      <header className="mb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Gestion des Documents & Meetings</h1>
         <p className="text-muted-foreground">
           Gérez vos documents uploadés et consultez vos meetings transcrits dans une vue unifiée.
         </p>
-      </div>
+      </header>
 
       {/* Upload Section */}
       <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">

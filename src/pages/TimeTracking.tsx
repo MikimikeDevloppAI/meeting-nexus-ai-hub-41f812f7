@@ -669,10 +669,10 @@ export default function TimeTracking() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Gestion du temps</h1>
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion du temps</h1>
           <p className="text-muted-foreground">Gérer vos heures supplémentaires et vacances</p>
-        </div>
+        </header>
         <div className="flex items-center gap-2">
           <Label htmlFor="year-select">Année :</Label>
           <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>

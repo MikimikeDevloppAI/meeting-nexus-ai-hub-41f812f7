@@ -302,12 +302,12 @@ const UserManagement = () => {
   return (
     <div className="animate-fade-in h-full flex flex-col">
       <div className="mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Gestion des utilisateurs et accès</h1>
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion des utilisateurs et accès</h1>
           <p className="text-muted-foreground">
             Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
           </p>
-        </div>
+        </header>
       </div>
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">

@@ -243,8 +243,11 @@ const Retrocession: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
+      <header className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
+          <p className="text-muted-foreground">Gestion des entrées de rétrocession</p>
+        </div>
         <Button onClick={handleNew} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Nouvelle entrée

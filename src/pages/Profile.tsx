@@ -91,20 +91,20 @@ const Profile = () => {
   if (isLoading || !user) {
     return (
       <div className="animate-fade-in">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Profil utilisateur</h1>
-          <p className="text-muted-foreground">Chargement de vos informations de profil...</p>
-        </div>
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Profil utilisateur</h1>
+        <p className="text-muted-foreground">Chargement de vos informations de profil...</p>
+      </header>
       </div>
     );
   }
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Profil utilisateur</h1>
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Profil utilisateur</h1>
         <p className="text-muted-foreground">Visualisez et modifiez les informations de votre compte</p>
-      </div>
+      </header>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="shadow-md hover:shadow-lg transition-shadow">

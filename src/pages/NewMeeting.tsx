@@ -49,7 +49,7 @@ const NewMeeting = () => {
   return (
     <div className="animate-fade-in">
       <div className="mb-6">
-        <Button 
+        <Button
           variant="ghost" 
           onClick={() => navigate("/meetings")}
           className="mb-2"
@@ -57,7 +57,8 @@ const NewMeeting = () => {
         >
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux Réunions
         </Button>
-        <h1 className="text-2xl font-bold">Créer une nouvelle réunion</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Créer une nouvelle réunion</h1>
+        <p className="text-muted-foreground">Planifiez et configurez votre réunion</p>
       </div>
 
       {/* Composant de préparation de réunion */}

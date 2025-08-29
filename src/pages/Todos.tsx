@@ -512,9 +512,9 @@ export default function Todos() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
+        <header>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Mes Tâches</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Mes Tâches</h1>
             {todoCount > 0 && (
               <Badge 
                 variant="secondary" 
@@ -525,7 +525,7 @@ export default function Todos() {
             )}
           </div>
           <p className="text-muted-foreground">Gérer et suivre toutes les tâches</p>
-        </div>
+        </header>
         <div className="flex items-center gap-2">
           <div className="flex gap-2">
             <Button

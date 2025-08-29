@@ -277,7 +277,10 @@ export default function IOLCalculator() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold mb-6">IOL Calculator</h1>
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">IOL Calculator</h1>
+        <p className="text-muted-foreground">Calculateur de lentilles intraoculaires</p>
+      </header>
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>
