@@ -699,11 +699,11 @@ export default function TimeTracking() {
 
       <Tabs defaultValue="overtime" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 bg-white gap-2">
-          <TabsTrigger value="overtime" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500">
+          <TabsTrigger value="overtime" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary">
             <Clock className="h-4 w-4" />
             Heures supplémentaires
           </TabsTrigger>
-          <TabsTrigger value="vacations" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500">
+          <TabsTrigger value="vacations" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200 data-[state=inactive]:bg-gray-50 data-[state=inactive]:text-gray-500 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary">
             <Calendar className="h-4 w-4" />
             Vacances
           </TabsTrigger>
