@@ -286,10 +286,10 @@ export default function IOLCalculator() {
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle>Extraction de texte depuis PDF</CardTitle>
-          <CardDescription>
-            Téléchargez un fichier PDF pour extraire automatiquement tout le texte avec OCR intégré.
-          </CardDescription>
+          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <FileText className="h-6 w-6 text-blue-600" />
+            Extraction de texte depuis PDF
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div 
