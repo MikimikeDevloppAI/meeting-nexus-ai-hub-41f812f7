@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Legend, Line, LabelList } from "recharts";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Calendar, TrendingUp, History } from "lucide-react";
 import { RetrocessionEntryDialog } from "@/components/retrocession/RetrocessionEntryDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -256,7 +256,10 @@ const Retrocession: React.FC = () => {
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Période</CardTitle>
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-blue-600" />
+            Période
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
@@ -337,7 +340,10 @@ const Retrocession: React.FC = () => {
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Rétrocessions par mois (par docteur)</CardTitle>
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-blue-600" />
+            Rétrocessions par mois (par docteur)
+          </CardTitle>
         </CardHeader>
         <CardContent className="h-96">
           <ResponsiveContainer width="100%" height="100%">
@@ -484,7 +490,10 @@ const Retrocession: React.FC = () => {
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Historique des rétrocessions</CardTitle>
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <History className="h-5 w-5 text-blue-600" />
+            Historique des rétrocessions
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative w-full overflow-auto">
