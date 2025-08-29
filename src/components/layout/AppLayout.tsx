@@ -239,10 +239,8 @@ const AppSidebar: React.FC = () => {
 const MobileTopNavigation: React.FC = () => {
   return (
     <div className="bg-background border-b border-border p-3 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger />
-        <Logo size="sm" showText={true} />
-      </div>
+      <SidebarTrigger className="p-2 hover:bg-muted rounded-md" />
+      <Logo size="sm" showText={true} />
     </div>
   );
 };
@@ -255,8 +253,8 @@ export const AppLayout: React.FC = () => {
     <SidebarProvider>
       <TooltipProvider>
         <div className="min-h-screen flex w-full bg-app-background">
-          {/* Sidebar pour desktop */}
-          {!isMobile && <AppSidebar />}
+          {/* Sidebar - toujours présent mais caché sur mobile */}
+          <AppSidebar />
 
           <div className="flex-1 flex flex-col min-h-screen min-w-0">
             {/* Navigation en haut pour mobile */}
