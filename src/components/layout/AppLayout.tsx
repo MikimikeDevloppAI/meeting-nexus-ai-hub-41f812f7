@@ -9,7 +9,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger,
   SidebarHeader,
   SidebarFooter,
   useSidebar
@@ -33,6 +32,7 @@ import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
 import { HelpButton } from "./HelpButton";
 import { NavigationHelpButton } from "./NavigationHelpButton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MobileSidebarToggle } from "./MobileSidebarToggle";
 
 const menuItems = [
   {
@@ -240,11 +240,7 @@ const MobileTopNavigation: React.FC = () => {
   return (
     <div className="bg-background border-b border-border p-3 flex items-center justify-between">
       <Logo size="sm" showText={true} />
-      <Button variant="ghost" size="sm" asChild>
-        <SidebarTrigger>
-          <Menu className="h-5 w-5" />
-        </SidebarTrigger>
-      </Button>
+      <MobileSidebarToggle />
     </div>
   );
 };
@@ -257,8 +253,8 @@ export const AppLayout: React.FC = () => {
     <SidebarProvider>
       <TooltipProvider>
         <div className="min-h-screen flex w-full bg-app-background">
-          {/* Sidebar pour desktop */}
-          {!isMobile && <AppSidebar />}
+          {/* Toujours rendre la Sidebar pour permettre l'ouverture en mode mobile (Sheet) */}
+          <AppSidebar />
 
           <div className="flex-1 flex flex-col min-h-screen min-w-0">
             {/* Navigation en haut pour mobile */}
