@@ -339,7 +339,6 @@ export default function IOLCalculator() {
             </div>
           )}
 
-          
           {iolData && (
             <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
               <CardContent className="space-y-6">
@@ -385,7 +384,6 @@ export default function IOLCalculator() {
                         </div>
                       </div>
                     )}
-
 
                     {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && (
@@ -485,7 +483,6 @@ export default function IOLCalculator() {
                             </div>
                           </div>
 
-
                           {/* Bouton de soumission */}
                           <div className="flex justify-center pt-4">
                             <Button 
@@ -544,9 +541,8 @@ export default function IOLCalculator() {
                         </div>
                       </div>
                     )}
-
-                   </>
-                 )}
+                  </>
+                )}
                 
                 {/* Boutons d'export et d'automatisation */}
                 <div className="flex gap-3 pt-4 flex-wrap">
