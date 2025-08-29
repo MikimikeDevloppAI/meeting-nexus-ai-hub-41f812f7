@@ -80,7 +80,7 @@ const Meetings = () => {
       {/* Composant de préparation de réunion */}
       <MeetingPreparation />
 
-      <Card className="shadow-md">
+      <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
