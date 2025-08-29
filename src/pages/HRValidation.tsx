@@ -601,98 +601,102 @@ export default function HRValidation() {
         </TabsList>
 
         <TabsContent value="overtime" className="space-y-4">
-          {/* Filtres */}
-          <div className="flex gap-2">
-            <Button
-              variant={statusFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("pending")}
-            >
-              En attente
-            </Button>
-            <Button
-              variant={statusFilter === "approved" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("approved")}
-            >
-              Approuvé
-            </Button>
-            <Button
-              variant={statusFilter === "rejected" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("rejected")}
-            >
-              Rejeté
-            </Button>
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              Tout
-            </Button>
-          </div>
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              {/* Filtres */}
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant={statusFilter === "pending" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("pending")}
+                >
+                  En attente
+                </Button>
+                <Button
+                  variant={statusFilter === "approved" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("approved")}
+                >
+                  Approuvé
+                </Button>
+                <Button
+                  variant={statusFilter === "rejected" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("rejected")}
+                >
+                  Rejeté
+                </Button>
+                <Button
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Tout
+                </Button>
+              </div>
 
-          {filteredOvertimeHours.length === 0 ? (
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">Aucune heure supplémentaire trouvée</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredOvertimeHours.map((overtime) => (
-              <Card key={overtime.id} className="shadow-md hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-medium">{overtime.users.name}</h3>
-                        <Badge variant="outline">{overtime.users.email}</Badge>
-                         <Badge variant="outline" className={overtime.is_recovery ? "text-blue-600" : ""}>
-                           {overtime.is_recovery ? '-' : ''}{formatHoursToHoursMinutes(overtime.hours)} {overtime.is_recovery ? '(Récup)' : ''}
-                         </Badge>
-                        {getStatusBadge(overtime.status)}
-                      </div>
-                      <p className="text-sm">
-                        Date: {new Date(overtime.date).toLocaleDateString('fr-FR')}
-                      </p>
-                      {overtime.description && (
-                        <p className="text-sm text-gray-600">{overtime.description}</p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        Demandé {formatDistanceToNow(new Date(overtime.created_at), { 
-                          addSuffix: true, 
-                          locale: fr 
-                        })}
-                      </p>
-                    </div>
-                    {overtime.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateOvertimeStatus(overtime.id, 'approved')}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Approuver
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateOvertimeStatus(overtime.id, 'rejected')}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Rejeter
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+              {filteredOvertimeHours.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Aucune heure supplémentaire trouvée</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredOvertimeHours.map((overtime) => (
+                    <Card key={overtime.id} className="border">
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-medium">{overtime.users.name}</h3>
+                              <Badge variant="outline">{overtime.users.email}</Badge>
+                              <Badge variant="outline" className={overtime.is_recovery ? "text-blue-600" : ""}>
+                                {overtime.is_recovery ? '-' : ''}{formatHoursToHoursMinutes(overtime.hours)} {overtime.is_recovery ? '(Récup)' : ''}
+                              </Badge>
+                              {getStatusBadge(overtime.status)}
+                            </div>
+                            <p className="text-sm">
+                              Date: {new Date(overtime.date).toLocaleDateString('fr-FR')}
+                            </p>
+                            {overtime.description && (
+                              <p className="text-sm text-gray-600">{overtime.description}</p>
+                            )}
+                            <p className="text-xs text-gray-500">
+                              Demandé {formatDistanceToNow(new Date(overtime.created_at), { 
+                                addSuffix: true, 
+                                locale: fr 
+                              })}
+                            </p>
+                          </div>
+                          {overtime.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateOvertimeStatus(overtime.id, 'approved')}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Approuver
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateOvertimeStatus(overtime.id, 'rejected')}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Rejeter
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Sélecteur d'année pour les heures supplémentaires */}
           <div className="flex items-center gap-4">
