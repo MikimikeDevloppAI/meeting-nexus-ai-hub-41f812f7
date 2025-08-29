@@ -329,32 +329,32 @@ const UserManagement = () => {
         <TabsContent value="users" className="flex-1 flex flex-col space-y-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white rounded-t-lg">
                 <CardTitle className="text-sm font-medium">Total utilisateurs</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="bg-white">
+              <CardContent className="bg-white rounded-b-lg">
                 <div className="text-2xl font-bold">{users.length}</div>
               </CardContent>
             </Card>
             
-            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white rounded-t-lg">
                 <CardTitle className="text-sm font-medium">Utilisateurs approuvés</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
-              <CardContent className="bg-white">
+              <CardContent className="bg-white rounded-b-lg">
                 <div className="text-2xl font-bold text-green-600">{approvedUsers}</div>
               </CardContent>
             </Card>
             
-            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white rounded-t-lg">
                 <CardTitle className="text-sm font-medium">En attente d'approbation</CardTitle>
                 <XCircle className="h-4 w-4 text-orange-600" />
               </CardHeader>
-              <CardContent className="bg-white">
+              <CardContent className="bg-white rounded-b-lg">
                 <div className="text-2xl font-bold text-orange-600">{pendingUsers}</div>
               </CardContent>
             </Card>
