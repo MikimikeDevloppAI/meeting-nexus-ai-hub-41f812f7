@@ -237,61 +237,12 @@ const AppSidebar: React.FC = () => {
 };
 
 const MobileTopNavigation: React.FC = () => {
-  const navigate = useNavigate();
-  const { signOut } = useAuth();
-  const { hasPermission, loading } = useUserPermissions();
-  const location = useLocation();
-
-  const handleNavigation = (url: string) => {
-    navigate(url);
-  };
-
-  const isActiveRoute = (url: string) => {
-    return location.pathname === url;
-  };
-
-  const visibleItems = menuItems.filter(item => {
-    const hasPerms = hasPermission(item.permission);
-    return !loading && hasPerms;
-  }).slice(0, 4); // Limite à 4 items principaux
-
   return (
     <div className="bg-background border-b border-border p-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
-        <Logo size="sm" showText={false} />
+        <Logo size="sm" showText={true} />
       </div>
-      
-      <div className="flex items-center gap-1 overflow-x-auto">
-        {visibleItems.map((item) => {
-          const isActive = isActiveRoute(item.url);
-          return (
-            <Button
-              key={item.title}
-              variant="ghost"
-              size="sm"
-              onClick={() => handleNavigation(item.url)}
-              className={`flex items-center gap-2 whitespace-nowrap ${
-                isActive 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              <span className="hidden xs:inline">{item.title}</span>
-            </Button>
-          );
-        })}
-      </div>
-
-      <Button
-        onClick={signOut}
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:bg-destructive/10"
-      >
-        <LogOut className="h-4 w-4" />
-      </Button>
     </div>
   );
 };
