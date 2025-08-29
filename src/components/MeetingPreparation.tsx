@@ -168,7 +168,7 @@ export const MeetingPreparation = () => {
 
   if (isLoading) {
     return (
-      <Card className="mb-6">
+      <Card className="mb-6 bg-white">
         <CardHeader>
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-blue-600" />
@@ -185,7 +185,7 @@ export const MeetingPreparation = () => {
   }
 
   return (
-    <Card className="mb-6 shadow-md">
+    <Card className="mb-6 shadow-md bg-white">
       <CardHeader>
         <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
           <ClipboardList className="h-5 w-5 text-blue-600" />

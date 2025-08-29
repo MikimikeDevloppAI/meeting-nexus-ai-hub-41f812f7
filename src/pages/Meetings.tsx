@@ -80,7 +80,7 @@ const Meetings = () => {
       {/* Composant de préparation de réunion */}
       <MeetingPreparation />
 
-      <Card className="shadow-md hover:shadow-lg transition-shadow">
+      <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 mb-4">
             <Archive className="h-5 w-5 text-blue-600" />
@@ -124,7 +124,7 @@ const Meetings = () => {
                   onClick={() => handleMeetingClick(meeting.id)}
                 >
                   <CardHeader className="pb-2">
-                    <CardTitle>{meeting.title}</CardTitle>
+                    <CardTitle className="text-base">{meeting.title}</CardTitle>
                     <CardDescription>
                       <div className="flex items-center text-xs">
                         <Calendar className="h-3 w-3 mr-1" />
