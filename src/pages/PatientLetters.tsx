@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { VoiceRecordingCard } from "@/components/patient-letters/VoiceRecordingCard";
 import { MedicalLetterChat } from "@/components/patient-letters/MedicalLetterChat";
 import { Textarea } from "@/components/ui/textarea";
+import { FileSignature, FileText } from "lucide-react";
 
 
 
@@ -264,7 +265,10 @@ const PatientLetters = () => {
           <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Transcript Brut</h3>
+                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                  <FileSignature className="h-6 w-6 text-blue-600" />
+                  Transcript Brut
+                </h3>
                 <button 
                   onClick={() => copyToClipboard(rawTranscript, "Transcript brut")}
                   className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors shadow-md"
@@ -289,7 +293,10 @@ const PatientLetters = () => {
           <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Lettre Médicale</h3>
+                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                  Lettre Médicale
+                </h3>
                 <button 
                   onClick={() => copyToClipboard(letterContent, "Lettre médicale")}
                   className="bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-3 py-2 rounded-md text-sm font-medium transition-colors shadow-md"

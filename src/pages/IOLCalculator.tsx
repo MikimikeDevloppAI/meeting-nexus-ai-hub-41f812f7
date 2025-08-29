@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Loader2, Download, Image } from "lucide-react";
+import { Upload, FileText, Loader2, Download, Image, User, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 
@@ -362,7 +362,10 @@ export default function IOLCalculator() {
                     {/* Informations personnelles du patient */}
                     {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
                       <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">Informations patient</h3>
+                        <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                          <User className="h-6 w-6 text-blue-600" />
+                          Informations patient
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           {iolData.patientName && (
                             <div>
@@ -515,8 +518,8 @@ export default function IOLCalculator() {
                     )}
                     {calculatedImage && (
                       <div className="space-y-3">
-                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                          <Image className="h-5 w-5" />
+                        <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                          <Calculator className="h-6 w-6 text-blue-600" />
                           Résultat du calcul IOL
                         </h3>
                         <div className="border border-border rounded-lg p-4 bg-card">

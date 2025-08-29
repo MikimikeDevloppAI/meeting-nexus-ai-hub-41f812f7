@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, ClipboardList, Pencil, Trash2, Phone } from "lucide-react";
+import { PlusCircle, ClipboardList, Pencil, Trash2, Phone, Syringe } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // NOTE: The Supabase client is strongly typed with Database, which doesn't yet include
@@ -663,7 +663,10 @@ const GestionStock: React.FC = () => {
         <section aria-labelledby="injection-form-section">
           <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle id="injection-form-section" className="text-2xl font-bold">Enregistrer une injection</CardTitle>
+              <CardTitle id="injection-form-section" className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                <Syringe className="h-6 w-6 text-blue-600" />
+                Enregistrer une injection
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">

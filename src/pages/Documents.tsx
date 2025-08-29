@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Upload, Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Upload, FileText, Search, FileCheck, Calendar, Filter, Plus, ChevronDown, X, Settings, CheckCircle, Clock, Eye, EyeOff, Folder, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -679,8 +679,8 @@ const Documents = () => {
       {/* Upload Section */}
       <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Upload className="h-4 w-4" />
+          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <Upload className="h-6 w-6 text-blue-600" />
             Télécharger des Documents
           </CardTitle>
           <CardDescription className="text-sm">
@@ -779,7 +779,8 @@ const Documents = () => {
 
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div>
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+                  <Folder className="h-6 w-6 text-blue-600" />
                   Documents & Meetings 
                   {filteredDocuments.length !== documents?.length && (
                     <span className="text-sm font-normal text-muted-foreground ml-2">
