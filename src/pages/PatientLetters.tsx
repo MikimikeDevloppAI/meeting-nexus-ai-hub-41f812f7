@@ -229,12 +229,14 @@ const PatientLetters = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Création de Lettre Patient</h1>
-        <p className="text-muted-foreground">
-          Créez des lettres médicales avec dictée vocale et assistance IA
-        </p>
+    <div className="space-y-6">
+      <header className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Création de Lettre Patient</h1>
+          <p className="text-muted-foreground">
+            Créez des lettres médicales avec dictée vocale et assistance IA
+          </p>
+        </div>
       </header>
 
       <div className="grid gap-6">
