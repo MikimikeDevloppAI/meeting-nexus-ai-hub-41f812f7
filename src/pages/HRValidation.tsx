@@ -490,12 +490,12 @@ export default function HRValidation() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <header>
+    <div className="space-y-6">
+      <header className="flex items-center justify-between mb-6">
+        <div>
           <h1 className="text-2xl font-semibold tracking-tight">Validation RH</h1>
           <p className="text-muted-foreground">Gestion et validation des heures supplémentaires et vacances</p>
-        </header>
+        </div>
         <div className="flex items-center gap-2">
           <Label htmlFor="year-select">Année :</Label>
           <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
@@ -518,7 +518,7 @@ export default function HRValidation() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </header>
 
       {/* Statistiques par personne */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
