@@ -522,30 +522,18 @@ const Retrocession: React.FC = () => {
                 {history.map((r) => {
                   const percentage = r.chiffre_affaires ? (r.retrocession / r.chiffre_affaires * 100) : 0;
                   return (
-                    <TableRow key={r.id} className="border-row">
-                      <TableCell className="px-3 py-2">{formatYYYYMM(r.period_month)}</TableCell>
-                      <TableCell className="px-3 py-2">{r.doctor}</TableCell>
-                      <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
-                      <TableCell className="px-3 py-2 text-right">{formatCHF(Number(r.retrocession || 0))}</TableCell>
-                      <TableCell className="px-3 py-2 text-right">{Math.round(percentage)}%</TableCell>
-                      <TableCell className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(r)}
-                            className="h-8 w-8 p-0 shadow-sm hover:shadow-md transition-shadow"
-                            aria-label="Modifier"
-                          >
+                    <TableRow key={r.id} className="modern-table-row">
+                      <TableCell className="modern-table-cell font-medium">{formatYYYYMM(r.period_month)}</TableCell>
+                      <TableCell className="modern-table-cell font-medium">{r.doctor}</TableCell>
+                      <TableCell className="modern-table-cell text-right font-medium">{formatCHF(Number(r.chiffre_affaires || 0))}</TableCell>
+                      <TableCell className="modern-table-cell text-right font-medium">{formatCHF(Number(r.retrocession || 0))}</TableCell>
+                      <TableCell className="modern-table-cell text-right font-medium">{Math.round(percentage)}%</TableCell>
+                      <TableCell className="modern-table-cell text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(r)} aria-label="Modifier" className="shadow-sm hover:shadow-md transition-shadow">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(r.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive shadow-sm hover:shadow-md transition-shadow"
-                            aria-label="Supprimer"
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} aria-label="Supprimer" className="shadow-sm hover:shadow-md transition-shadow">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
