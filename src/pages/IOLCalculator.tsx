@@ -544,8 +544,6 @@ export default function IOLCalculator() {
                 )}
                 
                 {/* Boutons d'export et d'automatisation */}
-                <div className="flex gap-3 pt-4 flex-wrap">
-                </div>
             </Card>
           )}
 
