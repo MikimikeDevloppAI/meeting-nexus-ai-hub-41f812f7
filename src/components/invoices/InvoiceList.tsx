@@ -982,7 +982,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     const isEditing = editingInvoiceId === invoice.id;
     
     return (
-      <Card key={invoice.id} className="mb-4 shadow-md hover:shadow-lg transition-shadow">
+      <Card key={invoice.id} className="mb-4 shadow-md hover:shadow-lg transition-shadow bg-white">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
