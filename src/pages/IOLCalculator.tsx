@@ -340,7 +340,7 @@ export default function IOLCalculator() {
           )}
 
           {iolData && (
-            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+            <>
                 {iolData.error ? (
                   <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
                     <p className="font-medium text-yellow-800">Document scanné détecté</p>
@@ -542,9 +542,7 @@ export default function IOLCalculator() {
                      )}
                   </>
                 )}
-                
-                {/* Boutons d'export et d'automatisation */}
-            </Card>
+            </>
           )}
 
           {automationResult && (
