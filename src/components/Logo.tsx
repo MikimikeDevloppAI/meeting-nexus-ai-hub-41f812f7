@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface LogoProps {
   className?: string;
   showText?: boolean;
-  size?: "sm" | "md" | "lg" | "xl" | "xxl";
+  size?: "sm" | "md" | "lg" | "xl" | "xxl" | "auth";
 }
 
 const LOGO_BUCKET = 'branding';
@@ -50,6 +50,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
     lg: { wrapper: "w-16 h-16", img: "h-14 w-14" },
     xl: { wrapper: "w-20 h-20", img: "h-16 w-16" },
     xxl: { wrapper: "w-24 h-24", img: "h-20 w-20" },
+    auth: { wrapper: "w-32 h-32", img: "h-28 w-28" },
   } as const;
 
   const wrapperSize = sizes[size].wrapper;
@@ -62,12 +63,12 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
           <img
             src="/lovable-uploads/c22506f3-bb81-420d-800e-b3eb3f527868.png"
             alt="OphtaCare Hub Logo"
-            className="h-12 w-12 object-contain"
+            className={size === "auth" ? "h-20 w-20 object-contain" : "h-12 w-12 object-contain"}
             loading="lazy"
           />
           <div className="flex flex-col leading-tight">
-            <span className="text-xl font-bold text-foreground">OphtaCare</span>
-            <span className="text-xl text-primary font-bold">Hub</span>
+            <span className={size === "auth" ? "text-3xl font-bold text-foreground" : "text-xl font-bold text-foreground"}>OphtaCare</span>
+            <span className={size === "auth" ? "text-3xl text-primary font-bold" : "text-xl text-primary font-bold"}>Hub</span>
           </div>
         </>
       )}

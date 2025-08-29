@@ -152,7 +152,7 @@ const ResetPassword = () => {
         <div className="w-full max-w-md">
           <AuthBrand />
           
-          <Card className="animate-scale-in">
+          <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -172,7 +172,7 @@ const ResetPassword = () => {
       <div className="w-full max-w-md">
         <AuthBrand />
         
-        <Card className="animate-scale-in">
+        <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="text-center">
             <CardTitle className="text-xl sm:text-2xl">Nouveau mot de passe</CardTitle>
             <CardDescription className="text-sm">

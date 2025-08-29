@@ -53,7 +53,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-accent p-4">
       <div className="w-full max-w-md">
         <LoginHeader />
-        <Card className="animate-scale-in">
+        <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
           {emailNotConfirmed && (
             <div className="px-6">
               <EmailConfirmationAlert

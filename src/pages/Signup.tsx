@@ -82,7 +82,7 @@ const Signup = () => {
     <div className="min-h-screen flex items-center justify-center bg-accent p-4">
       <div className="w-full max-w-md">
         <AuthBrand />
-        <Card className="animate-scale-in">
+        <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Créer un compte</CardTitle>
             <CardDescription>

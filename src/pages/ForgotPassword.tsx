@@ -66,7 +66,7 @@ const ForgotPassword = () => {
         <div className="w-full max-w-md">
           <AuthBrand />
           
-          <Card className="animate-scale-in">
+           <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <Mail className="w-6 h-6 text-green-600" />
@@ -113,7 +113,7 @@ const ForgotPassword = () => {
       <div className="w-full max-w-md">
         <AuthBrand />
         
-        <Card className="animate-scale-in">
+        <Card className="animate-scale-in shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="text-center">
             <CardTitle className="text-xl sm:text-2xl">Mot de passe oublié</CardTitle>
             <CardDescription className="text-sm">
