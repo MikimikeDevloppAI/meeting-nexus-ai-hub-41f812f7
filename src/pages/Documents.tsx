@@ -679,8 +679,8 @@ const Documents = () => {
       {/* Upload Section */}
       <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-3">
-          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <Upload className="h-6 w-6 text-blue-600" />
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <Upload className="h-5 w-5 text-blue-600" />
             Télécharger des Documents
           </CardTitle>
           <CardDescription className="text-sm">
@@ -779,8 +779,8 @@ const Documents = () => {
 
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div>
-                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                  <Folder className="h-6 w-6 text-blue-600" />
+                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                  <Folder className="h-5 w-5 text-blue-600" />
                   Documents & Meetings 
                   {filteredDocuments.length !== documents?.length && (
                     <span className="text-sm font-normal text-muted-foreground ml-2">

@@ -82,8 +82,8 @@ const Meetings = () => {
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-4">
-          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2 mb-4">
-            <Archive className="h-6 w-6 text-blue-600" />
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 mb-4">
+            <Archive className="h-5 w-5 text-blue-600" />
             Réunions existantes
           </CardTitle>
           <div className="relative">

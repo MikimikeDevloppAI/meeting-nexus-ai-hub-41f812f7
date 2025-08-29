@@ -286,8 +286,8 @@ export default function IOLCalculator() {
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <FileText className="h-6 w-6 text-blue-600" />
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
             Extraction de texte depuis PDF
           </CardTitle>
         </CardHeader>
@@ -362,8 +362,8 @@ export default function IOLCalculator() {
                     {/* Informations personnelles du patient */}
                     {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
                       <div className="space-y-3">
-                        <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                          <User className="h-6 w-6 text-blue-600" />
+                        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                          <User className="h-5 w-5 text-blue-600" />
                           Informations patient
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -518,8 +518,8 @@ export default function IOLCalculator() {
                     )}
                     {calculatedImage && (
                       <div className="space-y-3">
-                        <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                          <Calculator className="h-6 w-6 text-blue-600" />
+                        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                          <Calculator className="h-5 w-5 text-blue-600" />
                           Résultat du calcul IOL
                         </h3>
                         <div className="border border-border rounded-lg p-4 bg-card">

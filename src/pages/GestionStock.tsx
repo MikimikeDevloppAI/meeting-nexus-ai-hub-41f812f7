@@ -663,8 +663,8 @@ const GestionStock: React.FC = () => {
         <section aria-labelledby="injection-form-section">
           <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle id="injection-form-section" className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                <Syringe className="h-6 w-6 text-blue-600" />
+              <CardTitle id="injection-form-section" className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                <Syringe className="h-5 w-5 text-blue-600" />
                 Enregistrer une injection
               </CardTitle>
             </CardHeader>

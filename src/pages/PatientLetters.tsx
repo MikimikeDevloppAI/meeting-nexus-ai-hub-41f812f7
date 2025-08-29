@@ -265,8 +265,8 @@ const PatientLetters = () => {
           <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                  <FileSignature className="h-6 w-6 text-blue-600" />
+                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                  <FileSignature className="h-5 w-5 text-blue-600" />
                   Transcript Brut
                 </h3>
                 <button 
@@ -293,8 +293,8 @@ const PatientLetters = () => {
           <div className="bg-card text-card-foreground rounded-lg border shadow-md">
             <div className="p-6 pb-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                  <FileText className="h-6 w-6 text-blue-600" />
+                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
                   Lettre Médicale
                 </h3>
                 <button 

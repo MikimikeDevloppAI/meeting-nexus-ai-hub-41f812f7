@@ -724,8 +724,8 @@ export default function TimeTracking() {
 
         <TabsContent value="vacations" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-blue-600" />
+            <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
               Mes vacances
             </h2>
             <Button onClick={() => setShowVacationCalendar(true)}>
