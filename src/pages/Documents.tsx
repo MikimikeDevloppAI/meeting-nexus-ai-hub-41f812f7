@@ -785,16 +785,6 @@ const Documents = () => {
                   documents={documents}
                   onCleanupComplete={handleDocumentUpdate}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualRefresh}
-                  disabled={isLoading}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Actualiser
-                </Button>
               </div>
             </div>
 
