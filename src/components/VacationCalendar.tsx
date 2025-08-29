@@ -164,14 +164,14 @@ export function VacationCalendar({ onSubmit, onCancel, editingData, existingVaca
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
+        <CardHeader className="bg-white">
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
             Sélectionner les dates de vacances
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="bg-white">
           <Calendar
             mode="multiple"
             selected={selectedDates}

@@ -831,13 +831,13 @@ export default function TimeTracking() {
           })()}
 
           {/* Formulaire de demande de vacances */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-            <CardHeader className="bg-white">
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+            <CardHeader className="bg-white rounded-t-lg">
               <CardTitle>
                 {editingVacation ? "Modifier la demande de vacances" : "Demander des vacances"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="bg-white">
+            <CardContent className="bg-white rounded-b-lg">
               <VacationCalendar
                 onSubmit={onSubmitVacationCalendar}
                 onCancel={() => {
