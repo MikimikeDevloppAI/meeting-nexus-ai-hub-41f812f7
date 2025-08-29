@@ -242,7 +242,7 @@ const Retrocession: React.FC = () => {
   const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white min-h-screen p-6">
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
@@ -254,7 +254,7 @@ const Retrocession: React.FC = () => {
         </Button>
       </header>
 
-      <Card className="shadow-md">
+      <Card className="shadow-md bg-white">
         <CardHeader>
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <Calendar className="h-5 w-5 text-blue-600" />
@@ -268,7 +268,7 @@ const Retrocession: React.FC = () => {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Sélectionner" />
               </SelectTrigger>
-              <SelectContent className="z-50 bg-popover">
+              <SelectContent className="z-50 bg-white">
                 {allMonths.map((m) => (
                   <SelectItem key={m} value={m}>
                     {m}
@@ -283,7 +283,7 @@ const Retrocession: React.FC = () => {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Sélectionner" />
               </SelectTrigger>
-              <SelectContent className="z-50 bg-popover">
+              <SelectContent className="z-50 bg-white">
                 {allMonths.map((m) => (
                   <SelectItem key={m} value={m}>
                     {m}
@@ -298,7 +298,7 @@ const Retrocession: React.FC = () => {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Tous les docteurs" />
               </SelectTrigger>
-              <SelectContent className="z-50 bg-popover">
+              <SelectContent className="z-50 bg-white">
                 <SelectItem value="all">Tous les docteurs</SelectItem>
                 {doctorOptions.map((doc) => (
                   <SelectItem key={doc} value={doc}>
@@ -313,7 +313,7 @@ const Retrocession: React.FC = () => {
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {byDoctor.filter(d => doctorFilter === "all" || d.doctor === doctorFilter).map((d) => (
-          <Card key={d.doctor} className="shadow-md border">
+          <Card key={d.doctor} className="shadow-md border bg-white">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{d.doctor}</span>
@@ -338,7 +338,7 @@ const Retrocession: React.FC = () => {
         ))}
       </section>
 
-      <Card className="shadow-md">
+      <Card className="shadow-md bg-white">
         <CardHeader>
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -361,7 +361,7 @@ const Retrocession: React.FC = () => {
                   
                   return (
                     <div style={{
-                      backgroundColor: 'hsl(var(--background))',
+                      backgroundColor: 'white',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '12px',
                       padding: '12px 16px',
@@ -375,7 +375,7 @@ const Retrocession: React.FC = () => {
                         marginBottom: '8px',
                         textAlign: 'center',
                         padding: '4px 8px',
-                        backgroundColor: 'hsl(var(--muted))',
+                        backgroundColor: 'white',
                         borderRadius: '6px'
                       }}>
                         {label}
@@ -461,7 +461,7 @@ const Retrocession: React.FC = () => {
                               height="20"
                               rx="10"
                               ry="10"
-                              fill="hsla(var(--background) / 0.95)"
+                              fill="white"
                               stroke="hsl(var(--border))"
                               strokeWidth="1"
                               style={{ filter: 'drop-shadow(0 2px 4px hsla(0, 0%, 0%, 0.1))' }}
@@ -488,7 +488,7 @@ const Retrocession: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card className="shadow-md">
+      <Card className="shadow-md bg-white">
         <CardHeader>
           <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
             <History className="h-5 w-5 text-blue-600" />
@@ -556,7 +556,7 @@ const Retrocession: React.FC = () => {
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
