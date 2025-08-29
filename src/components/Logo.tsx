@@ -57,7 +57,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
   const imgSize = sizes[size].img;
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex flex-col items-center gap-3 ${className}`}>
       {showText && (
         <>
           <img
@@ -66,7 +66,7 @@ export const Logo = ({ className = "", showText = true, size = "md" }: LogoProps
             className={size === "auth" ? "h-20 w-20 object-contain" : "h-12 w-12 object-contain"}
             loading="lazy"
           />
-          <div className="flex flex-col leading-tight">
+          <div className="flex flex-col leading-tight text-center">
             <span className={size === "auth" ? "text-3xl font-bold text-foreground" : "text-xl font-bold text-foreground"}>OphtaCare</span>
             <span className={size === "auth" ? "text-3xl text-primary font-bold" : "text-xl text-primary font-bold"}>Hub</span>
           </div>
