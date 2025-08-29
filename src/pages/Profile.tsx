@@ -92,7 +92,7 @@ const Profile = () => {
     return (
       <div className="animate-fade-in">
       <header className="mb-6">
-        <h1 className="text-lg font-semibold tracking-tight">Profil utilisateur</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Profil utilisateur</h1>
         <p className="text-muted-foreground">Chargement de vos informations de profil...</p>
       </header>
       </div>
@@ -102,7 +102,7 @@ const Profile = () => {
   return (
     <div className="animate-fade-in">
       <header className="mb-6">
-        <h1 className="text-lg font-semibold tracking-tight">Profil utilisateur</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Profil utilisateur</h1>
         <p className="text-muted-foreground">Visualisez et modifiez les informations de votre compte</p>
       </header>
 

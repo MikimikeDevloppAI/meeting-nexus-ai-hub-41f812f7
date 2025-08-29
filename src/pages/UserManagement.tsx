@@ -303,7 +303,7 @@ const UserManagement = () => {
     <div className="animate-fade-in h-full flex flex-col">
       <div className="mb-6">
         <header>
-          <h1 className="text-lg font-semibold tracking-tight">Gestion des utilisateurs et accès</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion des utilisateurs et accès</h1>
           <p className="text-muted-foreground">
             Gérez les utilisateurs et leurs autorisations d'accès aux différentes pages
           </p>

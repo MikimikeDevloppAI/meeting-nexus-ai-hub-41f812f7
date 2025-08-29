@@ -45,7 +45,7 @@ const Invoices = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <header>
-          <h1 className="text-lg font-semibold tracking-tight">Gestion des factures</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestion des factures</h1>
           <p className="text-muted-foreground">
             Uploadez vos factures PDF ou images, ou créez-les manuellement
           </p>

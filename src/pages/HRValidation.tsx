@@ -493,7 +493,7 @@ export default function HRValidation() {
     <div className="space-y-6">
       <header className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Validation RH</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Validation RH</h1>
           <p className="text-muted-foreground">Gestion et validation des heures supplémentaires et vacances</p>
         </div>
         <div className="flex items-center gap-2">

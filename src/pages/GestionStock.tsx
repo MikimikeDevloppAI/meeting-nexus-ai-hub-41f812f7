@@ -377,7 +377,7 @@ const GestionStock: React.FC = () => {
     <>
       <SEO />
       <header>
-        <h1 className="text-lg font-semibold tracking-tight">Injection</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Injection</h1>
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
@@ -663,7 +663,7 @@ const GestionStock: React.FC = () => {
         <section aria-labelledby="injection-form-section">
           <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle id="injection-form-section" className="text-lg font-bold">Enregistrer une injection</CardTitle>
+              <CardTitle id="injection-form-section" className="text-2xl font-bold">Enregistrer une injection</CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
               <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">

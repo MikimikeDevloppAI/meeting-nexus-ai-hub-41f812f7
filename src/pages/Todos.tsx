@@ -514,7 +514,7 @@ export default function Todos() {
       <div className="flex justify-between items-center">
         <header>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold tracking-tight">Mes Tâches</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Mes Tâches</h1>
             {todoCount > 0 && (
               <Badge 
                 variant="secondary" 
