@@ -120,7 +120,7 @@ const Meetings = () => {
               {filteredMeetings.map((meeting) => (
                 <Card
                   key={meeting.id}
-                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow border-2"
+                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow border-2 bg-white"
                   onClick={() => handleMeetingClick(meeting.id)}
                 >
                   <CardHeader className="pb-2">
