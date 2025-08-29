@@ -266,7 +266,7 @@ export const DocumentSearchAssistant = () => {
   return (
     <div className="w-full">
       <Card className="mt-4 mb-4 bg-white">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 shadow-md hover:shadow-lg transition-shadow">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-primary" />
