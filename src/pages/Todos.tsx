@@ -510,8 +510,8 @@ export default function Todos() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <header>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">Mes Tâches</h1>
