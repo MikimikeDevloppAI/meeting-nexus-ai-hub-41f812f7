@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Calendar, Plus, Search } from "lucide-react";
+import { Calendar, Plus, Search, Archive } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,6 +82,10 @@ const Meetings = () => {
 
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader className="pb-4">
+          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2 mb-4">
+            <Archive className="h-6 w-6 text-blue-600" />
+            Réunions existantes
+          </CardTitle>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -96,7 +100,7 @@ const Meetings = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((item) => (
-                <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow bg-app-background">
+                <Card key={item} className="cursor-pointer shadow-md hover:shadow-lg transition-shadow border-2">
                   <CardHeader className="pb-2">
                     <Skeleton className="h-4 w-2/3 mb-2" />
                     <Skeleton className="h-3 w-1/3" />
@@ -116,7 +120,7 @@ const Meetings = () => {
               {filteredMeetings.map((meeting) => (
                 <Card
                   key={meeting.id}
-                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow bg-app-background"
+                  className="cursor-pointer shadow-md hover:shadow-lg transition-shadow border-2"
                   onClick={() => handleMeetingClick(meeting.id)}
                 >
                   <CardHeader className="pb-2">
