@@ -11,7 +11,7 @@ import {
   CollapsibleContent, 
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
-import { Trash2, Plus, Calendar, ChevronDown } from "lucide-react";
+import { Trash2, Plus, Calendar, ChevronDown, ClipboardList } from "lucide-react";
 
 interface Todo {
   id: string;
@@ -170,8 +170,8 @@ export const MeetingPreparation = () => {
     return (
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+          <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <ClipboardList className="h-6 w-6 text-blue-600" />
             Préparation de la prochaine réunion
           </CardTitle>
         </CardHeader>
@@ -187,8 +187,8 @@ export const MeetingPreparation = () => {
   return (
     <Card className="mb-6 shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
+        <CardTitle className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <ClipboardList className="h-6 w-6 text-blue-600" />
           Préparation de la prochaine réunion
         </CardTitle>
       </CardHeader>
