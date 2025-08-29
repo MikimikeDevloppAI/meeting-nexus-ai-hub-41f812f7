@@ -838,66 +838,20 @@ export default function TimeTracking() {
               </CardTitle>
             </CardHeader>
             <CardContent className="bg-white">
-              <form onSubmit={vacationForm.handleSubmit(onSubmitVacation)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start_date">Date de début</Label>
-                    <Input
-                      id="start_date"
-                      type="date"
-                      {...vacationForm.register("start_date", { required: true })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end_date">Date de fin</Label>
-                    <Input
-                      id="end_date"
-                      type="date"
-                      {...vacationForm.register("end_date", { required: true })}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vacation_type">Type de congé</Label>
-                  <Select 
-                    value={vacationForm.watch("vacation_type")} 
-                    onValueChange={(value) => vacationForm.setValue("vacation_type", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner le type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="annual">Congés annuels</SelectItem>
-                      <SelectItem value="sick">Congé maladie</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vacation_description">Description (optionnel)</Label>
-                  <Textarea
-                    id="vacation_description"
-                    {...vacationForm.register("description")}
-                    placeholder="Raison ou détails des vacances..."
-                  />
-                </div>
-                <div className="flex gap-2 pt-4">
-                  {editingVacation && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {
-                        setEditingVacation(null);
-                        vacationForm.reset();
-                      }}
-                    >
-                      Annuler
-                    </Button>
-                  )}
-                  <Button type="submit">
-                    {editingVacation ? "Modifier" : "Demander"}
-                  </Button>
-                </div>
-              </form>
+              <VacationCalendar
+                onSubmit={onSubmitVacationCalendar}
+                onCancel={() => {
+                  setEditingVacation(null);
+                }}
+                editingData={editingVacation ? {
+                  start_date: editingVacation.start_date,
+                  end_date: editingVacation.end_date,
+                  vacation_type: editingVacation.vacation_type,
+                  description: editingVacation.description || "",
+                  days_count: editingVacation.days_count
+                } : undefined}
+                existingVacations={vacations.filter(vacation => vacation.user_id === user?.id)}
+              />
             </CardContent>
           </Card>
 
@@ -1104,7 +1058,7 @@ export default function TimeTracking() {
         </DialogContent>
       </Dialog>
 
-      {/* Calendrier interactif pour les vacances */}
+      {/* Calendrier interactif pour les vacances - gardé pour compatibilité si besoin */}
       <Dialog open={showVacationCalendar} onOpenChange={setShowVacationCalendar}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <VacationCalendar
