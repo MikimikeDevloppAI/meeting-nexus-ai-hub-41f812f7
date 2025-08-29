@@ -381,17 +381,15 @@ const GestionStock: React.FC = () => {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Injection</h1>
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
-        <div className="mt-3 flex flex-wrap gap-2 items-center justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Ajouter un produit
-            </Button>
-            <Button variant="outline" onClick={() => { setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 }); setOpenCommande(true); }}>
-              <ClipboardList className="mr-2 h-4 w-4" />
-              Enregistrer une commande
-            </Button>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-2 items-center">
+          <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Ajouter un produit
+          </Button>
+          <Button variant="outline" onClick={() => { setCommandeForm({ produit_id: "", quantite_commande: 0, date_commande: new Date().toISOString().slice(0, 10), quantite_recue: 0 }); setOpenCommande(true); }}>
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Enregistrer une commande
+          </Button>
           
           {/* Formulaire inline pour injection */}
           <div className="flex items-center gap-2 px-3 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors h-10">
