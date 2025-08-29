@@ -145,7 +145,7 @@ const AppSidebar: React.FC = () => {
           <Logo size="md" showText={true} />
         </div>
         
-        <SidebarGroup className="-mt-2">
+        <SidebarGroup className="-mt-4">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
               {/* Menu items filtrés par permissions */}
