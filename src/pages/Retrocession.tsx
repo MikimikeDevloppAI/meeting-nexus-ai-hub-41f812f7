@@ -242,7 +242,7 @@ const Retrocession: React.FC = () => {
   const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
 
   return (
-    <div className="space-y-6 bg-white min-h-screen p-6">
+    <div className="space-y-6">
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Rétrocession</h1>
@@ -311,9 +311,9 @@ const Retrocession: React.FC = () => {
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 bg-white p-4 rounded-lg shadow-sm">
         {byDoctor.filter(d => doctorFilter === "all" || d.doctor === doctorFilter).map((d) => (
-          <Card key={d.doctor} className="shadow-md border bg-white">
+          <Card key={d.doctor} className="shadow-md border">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{d.doctor}</span>
