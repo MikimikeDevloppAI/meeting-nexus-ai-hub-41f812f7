@@ -778,8 +778,8 @@ export default function TimeTracking() {
             const overtimeDaysHalf = Math.floor(((netOvertimeHoursYear / 8)) * 2) / 2;
             
             return (
-                <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-                 <CardHeader className="bg-white">
+                <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+                 <CardHeader className="bg-white rounded-t-lg">
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
                     Décompte des vacances {selectedYear}
@@ -788,7 +788,7 @@ export default function TimeTracking() {
                     Jours de vacances approuvés / quota disponible
                   </p>
                 </CardHeader>
-                <CardContent className="bg-white">
+                <CardContent className="bg-white rounded-b-lg">
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                      <div className="text-center">
                        <div className="text-3xl font-bold text-strong">{totalDays}</div>
@@ -857,15 +857,15 @@ export default function TimeTracking() {
 
           <div className="grid gap-4">
             {vacations.filter(vacation => vacation.user_id === user?.id).length === 0 ? (
-              <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-                <CardContent className="text-center py-8 bg-white">
+              <Card className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+                <CardContent className="text-center py-8 bg-white rounded-lg">
                   <p className="text-gray-500">Aucune demande de vacances trouvée</p>
                 </CardContent>
               </Card>
             ) : (
               vacations.filter(vacation => vacation.user_id === user?.id).map((vacation) => (
-                <Card key={vacation.id} className="shadow-md hover:shadow-lg transition-shadow bg-white">
-                  <CardContent className="p-6 bg-white">
+                <Card key={vacation.id} className="shadow-md hover:shadow-lg transition-shadow bg-white rounded-lg">
+                  <CardContent className="p-6 bg-white rounded-lg">
                     <div className="flex justify-between items-start">
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
