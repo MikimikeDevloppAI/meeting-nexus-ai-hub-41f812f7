@@ -311,16 +311,16 @@ const UserManagement = () => {
       </div>
 
       <Tabs defaultValue="users" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="users" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-3 bg-white">
+          <TabsTrigger value="users" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200">
             <Users className="h-4 w-4" />
             Utilisateurs
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2">
+          <TabsTrigger value="permissions" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200">
             <Settings className="h-4 w-4" />
             Permissions
           </TabsTrigger>
-          <TabsTrigger value="help" className="flex items-center gap-2">
+          <TabsTrigger value="help" className="flex items-center gap-2 border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200">
             <HelpCircle className="h-4 w-4" />
             Aide
           </TabsTrigger>
@@ -329,63 +329,63 @@ const UserManagement = () => {
         <TabsContent value="users" className="flex-1 flex flex-col space-y-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
                 <CardTitle className="text-sm font-medium">Total utilisateurs</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="bg-white">
                 <div className="text-2xl font-bold">{users.length}</div>
               </CardContent>
             </Card>
             
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
                 <CardTitle className="text-sm font-medium">Utilisateurs approuvés</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="bg-white">
                 <div className="text-2xl font-bold text-green-600">{approvedUsers}</div>
               </CardContent>
             </Card>
             
-            <Card className="shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-white">
                 <CardTitle className="text-sm font-medium">En attente d'approbation</CardTitle>
                 <XCircle className="h-4 w-4 text-orange-600" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="bg-white">
                 <div className="text-2xl font-bold text-orange-600">{pendingUsers}</div>
               </CardContent>
             </Card>
           </div>
 
           {/* Search and Filters */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
+          <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
+            <CardHeader className="bg-white">
               <CardTitle>Rechercher des utilisateurs</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-white">
               <div className="flex gap-4">
                 <Input
                   placeholder="Rechercher par nom ou email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 bg-white"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Users Table */}
-          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow bg-white">
+            <CardHeader className="bg-white">
               <CardTitle>Liste des utilisateurs</CardTitle>
               <CardDescription>
                 Gérez le statut d'approbation des utilisateurs
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -447,8 +447,8 @@ const UserManagement = () => {
         </TabsContent>
 
         <TabsContent value="permissions" className="flex-1 flex flex-col">
-          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow bg-white">
+            <CardHeader className="bg-white">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Permissions par Utilisateur</CardTitle>
@@ -456,7 +456,7 @@ const UserManagement = () => {
                     Activez ou désactivez l'accès aux pages pour chaque utilisateur approuvé.
                   </CardDescription>
                 </div>
-                <Button onClick={savePermissions} disabled={saving}>
+                <Button onClick={savePermissions} disabled={saving} className="border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200">
                   {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
@@ -466,7 +466,7 @@ const UserManagement = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -514,14 +514,14 @@ const UserManagement = () => {
         </TabsContent>
 
         <TabsContent value="help" className="flex-1 flex flex-col">
-          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
+          <Card className="flex-1 shadow-md hover:shadow-lg transition-shadow bg-white">
+            <CardHeader className="bg-white">
               <CardTitle>Gestion de l'Aide</CardTitle>
               <CardDescription>
                 Configurez les informations d'aide pour chaque page de l'application. Ces informations s'affichent quand les utilisateurs cliquent sur le bouton "Aide".
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -560,6 +560,7 @@ const UserManagement = () => {
                           size="sm"
                           onClick={() => saveHelpInfo(helpInfo.page_id)}
                           disabled={saving}
+                          className="border border-gray-200 hover:border-primary hover:bg-gray-50 transition-all duration-200"
                         >
                           <Check className="h-4 w-4 mr-2" />
                           Valider
