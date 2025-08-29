@@ -1299,8 +1299,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
         {validatedInvoices.length > 0 && (
           <div className="space-y-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
             <div className="flex items-center gap-2 mb-4">
-              <FileText className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Factures validées</h2>
+              <FileText className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold tracking-tight">Factures validées</h2>
               {createSummaryBadge(validatedInvoices, "outline")}
             </div>
             
