@@ -27,10 +27,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePageHover } from "@/hooks/usePageHover";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { TodoSidebarBadge } from "./TodoSidebarBadge";
 import { HRValidationSidebarBadge } from "./HRValidationSidebarBadge";
 import { HelpButton } from "./HelpButton";
+import { NavigationHelpButton } from "./NavigationHelpButton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const menuItems = [
@@ -158,23 +159,29 @@ const AppSidebar: React.FC = () => {
                   const isActive = isActiveRoute(item.url);
                   
                   const menuButton = (
-                    <SidebarMenuButton
-                      onClick={() => handleNavigation(item.url)}
-                      className={`flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                        isActive 
-                          ? "bg-primary text-primary-foreground font-medium shadow-sm" 
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-base font-medium">{item.title}</span>
-                      <div className="ml-auto flex items-center gap-1">
-                        {/* Badge pour les tâches en cours */}
-                        {item.permission === "todos" && <TodoSidebarBadge />}
-                        {/* Badge pour les validations RH en attente */}
-                        {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
+                    <div className="group relative flex items-center w-full">
+                      <SidebarMenuButton
+                        onClick={() => handleNavigation(item.url)}
+                        className={`flex items-center gap-4 w-full px-4 py-2.5 rounded-xl text-left transition-all duration-200 pr-12 ${
+                          isActive 
+                            ? "bg-primary text-primary-foreground font-medium shadow-sm" 
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-base font-medium">{item.title}</span>
+                        <div className="ml-auto flex items-center gap-1 mr-8">
+                          {/* Badge pour les tâches en cours */}
+                          {item.permission === "todos" && <TodoSidebarBadge />}
+                          {/* Badge pour les validations RH en attente */}
+                          {item.permission === "hr-validation" && <HRValidationSidebarBadge />}
+                        </div>
+                      </SidebarMenuButton>
+                      {/* Bouton d'aide qui apparaît au hover */}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+                        <NavigationHelpButton pageId={item.permission} />
                       </div>
-                    </SidebarMenuButton>
+                    </div>
                   );
 
                   return (
@@ -234,19 +241,21 @@ export const AppLayout: React.FC = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-app-background">
-        <AppSidebar />
+      <TooltipProvider>
+        <div className="min-h-screen flex w-full bg-app-background">
+          <AppSidebar />
 
-        <div className="flex-1 flex flex-col min-h-screen min-w-0">
-          <main className="flex-1 p-3 lg:p-6 overflow-auto min-w-0 bg-app-background">
-            <div className="w-full max-w-full">
-              <Outlet />
-            </div>
-          </main>
+          <div className="flex-1 flex flex-col min-h-screen min-w-0">
+            <main className="flex-1 p-3 lg:p-6 overflow-auto min-w-0 bg-app-background">
+              <div className="w-full max-w-full">
+                <Outlet />
+              </div>
+            </main>
+          </div>
+          <Toaster />
+          <Sonner />
         </div>
-        <Toaster />
-        <Sonner />
-      </div>
+      </TooltipProvider>
     </SidebarProvider>
   );
 };
