@@ -665,6 +665,33 @@ const GestionStock: React.FC = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Form for quick injection entry */}
+        <section aria-labelledby="injection-form-section">
+          <Card className="shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle id="injection-form-section" className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                <Syringe className="h-5 w-5 text-blue-600" />
+                Enregistrer une injection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <form onSubmit={handleSaveInjection} className="w-full md:max-w-4xl grid grid-cols-1 md:grid-cols-5 gap-4">
+                <select className="border rounded-md px-3 py-2 w-full md:w-auto md:col-span-2 min-w-[220px] shadow-sm" value={injectionForm.produit_id || ""} onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} required>
+                  <option value="">Sélectionner un produit</option>
+                  {produits.map((p) => (
+                    <option key={p.id} value={p.id}>{p.produit}</option>
+                  ))}
+                </select>
+                <Input type="number" placeholder="Quantité" value={injectionForm.quantite ?? 1} onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} required className="shadow-sm" />
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <Input type="date" placeholder="Date injection" value={injectionForm.date_injection || ""} onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} required className="shadow-sm" />
+                  <Button type="submit" className="shadow-sm">Ajouter</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* History section with improved layout */}
         <section aria-labelledby="historique-section">
           <div className="modern-table shadow-md hover:shadow-lg transition-shadow">
