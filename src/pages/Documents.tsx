@@ -765,19 +765,7 @@ const Documents = () => {
       {documents && documents.length > 0 && (
         <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
-            <DocumentSearch 
-              onSearch={setSearchFilters}
-              documents={documents}
-            />
-            
-            <div className="mt-4">
-              <KeywordsDisplay 
-                onCategoryClick={setSelectedCategory}
-                selectedCategory={selectedCategory}
-              />
-            </div>
-
-            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+            <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
                   <Folder className="h-5 w-5 text-blue-600" />
@@ -808,6 +796,18 @@ const Documents = () => {
                   Actualiser
                 </Button>
               </div>
+            </div>
+
+            <DocumentSearch 
+              onSearch={setSearchFilters}
+              documents={documents}
+            />
+            
+            <div className="mt-4">
+              <KeywordsDisplay 
+                onCategoryClick={setSelectedCategory}
+                selectedCategory={selectedCategory}
+              />
             </div>
 
             <div className="mt-6">
