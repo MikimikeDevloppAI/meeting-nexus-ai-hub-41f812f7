@@ -382,10 +382,45 @@ const GestionStock: React.FC = () => {
         <h1 className="text-2xl font-semibold tracking-tight">Injection</h1>
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
         <div className="mt-3 flex flex-wrap gap-2 items-center">
-          <Button onClick={() => setOpenInjection(true)}>
-            <Syringe className="mr-2 h-4 w-4" />
-            Enregistrer une injection
-          </Button>
+          {/* Formulaire inline pour injection */}
+          <div className="flex items-center gap-2 px-3 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors h-10">
+            <Syringe className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium whitespace-nowrap">Injection:</span>
+            <select 
+              className="border-0 bg-transparent text-sm min-w-[120px] focus:outline-none" 
+              value={injectionForm.produit_id || ""} 
+              onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })} 
+              required
+            >
+              <option value="">Produit</option>
+              {produits.map((p) => (
+                <option key={p.id} value={p.id}>{p.produit}</option>
+              ))}
+            </select>
+            <Input 
+              type="number" 
+              placeholder="Qté" 
+              value={injectionForm.quantite ?? 1} 
+              onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })} 
+              required 
+              className="w-12 h-6 px-1 text-xs border-0 bg-transparent focus:bg-background focus:border" 
+            />
+            <Input 
+              type="date" 
+              value={injectionForm.date_injection || ""} 
+              onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })} 
+              required 
+              className="w-24 h-6 px-1 text-xs border-0 bg-transparent focus:bg-background focus:border" 
+            />
+            <Button 
+              onClick={handleSaveInjection} 
+              size="sm" 
+              disabled={!injectionForm.produit_id}
+              className="h-6 px-2 text-xs"
+            >
+              +
+            </Button>
+          </div>
           <Button onClick={() => { resetProduitForm(); setOpenProduit(true); }}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Créer un produit
@@ -553,60 +588,6 @@ const GestionStock: React.FC = () => {
 
               <div className="flex items-center">
                 <Button type="submit">Enregistrer</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={openInjection} onOpenChange={setOpenInjection}>
-          <DialogContent className="sm:max-w-lg max-w-[95vw]">
-            <DialogHeader>
-              <DialogTitle>Enregistrer une injection</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSaveInjection} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-3 space-y-1">
-                  <Label>Produit</Label>
-                  <select
-                    className="border rounded-md px-3 py-2 w-full"
-                    value={injectionForm.produit_id || ""}
-                    onChange={(e) => setInjectionForm({ ...injectionForm, produit_id: e.target.value })}
-                    required
-                  >
-                    <option value="">Sélectionner un produit</option>
-                    {produits.map((p) => (
-                      <option key={p.id} value={p.id}>{p.produit}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Quantité</Label>
-                  <Input
-                    type="number"
-                    value={injectionForm.quantite ?? 1}
-                    onChange={(e) => setInjectionForm({ ...injectionForm, quantite: parseInt(e.target.value || "1") })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Date d'injection</Label>
-                  <Input
-                    type="date"
-                    value={injectionForm.date_injection || ""}
-                    onChange={(e) => setInjectionForm({ ...injectionForm, date_injection: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button type="submit">Enregistrer</Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpenInjection(false)}
-                >
-                  Annuler
-                </Button>
               </div>
             </form>
           </DialogContent>
