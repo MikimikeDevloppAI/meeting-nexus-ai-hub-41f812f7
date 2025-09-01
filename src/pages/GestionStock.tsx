@@ -383,7 +383,7 @@ const GestionStock: React.FC = () => {
         <p className="text-muted-foreground">Suivi des produits, commandes et injections</p>
         <div className="mt-3 flex flex-wrap gap-2 items-center">
           {/* Formulaire inline pour injection */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors h-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors h-11">
             <Syringe className="h-4 w-4 text-blue-600" />
             <span className="text-sm font-medium whitespace-nowrap">Enregistrer une injection:</span>
             <select 
