@@ -385,7 +385,7 @@ const GestionStock: React.FC = () => {
           {/* Formulaire inline pour injection */}
           <div className="flex items-center gap-2 px-3 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors h-10">
             <Syringe className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium whitespace-nowrap">Injection:</span>
+            <span className="text-sm font-medium whitespace-nowrap">Enregistrer une injection:</span>
             <select 
               className="border-0 bg-transparent text-sm min-w-[120px] focus:outline-none" 
               value={injectionForm.produit_id || ""} 
