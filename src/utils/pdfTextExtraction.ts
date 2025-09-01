@@ -28,8 +28,11 @@ async function loadPdfJs(): Promise<any> {
   });
 }
 
+export type PDFType = 'eyesuite' | 'unknown';
+
 export interface IOLData {
   // Informations générales
+  pdfType?: PDFType;
   surgeryType?: string;
   measurementDate?: string;
   patientName?: string;
@@ -117,11 +120,27 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
   }
 };
 
-export const parseIOLData = (rawText: string): IOLData => {
-  console.log('🔍 Parsing IOL data from extracted text');
+// Fonction pour détecter le type de PDF
+export const detectPDFType = (rawText: string): PDFType => {
+  console.log('🔍 Detecting PDF type from extracted text');
+  
+  // Rechercher les marqueurs spécifiques à EyeSuite
+  if (rawText.includes('EyeSuite') || rawText.includes('IOL') || rawText.includes('SID:') || rawText.includes('LS900 cône T')) {
+    console.log('✅ Detected PDF type: EyeSuite');
+    return 'eyesuite';
+  }
+  
+  console.log('⚠️ Unknown PDF type detected');
+  return 'unknown';
+};
+
+// Parser spécifique pour EyeSuite
+export const parseEyeSuiteIOLData = (rawText: string): IOLData => {
+  console.log('🔍 Parsing EyeSuite IOL data from extracted text');
   
   const data: IOLData = {
     rawText,
+    pdfType: 'eyesuite',
     error: false,
     rightEye: {},
     leftEye: {}
@@ -296,6 +315,33 @@ export const parseIOLData = (rawText: string): IOLData => {
   }
 
   return data;
+};
+
+// Parser générique pour types inconnus
+export const parseUnknownIOLData = (rawText: string): IOLData => {
+  console.log('🔍 Parsing unknown PDF type - returning raw text only');
+  
+  return {
+    rawText,
+    pdfType: 'unknown',
+    error: false,
+    message: 'Type de PDF non reconnu. Veuillez configurer le mapping pour ce type de document.',
+    rightEye: {},
+    leftEye: {}
+  };
+};
+
+// Parser principal qui détermine le type et utilise le bon parser
+export const parseIOLData = (rawText: string): IOLData => {
+  const pdfType = detectPDFType(rawText);
+  
+  switch (pdfType) {
+    case 'eyesuite':
+      return parseEyeSuiteIOLData(rawText);
+    case 'unknown':
+    default:
+      return parseUnknownIOLData(rawText);
+  }
 };
 
 export const extractIOLDataFromPdf = async (file: File): Promise<IOLData> => {
