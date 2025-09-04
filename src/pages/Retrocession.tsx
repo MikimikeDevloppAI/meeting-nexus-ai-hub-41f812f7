@@ -239,7 +239,46 @@ const Retrocession: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ["retrocessions"] });
   };
 
-  const palette = ['hsl(var(--primary) / 0.85)', 'hsl(var(--secondary) / 0.85)', 'hsl(var(--accent) / 0.85)', 'hsl(var(--destructive) / 0.85)', 'hsl(var(--muted) / 0.85)'];
+  const palette = useMemo(() => {
+    const baseColors = [
+      'hsl(var(--primary) / 0.85)', 
+      'hsl(var(--secondary) / 0.85)', 
+      'hsl(var(--accent) / 0.85)', 
+      'hsl(var(--destructive) / 0.85)', 
+      'hsl(var(--muted) / 0.85)'
+    ];
+    
+    // Fonction pour générer une couleur basée sur le nom du docteur
+    const generateDoctorColor = (doctorName: string, index: number) => {
+      if (index < baseColors.length) {
+        return baseColors[index];
+      }
+      
+      // Générer une couleur basée sur le hash du nom du docteur
+      let hash = 0;
+      for (let i = 0; i < doctorName.length; i++) {
+        hash = ((hash << 5) - hash + doctorName.charCodeAt(i)) & 0xffffffff;
+      }
+      
+      // Convertir en couleur HSL avec saturation et luminosité fixes pour de bonnes couleurs
+      const hue = Math.abs(hash) % 360;
+      const saturation = 65 + (Math.abs(hash >> 8) % 20); // 65-85%
+      const lightness = 45 + (Math.abs(hash >> 16) % 20); // 45-65%
+      
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    };
+    
+    const doctorsAll = Array.from(new Set((data || []).map(r => r.doctor))).sort();
+    
+    return doctorsAll.reduce((acc, doctor, index) => {
+      acc[doctor] = generateDoctorColor(doctor, index);
+      return acc;
+    }, {} as Record<string, string>);
+  }, [data]);
+
+  const getDoctorColor = (doctorName: string) => {
+    return palette[doctorName] || 'hsl(var(--muted) / 0.85)';
+  };
 
   return (
     <div className="space-y-6">
@@ -431,7 +470,7 @@ const Retrocession: React.FC = () => {
                   <Bar 
                     key={doc} 
                     dataKey={doc} 
-                    fill={palette[idx % palette.length]}
+                    fill={getDoctorColor(doc)}
                     radius={[4, 4, 0, 0]}
                     stroke="hsl(var(--border))"
                     strokeWidth={1}
