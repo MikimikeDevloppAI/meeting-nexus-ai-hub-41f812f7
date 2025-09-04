@@ -39,38 +39,86 @@ export function Combobox({
   onSelect,
   className,
   allowCustom = false,
-  triggerAs = "input",
+  triggerAs = "button",
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
-
-  const displayValue = value || search
+  const [isCreatingNew, setIsCreatingNew] = React.useState(false)
 
   const handleSelect = (selectedValue: string) => {
+    if (selectedValue === "__create_new__") {
+      setIsCreatingNew(true)
+      setSearch("")
+      return
+    }
     onSelect(selectedValue === value ? "" : selectedValue)
     setOpen(false)
     setSearch("")
+    setIsCreatingNew(false)
   }
 
-  const handleCustomSelect = () => {
-    if (search.trim() && allowCustom) {
+  const handleCreateNew = () => {
+    if (search.trim()) {
       onSelect(search.trim())
       setOpen(false)
       setSearch("")
+      setIsCreatingNew(false)
     }
+  }
+
+  const handleCancelCreate = () => {
+    setIsCreatingNew(false)
+    setSearch("")
   }
 
   const filteredOptions = options.filter(option =>
     option.label.toLowerCase().includes(search.toLowerCase())
   )
 
-  const showCustomOption = allowCustom && search.trim() && 
-    !options.some(option => option.value.toLowerCase() === search.toLowerCase().trim())
+  // Ajouter l'option "Nouveau médecin" si allowCustom est activé
+  const allOptions = allowCustom 
+    ? [...filteredOptions, { value: "__create_new__", label: "➕ Nouveau médecin" }]
+    : filteredOptions
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        {triggerAs === "button" ? (
+        {isCreatingNew ? (
+          <div className="flex gap-2">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Nom du nouveau médecin"
+              className={cn("flex-1", className)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  handleCreateNew()
+                } else if (e.key === "Escape") {
+                  e.preventDefault()
+                  handleCancelCreate()
+                }
+              }}
+              autoFocus
+            />
+            <Button 
+              type="button" 
+              size="sm" 
+              onClick={handleCreateNew}
+              disabled={!search.trim()}
+            >
+              ✓
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCancelCreate}
+            >
+              ✕
+            </Button>
+          </div>
+        ) : (
           <Button
             variant="outline"
             role="combobox"
@@ -82,28 +130,9 @@ export function Combobox({
               : placeholder}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
-        ) : (
-          <Input
-            value={displayValue}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              if (!open) setOpen(true)
-            }}
-            onFocus={() => setOpen(true)}
-            placeholder={placeholder}
-            role="combobox"
-            aria-expanded={open}
-            className={cn("w-full", className)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                handleCustomSelect()
-              }
-            }}
-          />
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" style={{ width: "var(--radix-popover-trigger-width)" }}>
+      <PopoverContent className="w-full p-0 bg-popover border shadow-md z-50" style={{ width: "var(--radix-popover-trigger-width)" }}>
         <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder} 
@@ -111,11 +140,11 @@ export function Combobox({
             onValueChange={setSearch}
           />
           <CommandList>
-            {filteredOptions.length === 0 && !showCustomOption && (
+            {allOptions.length === 0 && (
               <CommandEmpty>{emptyText}</CommandEmpty>
             )}
             <CommandGroup>
-              {filteredOptions.map((option) => (
+              {allOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
@@ -130,15 +159,6 @@ export function Combobox({
                   {option.label}
                 </CommandItem>
               ))}
-              {showCustomOption && (
-                <CommandItem
-                  value={search}
-                  onSelect={handleCustomSelect}
-                >
-                  <Check className="mr-2 h-4 w-4 opacity-0" />
-                  Créer "{search.trim()}"
-                </CommandItem>
-              )}
             </CommandGroup>
           </CommandList>
         </Command>
