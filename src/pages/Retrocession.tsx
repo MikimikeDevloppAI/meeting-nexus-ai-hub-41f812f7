@@ -241,43 +241,50 @@ const Retrocession: React.FC = () => {
 
   const palette = useMemo(() => {
     const baseColors = [
-      'hsl(var(--primary) / 0.85)', 
-      'hsl(var(--secondary) / 0.85)', 
-      'hsl(var(--accent) / 0.85)', 
-      'hsl(var(--destructive) / 0.85)', 
-      'hsl(var(--muted) / 0.85)'
+      'hsl(220, 85%, 57%)', // Bleu primary
+      'hsl(160, 70%, 50%)', // Vert emeraude
+      'hsl(25, 85%, 55%)',  // Orange
+      'hsl(340, 85%, 55%)', // Rose/rouge
+      'hsl(270, 70%, 60%)', // Violet
+      'hsl(45, 85%, 50%)',  // Jaune doré
+      'hsl(190, 75%, 45%)', // Cyan
+      'hsl(15, 80%, 50%)',  // Rouge brique
+      'hsl(120, 70%, 45%)', // Vert
+      'hsl(300, 70%, 55%)', // Magenta
     ];
     
-    // Fonction pour générer une couleur basée sur le nom du docteur
-    const generateDoctorColor = (doctorName: string, index: number) => {
-      if (index < baseColors.length) {
-        return baseColors[index];
-      }
-      
-      // Générer une couleur basée sur le hash du nom du docteur
+    const doctorsAll = Array.from(new Set((data || []).map(r => r.doctor))).sort();
+    
+    // Fonction pour générer des couleurs supplémentaires si nécessaire
+    const generateAdditionalColor = (index: number, doctorName: string) => {
+      // Utiliser une combinaison d'index et hash du nom pour éviter les collisions
       let hash = 0;
       for (let i = 0; i < doctorName.length; i++) {
         hash = ((hash << 5) - hash + doctorName.charCodeAt(i)) & 0xffffffff;
       }
       
-      // Convertir en couleur HSL avec saturation et luminosité fixes pour de bonnes couleurs
-      const hue = Math.abs(hash) % 360;
-      const saturation = 65 + (Math.abs(hash >> 8) % 20); // 65-85%
-      const lightness = 45 + (Math.abs(hash >> 16) % 20); // 45-65%
+      // Générer une teinte basée sur l'index ET le hash pour plus de variation
+      const baseHue = (index * 137.5 + Math.abs(hash) % 360) % 360; // 137.5° pour répartition dorée
       
-      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+      // Varier saturation et luminosité selon l'index pour éviter les couleurs trop similaires
+      const saturation = 60 + ((index * 17) % 25); // 60-85%
+      const lightness = 40 + ((index * 13 + Math.abs(hash >> 8)) % 25); // 40-65%
+      
+      return `hsl(${Math.round(baseHue)}, ${saturation}%, ${lightness}%)`;
     };
     
-    const doctorsAll = Array.from(new Set((data || []).map(r => r.doctor))).sort();
-    
     return doctorsAll.reduce((acc, doctor, index) => {
-      acc[doctor] = generateDoctorColor(doctor, index);
+      if (index < baseColors.length) {
+        acc[doctor] = baseColors[index];
+      } else {
+        acc[doctor] = generateAdditionalColor(index, doctor);
+      }
       return acc;
     }, {} as Record<string, string>);
   }, [data]);
 
   const getDoctorColor = (doctorName: string) => {
-    return palette[doctorName] || 'hsl(var(--muted) / 0.85)';
+    return palette[doctorName] || 'hsl(220, 30%, 70%)'; // Couleur par défaut gris-bleu
   };
 
   return (
