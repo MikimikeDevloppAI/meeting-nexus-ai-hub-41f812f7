@@ -68,7 +68,7 @@ export function RetrocessionEntryForm({
         const { data: existing } = await supabase
           .from("retrocessions")
           .select("id")
-          .eq("doctor", data.doctor)
+          .ilike("doctor", data.doctor.trim().replace(/\s+/g, " "))
           .eq("period_month", `${data.period_month}-01`);
         
         if (existing && existing.length > 0) {
@@ -77,7 +77,7 @@ export function RetrocessionEntryForm({
       }
 
       const payload = {
-        doctor: data.doctor,
+        doctor: data.doctor.trim().replace(/\s+/g, " "),
         period_month: `${data.period_month}-01`,
         chiffre_affaires: data.chiffre_affaires,
         retrocession: data.retrocession,
