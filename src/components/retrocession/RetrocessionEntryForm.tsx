@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Form,
   FormControl,
@@ -146,6 +147,14 @@ export function RetrocessionEntryForm({
     return options.reverse(); // Plus récent en premier (ordre descendant)
   }, []);
 
+  // Préparer les options pour les docteurs existants
+  const doctorOptions = React.useMemo(() => {
+    return existingDoctors.map(doctor => ({
+      value: doctor,
+      label: doctor
+    }));
+  }, [existingDoctors]);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -156,21 +165,15 @@ export function RetrocessionEntryForm({
             <FormItem>
               <FormLabel>Docteur</FormLabel>
               <FormControl>
-                <Select
+                <Combobox
+                  options={doctorOptions}
                   value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un docteur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingDoctors.map((doctor) => (
-                      <SelectItem key={doctor} value={doctor}>
-                        {doctor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Sélectionner ou taper un nouveau docteur"
+                  searchPlaceholder="Rechercher un docteur..."
+                  emptyText="Tapez pour ajouter un nouveau docteur"
+                  onSelect={field.onChange}
+                  allowCustom={true}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

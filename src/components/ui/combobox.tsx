@@ -25,6 +25,7 @@ interface ComboboxProps {
   emptyText?: string
   onSelect: (value: string) => void
   className?: string
+  allowCustom?: boolean
 }
 
 export function Combobox({
@@ -35,8 +36,31 @@ export function Combobox({
   emptyText = "Aucun résultat trouvé.",
   onSelect,
   className,
+  allowCustom = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+
+  const handleSelect = (selectedValue: string) => {
+    onSelect(selectedValue === value ? "" : selectedValue)
+    setOpen(false)
+    setSearch("")
+  }
+
+  const handleCustomSelect = () => {
+    if (search.trim() && allowCustom) {
+      onSelect(search.trim())
+      setOpen(false)
+      setSearch("")
+    }
+  }
+
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const showCustomOption = allowCustom && search.trim() && 
+    !options.some(option => option.value.toLowerCase() === search.toLowerCase().trim())
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,25 +72,28 @@ export function Combobox({
           className={cn("w-full justify-between", className)}
         >
           {value
-            ? options.find((option) => option.value === value)?.label
+            ? options.find((option) => option.value === value)?.label || value
             : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: "var(--radix-popover-trigger-width)" }}>
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder={searchPlaceholder} 
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            {filteredOptions.length === 0 && !showCustomOption && (
+              <CommandEmpty>{emptyText}</CommandEmpty>
+            )}
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={(currentValue) => {
-                    onSelect(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
+                  onSelect={() => handleSelect(option.value)}
                 >
                   <Check
                     className={cn(
@@ -77,6 +104,15 @@ export function Combobox({
                   {option.label}
                 </CommandItem>
               ))}
+              {showCustomOption && (
+                <CommandItem
+                  value={search}
+                  onSelect={handleCustomSelect}
+                >
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  Créer "{search.trim()}"
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>
