@@ -341,29 +341,6 @@ export default function IOLCalculator() {
 
           {iolData && (
             <>
-                {/* Affichage du texte brut extrait */}
-                {iolData.rawText && (
-                  <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-green-600" />
-                        Texte extrait du PDF
-                        {iolData.pdfType && (
-                          <span className="text-sm font-normal text-muted-foreground">
-                            (Type: {iolData.pdfType === 'eyesuite' ? 'EyeSuite IOL' : 'Non reconnu'})
-                          </span>
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                        <pre className="text-sm whitespace-pre-wrap text-gray-700 font-mono">
-                          {iolData.rawText}
-                        </pre>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
 
                 {iolData.error ? (
                   <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
