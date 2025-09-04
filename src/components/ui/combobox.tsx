@@ -3,6 +3,7 @@ import { Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Command,
   CommandEmpty,
@@ -26,6 +27,7 @@ interface ComboboxProps {
   onSelect: (value: string) => void
   className?: string
   allowCustom?: boolean
+  triggerAs?: "button" | "input"
 }
 
 export function Combobox({
@@ -37,9 +39,12 @@ export function Combobox({
   onSelect,
   className,
   allowCustom = false,
+  triggerAs = "input",
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+
+  const displayValue = value || search
 
   const handleSelect = (selectedValue: string) => {
     onSelect(selectedValue === value ? "" : selectedValue)
@@ -65,17 +70,38 @@ export function Combobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full justify-between", className)}
-        >
-          {value
-            ? options.find((option) => option.value === value)?.label || value
-            : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        {triggerAs === "button" ? (
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full justify-between", className)}
+          >
+            {value
+              ? options.find((option) => option.value === value)?.label || value
+              : placeholder}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        ) : (
+          <Input
+            value={displayValue}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              if (!open) setOpen(true)
+            }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full", className)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                handleCustomSelect()
+              }
+            }}
+          />
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: "var(--radix-popover-trigger-width)" }}>
         <Command shouldFilter={false}>
