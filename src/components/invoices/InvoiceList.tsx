@@ -493,15 +493,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     return { invoicesToValidate: toValidate, validatedInvoices: validated };
   }, [invoices]);
 
-  // Organiser les factures validées par années et mois
+  // Organiser les factures validées par années et mois basé sur payment_date
   const organizedValidatedInvoices = useMemo(() => {
     if (!validatedInvoices.length) return {};
     
     const organized: Record<string, Record<string, Invoice[]>> = {};
     
     validatedInvoices.forEach(invoice => {
-      // Utiliser la date de facture si disponible, sinon la date de création
-      const dateToUse = invoice.invoice_date || invoice.created_at;
+      // Utiliser la date de paiement en priorité, puis date de facture, puis date de création
+      const dateToUse = invoice.payment_date || invoice.invoice_date || invoice.created_at;
       const date = new Date(dateToUse);
       
       // Vérifier que la date est valide
@@ -522,12 +522,12 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       organized[year][monthKey].push(invoice);
     });
     
-    // Trier les années et mois
+    // Trier les années et mois basé sur payment_date
     Object.keys(organized).forEach(year => {
       Object.keys(organized[year]).forEach(monthKey => {
         organized[year][monthKey].sort((a, b) => {
-          const dateA = new Date(a.invoice_date || a.created_at);
-          const dateB = new Date(b.invoice_date || b.created_at);
+          const dateA = new Date(a.payment_date || a.invoice_date || a.created_at);
+          const dateB = new Date(b.payment_date || b.invoice_date || b.created_at);
           return dateB.getTime() - dateA.getTime(); // Plus récent en premier
         });
       });
