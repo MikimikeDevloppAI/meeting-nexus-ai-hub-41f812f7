@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,6 +117,10 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
+  
+  // État local pour les commentaires avec débouncing
+  const [localComments, setLocalComments] = useState<Record<string, string>>({});
+  const commentTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
@@ -162,7 +166,7 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
   });
 
-  // Fonction optimisée pour mettre à jour les champs des factures
+  // Fonction optimisée pour mettre à jour les champs des factures avec débouncing pour les commentaires
   const updateInvoiceField = useCallback(async (invoiceId: string, field: string, value: any) => {
     console.log(`Updating invoice ${invoiceId}, field ${field} to:`, value);
     
@@ -187,6 +191,23 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       toast.error(`Erreur lors de la mise à jour du champ ${field}`);
     }
   }, [refetch]);
+
+  // Fonction spéciale pour gérer les commentaires avec débouncing
+  const updateCommentField = useCallback((invoiceId: string, value: string) => {
+    // Mettre à jour l'état local immédiatement pour la réactivité
+    setLocalComments(prev => ({ ...prev, [invoiceId]: value }));
+    
+    // Annuler le timer précédent s'il existe
+    if (commentTimersRef.current[invoiceId]) {
+      clearTimeout(commentTimersRef.current[invoiceId]);
+    }
+    
+    // Créer un nouveau timer pour la mise à jour en base
+    commentTimersRef.current[invoiceId] = setTimeout(() => {
+      updateInvoiceField(invoiceId, 'comment', value);
+      delete commentTimersRef.current[invoiceId];
+    }, 1000); // Attendre 1 seconde après l'arrêt de la frappe
+  }, [updateInvoiceField]);
 
   // Fonction optimisée pour déterminer si un fournisseur est nouveau
   const isNewSupplier = useCallback((supplierName: string | null | undefined): boolean => {
@@ -876,8 +897,8 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             <span className="text-sm font-medium text-gray-700">Commentaire</span>
           </div>
           <Textarea
-            value={invoice.comment || ''}
-            onChange={(e) => updateInvoiceField(invoice.id, 'comment', e.target.value)}
+            value={localComments[invoice.id] ?? invoice.comment ?? ''}
+            onChange={(e) => updateCommentField(invoice.id, e.target.value)}
             placeholder="Ajoutez un commentaire pour cette facture (optionnel)"
             className="h-20"
             rows={3}
@@ -1233,15 +1254,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               <span className="font-medium text-gray-700">Commentaire:</span>
               {isEditing ? (
                 <Textarea
-                  value={invoice.comment || ''}
-                  onChange={(e) => updateInvoiceField(invoice.id, 'comment', e.target.value)}
+                  value={localComments[invoice.id] ?? invoice.comment ?? ''}
+                  onChange={(e) => updateCommentField(invoice.id, e.target.value)}
                   placeholder="Ajoutez un commentaire pour cette facture (optionnel)"
                   className="mt-1 h-20"
                   rows={3}
                 />
               ) : (
                 <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border min-h-[50px]">
-                  {invoice.comment || 'Aucun commentaire'}
+                  {localComments[invoice.id] ?? invoice.comment ?? 'Aucun commentaire'}
                 </div>
               )}
             </div>
