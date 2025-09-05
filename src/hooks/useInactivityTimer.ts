@@ -101,9 +101,11 @@ export const useInactivityTimer = ({
       const timeSinceLastActivity = Date.now() - lastActivity;
       
       if (timeSinceLastActivity >= timeout) {
-        // Déconnexion immédiate si > timeout
-        onTimeout();
-        return false;
+        // Si l'activité stockée est trop ancienne, ne pas déconnecter immédiatement
+        // mais plutôt réinitialiser le timer (considérer comme un nouveau début de session)
+        console.log("Activité stockée trop ancienne, réinitialisation du timer au lieu de déconnecter");
+        localStorage.removeItem('lastActivity');
+        return true; // Continuer avec un timer frais
       } else if (timeSinceLastActivity >= timeout - warningTime) {
         // Afficher l'avertissement si proche du timeout
         const remaining = timeout - timeSinceLastActivity;

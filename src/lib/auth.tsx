@@ -140,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === "SIGNED_IN" && session?.user) {
           console.log("Utilisateur connecté, mise à jour du profil");
           
+          // Nettoyer l'activité stockée pour un nouveau début de session propre
+          localStorage.removeItem('lastActivity');
+          console.log("Nettoyage de lastActivity pour nouvelle session");
+          
           // Utiliser setTimeout pour éviter les conflits
           setTimeout(async () => {
             if (!mounted) return;
