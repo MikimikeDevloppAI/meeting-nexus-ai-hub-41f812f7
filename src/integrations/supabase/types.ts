@@ -196,6 +196,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          comment: string | null
           compte: string | null
           content_type: string | null
           created_at: string | null
@@ -238,6 +239,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          comment?: string | null
           compte?: string | null
           content_type?: string | null
           created_at?: string | null
@@ -280,6 +282,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          comment?: string | null
           compte?: string | null
           content_type?: string | null
           created_at?: string | null

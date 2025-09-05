@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building, Calendar, DollarSign, User, Check, ChevronsUpDown } from "lucide-react";
+import { Building, Calendar, DollarSign, User, Check, ChevronsUpDown, MessageSquare } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ interface Invoice {
   exchange_rate?: number;
   original_amount_chf?: number;
   supplier_name?: string;
+  comment?: string;
 }
 
 interface SimpleInvoiceValidationDialogProps {
@@ -61,7 +63,8 @@ export function SimpleInvoiceValidationDialog({
     currency: 'CHF',
     compte: 'Commun',
     total_amount: 0,
-    exchange_rate: 1
+    exchange_rate: 1,
+    comment: ''
   });
   const [saving, setSaving] = useState(false);
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
@@ -94,7 +97,8 @@ export function SimpleInvoiceValidationDialog({
         currency: invoice.currency || 'CHF',
         compte: invoice.compte || 'Commun',
         total_amount: invoice.total_amount || 0,
-        exchange_rate: invoice.exchange_rate || 1
+        exchange_rate: invoice.exchange_rate || 1,
+        comment: invoice.comment || ''
       });
     }
   }, [invoice]);
@@ -119,6 +123,7 @@ export function SimpleInvoiceValidationDialog({
         compte: formData.compte,
         total_amount: formData.total_amount,
         exchange_rate: formData.exchange_rate,
+        comment: formData.comment,
         status: 'validated'
       };
 
@@ -351,6 +356,24 @@ export function SimpleInvoiceValidationDialog({
             )}
           </div>
         </div>
+
+        {/* Commentaire - Section pleine largeur */}
+        <Card className="mt-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Commentaire
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.comment}
+              onChange={(e) => handleInputChange('comment', e.target.value)}
+              placeholder="Ajoutez un commentaire pour cette facture (optionnel)"
+              rows={3}
+            />
+          </CardContent>
+        </Card>
 
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

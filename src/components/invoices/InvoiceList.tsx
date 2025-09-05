@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown } from "lucide-react";
+import { FileText, Download, Eye, AlertCircle, Clock, CheckCircle, Edit, Trash2, Check, Calendar, ChevronDown, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { InvoiceValidationDialog } from "./InvoiceValidationDialog";
@@ -47,6 +48,7 @@ interface Invoice {
   processed_at?: string;
   error_message?: string;
   invoice_type?: string;
+  comment?: string;
 }
 
 interface InvoiceListProps {
@@ -867,6 +869,21 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
           </div>
         </div>
 
+        {/* Commentaire - Section pleine largeur */}
+        <div className="space-y-2 col-span-full">
+          <div className="flex items-center gap-1">
+            <MessageSquare className="h-4 w-4 text-gray-700" />
+            <span className="text-sm font-medium text-gray-700">Commentaire</span>
+          </div>
+          <Textarea
+            value={invoice.comment || ''}
+            onChange={(e) => updateInvoiceField(invoice.id, 'comment', e.target.value)}
+            placeholder="Ajoutez un commentaire pour cette facture (optionnel)"
+            className="h-20"
+            rows={3}
+          />
+        </div>
+
         {/* Informations supplémentaires en lecture seule */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm pt-2 border-t">
           <div>
@@ -1208,6 +1225,23 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               ) : (
                 <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border">
                   {invoice.compte || 'Commun'}
+                </div>
+              )}
+            </div>
+
+            <div className="col-span-full">
+              <span className="font-medium text-gray-700">Commentaire:</span>
+              {isEditing ? (
+                <Textarea
+                  value={invoice.comment || ''}
+                  onChange={(e) => updateInvoiceField(invoice.id, 'comment', e.target.value)}
+                  placeholder="Ajoutez un commentaire pour cette facture (optionnel)"
+                  className="mt-1 h-20"
+                  rows={3}
+                />
+              ) : (
+                <div className="text-gray-900 mt-1 p-2 bg-gray-50 rounded border min-h-[50px]">
+                  {invoice.comment || 'Aucun commentaire'}
                 </div>
               )}
             </div>
