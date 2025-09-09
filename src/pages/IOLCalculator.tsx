@@ -218,12 +218,22 @@ export default function IOLCalculator() {
     const extractedField = fieldMapping[field] || field;
     
     // Prioritize MS-39 over biometry
-    const priorityData = ms39Data || biometryData;
-    if (priorityData && priorityData[eyeKey]) {
-      const eyeData = priorityData[eyeKey] as any;
-      return eyeData[extractedField] || '';
+    let value = '';
+    
+    // First try MS-39 data
+    if (ms39Data && ms39Data[eyeKey]) {
+      const eyeData = ms39Data[eyeKey] as any;
+      value = eyeData[extractedField] || '';
     }
-    return '';
+    
+    // If no MS-39 value, try biometry data
+    if (!value && biometryData && biometryData[eyeKey]) {
+      const eyeData = biometryData[eyeKey] as any;
+      value = eyeData[extractedField] || '';
+    }
+    
+    console.log(`getPriorityValue: field=${field}, eye=${eye}, extractedField=${extractedField}, value=${value}`);
+    return value;
   };
 
   const submitToIOLAPI = async () => {
