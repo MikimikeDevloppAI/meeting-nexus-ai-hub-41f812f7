@@ -377,14 +377,26 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       }
     }
     
-    // Extraire ID du patient (texte avant "Birthdate")
-    const idMatch = rawText.match(/(\S+)\s+Birthdate/i);
-    if (idMatch) {
-      data.patientId = idMatch[1];
-      console.log(`MS-39 extracted patient ID before Birthdate: ${data.patientId}`);
-    } else {
-      // Fallback: chercher un numéro de 4 chiffres ou plus
-      const fallbackIdMatch = rawText.match(/\b(\d{4,})\b/);
+    // Extraire ID du patient : prendre la ligne juste avant "Birthdate"
+    const birthIdx = rawText.search(/Birthdate/i);
+    if (birthIdx !== -1) {
+      const before = rawText.slice(0, birthIdx);
+      const lines = before.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length) {
+        let candidate = lines[lines.length - 1];
+        // Nettoyer d'éventuels libellés
+        candidate = candidate
+          .replace(/^ID\s*[:\-]?\s*/i, '')
+          .replace(/^Patient\s*ID\s*[:\-]?\s*/i, '')
+          .replace(/^Identifiant\s*[:\-]?\s*/i, '');
+        data.patientId = candidate;
+        console.log(`MS-39 extracted patient ID (line before Birthdate): ${data.patientId}`);
+      }
+    }
+
+    // Fallback si non trouvé : chercher un identifiant plausible (alphanumérique ≥ 4)
+    if (!data.patientId) {
+      const fallbackIdMatch = rawText.match(/\b([A-Z0-9][A-Z0-9\-_/\.]{3,})\b/i);
       if (fallbackIdMatch) {
         data.patientId = fallbackIdMatch[1];
         console.log(`MS-39 extracted patient ID (fallback): ${data.patientId}`);
