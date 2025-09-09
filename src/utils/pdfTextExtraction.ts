@@ -346,12 +346,12 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       return undefined;
     };
 
-    // Extraire nom du patient et informations générales (format: Nom, Prénom puis ID puis date de naissance)
-    // Première ligne format: "Nom, Prénom"
-    const firstLineMatch = rawText.match(/^([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+)/m);
+    // Extraire nom du patient et informations générales après "--- Page 1 ---"
+    // Chercher le pattern "Nom, Prénom" après "--- Page 1 ---"
+    const pageOneMatch = rawText.match(/--- Page 1 ---\s*\n\s*([A-Za-zÀ-ÿ]+)\s*,\s*([A-Za-zÀ-ÿ]+)/);
     
-    if (firstLineMatch) {
-      const [_, lastName, firstName] = firstLineMatch;
+    if (pageOneMatch) {
+      const [_, lastName, firstName] = pageOneMatch;
       
       // Nom complet: Prénom Nom
       data.patientName = `${firstName} ${lastName}`.trim();
@@ -359,7 +359,22 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       // Initiales: Première lettre du prénom + première lettre du nom
       data.patientInitials = `${firstName[0]}${lastName[0]}`.toUpperCase();
       
-      console.log(`MS-39 extracted name: ${data.patientName}, initials: ${data.patientInitials}`);
+      console.log(`MS-39 extracted name after Page 1: ${data.patientName}, initials: ${data.patientInitials}`);
+    } else {
+      // Fallback: chercher "Nom, Prénom" au début du texte
+      const firstLineMatch = rawText.match(/^([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+)/m);
+      
+      if (firstLineMatch) {
+        const [_, lastName, firstName] = firstLineMatch;
+        
+        // Nom complet: Prénom Nom
+        data.patientName = `${firstName} ${lastName}`.trim();
+        
+        // Initiales: Première lettre du prénom + première lettre du nom
+        data.patientInitials = `${firstName[0]}${lastName[0]}`.toUpperCase();
+        
+        console.log(`MS-39 extracted name from first line: ${data.patientName}, initials: ${data.patientInitials}`);
+      }
     }
     
     // Extraire ID du patient (ligne suivante ou dans les premiers éléments)
