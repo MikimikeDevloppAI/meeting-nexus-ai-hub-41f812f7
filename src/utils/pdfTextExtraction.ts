@@ -384,11 +384,16 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       }
     }
 
+    // Fonction helper pour normaliser les nombres (remplacer virgules par points)
+    const normalizeNumber = (value: string): string => {
+      return value.replace(',', '.');
+    };
+
     // Extraire CCT + AqD = "nombre" - enlever le 0 et mettre dans CCT
     // Premières occurrences pour œil droit, deuxièmes pour œil gauche
-    const cctMatches = [...rawText.matchAll(/CCT \+ AqD = "?([0-9\.]+)"?/g)];
+    const cctMatches = [...rawText.matchAll(/CCT \+ AqD = "?([0-9\.,]+)"?/g)];
     if (cctMatches.length >= 1) {
-      let cctValue = cctMatches[0][1];
+      let cctValue = normalizeNumber(cctMatches[0][1]);
       // Enlever le 0 au début si présent
       if (cctValue.startsWith('0') && cctValue.length > 1) {
         cctValue = cctValue.substring(1);
@@ -396,7 +401,7 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       data.rightEye!.CCT = cctValue;
     }
     if (cctMatches.length >= 2) {
-      let cctValue = cctMatches[1][1];
+      let cctValue = normalizeNumber(cctMatches[1][1]);
       // Enlever le 0 au début si présent
       if (cctValue.startsWith('0') && cctValue.length > 1) {
         cctValue = cctValue.substring(1);
@@ -405,32 +410,32 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
     }
 
     // Extraire ACD (après + puis un nombre puis = qui finit par "mm")
-    const acdMatches = [...rawText.matchAll(/\+\s*([0-9\.]+)\s*=\s*([0-9\.]+)\s*mm/g)];
+    const acdMatches = [...rawText.matchAll(/\+\s*([0-9\.,]+)\s*=\s*([0-9\.,]+)\s*mm/g)];
     if (acdMatches.length >= 1) {
-      data.rightEye!.ACD = acdMatches[0][2];
+      data.rightEye!.ACD = normalizeNumber(acdMatches[0][2]);
     }
     if (acdMatches.length >= 2) {
-      data.leftEye!.ACD = acdMatches[1][2];
+      data.leftEye!.ACD = normalizeNumber(acdMatches[1][2]);
     }
 
     // Extraire W-W* = pour CD (WTW)
-    const wtwMatches = [...rawText.matchAll(/W-W\*?\s*=\s*([0-9\.]+)/g)];
+    const wtwMatches = [...rawText.matchAll(/W-W\*?\s*=\s*([0-9\.,]+)/g)];
     if (wtwMatches.length >= 1) {
-      data.rightEye!.WTW = wtwMatches[0][1];
+      data.rightEye!.WTW = normalizeNumber(wtwMatches[0][1]);
     }
     if (wtwMatches.length >= 2) {
-      data.leftEye!.WTW = wtwMatches[1][1];
+      data.leftEye!.WTW = normalizeNumber(wtwMatches[1][1]);
     }
 
     // Extraire simk - premier nombre pour K1, deuxième pour K2
-    const simkMatches = [...rawText.matchAll(/simk[^0-9]*([0-9\.]+)[^0-9]+([0-9\.]+)/g)];
+    const simkMatches = [...rawText.matchAll(/simk[^0-9]*([0-9\.,]+)[^0-9]+([0-9\.,]+)/g)];
     if (simkMatches.length >= 1) {
-      data.rightEye!.K1 = simkMatches[0][1];
-      data.rightEye!.K2 = simkMatches[0][2];
+      data.rightEye!.K1 = normalizeNumber(simkMatches[0][1]);
+      data.rightEye!.K2 = normalizeNumber(simkMatches[0][2]);
     }
     if (simkMatches.length >= 2) {
-      data.leftEye!.K1 = simkMatches[1][1];
-      data.leftEye!.K2 = simkMatches[1][2];
+      data.leftEye!.K1 = normalizeNumber(simkMatches[1][1]);
+      data.leftEye!.K2 = normalizeNumber(simkMatches[1][2]);
     }
 
     console.log('✅ MS 39 data parsing completed');
