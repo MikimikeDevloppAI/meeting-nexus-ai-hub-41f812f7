@@ -173,6 +173,30 @@ export default function IOLCalculator() {
     }));
   };
 
+  // Helper function to get extracted values from both files
+  const getExtractedValues = (field: string, eye: 'right' | 'left') => {
+    const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
+    const values = [];
+    
+    if (biometryData && biometryData[eyeKey]) {
+      const eyeData = biometryData[eyeKey] as any;
+      const value = eyeData[field];
+      if (value) {
+        values.push({ source: 'Biométrie', value });
+      }
+    }
+    
+    if (ms39Data && ms39Data[eyeKey]) {
+      const eyeData = ms39Data[eyeKey] as any;
+      const value = eyeData[field];
+      if (value) {
+        values.push({ source: 'MS-39', value });
+      }
+    }
+    
+    return values;
+  };
+
   // Helper function to get the priority value (MS-39 over biometry)
   const getPriorityValue = (field: string, eye: 'right' | 'left'): string => {
     const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
@@ -628,11 +652,11 @@ export default function IOLCalculator() {
                             <div key={key}>
                               <label className="text-sm font-medium">
                                 {key}
-                                {getPriorityValue(key, 'right') && (
-                                  <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    Extrait: {getPriorityValue(key, 'right')}
+                                {getExtractedValues(key, 'right').map((item, index) => (
+                                  <span key={index} className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                    {item.source}: {item.value}
                                   </span>
-                                )}
+                                ))}
                               </label>
                               <input
                                 type="text"
@@ -654,11 +678,11 @@ export default function IOLCalculator() {
                             <div key={key}>
                               <label className="text-sm font-medium">
                                 {key}
-                                {getPriorityValue(key, 'left') && (
-                                  <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    Extrait: {getPriorityValue(key, 'left')}
+                                {getExtractedValues(key, 'left').map((item, index) => (
+                                  <span key={index} className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                    {item.source}: {item.value}
                                   </span>
-                                )}
+                                ))}
                               </label>
                               <input
                                 type="text"
