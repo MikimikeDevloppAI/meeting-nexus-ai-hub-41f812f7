@@ -377,20 +377,31 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       }
     }
     
-    // Extraire ID du patient : prendre la ligne juste avant "Birthdate"
+    // Extraire ID du patient : texte entre "Nom, Prénom" et "Birthdate"
     const birthIdx = rawText.search(/Birthdate/i);
     if (birthIdx !== -1) {
-      const before = rawText.slice(0, birthIdx);
-      const lines = before.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length) {
-        let candidate = lines[lines.length - 1];
-        // Nettoyer d'éventuels libellés
+      const beforeBirth = rawText.slice(0, birthIdx);
+      const nameMatches = [...beforeBirth.matchAll(/([A-Za-zÀ-ÿ]+)\s*,\s*([A-Za-zÀ-ÿ]+)/g)];
+      if (nameMatches.length) {
+        const last = nameMatches[nameMatches.length - 1] as RegExpMatchArray & { index?: number };
+        const startIdx = (last.index ?? beforeBirth.lastIndexOf(last[0])) + last[0].length;
+        let between = beforeBirth.slice(startIdx).trim();
+        // Prendre la première ligne/segment non vide
+        let candidate = between.split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || between;
+        // Nettoyage des libellés potentiels
         candidate = candidate
-          .replace(/^ID\s*[:\-]?\s*/i, '')
-          .replace(/^Patient\s*ID\s*[:\-]?\s*/i, '')
-          .replace(/^Identifiant\s*[:\-]?\s*/i, '');
-        data.patientId = candidate;
-        console.log(`MS-39 extracted patient ID (line before Birthdate): ${data.patientId}`);
+          .replace(/^(ID|Patient\s*ID|Identifiant)\s*[:\-]?\s*/i, '')
+          .replace(/[|•·]+/g, ' ')
+          .trim();
+        // Si la ligne contient encore le nom, le retirer
+        const fullNamePattern = new RegExp(`^${last[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\s*`, 'i');
+        candidate = candidate.replace(fullNamePattern, '').trim();
+        // Garder le premier token plausible
+        const token = (candidate.match(/[A-Z0-9][A-Z0-9\-_/\.]{1,}/i) || [])[0];
+        if (token) {
+          data.patientId = token;
+          console.log(`MS-39 extracted patient ID (between name and Birthdate): ${data.patientId}`);
+        }
       }
     }
 
