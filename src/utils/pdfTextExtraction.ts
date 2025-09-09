@@ -347,11 +347,11 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
     };
 
     // Extraire nom du patient et informations générales (format: Nom, Prénom puis ID puis date de naissance)
-    const patientInfoPattern = /^([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+)\s*(\d{4,})\s*(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})/m;
-    const patientInfoMatch = rawText.match(patientInfoPattern);
+    // Première ligne format: "Nom, Prénom"
+    const firstLineMatch = rawText.match(/^([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+)/m);
     
-    if (patientInfoMatch) {
-      const [_, lastName, firstName, patientId, birthDate] = patientInfoMatch;
+    if (firstLineMatch) {
+      const [_, lastName, firstName] = firstLineMatch;
       
       // Nom complet: Prénom Nom
       data.patientName = `${firstName} ${lastName}`.trim();
@@ -359,11 +359,21 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       // Initiales: Première lettre du prénom + première lettre du nom
       data.patientInitials = `${firstName[0]}${lastName[0]}`.toUpperCase();
       
-      // ID du patient
-      data.patientId = patientId;
-      
-      // Date de naissance
-      data.dateOfBirth = birthDate.replace(/\//g, '.');
+      console.log(`MS-39 extracted name: ${data.patientName}, initials: ${data.patientInitials}`);
+    }
+    
+    // Extraire ID du patient (ligne suivante ou dans les premiers éléments)
+    const idMatch = rawText.match(/\b(\d{4,})\b/);
+    if (idMatch) {
+      data.patientId = idMatch[1];
+      console.log(`MS-39 extracted patient ID: ${data.patientId}`);
+    }
+
+    // Extraire date de naissance (format DD.MM.YYYY ou DD/MM/YYYY)
+    const dateMatch = rawText.match(/(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})/);
+    if (dateMatch) {
+      data.dateOfBirth = dateMatch[1].replace(/\//g, '.');
+      console.log(`MS-39 extracted birth date: ${data.dateOfBirth}`);
       
       // Calculer l'âge
       try {
@@ -377,48 +387,10 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
         }
         if (age > 0 && age < 150) {
           data.age = age;
+          console.log(`MS-39 calculated age: ${data.age}`);
         }
       } catch {
-        // Ignore age calculation errors
-      }
-    } else {
-      // Fallback: extraire nom du patient (première ligne généralement)
-      const nameMatch = rawText.match(/^([A-Za-zÀ-ÿ\s]+)/m);
-      if (nameMatch) {
-        data.patientName = nameMatch[1].trim();
-        const names = data.patientName.split(' ');
-        if (names.length >= 2) {
-          data.patientInitials = names.map(name => name[0]).join('').toUpperCase();
-        }
-      }
-
-      // Extraire ID du patient (généralement après le nom)
-      const idMatch = rawText.match(/\b(\d{6,})\b/);
-      if (idMatch) {
-        data.patientId = idMatch[1];
-      }
-
-      // Extraire date de naissance (format DD.MM.YYYY ou DD/MM/YYYY)
-      const dateMatch = rawText.match(/(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})/);
-      if (dateMatch) {
-        data.dateOfBirth = dateMatch[1].replace(/\//g, '.');
-        
-        // Calculer l'âge
-        try {
-          const [day, month, year] = data.dateOfBirth.split('.').map(num => parseInt(num, 10));
-          const birthDate = new Date(year, month - 1, day);
-          const today = new Date();
-          let age = today.getFullYear() - birthDate.getFullYear();
-          const monthDiff = today.getMonth() - (month - 1);
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
-            age--;
-          }
-          if (age > 0 && age < 150) {
-            data.age = age;
-          }
-        } catch {
-          // Ignore age calculation errors
-        }
+        console.log('MS-39 age calculation failed');
       }
     }
 
