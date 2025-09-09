@@ -438,7 +438,7 @@ export default function IOLCalculator() {
         <CardContent className="space-y-6">
           {/* Zone de dépôt pour fichier Biométrie */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Fichier Biométrie (EyeSuite)</h3>
+            <h3 className="text-lg font-semibold text-foreground">Fichier Biométrie</h3>
             <div 
               className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onDrop={(e) => handleDrop(e, 'biometry')}
