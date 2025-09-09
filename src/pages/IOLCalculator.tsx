@@ -679,26 +679,6 @@ export default function IOLCalculator() {
                       </div>
                     )}
                     
-                    
-                    {/* Informations patient extraites */}
-                    <div className="bg-muted/30 rounded-lg p-4 border-l-4 border-primary">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground">Patient:</span>
-                          <span className="text-lg font-bold text-primary">
-                            {getPriorityGeneralInfo('initials') || 'N/A'}
-                          </span>
-                        </div>
-                        {getPriorityGeneralInfo('patientId') && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-muted-foreground">ID:</span>
-                            <span className="text-sm font-mono bg-background px-2 py-1 rounded border">
-                              {getPriorityGeneralInfo('patientId')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
                     {/* Informations du header */}
                     <div className="space-y-4">
