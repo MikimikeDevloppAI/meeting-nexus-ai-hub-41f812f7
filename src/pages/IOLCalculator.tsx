@@ -676,7 +676,7 @@ export default function IOLCalculator() {
                               </label>
                               <input
                                 type="text"
-                                value={value as string}
+                                value={(value as string) || getPriorityValue(key, 'right')}
                                 onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
                                 className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 placeholder={`Valeur pour ${key}`}
@@ -702,7 +702,7 @@ export default function IOLCalculator() {
                               </label>
                               <input
                                 type="text"
-                                value={value as string}
+                                value={(value as string) || getPriorityValue(key, 'left')}
                                 onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
                                 className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 placeholder={`Valeur pour ${key}`}
