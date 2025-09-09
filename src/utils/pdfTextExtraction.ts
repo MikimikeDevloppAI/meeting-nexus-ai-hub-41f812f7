@@ -377,11 +377,18 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       }
     }
     
-    // Extraire ID du patient (ligne suivante ou dans les premiers éléments)
-    const idMatch = rawText.match(/\b(\d{4,})\b/);
+    // Extraire ID du patient (texte avant "Birthdate")
+    const idMatch = rawText.match(/(\S+)\s+Birthdate/i);
     if (idMatch) {
       data.patientId = idMatch[1];
-      console.log(`MS-39 extracted patient ID: ${data.patientId}`);
+      console.log(`MS-39 extracted patient ID before Birthdate: ${data.patientId}`);
+    } else {
+      // Fallback: chercher un numéro de 4 chiffres ou plus
+      const fallbackIdMatch = rawText.match(/\b(\d{4,})\b/);
+      if (fallbackIdMatch) {
+        data.patientId = fallbackIdMatch[1];
+        console.log(`MS-39 extracted patient ID (fallback): ${data.patientId}`);
+      }
     }
 
     // Extraire date de naissance (format DD.MM.YYYY ou DD/MM/YYYY)
