@@ -616,32 +616,40 @@ export default function IOLCalculator() {
                       <p className="text-yellow-700">{ms39Data.message}</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      {ms39Data.patientName && (
-                        <div>
-                          <p className="font-medium">Nom du patient</p>
-                          <p className="text-muted-foreground">{ms39Data.patientName}</p>
-                        </div>
-                      )}
-                      {ms39Data.patientInitials && (
-                        <div>
-                          <p className="font-medium">Initiales</p>
-                          <p className="text-muted-foreground">{ms39Data.patientInitials}</p>
-                        </div>
-                      )}
-                      {ms39Data.dateOfBirth && (
-                        <div>
-                          <p className="font-medium">Date de naissance</p>
-                          <p className="text-muted-foreground">{ms39Data.dateOfBirth}</p>
-                        </div>
-                      )}
-                      {ms39Data.age && (
-                        <div>
-                          <p className="font-medium">Âge</p>
-                          <p className="text-muted-foreground">{ms39Data.age} ans</p>
-                        </div>
-                      )}
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+                        {ms39Data.patientName && (
+                          <div>
+                            <p className="font-medium">NOM, Prénom</p>
+                            <p className="text-muted-foreground">{ms39Data.patientName}</p>
+                          </div>
+                        )}
+                        {(ms39Data.patientId || getPriorityGeneralInfo('patientId')) && (
+                          <div>
+                            <p className="font-medium">ID Patient</p>
+                            <p className="text-muted-foreground font-mono">
+                              {ms39Data.patientId || getPriorityGeneralInfo('patientId')}
+                            </p>
+                          </div>
+                        )}
+                        {ms39Data.patientInitials && (
+                          <div>
+                            <p className="font-medium">Initiales</p>
+                            <p className="text-muted-foreground">{ms39Data.patientInitials}</p>
+                          </div>
+                        )}
+                        {ms39Data.dateOfBirth && (
+                          <div>
+                            <p className="font-medium">Date de naissance</p>
+                            <p className="text-muted-foreground">{ms39Data.dateOfBirth}</p>
+                          </div>
+                        )}
+                        {ms39Data.age && (
+                          <div>
+                            <p className="font-medium">Âge</p>
+                            <p className="text-muted-foreground">{ms39Data.age} ans</p>
+                          </div>
+                        )}
+                      </div>
                   )}
 
                   {/* Texte brut du fichier MS 39 */}
