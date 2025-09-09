@@ -173,6 +173,19 @@ export default function IOLCalculator() {
     }));
   };
 
+  // Helper function to get the priority value (MS-39 over biometry)
+  const getPriorityValue = (field: string, eye: 'right' | 'left'): string => {
+    const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
+    
+    // Prioritize MS-39 over biometry
+    const priorityData = ms39Data || biometryData;
+    if (priorityData && priorityData[eyeKey]) {
+      const eyeData = priorityData[eyeKey] as any;
+      return eyeData[field] || '';
+    }
+    return '';
+  };
+
   const submitToIOLAPI = async () => {
     if (!apiRequestData) return;
 
@@ -613,7 +626,14 @@ export default function IOLCalculator() {
                         <div className="space-y-3">
                           {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
                             <div key={key}>
-                              <label className="text-sm font-medium">{key}</label>
+                              <label className="text-sm font-medium">
+                                {key}
+                                {getPriorityValue(key, 'right') && (
+                                  <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                    Extrait: {getPriorityValue(key, 'right')}
+                                  </span>
+                                )}
+                              </label>
                               <input
                                 type="text"
                                 value={value as string}
@@ -632,7 +652,14 @@ export default function IOLCalculator() {
                         <div className="space-y-3">
                           {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
                             <div key={key}>
-                              <label className="text-sm font-medium">{key}</label>
+                              <label className="text-sm font-medium">
+                                {key}
+                                {getPriorityValue(key, 'left') && (
+                                  <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                    Extrait: {getPriorityValue(key, 'left')}
+                                  </span>
+                                )}
+                              </label>
                               <input
                                 type="text"
                                 value={value as string}

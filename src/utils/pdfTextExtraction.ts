@@ -400,6 +400,10 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       if (cctValue.startsWith('0') && cctValue.length > 1) {
         cctValue = cctValue.substring(1);
       }
+      // Enlever le point au début si présent
+      if (cctValue.startsWith('.')) {
+        cctValue = cctValue.substring(1);
+      }
       data.rightEye!.CCT = cctValue;
     }
     if (cctMatches.length >= 2) {
@@ -408,6 +412,10 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       cctValue = cctValue.replace(/"/g, '');
       // Enlever le 0 au début si présent
       if (cctValue.startsWith('0') && cctValue.length > 1) {
+        cctValue = cctValue.substring(1);
+      }
+      // Enlever le point au début si présent
+      if (cctValue.startsWith('.')) {
         cctValue = cctValue.substring(1);
       }
       data.leftEye!.CCT = cctValue;
