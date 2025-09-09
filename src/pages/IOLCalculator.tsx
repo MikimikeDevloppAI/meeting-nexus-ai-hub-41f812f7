@@ -446,9 +446,14 @@ export default function IOLCalculator() {
               onDragEnter={handleDragEnter}
               onClick={() => handleButtonClick('biometry')}
             >
-              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-              <div>
-                <p className="font-medium">Glissez-déposez un fichier Biométrie ou cliquez <span className="text-sm text-muted-foreground font-normal">(Format PDF accepté)</span></p>
+              <div className="flex items-center gap-3">
+                <Upload className="h-6 w-6 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="font-medium">Glissez-déposez un fichier Biométrie ou cliquez <span className="text-sm text-muted-foreground font-normal">(Format PDF accepté)</span></p>
+                </div>
+                <Button variant="outline" type="button" size="sm">
+                  Choisir un fichier
+                </Button>
               </div>
               <input
                 type="file"
@@ -457,9 +462,6 @@ export default function IOLCalculator() {
                 className="hidden"
                 id="biometry-upload"
               />
-              <Button variant="outline" className="mt-3" type="button" size="sm">
-                Choisir un fichier
-              </Button>
             </div>
             
             {biometryFile && (
