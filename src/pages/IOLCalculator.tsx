@@ -699,6 +699,7 @@ export default function IOLCalculator() {
                             value={apiRequestData.top_fields?.patient_initials || getPriorityGeneralInfo('initials')}
                             onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                            placeholder={getPriorityGeneralInfo('initials') ? `Extrait: ${getPriorityGeneralInfo('initials')}` : 'Ex: DT'}
                           />
                         </div>
                         <div>
