@@ -447,9 +447,8 @@ export default function IOLCalculator() {
               onClick={() => handleButtonClick('biometry')}
             >
               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-              <div className="space-y-1">
-                <p className="font-medium">Glissez-déposez un fichier Biométrie ou cliquez</p>
-                <p className="text-sm text-muted-foreground">Format PDF accepté</p>
+              <div>
+                <p className="font-medium">Glissez-déposez un fichier Biométrie ou cliquez <span className="text-sm text-muted-foreground font-normal">(Format PDF accepté)</span></p>
               </div>
               <input
                 type="file"
