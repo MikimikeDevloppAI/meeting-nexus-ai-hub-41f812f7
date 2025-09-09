@@ -389,11 +389,13 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       return value.replace(',', '.');
     };
 
-    // Extraire CCT + AqD = "nombre" - enlever le 0 et mettre dans CCT
+    // Extraire CCT + AqD = "nombre" - enlever le 0 et les guillemets et mettre dans CCT
     // Premières occurrences pour œil droit, deuxièmes pour œil gauche
     const cctMatches = [...rawText.matchAll(/CCT \+ AqD = "?([0-9\.,]+)"?/g)];
     if (cctMatches.length >= 1) {
       let cctValue = normalizeNumber(cctMatches[0][1]);
+      // Enlever les guillemets
+      cctValue = cctValue.replace(/"/g, '');
       // Enlever le 0 au début si présent
       if (cctValue.startsWith('0') && cctValue.length > 1) {
         cctValue = cctValue.substring(1);
@@ -402,6 +404,8 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
     }
     if (cctMatches.length >= 2) {
       let cctValue = normalizeNumber(cctMatches[1][1]);
+      // Enlever les guillemets
+      cctValue = cctValue.replace(/"/g, '');
       // Enlever le 0 au début si présent
       if (cctValue.startsWith('0') && cctValue.length > 1) {
         cctValue = cctValue.substring(1);
@@ -427,15 +431,23 @@ export const parseMS39IOLData = (rawText: string): IOLData => {
       data.leftEye!.WTW = normalizeNumber(wtwMatches[1][1]);
     }
 
-    // Extraire simk - premier nombre pour K1, deuxième pour K2
-    const simkMatches = [...rawText.matchAll(/simk[^0-9]*([0-9\.,]+)[^0-9]+([0-9\.,]+)/g)];
+    // Extraire SimK - premier nombre pour œil droit K1, deuxième nombre pour œil gauche K1
+    // Puis trouver les K2 correspondants
+    const simkMatches = [...rawText.matchAll(/SimK[^0-9]*([0-9\.,]+)/g)];
     if (simkMatches.length >= 1) {
       data.rightEye!.K1 = normalizeNumber(simkMatches[0][1]);
-      data.rightEye!.K2 = normalizeNumber(simkMatches[0][2]);
     }
     if (simkMatches.length >= 2) {
       data.leftEye!.K1 = normalizeNumber(simkMatches[1][1]);
-      data.leftEye!.K2 = normalizeNumber(simkMatches[1][2]);
+    }
+    
+    // Pour K2, chercher les deuxièmes valeurs après chaque SimK
+    const simkK2Matches = [...rawText.matchAll(/SimK[^0-9]*[0-9\.,]+[^0-9]+([0-9\.,]+)/g)];
+    if (simkK2Matches.length >= 1) {
+      data.rightEye!.K2 = normalizeNumber(simkK2Matches[0][1]);
+    }
+    if (simkK2Matches.length >= 2) {
+      data.leftEye!.K2 = normalizeNumber(simkK2Matches[1][1]);
     }
 
     console.log('✅ MS 39 data parsing completed');
