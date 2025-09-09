@@ -190,15 +190,16 @@ export const parseEyeSuiteIOLData = (rawText: string): IOLData => {
     };
 
     // Fonction pour extraire le nom du patient depuis la ligne EyeSuite
-    const extractPatientName = (): { name: string; initials: string; dateOfBirth: string } | undefined => {
+    const extractPatientName = (): { name: string; initials: string; dateOfBirth: string; sid: string } | undefined => {
       // Pattern pour EyeSuite™ IOL, V4.10.1  SID: 3503  Tabibian, David, 26.02.1983
-      const eyeSuitePattern = /EyeSuite™?\s+IOL.*?SID:\s*\d+\s+([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+),\s*(\d{1,2}\.\d{1,2}\.\d{4})/;
+      const eyeSuitePattern = /EyeSuite™?\s+IOL.*?SID:\s*(\d+)\s+([A-Za-zÀ-ÿ]+),\s*([A-Za-zÀ-ÿ]+),\s*(\d{1,2}\.\d{1,2}\.\d{4})/;
       const match = rawText.match(eyeSuitePattern);
       
       if (match) {
-        const lastName = match[1].trim();
-        const firstName = match[2].trim();
-        const dateOfBirth = match[3].trim();
+        const sid = match[1].trim();
+        const lastName = match[2].trim();
+        const firstName = match[3].trim();
+        const dateOfBirth = match[4].trim();
         
         // Inverser pour avoir "Prénom Nom"
         const fullName = `${firstName} ${lastName}`;
@@ -209,7 +210,8 @@ export const parseEyeSuiteIOLData = (rawText: string): IOLData => {
         return {
           name: fullName,
           initials: initials,
-          dateOfBirth: dateOfBirth
+          dateOfBirth: dateOfBirth,
+          sid: sid
         };
       }
       
@@ -248,7 +250,10 @@ export const parseEyeSuiteIOLData = (rawText: string): IOLData => {
       data.patientName = patientInfo.name;
       data.patientInitials = patientInfo.initials;
       data.dateOfBirth = patientInfo.dateOfBirth;
+      data.patientId = patientInfo.sid;
       data.age = calculateAge(patientInfo.dateOfBirth);
+      
+      console.log(`Biometry extracted name: ${data.patientName}, initials: ${data.patientInitials}, SID: ${data.patientId}`);
     }
 
     // 2. Extraire le type de chirurgie
