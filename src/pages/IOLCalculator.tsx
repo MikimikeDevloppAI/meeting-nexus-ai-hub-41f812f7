@@ -481,16 +481,20 @@ export default function IOLCalculator() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Fichier MS 39</h3>
             <div 
-              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onDrop={(e) => handleDrop(e, 'ms39')}
               onDragOver={handleDragOver}
               onDragEnter={handleDragEnter}
               onClick={() => handleButtonClick('ms39')}
             >
-              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-              <div className="space-y-1">
-                <p className="font-medium">Glissez-déposez un fichier MS 39 ou cliquez</p>
-                <p className="text-sm text-muted-foreground">Format PDF accepté</p>
+              <div className="flex items-center gap-3">
+                <Upload className="h-6 w-6 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="font-medium">Glissez-déposez un fichier MS 39 ou cliquez <span className="text-sm text-muted-foreground font-normal">(Format PDF accepté)</span></p>
+                </div>
+                <Button variant="outline" type="button" size="sm">
+                  Choisir un fichier
+                </Button>
               </div>
               <input
                 type="file"
@@ -499,9 +503,6 @@ export default function IOLCalculator() {
                 className="hidden"
                 id="ms39-upload"
               />
-              <Button variant="outline" className="mt-3" type="button" size="sm">
-                Choisir un fichier
-              </Button>
             </div>
             
             {ms39File && (
