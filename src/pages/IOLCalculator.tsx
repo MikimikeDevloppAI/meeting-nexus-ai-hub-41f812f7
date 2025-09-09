@@ -341,72 +341,75 @@ export default function IOLCalculator() {
 
           {iolData && (
             <>
-
-                {iolData.error ? (
-                  <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
-                    <p className="font-medium text-yellow-800">
-                      {iolData.pdfType === 'unknown' ? 'Type de PDF non reconnu' : 'Document scanné détecté'}
-                    </p>
-                    <p className="text-yellow-700">{iolData.message}</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Informations personnelles du patient */}
-                    {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
-                      <div>
-                        <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                          <User className="h-5 w-5 text-blue-600" />
-                          Informations patient
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          {iolData.patientName && (
-                            <div>
-                              <p className="font-medium">Nom du patient</p>
-                              <p className="text-muted-foreground">{iolData.patientName}</p>
-                            </div>
-                          )}
-                          {iolData.patientInitials && (
-                            <div>
-                              <p className="font-medium">Initiales</p>
-                              <p className="text-muted-foreground">{iolData.patientInitials}</p>
-                            </div>
-                          )}
-                          {iolData.dateOfBirth && (
-                            <div>
-                              <p className="font-medium">Date de naissance</p>
-                              <p className="text-muted-foreground">{iolData.dateOfBirth}</p>
-                            </div>
-                          )}
-                          {iolData.age && (
-                            <div>
-                              <p className="font-medium">Âge</p>
-                              <p className="text-muted-foreground">{iolData.age} ans</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                     )}
-
-                    {/* Texte brut extrait du PDF */}
-                    {iolData.rawText && (
-                      <Card className="shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-base font-medium flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            Texte brut extrait du PDF
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                            <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
-                              {iolData.rawText}
-                            </pre>
+              {iolData.error ? (
+                <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
+                  <p className="font-medium text-yellow-800">
+                    {iolData.pdfType === 'unknown' ? 'Type de PDF non reconnu' : 'Document scanné détecté'}
+                  </p>
+                  <p className="text-yellow-700">{iolData.message}</p>
+                </div>
+              ) : (
+                <>
+                  {/* Informations personnelles du patient */}
+                  {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
+                    <div>
+                      <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                        <User className="h-5 w-5 text-blue-600" />
+                        Informations patient
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        {iolData.patientName && (
+                          <div>
+                            <p className="font-medium">Nom du patient</p>
+                            <p className="text-muted-foreground">{iolData.patientName}</p>
                           </div>
-                        </CardContent>
-                      </Card>
-                    )}
+                        )}
+                        {iolData.patientInitials && (
+                          <div>
+                            <p className="font-medium">Initiales</p>
+                            <p className="text-muted-foreground">{iolData.patientInitials}</p>
+                          </div>
+                        )}
+                        {iolData.dateOfBirth && (
+                          <div>
+                            <p className="font-medium">Date de naissance</p>
+                            <p className="text-muted-foreground">{iolData.dateOfBirth}</p>
+                          </div>
+                        )}
+                        {iolData.age && (
+                          <div>
+                            <p className="font-medium">Âge</p>
+                            <p className="text-muted-foreground">{iolData.age} ans</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                   )}
+                </>
+              )}
 
-                    {/* Données pour l'API IOL Calculator */}
+              {/* Texte brut extrait du PDF - affiché pour tous les types de PDF */}
+              {iolData.rawText && (
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      Texte brut extrait du PDF
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
+                        {iolData.rawText}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {!iolData.error && (
+                <>
+                  {/* Données pour l'API IOL Calculator */}
                     {isDataExtracted && apiRequestData && (
                       <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow bg-white ${isCalculating ? 'opacity-80' : ''}`}>
                         <CardContent className="space-y-6">
