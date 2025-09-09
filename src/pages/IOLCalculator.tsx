@@ -8,8 +8,10 @@ import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 
 export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [iolData, setIolData] = useState<IOLData | null>(null);
+  const [biometryFile, setBiometryFile] = useState<File | null>(null);
+  const [ms39File, setMs39File] = useState<File | null>(null);
+  const [biometryData, setBiometryData] = useState<IOLData | null>(null);
+  const [ms39Data, setMs39Data] = useState<IOLData | null>(null);
   const [isAutomating, setIsAutomating] = useState(false);
   const [automationResult, setAutomationResult] = useState<{
     screenshot: string;
@@ -21,10 +23,14 @@ export default function IOLCalculator() {
   const [isDataExtracted, setIsDataExtracted] = useState(false);
   const { toast } = useToast();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, fileType: 'biometry' | 'ms39') => {
     const file = event.target.files?.[0];
     if (file && file.type === "application/pdf") {
-      setPdfFile(file);
+      if (fileType === 'biometry') {
+        setBiometryFile(file);
+      } else {
+        setMs39File(file);
+      }
     } else {
       toast({
         title: "Format de fichier incorrect",
@@ -34,11 +40,15 @@ export default function IOLCalculator() {
     }
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, fileType: 'biometry' | 'ms39') => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file && file.type === "application/pdf") {
-      setPdfFile(file);
+      if (fileType === 'biometry') {
+        setBiometryFile(file);
+      } else {
+        setMs39File(file);
+      }
     } else {
       toast({
         title: "Format de fichier incorrect",
@@ -56,71 +66,85 @@ export default function IOLCalculator() {
     event.preventDefault();
   };
 
-  const handleButtonClick = () => {
-    document.getElementById('pdf-upload')?.click();
+  const handleButtonClick = (fileType: 'biometry' | 'ms39') => {
+    document.getElementById(`${fileType}-upload`)?.click();
   };
 
   const extractIOLData = async () => {
-    if (!pdfFile) return;
+    if (!biometryFile && !ms39File) return;
 
     setIsProcessing(true);
-    setIolData(null);
+    setBiometryData(null);
+    setMs39Data(null);
     setIsDataExtracted(false);
     setCalculatedImage(null);
     
     try {
-      console.log("Extraction directe du PDF:", pdfFile.name, "Taille:", pdfFile.size);
-      
-      const data = await extractIOLDataFromPdf(pdfFile);
-      
-      console.log("Données IOL extraites:", data);
+      let biometryResult = null;
+      let ms39Result = null;
 
-      if (data.error) {
-        setIolData(data);
-        toast({
-          title: "Document scanné détecté",
-          description: data.message || "Le PDF semble être une image scannée.",
-          variant: "destructive",
-        });
-      } else {
-        // Format data for calculate-iol edge function - données modifiables
+      // Extraire les données du fichier biométrie s'il existe
+      if (biometryFile) {
+        console.log("Extraction du fichier biométrie:", biometryFile.name);
+        biometryResult = await extractIOLDataFromPdf(biometryFile);
+        setBiometryData(biometryResult);
+      }
+
+      // Extraire les données du fichier MS 39 s'il existe
+      if (ms39File) {
+        console.log("Extraction du fichier MS 39:", ms39File.name);
+        ms39Result = await extractIOLDataFromPdf(ms39File);
+        setMs39Data(ms39Result);
+      }
+
+      // Déterminer quelle donnée utiliser pour l'API (MS 39 en priorité)
+      const dataForAPI = ms39Result && !ms39Result.error ? ms39Result : 
+                        biometryResult && !biometryResult.error ? biometryResult : null;
+
+      if (dataForAPI) {
+        // Format data for calculate-iol edge function
         const calculateIOLData = {
-          gender: "Female", // Default - could be extracted from PDF later
+          gender: "Female",
           top_fields: {
             surgeon: "David Tabibian",
-            patient_initials: data.patientInitials || "JS",
+            patient_initials: dataForAPI.patientInitials || "JS",
             id: Date.now().toString(),
-            age: data.age?.toString() || "65"
+            age: dataForAPI.age?.toString() || "65"
           },
           right_eye: {
-            AL: data.rightEye?.AL || "",
-            ACD: data.rightEye?.ACD || "",
-            LT: data.rightEye?.LT || "",
-            CCT: data.rightEye?.CCT || "",
-            "CD (WTW)": data.rightEye?.WTW || "",
-            K1: data.rightEye?.K1 || "",
-            K2: data.rightEye?.K2 || "",
-            "Target Refraction": data.rightEye?.targetRefraction || ""
+            AL: dataForAPI.rightEye?.AL || "",
+            ACD: dataForAPI.rightEye?.ACD || "",
+            LT: dataForAPI.rightEye?.LT || "",
+            CCT: dataForAPI.rightEye?.CCT || "",
+            "CD (WTW)": dataForAPI.rightEye?.WTW || "",
+            K1: dataForAPI.rightEye?.K1 || "",
+            K2: dataForAPI.rightEye?.K2 || "",
+            "Target Refraction": dataForAPI.rightEye?.targetRefraction || ""
           },
           left_eye: {
-            AL: data.leftEye?.AL || "",
-            ACD: data.leftEye?.ACD || "",
-            LT: data.leftEye?.LT || "",
-            CCT: data.leftEye?.CCT || "",
-            "CD (WTW)": data.leftEye?.WTW || "",
-            K1: data.leftEye?.K1 || "",
-            K2: data.leftEye?.K2 || "",
-            "Target Refraction": data.leftEye?.targetRefraction || ""
+            AL: dataForAPI.leftEye?.AL || "",
+            ACD: dataForAPI.leftEye?.ACD || "",
+            LT: dataForAPI.leftEye?.LT || "",
+            CCT: dataForAPI.leftEye?.CCT || "",
+            "CD (WTW)": dataForAPI.leftEye?.WTW || "",
+            K1: dataForAPI.leftEye?.K1 || "",
+            K2: dataForAPI.leftEye?.K2 || "",
+            "Target Refraction": dataForAPI.leftEye?.targetRefraction || ""
           }
         };
 
         setApiRequestData(calculateIOLData);
-        setIolData(data);
         setIsDataExtracted(true);
 
         toast({
           title: "Extraction réussie",
-          description: "Les données ont été extraites. Vérifiez et modifiez-les si nécessaire avant de soumettre.",
+          description: `Données extraites${ms39Result && !ms39Result.error ? ' (MS 39 utilisé pour l\'API)' : ''}. Vérifiez et modifiez-les si nécessaire.`,
+        });
+      } else {
+        toast({
+          title: "Aucune donnée valide",
+          description: "Impossible d'extraire les données des fichiers fournis.",
+          variant: "destructive",
         });
       }
       
@@ -209,7 +233,9 @@ export default function IOLCalculator() {
   };
 
   const exportForSelenium = () => {
-    if (!iolData) return;
+    const dataToExport = ms39Data && !ms39Data.error ? ms39Data : 
+                        biometryData && !biometryData.error ? biometryData : null;
+    if (!dataToExport) return;
 
     const exportData = {
       surgeon: "Tabibian",
@@ -217,7 +243,7 @@ export default function IOLCalculator() {
       patientInitials: "ME",
       patientId: Date.now().toString(),
       age: "45",
-      iolData: iolData
+      iolData: dataToExport
     };
 
     const jsonString = JSON.stringify(exportData, null, 2);
@@ -239,7 +265,9 @@ export default function IOLCalculator() {
   };
 
   const automateOnESCRS = async () => {
-    if (!iolData) return;
+    const dataToUse = ms39Data && !ms39Data.error ? ms39Data : 
+                     biometryData && !biometryData.error ? biometryData : null;
+    if (!dataToUse) return;
     
     setIsAutomating(true);
     try {
@@ -248,7 +276,7 @@ export default function IOLCalculator() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ iolData }),
+        body: JSON.stringify({ iolData: dataToUse }),
       });
 
       const result = await response.json();
@@ -290,284 +318,396 @@ export default function IOLCalculator() {
             Extraction de texte depuis PDF
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div 
-            className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onClick={handleButtonClick}
-          >
-            <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <div className="space-y-2">
-              <p className="text-lg font-medium">Glissez-déposez un fichier PDF ou cliquez pour sélectionner</p>
-              <p className="text-sm text-muted-foreground">
-                Formats acceptés: PDF uniquement
-              </p>
+        <CardContent className="space-y-6">
+          {/* Zone de dépôt pour fichier Biométrie */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Fichier Biométrie (EyeSuite)</h3>
+            <div 
+              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onDrop={(e) => handleDrop(e, 'biometry')}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onClick={() => handleButtonClick('biometry')}
+            >
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+              <div className="space-y-1">
+                <p className="font-medium">Glissez-déposez un fichier Biométrie ou cliquez</p>
+                <p className="text-sm text-muted-foreground">Format PDF accepté</p>
+              </div>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => handleFileSelect(e, 'biometry')}
+                className="hidden"
+                id="biometry-upload"
+              />
+              <Button variant="outline" className="mt-3" type="button" size="sm">
+                Choisir un fichier
+              </Button>
             </div>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="pdf-upload"
-            />
-            <Button variant="outline" className="mt-4" type="button">
-              Choisir un fichier
-            </Button>
+            
+            {biometryFile && (
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium text-sm">{biometryFile.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({(biometryFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {pdfFile && (
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div className="flex items-center space-x-2">
-                <FileText className="h-5 w-5" />
-                <span className="font-medium">{pdfFile.name}</span>
-                <span className="text-sm text-muted-foreground">
-                  ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
-                </span>
+          {/* Zone de dépôt pour fichier MS 39 */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Fichier MS 39</h3>
+            <div 
+              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onDrop={(e) => handleDrop(e, 'ms39')}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onClick={() => handleButtonClick('ms39')}
+            >
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+              <div className="space-y-1">
+                <p className="font-medium">Glissez-déposez un fichier MS 39 ou cliquez</p>
+                <p className="text-sm text-muted-foreground">Format PDF accepté</p>
               </div>
-              <Button onClick={extractIOLData} disabled={isProcessing}>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => handleFileSelect(e, 'ms39')}
+                className="hidden"
+                id="ms39-upload"
+              />
+              <Button variant="outline" className="mt-3" type="button" size="sm">
+                Choisir un fichier
+              </Button>
+            </div>
+            
+            {ms39File && (
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium text-sm">{ms39File.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({(ms39File.size / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bouton d'extraction */}
+          {(biometryFile || ms39File) && (
+            <div className="flex justify-center pt-4">
+              <Button onClick={extractIOLData} disabled={isProcessing} size="lg">
                 {isProcessing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Extraction en cours...
                   </>
                 ) : (
-                  "Extraire le texte du PDF"
+                  "Extraire les données des fichiers"
                 )}
               </Button>
             </div>
           )}
 
-          {iolData && (
-            <>
-              {iolData.error ? (
-                <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
-                  <p className="font-medium text-yellow-800">
-                    {iolData.pdfType === 'unknown' ? 'Type de PDF non reconnu' : 'Document scanné détecté'}
-                  </p>
-                  <p className="text-yellow-700">{iolData.message}</p>
-                </div>
-              ) : (
-                <>
-                  {/* Informations personnelles du patient */}
-                  {(iolData.patientName || iolData.dateOfBirth || iolData.age) && (
-                    <div>
-                      <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                        <User className="h-5 w-5 text-blue-600" />
-                        Informations patient
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        {iolData.patientName && (
-                          <div>
-                            <p className="font-medium">Nom du patient</p>
-                            <p className="text-muted-foreground">{iolData.patientName}</p>
-                          </div>
-                        )}
-                        {iolData.patientInitials && (
-                          <div>
-                            <p className="font-medium">Initiales</p>
-                            <p className="text-muted-foreground">{iolData.patientInitials}</p>
-                          </div>
-                        )}
-                        {iolData.dateOfBirth && (
-                          <div>
-                            <p className="font-medium">Date de naissance</p>
-                            <p className="text-muted-foreground">{iolData.dateOfBirth}</p>
-                          </div>
-                        )}
-                        {iolData.age && (
-                          <div>
-                            <p className="font-medium">Âge</p>
-                            <p className="text-muted-foreground">{iolData.age} ans</p>
-                          </div>
-                        )}
-                      </div>
+          {/* Affichage des données extraites pour chaque fichier */}
+          {(biometryData || ms39Data) && (
+            <div className="space-y-6">
+              {/* Données du fichier Biométrie */}
+              {biometryData && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    Données Biométrie {biometryData.error && '(Erreur)'}
+                  </h3>
+                  
+                  {biometryData.error ? (
+                    <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
+                      <p className="font-medium text-yellow-800">
+                        {biometryData.pdfType === 'unknown' ? 'Type de PDF non reconnu' : 'Document scanné détecté'}
+                      </p>
+                      <p className="text-yellow-700">{biometryData.message}</p>
                     </div>
-                   )}
-                </>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {biometryData.patientName && (
+                        <div>
+                          <p className="font-medium">Nom du patient</p>
+                          <p className="text-muted-foreground">{biometryData.patientName}</p>
+                        </div>
+                      )}
+                      {biometryData.patientInitials && (
+                        <div>
+                          <p className="font-medium">Initiales</p>
+                          <p className="text-muted-foreground">{biometryData.patientInitials}</p>
+                        </div>
+                      )}
+                      {biometryData.dateOfBirth && (
+                        <div>
+                          <p className="font-medium">Date de naissance</p>
+                          <p className="text-muted-foreground">{biometryData.dateOfBirth}</p>
+                        </div>
+                      )}
+                      {biometryData.age && (
+                        <div>
+                          <p className="font-medium">Âge</p>
+                          <p className="text-muted-foreground">{biometryData.age} ans</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Texte brut du fichier Biométrie */}
+                  {biometryData.rawText && (
+                    <Card className="shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          Texte brut extrait (Biométrie)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
+                            {biometryData.rawText}
+                          </pre>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
 
-              {/* Texte brut extrait du PDF - affiché pour tous les types de PDF */}
-              {iolData.rawText && (
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      Texte brut extrait du PDF
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                      <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
-                        {iolData.rawText}
-                      </pre>
+              {/* Données du fichier MS 39 */}
+              {ms39Data && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    Données MS 39 {ms39Data.error && '(Erreur)'} {ms39Data && !ms39Data.error && '(Utilisé pour l\'API)'}
+                  </h3>
+                  
+                  {ms39Data.error ? (
+                    <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-lg">
+                      <p className="font-medium text-yellow-800">
+                        {ms39Data.pdfType === 'unknown' ? 'Type de PDF non reconnu' : 'Document scanné détecté'}
+                      </p>
+                      <p className="text-yellow-700">{ms39Data.message}</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {ms39Data.patientName && (
+                        <div>
+                          <p className="font-medium">Nom du patient</p>
+                          <p className="text-muted-foreground">{ms39Data.patientName}</p>
+                        </div>
+                      )}
+                      {ms39Data.patientInitials && (
+                        <div>
+                          <p className="font-medium">Initiales</p>
+                          <p className="text-muted-foreground">{ms39Data.patientInitials}</p>
+                        </div>
+                      )}
+                      {ms39Data.dateOfBirth && (
+                        <div>
+                          <p className="font-medium">Date de naissance</p>
+                          <p className="text-muted-foreground">{ms39Data.dateOfBirth}</p>
+                        </div>
+                      )}
+                      {ms39Data.age && (
+                        <div>
+                          <p className="font-medium">Âge</p>
+                          <p className="text-muted-foreground">{ms39Data.age} ans</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Texte brut du fichier MS 39 */}
+                  {ms39Data.rawText && (
+                    <Card className="shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          Texte brut extrait (MS 39)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
+                            {ms39Data.rawText}
+                          </pre>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Formulaire API IOL Calculator */}
+              {isDataExtracted && apiRequestData && (
+                <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow bg-white ${isCalculating ? 'opacity-80' : ''}`}>
+                  <CardContent className="space-y-6">
+                    {/* Animation de loading superposée */}
+                    {isCalculating && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg z-10">
+                        <div className="flex items-center gap-3 bg-background border rounded-lg p-4 shadow-lg animate-scale-in">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <span className="font-medium">Calcul IOL en cours...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Informations du header */}
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-foreground mt-4">Informations générales</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">Chirurgien</label>
+                          <input
+                            type="text"
+                            value={apiRequestData.top_fields?.surgeon || ''}
+                            onChange={(e) => handleApiDataChange('top_fields', 'surgeon', e.target.value)}
+                            className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Initiales patient</label>
+                          <input
+                            type="text"
+                            value={apiRequestData.top_fields?.patient_initials || ''}
+                            onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
+                            className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">ID Patient</label>
+                          <input
+                            type="text"
+                            value={apiRequestData.top_fields?.id || ''}
+                            onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
+                            className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Âge</label>
+                          <input
+                            type="text"
+                            value={apiRequestData.top_fields?.age || ''}
+                            onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
+                            className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Données des yeux */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Œil droit */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-foreground">Œil Droit (OD)</h4>
+                        <div className="space-y-3">
+                          {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
+                            <div key={key}>
+                              <label className="text-sm font-medium">{key}</label>
+                              <input
+                                type="text"
+                                value={value as string}
+                                onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
+                                className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                                placeholder={`Valeur pour ${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Œil gauche */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-foreground">Œil Gauche (OS)</h4>
+                        <div className="space-y-3">
+                          {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
+                            <div key={key}>
+                              <label className="text-sm font-medium">{key}</label>
+                              <input
+                                type="text"
+                                value={value as string}
+                                onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
+                                className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
+                                placeholder={`Valeur pour ${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bouton de soumission */}
+                    <div className="flex justify-center pt-4">
+                      <Button 
+                        onClick={submitToIOLAPI}
+                        disabled={isCalculating}
+                        size="lg"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      >
+                        {isCalculating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Calcul en cours...
+                          </>
+                        ) : (
+                          "Soumettre à IOL Calculator"
+                        )}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              {!iolData.error && (
+              {calculatedImage && (
                 <>
-                  {/* Données pour l'API IOL Calculator */}
-                    {isDataExtracted && apiRequestData && (
-                      <Card className={`relative transition-all duration-300 shadow-md hover:shadow-lg transition-shadow bg-white ${isCalculating ? 'opacity-80' : ''}`}>
-                        <CardContent className="space-y-6">
-                          {/* Animation de loading superposée */}
-                          {isCalculating && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg z-10">
-                              <div className="flex items-center gap-3 bg-background border rounded-lg p-4 shadow-lg animate-scale-in">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                <span className="font-medium">Calcul IOL en cours...</span>
-                              </div>
-                            </div>
-                          )}
+                  <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-blue-600" />
+                    Résultat du calcul IOL
+                  </h3>
+                  <div className="border border-border rounded-lg p-4 bg-card">
+                    <img 
+                      src={calculatedImage} 
+                      alt="Résultat du calcul IOL"
+                      className="max-w-full h-auto rounded border"
+                    />
+                    <div className="flex gap-2 mt-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Créer un nom de fichier avec les initiales et date de naissance
+                          const dataForFileName = ms39Data && !ms39Data.error ? ms39Data : 
+                                                 biometryData && !biometryData.error ? biometryData : null;
+                          const initials = dataForFileName?.patientInitials || 'Patient';
+                          const dateOfBirth = dataForFileName?.dateOfBirth || '';
+                          // Nettoyer la date pour enlever les caractères spéciaux
+                          const cleanDate = dateOfBirth.replace(/[^0-9]/g, '');
+                          const fileName = `${initials}${cleanDate}.png`;
                           
-                          {/* Informations du header */}
-                          <div className="space-y-4">
-                            <h4 className="font-semibold text-foreground mt-4">Informations générales</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                              <div>
-                                <label className="text-sm font-medium">Chirurgien</label>
-                                <input
-                                  type="text"
-                                  value={apiRequestData.top_fields?.surgeon || ''}
-                                  onChange={(e) => handleApiDataChange('top_fields', 'surgeon', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">Initiales patient</label>
-                                <input
-                                  type="text"
-                                  value={apiRequestData.top_fields?.patient_initials || ''}
-                                  onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">ID Patient</label>
-                                <input
-                                  type="text"
-                                  value={apiRequestData.top_fields?.id || ''}
-                                  onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium">Âge</label>
-                                <input
-                                  type="text"
-                                  value={apiRequestData.top_fields?.age || ''}
-                                  onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
-                                  className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Données des yeux */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Œil droit */}
-                            <div className="space-y-4">
-                              <h4 className="font-semibold text-foreground">Œil Droit (OD)</h4>
-                              <div className="space-y-3">
-                                {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
-                                  <div key={key}>
-                                    <label className="text-sm font-medium">{key}</label>
-                                    <input
-                                      type="text"
-                                      value={value as string}
-                                      onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                      placeholder={`Valeur pour ${key}`}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Œil gauche */}
-                            <div className="space-y-4">
-                              <h4 className="font-semibold text-foreground">Œil Gauche (OS)</h4>
-                              <div className="space-y-3">
-                                {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
-                                  <div key={key}>
-                                    <label className="text-sm font-medium">{key}</label>
-                                    <input
-                                      type="text"
-                                      value={value as string}
-                                      onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
-                                      className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
-                                      placeholder={`Valeur pour ${key}`}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Bouton de soumission */}
-                          <div className="flex justify-center pt-4">
-                            <Button 
-                              onClick={submitToIOLAPI}
-                              disabled={isCalculating}
-                              size="lg"
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                            >
-                              {isCalculating ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Calcul en cours...
-                                </>
-                              ) : (
-                                "Soumettre à IOL Calculator"
-                              )}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                     {calculatedImage && (
-                       <>
-                         <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                           <Calculator className="h-5 w-5 text-blue-600" />
-                           Résultat du calcul IOL
-                         </h3>
-                         <div className="border border-border rounded-lg p-4 bg-card">
-                           <img 
-                             src={calculatedImage} 
-                             alt="Résultat du calcul IOL"
-                             className="max-w-full h-auto rounded border"
-                           />
-                           <div className="flex gap-2 mt-4">
-                             <Button 
-                               variant="outline" 
-                               size="sm"
-                               onClick={() => {
-                                 // Créer un nom de fichier avec les initiales et date de naissance
-                                 const initials = iolData?.patientInitials || 'Patient';
-                                 const dateOfBirth = iolData?.dateOfBirth || '';
-                                 // Nettoyer la date pour enlever les caractères spéciaux
-                                 const cleanDate = dateOfBirth.replace(/[^0-9]/g, '');
-                                 const fileName = `${initials}${cleanDate}.png`;
-                                 
-                                 const link = document.createElement('a');
-                                 link.href = calculatedImage;
-                                 link.download = fileName;
-                                 link.click();
-                               }}
-                             >
-                               <Download className="h-4 w-4 mr-2" />
-                               Télécharger l'image
-                             </Button>
-                           </div>
-                         </div>
-                       </>
-                     )}
-                  </>
-                )}
-            </>
+                          const link = document.createElement('a');
+                          link.href = calculatedImage;
+                          link.download = fileName;
+                          link.click();
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Télécharger l'image
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {automationResult && (

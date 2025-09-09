@@ -28,7 +28,7 @@ async function loadPdfJs(): Promise<any> {
   });
 }
 
-export type PDFType = 'eyesuite' | 'unknown';
+export type PDFType = 'eyesuite' | 'ms39' | 'unknown';
 
 export interface IOLData {
   // Informations générales
@@ -128,6 +128,12 @@ export const detectPDFType = (rawText: string): PDFType => {
   if (rawText.includes('EyeSuite') || rawText.includes('IOL') || rawText.includes('SID:') || rawText.includes('LS900 cône T')) {
     console.log('✅ Detected PDF type: EyeSuite');
     return 'eyesuite';
+  }
+  
+  // Rechercher les marqueurs spécifiques à MS 39 (commence par nom patient, puis ID, puis date de naissance)
+  if (rawText.includes('CCT + AqD =') || rawText.includes('W-W*') || rawText.includes('simk')) {
+    console.log('✅ Detected PDF type: MS 39');
+    return 'ms39';
   }
   
   console.log('⚠️ Unknown PDF type detected');
@@ -317,6 +323,135 @@ export const parseEyeSuiteIOLData = (rawText: string): IOLData => {
   return data;
 };
 
+// Parser spécifique pour MS 39
+export const parseMS39IOLData = (rawText: string): IOLData => {
+  console.log('🔍 Parsing MS 39 IOL data from extracted text');
+  
+  const data: IOLData = {
+    rawText,
+    pdfType: 'ms39',
+    error: false,
+    rightEye: {},
+    leftEye: {}
+  };
+
+  try {
+    // Fonction helper pour extraire une valeur par regex avec gestion des occurrences multiples
+    const extractValue = (pattern: RegExp, occurrence: number = 1): string | undefined => {
+      const matches = [...rawText.matchAll(new RegExp(pattern.source, 'g'))];
+      if (matches.length >= occurrence && matches[occurrence - 1]) {
+        return matches[occurrence - 1][1];
+      }
+      return undefined;
+    };
+
+    // Extraire nom du patient (première ligne généralement)
+    const nameMatch = rawText.match(/^([A-Za-zÀ-ÿ\s]+)/m);
+    if (nameMatch) {
+      data.patientName = nameMatch[1].trim();
+      const names = data.patientName.split(' ');
+      if (names.length >= 2) {
+        data.patientInitials = names.map(name => name[0]).join('').toUpperCase();
+      }
+    }
+
+    // Extraire ID du patient (généralement après le nom)
+    const idMatch = rawText.match(/\b(\d{6,})\b/);
+    if (idMatch) {
+      // L'ID sera utilisé pour l'API mais pas affiché séparément
+    }
+
+    // Extraire date de naissance (format DD.MM.YYYY ou DD/MM/YYYY)
+    const dateMatch = rawText.match(/(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})/);
+    if (dateMatch) {
+      data.dateOfBirth = dateMatch[1].replace(/\//g, '.');
+      
+      // Calculer l'âge
+      try {
+        const [day, month, year] = data.dateOfBirth.split('.').map(num => parseInt(num, 10));
+        const birthDate = new Date(year, month - 1, day);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - (month - 1);
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
+          age--;
+        }
+        if (age > 0 && age < 150) {
+          data.age = age;
+        }
+      } catch {
+        // Ignore age calculation errors
+      }
+    }
+
+    // Extraire CCT + AqD = "nombre" - enlever le 0 et mettre dans CCT
+    // Premières occurrences pour œil droit, deuxièmes pour œil gauche
+    const cctMatches = [...rawText.matchAll(/CCT \+ AqD = "?([0-9\.]+)"?/g)];
+    if (cctMatches.length >= 1) {
+      let cctValue = cctMatches[0][1];
+      // Enlever le 0 au début si présent
+      if (cctValue.startsWith('0') && cctValue.length > 1) {
+        cctValue = cctValue.substring(1);
+      }
+      data.rightEye!.CCT = cctValue;
+    }
+    if (cctMatches.length >= 2) {
+      let cctValue = cctMatches[1][1];
+      // Enlever le 0 au début si présent
+      if (cctValue.startsWith('0') && cctValue.length > 1) {
+        cctValue = cctValue.substring(1);
+      }
+      data.leftEye!.CCT = cctValue;
+    }
+
+    // Extraire ACD (après + puis un nombre puis = qui finit par "mm")
+    const acdMatches = [...rawText.matchAll(/\+\s*([0-9\.]+)\s*=\s*([0-9\.]+)\s*mm/g)];
+    if (acdMatches.length >= 1) {
+      data.rightEye!.ACD = acdMatches[0][2];
+    }
+    if (acdMatches.length >= 2) {
+      data.leftEye!.ACD = acdMatches[1][2];
+    }
+
+    // Extraire W-W* = pour CD (WTW)
+    const wtwMatches = [...rawText.matchAll(/W-W\*?\s*=\s*([0-9\.]+)/g)];
+    if (wtwMatches.length >= 1) {
+      data.rightEye!.WTW = wtwMatches[0][1];
+    }
+    if (wtwMatches.length >= 2) {
+      data.leftEye!.WTW = wtwMatches[1][1];
+    }
+
+    // Extraire simk - premier nombre pour K1, deuxième pour K2
+    const simkMatches = [...rawText.matchAll(/simk[^0-9]*([0-9\.]+)[^0-9]+([0-9\.]+)/g)];
+    if (simkMatches.length >= 1) {
+      data.rightEye!.K1 = simkMatches[0][1];
+      data.rightEye!.K2 = simkMatches[0][2];
+    }
+    if (simkMatches.length >= 2) {
+      data.leftEye!.K1 = simkMatches[1][1];
+      data.leftEye!.K2 = simkMatches[1][2];
+    }
+
+    console.log('✅ MS 39 data parsing completed');
+    console.log('📊 Extracted data:', {
+      patientName: data.patientName,
+      patientInitials: data.patientInitials,
+      dateOfBirth: data.dateOfBirth,
+      age: data.age,
+      rightEye: data.rightEye,
+      leftEye: data.leftEye
+    });
+
+  } catch (error) {
+    console.error('❌ Error parsing MS 39 data:', error);
+    data.error = true;
+    data.message = 'Erreur lors de l\'analyse des données MS 39';
+  }
+
+  return data;
+};
+
 // Parser générique pour types inconnus
 export const parseUnknownIOLData = (rawText: string): IOLData => {
   console.log('🔍 Parsing unknown PDF type - returning raw text only');
@@ -338,6 +473,8 @@ export const parseIOLData = (rawText: string): IOLData => {
   switch (pdfType) {
     case 'eyesuite':
       return parseEyeSuiteIOLData(rawText);
+    case 'ms39':
+      return parseMS39IOLData(rawText);
     case 'unknown':
     default:
       return parseUnknownIOLData(rawText);
