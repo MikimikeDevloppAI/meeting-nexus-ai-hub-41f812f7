@@ -97,6 +97,10 @@ export default function IOLCalculator() {
         setMs39Data(ms39Result);
       }
 
+      // Déterminer les données générales prioritaires (MS-39 puis biométrie)
+      const priorityGeneralData = ms39Result && !ms39Result.error ? ms39Result : 
+                                 biometryResult && !biometryResult.error ? biometryResult : null;
+      
       // Déterminer quelle donnée utiliser pour l'API (MS 39 en priorité)
       const dataForAPI = ms39Result && !ms39Result.error ? ms39Result : 
                         biometryResult && !biometryResult.error ? biometryResult : null;
@@ -107,9 +111,9 @@ export default function IOLCalculator() {
           gender: "Female",
           top_fields: {
             surgeon: "David Tabibian",
-            patient_initials: dataForAPI.patientInitials || "JS",
-            id: Date.now().toString(),
-            age: dataForAPI.age?.toString() || "65"
+            patient_initials: priorityGeneralData?.patientInitials || "JS",
+            id: priorityGeneralData?.patientId || Date.now().toString(),
+            age: priorityGeneralData?.age?.toString() || "65"
           },
           right_eye: {
             AL: dataForAPI.rightEye?.AL || "",
