@@ -173,6 +173,56 @@ export default function IOLCalculator() {
     }));
   };
 
+  // Helper function to get priority general information (MS-39 over biometry)
+  const getPriorityGeneralInfo = (field: 'initials' | 'patientId' | 'age' | 'patientName' | 'dateOfBirth'): string => {
+    // Prioritize MS-39 over biometry
+    let value = '';
+    
+    // First try MS-39 data
+    if (ms39Data) {
+      switch (field) {
+        case 'initials':
+          value = ms39Data.patientInitials || '';
+          break;
+        case 'patientId':
+          value = ms39Data.patientId || '';
+          break;
+        case 'age':
+          value = ms39Data.age?.toString() || '';
+          break;
+        case 'patientName':
+          value = ms39Data.patientName || '';
+          break;
+        case 'dateOfBirth':
+          value = ms39Data.dateOfBirth || '';
+          break;
+      }
+    }
+    
+    // If no MS-39 value, try biometry data
+    if (!value && biometryData) {
+      switch (field) {
+        case 'initials':
+          value = biometryData.patientInitials || '';
+          break;
+        case 'patientId':
+          value = biometryData.patientId || '';
+          break;
+        case 'age':
+          value = biometryData.age?.toString() || '';
+          break;
+        case 'patientName':
+          value = biometryData.patientName || '';
+          break;
+        case 'dateOfBirth':
+          value = biometryData.dateOfBirth || '';
+          break;
+      }
+    }
+    
+    return value;
+  };
+
   // Helper function to get extracted values from both files
   const getExtractedValues = (field: string, eye: 'right' | 'left') => {
     const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
@@ -642,7 +692,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">Initiales patient</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.patient_initials || ''}
+                            value={apiRequestData.top_fields?.patient_initials || getPriorityGeneralInfo('initials')}
                             onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                           />
@@ -651,7 +701,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">ID Patient</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.id || ''}
+                            value={apiRequestData.top_fields?.id || getPriorityGeneralInfo('patientId')}
                             onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                           />
@@ -660,7 +710,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">Âge</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.age || ''}
+                            value={apiRequestData.top_fields?.age || getPriorityGeneralInfo('age')}
                             onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                           />
