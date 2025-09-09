@@ -178,9 +178,17 @@ export default function IOLCalculator() {
     const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
     const values = [];
     
+    // Map API field names to extracted field names
+    const fieldMapping: { [key: string]: string } = {
+      'CD (WTW)': 'WTW',
+      'Target Refraction': 'targetRefraction'
+    };
+    
+    const extractedField = fieldMapping[field] || field;
+    
     if (biometryData && biometryData[eyeKey]) {
       const eyeData = biometryData[eyeKey] as any;
-      const value = eyeData[field];
+      const value = eyeData[extractedField];
       if (value) {
         values.push({ source: 'Biométrie', value });
       }
@@ -188,7 +196,7 @@ export default function IOLCalculator() {
     
     if (ms39Data && ms39Data[eyeKey]) {
       const eyeData = ms39Data[eyeKey] as any;
-      const value = eyeData[field];
+      const value = eyeData[extractedField];
       if (value) {
         values.push({ source: 'MS-39', value });
       }
@@ -201,11 +209,19 @@ export default function IOLCalculator() {
   const getPriorityValue = (field: string, eye: 'right' | 'left'): string => {
     const eyeKey = eye === 'right' ? 'rightEye' : 'leftEye';
     
+    // Map API field names to extracted field names
+    const fieldMapping: { [key: string]: string } = {
+      'CD (WTW)': 'WTW',
+      'Target Refraction': 'targetRefraction'
+    };
+    
+    const extractedField = fieldMapping[field] || field;
+    
     // Prioritize MS-39 over biometry
     const priorityData = ms39Data || biometryData;
     if (priorityData && priorityData[eyeKey]) {
       const eyeData = priorityData[eyeKey] as any;
-      return eyeData[field] || '';
+      return eyeData[extractedField] || '';
     }
     return '';
   };
