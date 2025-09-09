@@ -385,6 +385,25 @@ export default function IOLCalculator() {
                           )}
                         </div>
                       </div>
+                     )}
+
+                    {/* Texte brut extrait du PDF */}
+                    {iolData.rawText && (
+                      <Card className="shadow-sm">
+                        <CardHeader>
+                          <CardTitle className="text-base font-medium flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            Texte brut extrait du PDF
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                            <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed">
+                              {iolData.rawText}
+                            </pre>
+                          </div>
+                        </CardContent>
+                      </Card>
                     )}
 
                     {/* Données pour l'API IOL Calculator */}
