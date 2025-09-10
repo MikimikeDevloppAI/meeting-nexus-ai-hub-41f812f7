@@ -261,6 +261,24 @@ export function FilteredInvoiceList({
     }
   };
 
+  // Normalisation des catégories pour l'alignement avec la page principale
+  const normalizeCategory = (value?: string | null): string | undefined => {
+    if (!value) return value || undefined;
+    const v = value.trim().toLowerCase();
+    switch (v) {
+      case 'nourriture':
+        return 'nourritures';
+      case 'télécommunications':
+        return 'télécommunication';
+      case 'informatique/matériel informatique':
+        return 'informatique/logiciel';
+      case 'marketing/publicité':
+        return 'marketing/communication';
+      default:
+        return value;
+    }
+  };
+
   // Fonction pour afficher le dialog d'édition
   const renderEditingDialog = () => {
     if (!editingInvoiceId) return null;
@@ -403,7 +421,7 @@ export function FilteredInvoiceList({
                   {(!editingInvoice.invoice_type || editingInvoice.invoice_type === 'non assigné') && <AlertCircle className="h-3 w-3 text-red-500" />}
                 </div>
                 <Select 
-                  value={editingInvoice.invoice_type || 'non assigné'} 
+                  value={normalizeCategory(editingInvoice.invoice_type) || 'non assigné'} 
                   onValueChange={(value) => updateInvoiceField?.(editingInvoice.id, 'invoice_type', value)}
                 >
                   <SelectTrigger className={`h-8 ${(!editingInvoice.invoice_type || editingInvoice.invoice_type === 'non assigné') ? 'border-red-300 bg-red-50' : ''}`}>
@@ -420,19 +438,11 @@ export function FilteredInvoiceList({
                     <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
                     <SelectItem value="frais de locaux">Frais de locaux</SelectItem>
                     <SelectItem value="frais de véhicule">Frais de véhicule</SelectItem>
-                    <SelectItem value="honoraires médicaux">Honoraires médicaux</SelectItem>
-                    <SelectItem value="impôts/taxes">Impôts/taxes</SelectItem>
-                    <SelectItem value="informatique/matériel informatique">Informatique/matériel informatique</SelectItem>
-                    <SelectItem value="maintenance équipement/réparation">Maintenance équipement/réparation</SelectItem>
-                    <SelectItem value="marketing/publicité">Marketing/publicité</SelectItem>
-                    <SelectItem value="mobilier médical/équipement de bureau">Mobilier médical/équipement de bureau</SelectItem>
-                    <SelectItem value="nourriture">Nourriture</SelectItem>
-                    <SelectItem value="pharma/médicaments">Pharma/médicaments</SelectItem>
-                    <SelectItem value="recherche clinique">Recherche clinique</SelectItem>
-                    <SelectItem value="restauration/réception">Restauration/réception</SelectItem>
-                    <SelectItem value="télécommunications">Télécommunications</SelectItem>
-                    <SelectItem value="travaux/aménagement locaux">Travaux/aménagement locaux</SelectItem>
-                    <SelectItem value="vêtements de travail">Vêtements de travail</SelectItem>
+                    <SelectItem value="informatique/logiciel">Informatique/logiciel</SelectItem>
+                    <SelectItem value="investissement/amortissement">Investissement/amortissement</SelectItem>
+                    <SelectItem value="marketing/communication">Marketing/communication</SelectItem>
+                    <SelectItem value="nourritures">Nourritures</SelectItem>
+                    <SelectItem value="télécommunication">Télécommunication</SelectItem>
                     <SelectItem value="non assigné">Non assigné</SelectItem>
                   </SelectContent>
                 </Select>
