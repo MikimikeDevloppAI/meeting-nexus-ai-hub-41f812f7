@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,6 +104,11 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
+
+  // États pour l'édition inline (comme dans InvoiceList.tsx)
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
+  const [localTotalAmounts, setLocalTotalAmounts] = useState<Record<string, string>>({});
 
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-invoices'],
@@ -216,15 +221,105 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
     };
   }, [filteredInvoices]);
 
+  // Fonction optimisée pour mettre à jour les champs des factures
+  const updateInvoiceField = useCallback(async (invoiceId: string, field: string, value: any) => {
+    console.log(`Updating invoice ${invoiceId}, field ${field} to:`, value);
+    
+    try {
+      const updateData = { [field]: value };
+      
+      const { error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .eq('id', invoiceId);
+
+      if (error) {
+        console.error('Error updating invoice:', error);
+        toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+        return;
+      }
+
+      // Refetch data après mise à jour
+      refetch();
+    } catch (error) {
+      console.error('Error in updateInvoiceField:', error);
+      toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+    }
+  }, [refetch]);
+
+  // Fonctions pour gérer l'édition des factures (comme dans InvoiceList.tsx)
+  const startEditingInvoice = (invoice: Invoice) => {
+    console.log('Starting edit for invoice:', invoice.id);
+    setEditingInvoiceId(invoice.id);
+    setOriginalInvoiceData(invoice);
+
+    // Initialiser la valeur locale du Montant TTC (format français avec virgule)
+    setLocalTotalAmounts(prev => ({
+      ...prev,
+      [invoice.id]: invoice.total_amount !== null && invoice.total_amount !== undefined
+        ? invoice.total_amount.toString().replace('.', ',')
+        : ''
+    }));
+  };
+
+  const cancelEditingInvoice = () => {
+    if (originalInvoiceData) {
+      // Restaurer les données originales
+      updateInvoiceField(originalInvoiceData.id, 'supplier_name', originalInvoiceData.supplier_name);
+      updateInvoiceField(originalInvoiceData.id, 'total_amount', originalInvoiceData.total_amount);
+
+      // Nettoyer l'état local du montant TTC
+      setLocalTotalAmounts(prev => {
+        const { [originalInvoiceData.id]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
+    setEditingInvoiceId(null);
+    setOriginalInvoiceData(null);
+  };
+
+  const saveEditingInvoice = async () => {
+    if (!editingInvoiceId) return;
+    
+    const currentInvoice = invoices?.find(inv => inv.id === editingInvoiceId);
+    if (!currentInvoice) return;
+
+    try {
+      // 1) Sauvegarder le Montant TTC saisi localement (autorise vide et virgule)
+      const localValue = localTotalAmounts[editingInvoiceId];
+      if (localValue !== undefined) {
+        const normalized = localValue.replace(/\s/g, '').replace(',', '.');
+        let parsedAmount: number | null = null;
+        if (normalized !== '' && normalized !== '.') {
+          const p = parseFloat(normalized);
+          if (!isNaN(p)) parsedAmount = p;
+        }
+        await updateInvoiceField(editingInvoiceId, 'total_amount', parsedAmount);
+      }
+
+      // Nettoyer la valeur locale après sauvegarde
+      setLocalTotalAmounts(prev => {
+        const { [editingInvoiceId]: _removed, ...rest } = prev;
+        return rest;
+      });
+
+      toast.success('Facture modifiée avec succès');
+      setEditingInvoiceId(null);
+      setOriginalInvoiceData(null);
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+      toast.error('Erreur lors de la sauvegarde');
+    }
+  };
+
   // Fonction pour formatter les montants en CHF avec séparateurs de milliers
   const formatAmount = (amount: number): string => {
     return `${Math.round(amount).toLocaleString('fr-CH')} CHF`;
   };
 
-  // Handlers for invoice actions
+  // Handlers for invoice actions - MODIFIÉ pour utiliser l'édition inline
   const handleValidateInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setValidationDialogOpen(true);
+    startEditingInvoice(invoice);
   };
 
   const handleValidationComplete = () => {
@@ -413,6 +508,13 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
           deletingInvoiceId={deletingInvoiceId}
+          editingInvoiceId={editingInvoiceId}
+          originalInvoiceData={originalInvoiceData}
+          localTotalAmounts={localTotalAmounts}
+          setLocalTotalAmounts={setLocalTotalAmounts}
+          updateInvoiceField={updateInvoiceField}
+          cancelEditingInvoice={cancelEditingInvoice}
+          saveEditingInvoice={saveEditingInvoice}
         />
       </div>
 

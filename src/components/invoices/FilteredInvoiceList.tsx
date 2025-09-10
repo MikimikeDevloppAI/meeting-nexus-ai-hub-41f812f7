@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Slider } from "@/components/ui/slider";
-import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +60,13 @@ interface FilteredInvoiceListProps {
   onValidateInvoice: (invoice: Invoice) => void;
   onDeleteInvoice: (invoice: Invoice) => void;
   deletingInvoiceId: string | null;
+  editingInvoiceId?: string | null;
+  originalInvoiceData?: Invoice | null;
+  localTotalAmounts?: Record<string, string>;
+  setLocalTotalAmounts?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  updateInvoiceField?: (invoiceId: string, field: string, value: any) => Promise<void>;
+  cancelEditingInvoice?: () => void;
+  saveEditingInvoice?: () => Promise<void>;
 }
 
 // Helper function to properly decode and display supplier names
@@ -92,7 +100,14 @@ export function FilteredInvoiceList({
   invoices, 
   onValidateInvoice, 
   onDeleteInvoice, 
-  deletingInvoiceId 
+  deletingInvoiceId,
+  editingInvoiceId,
+  originalInvoiceData,
+  localTotalAmounts,
+  setLocalTotalAmounts,
+  updateInvoiceField,
+  cancelEditingInvoice,
+  saveEditingInvoice
 }: FilteredInvoiceListProps) {
   
   const [filters, setFilters] = useState<FilteredInvoiceListFilters>({
@@ -333,55 +348,103 @@ export function FilteredInvoiceList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredInvoices.map((invoice) => (
-              <TableRow key={invoice.id}>
-                <TableCell>{formatSupplierName(invoice.supplier_name) || 'N/A'}</TableCell>
-                <TableCell>{invoice.compte || 'N/A'}</TableCell>
-                <TableCell>{invoice.invoice_type || 'N/A'}</TableCell>
-                <TableCell>{invoice.original_amount_chf ? `${invoice.original_amount_chf.toFixed(2)} CHF` : 'N/A'}</TableCell>
-                <TableCell>
-                  {invoice.payment_date ? 
-                    new Date(invoice.payment_date).toLocaleDateString('fr-FR') : 
-                    'N/A'
-                  }
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {invoice.file_path && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
-                        className="flex items-center gap-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+            {filteredInvoices.map((invoice) => {
+              const isEditing = editingInvoiceId === invoice.id;
+              
+              return (
+                <TableRow key={invoice.id}>
+                  <TableCell>{formatSupplierName(invoice.supplier_name) || 'N/A'}</TableCell>
+                  <TableCell>{invoice.compte || 'N/A'}</TableCell>
+                  <TableCell>{invoice.invoice_type || 'N/A'}</TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <Input
+                        type="text"
+                        value={localTotalAmounts?.[invoice.id] ?? (invoice.total_amount != null ? invoice.total_amount.toString().replace('.', ',') : '')}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          // Autoriser chiffres, virgule et point, et permettre la saisie vide
+                          if (raw === '' || /^[\d,.]*$/.test(raw)) {
+                            // Stocker au format français (virgule) dans l'état local
+                            const french = raw.replace(/\./g, ',');
+                            setLocalTotalAmounts?.(prev => ({ ...prev, [invoice.id]: french }));
+                          }
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="0,00"
+                        className="h-8 w-24"
+                      />
+                    ) : (
+                      invoice.original_amount_chf ? `${invoice.original_amount_chf.toFixed(2)} CHF` : 'N/A'
                     )}
-                    
-                    {(invoice.status === 'completed' || invoice.status === 'validated') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onValidateInvoice(invoice)}
-                        className="flex items-center gap-1"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
+                  </TableCell>
+                  <TableCell>
+                    {invoice.payment_date ? 
+                      new Date(invoice.payment_date).toLocaleDateString('fr-FR') : 
+                      'N/A'
+                    }
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {invoice.file_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => viewFile(invoice.file_path, invoice.original_filename)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={saveEditingInvoice}
+                            className="flex items-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={cancelEditingInvoice}
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        (invoice.status === 'completed' || invoice.status === 'validated') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onValidateInvoice(invoice)}
+                            className="flex items-center gap-1"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )
+                      )}
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onDeleteInvoice(invoice)}
-                      disabled={deletingInvoiceId === invoice.id}
-                      className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      {!isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onDeleteInvoice(invoice)}
+                          disabled={deletingInvoiceId === invoice.id}
+                          className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         
