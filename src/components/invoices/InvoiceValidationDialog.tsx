@@ -98,28 +98,38 @@ export function InvoiceValidationDialog({
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // Function to recalculate amounts when needed
   const recalculateAmounts = (data: Partial<Invoice>) => {
     console.log('recalculateAmounts called with:', { currency: data.currency, rate: data.exchange_rate, amount: data.total_amount });
-    
+
+    const rawAmount = data.total_amount as any;
+    const amountNum = typeof rawAmount === 'number'
+      ? rawAmount
+      : typeof rawAmount === 'string'
+        ? parseFloat(rawAmount.replace(',', '.'))
+        : null;
+
     if (data.currency === 'CHF') {
       return {
         ...data,
         exchange_rate: 1,
-        original_amount_chf: data.total_amount || 0
+        original_amount_chf: typeof amountNum === 'number' && !isNaN(amountNum) ? amountNum : data.original_amount_chf
       };
     }
-    
-    if (typeof data.exchange_rate === 'number' && data.exchange_rate > 0 && data.total_amount) {
-      const newChfAmount = calculateOriginalAmountChf(data.total_amount, data.exchange_rate);
+
+    if (
+      typeof data.exchange_rate === 'number' &&
+      data.exchange_rate > 0 &&
+      typeof amountNum === 'number' &&
+      !isNaN(amountNum)
+    ) {
+      const newChfAmount = calculateOriginalAmountChf(amountNum, data.exchange_rate);
       console.log('Calculated CHF amount:', newChfAmount);
-      
       return {
         ...data,
         original_amount_chf: newChfAmount
       };
     }
-    
+
     return data;
   };
 
@@ -161,44 +171,39 @@ export function InvoiceValidationDialog({
     console.log('handleInputChange called:', { field, value, currentCurrency: formData.currency });
     
     setFormData(prev => {
-      let processedValue = value;
-      
-      // Convertir les chaînes vides en null pour tous les champs texte
-      if (typeof value === 'string' && value.trim() === '') {
+      let processedValue: any = value;
+
+      const numericFields = ['total_amount', 'total_net', 'total_tax', 'exchange_rate'];
+
+      if (numericFields.includes(field) && typeof value === 'string') {
+        const normalized = value.replace(',', '.');
+        // Autoriser les états transitoires pour faciliter l'édition
+        if (normalized === '' || normalized === '.' || /^\d+\.$/.test(normalized)) {
+          processedValue = value; // conserver tel quel (y compris la virgule)
+        } else {
+          const parsed = parseFloat(normalized);
+          processedValue = !isNaN(parsed) ? parsed : value;
+        }
+      } else if (typeof value === 'string' && value.trim() === '') {
+        // Convertir les chaînes vides en null pour les champs texte
         processedValue = null;
       }
       
-      // Traitement spécial pour le taux de change : accepter les virgules
-      if (field === 'exchange_rate') {
-        if (typeof value === 'string') {
-          const normalizedValue = value.replace(',', '.');
-          if (normalizedValue === '' || normalizedValue === '.' || normalizedValue === '0.' || normalizedValue === '0') {
-            processedValue = normalizedValue;
-          } else {
-            const parsedValue = parseFloat(normalizedValue);
-            processedValue = !isNaN(parsedValue) ? parsedValue : value;
-          }
-        }
-      }
-      
-      let newData = { ...prev, [field]: processedValue };
+      let newData: any = { ...prev, [field]: processedValue };
       
       // Gestion spéciale pour le changement de devise
       if (field === 'currency') {
         console.log('Currency change detected:', { from: prev.currency, to: value });
-        
         if (value === 'CHF') {
-          // Si on passe à CHF, forcer le taux à 1
           newData.exchange_rate = 1;
           console.log('Set exchange rate to 1 for CHF');
         } else if (value !== prev.currency) {
-          // Si on change vers une autre devise, marquer pour appel API
           newData.exchange_rate = null;
           console.log('Set exchange rate to null for API call');
         }
       }
       
-      // Recalculer les montants uniquement si nécessaire
+      // Recalculer les montants uniquement si nécessaire et si valeurs valides
       if (field === 'total_amount' || field === 'exchange_rate') {
         newData = recalculateAmounts(newData);
       }
@@ -231,8 +236,11 @@ export function InvoiceValidationDialog({
       errors.push('La devise est obligatoire');
     }
 
-    // Vérifier le montant total (doit être différent de 0 et non null)
-    if (!formData.total_amount || formData.total_amount === 0) {
+    // Vérifier le montant total (doit être un nombre > 0)
+    const amountNum = typeof formData.total_amount === 'string' 
+      ? parseFloat((formData.total_amount as any as string).replace(',', '.')) 
+      : (formData.total_amount as number | undefined);
+    if (!amountNum || amountNum === 0 || isNaN(amountNum as number)) {
       errors.push('Le montant total ne peut pas être égal à 0');
     }
 
@@ -290,31 +298,44 @@ export function InvoiceValidationDialog({
     try {
       console.log('handleSave started with formData:', formData);
       
-      let finalExchangeRate = formData.exchange_rate;
+      // Normaliser les champs numériques (gestion des virgules et états transitoires)
+      const amountNum: number = typeof formData.total_amount === 'string' 
+        ? parseFloat((formData.total_amount as any as string).replace(',', '.')) 
+        : (formData.total_amount || 0);
+      const netNum: number = typeof formData.total_net === 'string' 
+        ? parseFloat((formData.total_net as any as string).replace(',', '.')) 
+        : (formData.total_net || 0);
+      const taxNum: number = typeof formData.total_tax === 'string' 
+        ? parseFloat((formData.total_tax as any as string).replace(',', '.')) 
+        : (formData.total_tax || 0);
+      let exchangeRateNum: number | null = typeof formData.exchange_rate === 'string' 
+        ? parseFloat((formData.exchange_rate as any as string).replace(',', '.')) 
+        : (formData.exchange_rate ?? null);
+
+      let finalExchangeRate = exchangeRateNum;
       let finalOriginalAmountChf = formData.original_amount_chf || 0;
 
       // Si l'utilisateur a saisi manuellement un taux, le respecter
-      if (typeof formData.exchange_rate === 'number' && formData.exchange_rate > 0) {
+      if (typeof finalExchangeRate === 'number' && finalExchangeRate > 0) {
         console.log('=== Using manually set exchange rate ===');
-        console.log('Manual rate:', formData.exchange_rate);
-        finalExchangeRate = formData.exchange_rate;
+        console.log('Manual rate:', finalExchangeRate);
       } else {
         // Sinon, utiliser la logique d'API pour les nouveaux cas
         const needsAPICall = shouldCallCurrencyAPI(
           invoice.currency || 'EUR', 
           formData.currency || 'EUR', 
-          formData.exchange_rate
+          finalExchangeRate
         );
 
         if (needsAPICall && formData.currency !== 'CHF') {
           console.log('=== Calling currency API ===');
           console.log('Currency:', formData.currency);
-          console.log('Amount:', formData.total_amount);
+          console.log('Amount:', amountNum);
           console.log('Date:', formData.invoice_date);
           
           const currencyConversion = await convertCurrency(
             formData.currency || 'EUR', 
-            formData.total_amount || 0, 
+            amountNum || 0, 
             formData.invoice_date || new Date().toISOString().split('T')[0]
           );
           
@@ -329,12 +350,12 @@ export function InvoiceValidationDialog({
           }
         } else {
           console.log('=== Using default/CHF rate ===');
-          finalExchangeRate = formData.currency === 'CHF' ? 1 : (formData.exchange_rate || 1);
+          finalExchangeRate = formData.currency === 'CHF' ? 1 : (finalExchangeRate || 1);
         }
       }
 
       // Calculer le montant CHF final
-      finalOriginalAmountChf = calculateOriginalAmountChf(formData.total_amount || 0, finalExchangeRate);
+      finalOriginalAmountChf = calculateOriginalAmountChf(amountNum || 0, finalExchangeRate || 1);
       
       console.log('=== Final values before save ===');
       console.log('Final exchange rate:', finalExchangeRate);
@@ -342,6 +363,9 @@ export function InvoiceValidationDialog({
 
       const updateData = {
         ...formData,
+        total_amount: amountNum,
+        total_net: netNum,
+        total_tax: taxNum,
         exchange_rate: finalExchangeRate,
         original_amount_chf: finalOriginalAmountChf,
         status: 'validated',
@@ -497,10 +521,12 @@ export function InvoiceValidationDialog({
               <Label htmlFor="total_net_main">Montant HT</Label>
               <Input
                 id="total_net_main"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*[.,]?[0-9]*"
                 value={formData.total_net || ''}
-                onChange={(e) => handleInputChange('total_net', parseFloat(e.target.value) || 0)}
+                onChange={(e) => handleInputChange('total_net', e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
               />
             </div>
 
@@ -678,23 +704,27 @@ export function InvoiceValidationDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="total_net">Montant HT</Label>
-                <Input
+              <Input
                   id="total_net"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.total_net || ''}
-                  onChange={(e) => handleInputChange('total_net', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleInputChange('total_net', e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="total_tax">TVA</Label>
-                <Input
+              <Input
                   id="total_tax"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.total_tax || ''}
-                  onChange={(e) => handleInputChange('total_tax', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleInputChange('total_tax', e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
                 />
               </div>
 
@@ -704,10 +734,12 @@ export function InvoiceValidationDialog({
                 </Label>
                 <Input
                   id="total_amount"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.total_amount || ''}
-                  onChange={(e) => handleInputChange('total_amount', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleInputChange('total_amount', e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
                   className={validationErrors.some(e => e.includes('montant TTC')) ? 'border-red-500' : ''}
                 />
               </div>
@@ -717,10 +749,13 @@ export function InvoiceValidationDialog({
                 <Input
                   id="exchange_rate"
                   type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.exchange_rate || ''}
                   onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
                   placeholder="1,0000"
                   disabled={formData.currency === 'CHF'}
+                  onFocus={(e) => e.currentTarget.select()}
                   className={formData.currency === 'CHF' ? 'bg-muted' : ''}
                 />
               </div>

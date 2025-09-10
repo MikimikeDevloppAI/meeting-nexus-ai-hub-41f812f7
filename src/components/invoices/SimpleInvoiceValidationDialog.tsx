@@ -115,14 +115,22 @@ export function SimpleInvoiceValidationDialog({
 
     setSaving(true);
     try {
+      // Normaliser les champs numériques (accepte les virgules)
+      const amountNum = typeof formData.total_amount === 'string' 
+        ? parseFloat((formData.total_amount as unknown as string).replace(',', '.')) 
+        : Number(formData.total_amount);
+      const exchangeRateNum = typeof formData.exchange_rate === 'string' 
+        ? parseFloat((formData.exchange_rate as unknown as string).replace(',', '.')) 
+        : Number(formData.exchange_rate);
+
       const updateData = {
         supplier_name: formData.supplier_name,
         payment_date: formData.payment_date,
         invoice_type: formData.invoice_type,
         currency: formData.currency,
         compte: formData.compte,
-        total_amount: formData.total_amount,
-        exchange_rate: formData.exchange_rate,
+        total_amount: isNaN(amountNum) ? 0 : amountNum,
+        exchange_rate: isNaN(exchangeRateNum) ? 1 : exchangeRateNum,
         comment: formData.comment,
         status: 'validated'
       };
@@ -272,11 +280,13 @@ export function SimpleInvoiceValidationDialog({
               </CardHeader>
               <CardContent>
                 <Input
-                  type="number"
-                  step="0.001"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.exchange_rate}
                   onChange={(e) => handleInputChange('exchange_rate', e.target.value)}
                   placeholder="Taux de change"
+                  onFocus={(e) => e.currentTarget.select()}
                 />
               </CardContent>
             </Card>
@@ -332,11 +342,13 @@ export function SimpleInvoiceValidationDialog({
               </CardHeader>
               <CardContent>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   value={formData.total_amount}
                   onChange={(e) => handleInputChange('total_amount', e.target.value)}
                   placeholder="Montant TTC"
+                  onFocus={(e) => e.currentTarget.select()}
                 />
               </CardContent>
             </Card>
