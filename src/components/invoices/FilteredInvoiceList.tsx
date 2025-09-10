@@ -426,6 +426,7 @@ export function FilteredInvoiceList({
                     <SelectItem value="maintenance équipement/réparation">Maintenance équipement/réparation</SelectItem>
                     <SelectItem value="marketing/publicité">Marketing/publicité</SelectItem>
                     <SelectItem value="mobilier médical/équipement de bureau">Mobilier médical/équipement de bureau</SelectItem>
+                    <SelectItem value="nourriture">Nourriture</SelectItem>
                     <SelectItem value="pharma/médicaments">Pharma/médicaments</SelectItem>
                     <SelectItem value="recherche clinique">Recherche clinique</SelectItem>
                     <SelectItem value="restauration/réception">Restauration/réception</SelectItem>
