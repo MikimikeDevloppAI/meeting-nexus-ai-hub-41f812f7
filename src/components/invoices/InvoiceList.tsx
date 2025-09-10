@@ -409,15 +409,37 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   };
 
   const handleQuickValidate = async (invoice: Invoice) => {
-    // Vérifier les champs obligatoires
-    const validation = validateRequiredFields(invoice);
-    
-    if (!validation.isValid) {
-      toast.error('Validation impossible : ' + validation.errors.join(', '));
-      return;
-    }
-
     try {
+      // 1) D'abord sauvegarder la valeur locale du Montant TTC si elle existe
+      const localValue = localTotalAmounts[invoice.id];
+      if (localValue !== undefined) {
+        const normalized = localValue.replace(/\s/g, '').replace(',', '.');
+        let parsedAmount: number | null = null;
+        if (normalized !== '' && normalized !== '.') {
+          const p = parseFloat(normalized);
+          if (!isNaN(p)) parsedAmount = p;
+        }
+        await updateInvoiceField(invoice.id, 'total_amount', parsedAmount);
+        
+        // Mettre à jour l'objet invoice pour la validation
+        invoice.total_amount = parsedAmount;
+        
+        // Nettoyer la valeur locale
+        setLocalTotalAmounts(prev => {
+          const { [invoice.id]: _removed, ...rest } = prev;
+          return rest;
+        });
+      }
+
+      // 2) Vérifier les champs obligatoires
+      const validation = validateRequiredFields(invoice);
+      
+      if (!validation.isValid) {
+        toast.error('Validation impossible : ' + validation.errors.join(', '));
+        return;
+      }
+
+      // 3) Procéder à la validation
       // Convert currency ONLY if no valid exchange rate exists
       let updateData: any = { 
         status: 'validated',
@@ -835,27 +857,14 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
             </div>
             <Input
               type="text"
-              value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
+              value={localTotalAmounts[invoice.id] ?? (invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : '')}
               onChange={(e) => {
-                const value = e.target.value;
-                
-                // Permettre seulement les chiffres, point et virgule
-                if (value === '' || /^[\d,.]*$/.test(value)) {
-                  // Remplacer les points par des virgules pour l'affichage français
-                  const frenchFormatValue = value.replace(/\./g, ',');
-                  
-                  // Pour la base de données, convertir en format anglais (point)
-                  const dbValue = frenchFormatValue.replace(',', '.');
-                  
-                  let numericValue = null;
-                  if (dbValue !== '' && dbValue !== '.') {
-                    const parsed = parseFloat(dbValue);
-                    if (!isNaN(parsed)) {
-                      numericValue = parsed;
-                    }
-                  }
-                  
-                  updateInvoiceField(invoice.id, 'total_amount', numericValue);
+                const raw = e.target.value;
+                // Autoriser chiffres, virgule et point, et permettre la saisie vide
+                if (raw === '' || /^[\d,.]*$/.test(raw)) {
+                  // Stocker au format français (virgule) dans l'état local
+                  const french = raw.replace(/\./g, ',');
+                  setLocalTotalAmounts(prev => ({ ...prev, [invoice.id]: french }));
                 }
               }}
               onFocus={(e) => e.target.select()}
