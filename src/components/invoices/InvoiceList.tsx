@@ -122,6 +122,9 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
   const [localComments, setLocalComments] = useState<Record<string, string>>({});
   const commentTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // État local pour le champ Montant TTC pendant l'édition
+  const [localTotalAmounts, setLocalTotalAmounts] = useState<Record<string, string>>({});
+
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['invoices', refreshKey],
     queryFn: async () => {
@@ -620,8 +623,15 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     console.log('Full invoice data:', invoice);
     setEditingInvoiceId(invoice.id);
     setOriginalInvoiceData(invoice);
-  };
 
+    // Initialiser la valeur locale du Montant TTC (format français avec virgule)
+    setLocalTotalAmounts(prev => ({
+      ...prev,
+      [invoice.id]: invoice.total_amount !== null && invoice.total_amount !== undefined
+        ? invoice.total_amount.toString().replace('.', ',')
+        : ''
+    }));
+  };
   const cancelEditingInvoice = () => {
     if (originalInvoiceData) {
       // Restaurer les données originales
@@ -631,11 +641,16 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
       updateInvoiceField(originalInvoiceData.id, 'total_amount', originalInvoiceData.total_amount);
       updateInvoiceField(originalInvoiceData.id, 'invoice_type', originalInvoiceData.invoice_type);
       updateInvoiceField(originalInvoiceData.id, 'compte', originalInvoiceData.compte);
+
+      // Nettoyer l'état local du montant TTC
+      setLocalTotalAmounts(prev => {
+        const { [originalInvoiceData.id]: _removed, ...rest } = prev;
+        return rest;
+      });
     }
     setEditingInvoiceId(null);
     setOriginalInvoiceData(null);
   };
-
   const saveEditingInvoice = async () => {
     if (!editingInvoiceId) return;
     
@@ -651,12 +666,25 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
     }
 
     try {
-      // Si la devise n'est pas CHF et qu'on n'a pas de taux de change, calculer
-      if (currentInvoice.currency !== 'CHF' && (!currentInvoice.exchange_rate || currentInvoice.exchange_rate <= 0) && currentInvoice.total_amount) {
+      // 1) Sauvegarder le Montant TTC saisi localement (autorise vide et virgule)
+      const localValue = localTotalAmounts[editingInvoiceId];
+      let parsedAmount: number | null = null;
+      if (localValue !== undefined) {
+        const normalized = localValue.replace(/\s/g, '').replace(',', '.');
+        if (normalized !== '' && normalized !== '.') {
+          const p = parseFloat(normalized);
+          if (!isNaN(p)) parsedAmount = p;
+        }
+        await updateInvoiceField(editingInvoiceId, 'total_amount', parsedAmount);
+      }
+
+      // 2) Calcul du taux de change si nécessaire, basé sur la valeur finale
+      const finalAmount = (localValue !== undefined) ? parsedAmount : currentInvoice.total_amount;
+      if (currentInvoice.currency !== 'CHF' && (!currentInvoice.exchange_rate || currentInvoice.exchange_rate <= 0) && finalAmount) {
         const dateToUse = currentInvoice.payment_date || currentInvoice.invoice_date;
         const currencyConversion = await convertCurrency(
           currentInvoice.currency || 'EUR', 
-          currentInvoice.total_amount, 
+          finalAmount, 
           dateToUse ? new Date(dateToUse).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
         );
         
@@ -665,6 +693,12 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
           await updateInvoiceField(currentInvoice.id, 'original_amount_chf', currencyConversion.original_amount_chf);
         }
       }
+
+      // Nettoyer la valeur locale après sauvegarde
+      setLocalTotalAmounts(prev => {
+        const { [editingInvoiceId]: _removed, ...rest } = prev;
+        return rest;
+      });
 
       toast.success('Facture modifiée avec succès');
       setEditingInvoiceId(null);
@@ -1144,27 +1178,14 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               {isEditing ? (
                 <Input
                   type="text"
-                  value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
+                  value={localTotalAmounts[invoice.id] ?? (invoice.total_amount != null ? invoice.total_amount.toString().replace('.', ',') : '')}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    
-                    // Permettre seulement les chiffres, point et virgule
-                    if (value === '' || /^[\d,.]*$/.test(value)) {
-                      // Remplacer les points par des virgules pour l'affichage français
-                      const frenchFormatValue = value.replace(/\./g, ',');
-                      
-                      // Pour la base de données, convertir en format anglais (point)
-                      const dbValue = frenchFormatValue.replace(',', '.');
-                      
-                      let numericValue = null;
-                      if (dbValue !== '' && dbValue !== '.') {
-                        const parsed = parseFloat(dbValue);
-                        if (!isNaN(parsed)) {
-                          numericValue = parsed;
-                        }
-                      }
-                      
-                      updateInvoiceField(invoice.id, 'total_amount', numericValue);
+                    const raw = e.target.value;
+                    // Autoriser chiffres, virgule et point, et permettre la saisie vide
+                    if (raw === '' || /^[\d,.]*$/.test(raw)) {
+                      // Stocker au format français (virgule) dans l'état local
+                      const french = raw.replace(/\./g, ',');
+                      setLocalTotalAmounts(prev => ({ ...prev, [invoice.id]: french }));
                     }
                   }}
                   onFocus={(e) => e.target.select()}
