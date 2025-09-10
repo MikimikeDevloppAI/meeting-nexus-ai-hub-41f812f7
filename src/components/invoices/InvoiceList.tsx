@@ -800,37 +800,32 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
               {(!invoice.total_amount || invoice.total_amount === 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
             </div>
             <Input
-               type="text"
-               step="0.01"
-               value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
-               onChange={(e) => {
-                 const value = e.target.value;
-                 console.log('Input value:', value);
-                 
-                 // Permettre point et virgule, convertir point en virgule pour l'affichage français
-                 let processedValue = value.replace('.', ',');
-                 console.log('Processed value:', processedValue);
-                 
-                 // Vérifier si la valeur est valide (vide, virgule seule, ou nombre avec virgule)
-                 if (processedValue === '' || processedValue === ',' || /^\d*,?\d*$/.test(processedValue)) {
-                   console.log('Value is valid, processing...');
-                   
-                   // Pour le parsing, reconvertir en format anglais (point)
-                   const valueForParsing = processedValue.replace(',', '.');
-                   console.log('Value for parsing:', valueForParsing);
-                   
-                   let numericValue = null;
-                   if (valueForParsing !== '' && valueForParsing !== '.') {
-                     numericValue = parseFloat(valueForParsing);
-                     console.log('Parsed numeric value:', numericValue);
-                   }
-                   
-                   updateInvoiceField(invoice.id, 'total_amount', numericValue);
-                 } else {
-                   console.log('Value rejected:', processedValue);
-                 }
-               }}
-              placeholder="0.00"
+              type="text"
+              value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                
+                // Permettre seulement les chiffres, point et virgule
+                if (value === '' || /^[\d,.]*$/.test(value)) {
+                  // Remplacer les points par des virgules pour l'affichage français
+                  const frenchFormatValue = value.replace(/\./g, ',');
+                  
+                  // Pour la base de données, convertir en format anglais (point)
+                  const dbValue = frenchFormatValue.replace(',', '.');
+                  
+                  let numericValue = null;
+                  if (dbValue !== '' && dbValue !== '.') {
+                    const parsed = parseFloat(dbValue);
+                    if (!isNaN(parsed)) {
+                      numericValue = parsed;
+                    }
+                  }
+                  
+                  updateInvoiceField(invoice.id, 'total_amount', numericValue);
+                }
+              }}
+              onFocus={(e) => e.target.select()}
+              placeholder="0,00"
               className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
             />
           </div>
@@ -1152,18 +1147,28 @@ export function InvoiceList({ refreshKey }: InvoiceListProps) {
                   value={invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : ''}
                   onChange={(e) => {
                     const value = e.target.value;
-                    let processedValue = value.replace('.', ',');
                     
-                    if (processedValue === '' || processedValue === ',' || /^\d*,?\d*$/.test(processedValue)) {
-                      const valueForParsing = processedValue.replace(',', '.');
+                    // Permettre seulement les chiffres, point et virgule
+                    if (value === '' || /^[\d,.]*$/.test(value)) {
+                      // Remplacer les points par des virgules pour l'affichage français
+                      const frenchFormatValue = value.replace(/\./g, ',');
+                      
+                      // Pour la base de données, convertir en format anglais (point)
+                      const dbValue = frenchFormatValue.replace(',', '.');
+                      
                       let numericValue = null;
-                      if (valueForParsing !== '' && valueForParsing !== '.') {
-                        numericValue = parseFloat(valueForParsing);
+                      if (dbValue !== '' && dbValue !== '.') {
+                        const parsed = parseFloat(dbValue);
+                        if (!isNaN(parsed)) {
+                          numericValue = parsed;
+                        }
                       }
+                      
                       updateInvoiceField(invoice.id, 'total_amount', numericValue);
                     }
                   }}
-                  placeholder="0.00"
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0,00"
                   className="h-8 mt-1"
                 />
               ) : (
