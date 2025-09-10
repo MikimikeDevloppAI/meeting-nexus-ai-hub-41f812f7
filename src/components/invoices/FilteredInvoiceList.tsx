@@ -8,10 +8,13 @@ import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Edit, Trash2, Clock, CheckCircle, AlertCircle, X, Eye, Check, FileText, Calendar, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { SupplierSelector } from "./SupplierSelector";
+import { toast } from "sonner";
 
 interface Invoice {
   id: string;
@@ -43,6 +46,7 @@ interface Invoice {
   error_message?: string;
   original_amount_chf?: number;
   payment_date?: string;
+  comment?: string;
 }
 
 interface FilteredInvoiceListFilters {
@@ -67,6 +71,9 @@ interface FilteredInvoiceListProps {
   updateInvoiceField?: (invoiceId: string, field: string, value: any) => Promise<void>;
   cancelEditingInvoice?: () => void;
   saveEditingInvoice?: () => Promise<void>;
+  existingSuppliers?: string[];
+  localComments?: Record<string, string>;
+  updateCommentField?: (invoiceId: string, value: string) => void;
 }
 
 // Helper function to properly decode and display supplier names
@@ -107,7 +114,10 @@ export function FilteredInvoiceList({
   setLocalTotalAmounts,
   updateInvoiceField,
   cancelEditingInvoice,
-  saveEditingInvoice
+  saveEditingInvoice,
+  existingSuppliers = [],
+  localComments = {},
+  updateCommentField
 }: FilteredInvoiceListProps) {
   
   const [filters, setFilters] = useState<FilteredInvoiceListFilters>({
@@ -219,6 +229,288 @@ export function FilteredInvoiceList({
     { value: 'all', label: 'Toutes les catégories' },
     ...uniqueInvoiceTypes.map(type => ({ value: type, label: type }))
   ];
+
+  // Helper function for currency conversion
+  const convertCurrency = async (currency: string, amount: number, invoiceDate: string) => {
+    if (currency === 'CHF') {
+      return { exchange_rate: 1, original_amount_chf: amount };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('currency-converter', {
+        body: {
+          currency,
+          amount,
+          date: invoiceDate
+        }
+      });
+
+      if (error) {
+        console.warn('Currency conversion failed:', error);
+        return { exchange_rate: null, original_amount_chf: null };
+      }
+
+      return {
+        exchange_rate: data.exchange_rate,
+        original_amount_chf: data.converted_amount
+      };
+    } catch (error) {
+      console.warn('Currency conversion error:', error);
+      return { exchange_rate: null, original_amount_chf: null };
+    }
+  };
+
+  // Fonction pour afficher une facture en édition avec la même interface que InvoiceList
+  const renderEditingInvoice = (invoice: Invoice) => (
+    <Card key={invoice.id} className="mb-4 shadow-md hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-blue-600" />
+            <div>
+              <CardTitle className="text-base">
+                {invoice.original_filename}
+              </CardTitle>
+              <div className="text-sm text-gray-500 mt-1">
+                Créé {formatDistanceToNow(new Date(invoice.created_at), { 
+                  addSuffix: true, 
+                  locale: fr 
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="default" className="bg-blue-500">Édition</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Champs modifiables directement */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Fournisseur</span>
+              <span className="text-red-500">*</span>
+              {!invoice.supplier_name && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <SupplierSelector
+              value={invoice.supplier_name}
+              onChange={(value) => updateInvoiceField?.(invoice.id, 'supplier_name', value)}
+              existingSuppliers={existingSuppliers}
+              className={`h-8 ${!invoice.supplier_name ? 'border-red-300 bg-red-50' : ''}`}
+              showBadge={true}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Date de paiement</span>
+              <span className="text-red-500">*</span>
+              {!invoice.payment_date && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Input
+              type="date"
+              value={invoice.payment_date ? new Date(invoice.payment_date).toISOString().split('T')[0] : ''}
+              onChange={(e) => updateInvoiceField?.(invoice.id, 'payment_date', e.target.value)}
+              className={`h-8 ${!invoice.payment_date ? 'border-red-300 bg-red-50' : ''}`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Devise</span>
+              <span className="text-red-500">*</span>
+              {!invoice.currency && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Select 
+              value={invoice.currency || 'EUR'} 
+              onValueChange={async (value) => {
+                updateInvoiceField?.(invoice.id, 'currency', value);
+                
+                // Si on a un montant et une date, calculer automatiquement le taux de change
+                if (invoice.total_amount && (invoice.invoice_date || invoice.payment_date)) {
+                  try {
+                    const dateToUse = invoice.payment_date || invoice.invoice_date;
+                    const currencyConversion = await convertCurrency(
+                      value, 
+                      invoice.total_amount, 
+                      dateToUse ? new Date(dateToUse).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                    );
+                    
+                    if (currencyConversion.exchange_rate !== null) {
+                      updateInvoiceField?.(invoice.id, 'exchange_rate', currencyConversion.exchange_rate);
+                      updateInvoiceField?.(invoice.id, 'original_amount_chf', currencyConversion.original_amount_chf);
+                      toast.success(`Taux de change mis à jour: 1 ${value} = ${currencyConversion.exchange_rate?.toFixed(4)} CHF`);
+                    }
+                  } catch (error) {
+                    console.error('Erreur lors du calcul du taux de change:', error);
+                    toast.error('Erreur lors du calcul du taux de change');
+                  }
+                }
+              }}
+            >
+              <SelectTrigger className={`h-8 ${!invoice.currency ? 'border-red-300 bg-red-50' : ''}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CHF">CHF</SelectItem>
+                <SelectItem value="EUR">EUR</SelectItem>
+                <SelectItem value="GBP">GBP</SelectItem>
+                <SelectItem value="USD">USD</SelectItem>
+                <SelectItem value="JPY">JPY</SelectItem>
+                <SelectItem value="CNY">CNY</SelectItem>
+                <SelectItem value="AUD">AUD</SelectItem>
+                <SelectItem value="CAD">CAD</SelectItem>
+                <SelectItem value="SEK">SEK</SelectItem>
+                <SelectItem value="NOK">NOK</SelectItem>
+                <SelectItem value="DKK">DKK</SelectItem>
+                <SelectItem value="INR">INR</SelectItem>
+                <SelectItem value="BRL">BRL</SelectItem>
+                <SelectItem value="MXN">MXN</SelectItem>
+                <SelectItem value="ZAR">ZAR</SelectItem>
+                <SelectItem value="SGD">SGD</SelectItem>
+                <SelectItem value="HKD">HKD</SelectItem>
+                <SelectItem value="NZD">NZD</SelectItem>
+                <SelectItem value="KRW">KRW</SelectItem>
+                <SelectItem value="TRY">TRY</SelectItem>
+                <SelectItem value="RUB">RUB</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Montant TTC</span>
+              <span className="text-red-500">*</span>
+              {(!invoice.total_amount || invoice.total_amount === 0) && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Input
+              type="text"
+              value={localTotalAmounts?.[invoice.id] ?? (invoice.total_amount ? invoice.total_amount.toString().replace('.', ',') : '')}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Autoriser chiffres, virgule et point, et permettre la saisie vide
+                if (raw === '' || /^[\d,.]*$/.test(raw)) {
+                  // Stocker au format français (virgule) dans l'état local
+                  const french = raw.replace(/\./g, ',');
+                  setLocalTotalAmounts?.(prev => ({ ...prev, [invoice.id]: french }));
+                }
+              }}
+              onFocus={(e) => e.target.select()}
+              placeholder="0,00"
+              className={`h-8 ${(!invoice.total_amount || invoice.total_amount === 0) ? 'border-red-300 bg-red-50' : ''}`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Catégorie</span>
+              <span className="text-red-500">*</span>
+              {(!invoice.invoice_type || invoice.invoice_type === 'non assigné') && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Select 
+              value={invoice.invoice_type || 'non assigné'} 
+              onValueChange={(value) => updateInvoiceField?.(invoice.id, 'invoice_type', value)}
+            >
+              <SelectTrigger className={`h-8 ${(!invoice.invoice_type || invoice.invoice_type === 'non assigné') ? 'border-red-300 bg-red-50' : ''}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="assurance/cotisations sociales">Assurance/cotisations sociales</SelectItem>
+                <SelectItem value="contactologie">Contactologie</SelectItem>
+                <SelectItem value="déplacement/formation">Déplacement/formation</SelectItem>
+                <SelectItem value="équipement médicaux">Équipement médicaux</SelectItem>
+                <SelectItem value="fourniture de bureau">Fourniture de bureau</SelectItem>
+                <SelectItem value="fourniture injections intra-vitréennes">Fourniture injections intra-vitréennes</SelectItem>
+                <SelectItem value="fourniture médicales">Fourniture médicales</SelectItem>
+                <SelectItem value="frais bancaires/financiers">Frais bancaires/financiers</SelectItem>
+                <SelectItem value="frais de locaux">Frais de locaux</SelectItem>
+                <SelectItem value="frais de véhicule">Frais de véhicule</SelectItem>
+                <SelectItem value="honoraires médicaux">Honoraires médicaux</SelectItem>
+                <SelectItem value="impôts/taxes">Impôts/taxes</SelectItem>
+                <SelectItem value="informatique/matériel informatique">Informatique/matériel informatique</SelectItem>
+                <SelectItem value="maintenance équipement/réparation">Maintenance équipement/réparation</SelectItem>
+                <SelectItem value="marketing/publicité">Marketing/publicité</SelectItem>
+                <SelectItem value="mobilier médical/équipement de bureau">Mobilier médical/équipement de bureau</SelectItem>
+                <SelectItem value="pharma/médicaments">Pharma/médicaments</SelectItem>
+                <SelectItem value="recherche clinique">Recherche clinique</SelectItem>
+                <SelectItem value="restauration/réception">Restauration/réception</SelectItem>
+                <SelectItem value="télécommunications">Télécommunications</SelectItem>
+                <SelectItem value="travaux/aménagement locaux">Travaux/aménagement locaux</SelectItem>
+                <SelectItem value="vêtements de travail">Vêtements de travail</SelectItem>
+                <SelectItem value="non assigné">Non assigné</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-gray-700">Compte</span>
+              <span className="text-red-500">*</span>
+              {!invoice.compte && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            <Select 
+              value={invoice.compte || 'Commun'} 
+              onValueChange={(value) => updateInvoiceField?.(invoice.id, 'compte', value)}
+            >
+              <SelectTrigger className={`h-8 ${!invoice.compte ? 'border-red-300 bg-red-50' : ''}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Commun">Commun</SelectItem>
+                <SelectItem value="David Tabibian">David Tabibian</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Section pour les commentaires */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Commentaires (optionnel)</span>
+          </div>
+          <Textarea
+            value={localComments[invoice.id] ?? invoice.comment ?? ''}
+            onChange={(e) => updateCommentField?.(invoice.id, e.target.value)}
+            placeholder="Ajouter un commentaire..."
+            className="min-h-[60px] text-sm"
+          />
+        </div>
+
+        {/* Boutons d'action */}
+        <div className="flex items-center justify-end gap-2 pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={cancelEditingInvoice}
+            className="flex items-center gap-1"
+          >
+            <X className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            onClick={saveEditingInvoice}
+            className="flex items-center gap-1"
+          >
+            <Check className="h-4 w-4" />
+            Valider
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Si une facture est en cours d'édition, afficher le formulaire d'édition
+  if (editingInvoiceId) {
+    const editingInvoice = filteredInvoices.find(invoice => invoice.id === editingInvoiceId);
+    if (editingInvoice) {
+      return (
+        <div className="space-y-4">
+          {renderEditingInvoice(editingInvoice)}
+        </div>
+      );
+    }
+  }
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow">

@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +36,8 @@ interface Invoice {
   file_path: string;
   error_message?: string;
   original_amount_chf?: number;
+  comment?: string;
+  invoice_type?: string;
 }
 
 interface DashboardFilters {
@@ -110,6 +111,10 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
   const [originalInvoiceData, setOriginalInvoiceData] = useState<Invoice | null>(null);
   const [localTotalAmounts, setLocalTotalAmounts] = useState<Record<string, string>>({});
 
+  // État local pour les commentaires avec débouncing
+  const [localComments, setLocalComments] = useState<Record<string, string>>({});
+  const commentTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
+
   const { data: invoices, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-invoices'],
     queryFn: async () => {
@@ -123,6 +128,74 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       return data as Invoice[];
     }
   });
+
+  // Query pour récupérer tous les fournisseurs existants (factures validées) - trié par ordre alphabétique
+  const { data: existingSuppliers = [] } = useQuery({
+    queryKey: ['existing-suppliers'],
+    queryFn: async () => {
+      console.log('Fetching existing suppliers...');
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('supplier_name')
+        .eq('status', 'validated')
+        .not('supplier_name', 'is', null)
+        .not('supplier_name', 'eq', '');
+
+      if (error) {
+        console.error('Error fetching existing suppliers:', error);
+        throw error;
+      }
+
+      // Récupérer les noms uniques et les nettoyer, puis trier par ordre alphabétique
+      const uniqueSuppliers = [...new Set(data.map(s => formatSupplierName(s.supplier_name)))]
+        .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+      console.log('Existing suppliers (sorted):', uniqueSuppliers);
+      return uniqueSuppliers;
+    }
+  });
+
+  // Fonction optimisée pour mettre à jour les champs des factures
+  const updateInvoiceField = useCallback(async (invoiceId: string, field: string, value: any) => {
+    console.log(`Updating invoice ${invoiceId}, field ${field} to:`, value);
+    
+    try {
+      const updateData = { [field]: value };
+      
+      const { error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .eq('id', invoiceId);
+
+      if (error) {
+        console.error('Error updating invoice:', error);
+        toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+        return;
+      }
+
+      // Refetch data après mise à jour
+      refetch();
+    } catch (error) {
+      console.error('Error in updateInvoiceField:', error);
+      toast.error(`Erreur lors de la mise à jour du champ ${field}`);
+    }
+  }, [refetch]);
+
+  // Fonction spéciale pour gérer les commentaires avec débouncing
+  const updateCommentField = useCallback((invoiceId: string, value: string) => {
+    // Mettre à jour l'état local immédiatement pour la réactivité
+    setLocalComments(prev => ({ ...prev, [invoiceId]: value }));
+    
+    // Annuler le timer précédent s'il existe
+    if (commentTimersRef.current[invoiceId]) {
+      clearTimeout(commentTimersRef.current[invoiceId]);
+    }
+    
+    // Créer un nouveau timer pour la mise à jour en base
+    commentTimersRef.current[invoiceId] = setTimeout(() => {
+      updateInvoiceField(invoiceId, 'comment', value);
+      delete commentTimersRef.current[invoiceId];
+    }, 1000); // Attendre 1 seconde après l'arrêt de la frappe
+  }, [updateInvoiceField]);
 
   // Fonctions pour les filtres de date - CORRIGÉES pour éviter les problèmes de fuseau horaire
   const setDateFilter = (type: 'all' | 'mtd' | 'ytd') => {
@@ -220,32 +293,6 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
       davidAmount
     };
   }, [filteredInvoices]);
-
-  // Fonction optimisée pour mettre à jour les champs des factures
-  const updateInvoiceField = useCallback(async (invoiceId: string, field: string, value: any) => {
-    console.log(`Updating invoice ${invoiceId}, field ${field} to:`, value);
-    
-    try {
-      const updateData = { [field]: value };
-      
-      const { error } = await supabase
-        .from('invoices')
-        .update(updateData)
-        .eq('id', invoiceId);
-
-      if (error) {
-        console.error('Error updating invoice:', error);
-        toast.error(`Erreur lors de la mise à jour du champ ${field}`);
-        return;
-      }
-
-      // Refetch data après mise à jour
-      refetch();
-    } catch (error) {
-      console.error('Error in updateInvoiceField:', error);
-      toast.error(`Erreur lors de la mise à jour du champ ${field}`);
-    }
-  }, [refetch]);
 
   // Fonctions pour gérer l'édition des factures (comme dans InvoiceList.tsx)
   const startEditingInvoice = (invoice: Invoice) => {
@@ -508,6 +555,9 @@ export function InvoiceDashboard({ onClose }: InvoiceDashboardProps) {
           onValidateInvoice={handleValidateInvoice}
           onDeleteInvoice={deleteInvoice}
           deletingInvoiceId={deletingInvoiceId}
+          existingSuppliers={existingSuppliers}
+          localComments={localComments}
+          updateCommentField={updateCommentField}
           editingInvoiceId={editingInvoiceId}
           originalInvoiceData={originalInvoiceData}
           localTotalAmounts={localTotalAmounts}
