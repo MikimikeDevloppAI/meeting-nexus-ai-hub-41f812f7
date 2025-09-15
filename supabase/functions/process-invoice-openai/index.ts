@@ -90,14 +90,33 @@ serve(async (req) => {
       }
     }
 
-    // Récupérer les fournisseurs existants
-    const { data: suppliers } = await supabase
+    // Récupérer les fournisseurs existants avec leur type de facture le plus utilisé
+    const { data: suppliersData } = await supabase
       .from('invoices')
-      .select('supplier_name')
+      .select('supplier_name, invoice_type')
       .not('supplier_name', 'is', null)
-      .not('supplier_name', 'eq', '');
+      .not('supplier_name', 'eq', '')
+      .not('invoice_type', 'is', null)
+      .not('invoice_type', 'eq', '');
 
-    const existingSuppliers = [...new Set(suppliers?.map(s => s.supplier_name) || [])];
+    // Calculer le type le plus utilisé par fournisseur
+    const supplierTypeMap = new Map();
+    if (suppliersData) {
+      for (const row of suppliersData) {
+        const key = row.supplier_name;
+        if (!supplierTypeMap.has(key)) {
+          supplierTypeMap.set(key, new Map());
+        }
+        const typeMap = supplierTypeMap.get(key);
+        typeMap.set(row.invoice_type, (typeMap.get(row.invoice_type) || 0) + 1);
+      }
+    }
+
+    // Créer la liste des fournisseurs avec leur type habituel
+    const existingSuppliersWithTypes = Array.from(supplierTypeMap.entries()).map(([supplier, typeMap]) => {
+      const mostUsedType = [...typeMap.entries()].reduce((a, b) => a[1] > b[1] ? a : b)[0];
+      return { name: supplier, mostUsedType };
+    });
 
     // Récupérer les catégories disponibles (valeurs autorisées par la contrainte)
     const categories = [
@@ -124,8 +143,8 @@ serve(async (req) => {
 
 IMPORTANT: ${imageUrlsForAnalysis.length > 1 ? `You are analyzing ${imageUrlsForAnalysis.length} pages of the same document. Look across ALL pages to find invoices/receipts.` : ''} If there are multiple invoices/receipts in this document, return an array with one object for each invoice. If there's only one invoice, still return an array with one object.
 
-EXISTING SUPPLIERS (use exact match if similar):
-${existingSuppliers.map(s => `- "${s}"`).join('\n')}
+EXISTING SUPPLIERS (use exact match if similar, and prioritize their usual invoice type):
+${existingSuppliersWithTypes.map(s => `- "${s.name}" (type habituel: "${s.mostUsedType}")`).join('\n')}
 
 AVAILABLE INVOICE TYPES (choose the most appropriate category):
 ${categories.map(c => `- "${c}"`).join('\n')}
@@ -140,6 +159,7 @@ EXTRACTION RULES (for each invoice found):
 3. total_amount: Total amount including tax (TTC/TTC)
 4. currency: Default to "CHF" unless you see clear indication of another currency
 5. invoice_type: MANDATORY - You MUST choose one of the specific categories from the available invoice types above based on:
+   - PRIORITY: If supplier matches an existing one, use their usual type unless the invoice content clearly indicates a different category
    - The supplier name (e.g., medical suppliers → medical categories, IT companies → informatique/logiciel)
    - The items/services being invoiced (analyze line items, descriptions, product names)
    - Context clues from the invoice content
