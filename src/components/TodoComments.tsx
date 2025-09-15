@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { MessageCircle, Send, Trash2, User, Pen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { FormattedText } from "@/utils/textFormatter";
 
 interface Comment {
   id: string;
@@ -348,7 +349,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                             </div>
                           )}
                         </div>
-                        <p className="text-sm">{comment.comment}</p>
+                        <FormattedText content={comment.comment} className="text-sm" />
                       </>
                     )}
                   </div>
@@ -444,7 +445,7 @@ export const TodoComments = ({ todoId, isOpen, onClose }: TodoCommentsProps) => 
                         </div>
                       )}
                     </div>
-                    <p className="text-xs mt-1">{comment.comment}</p>
+                    <FormattedText content={comment.comment} className="text-xs mt-1" />
                   </>
                 )}
               </div>
