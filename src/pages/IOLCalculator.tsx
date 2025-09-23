@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileText, Loader2, Download, Image, User, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
+import { useIOLData } from "@/hooks/useIOLData";
 
 export default function IOLCalculator() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,7 +23,15 @@ export default function IOLCalculator() {
   const [apiRequestData, setApiRequestData] = useState<any>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isDataExtracted, setIsDataExtracted] = useState(false);
+  
+  // IOL Selection states
+  const [rightEyeManufacturer, setRightEyeManufacturer] = useState<string>('');
+  const [rightEyeIOL, setRightEyeIOL] = useState<string>('');
+  const [leftEyeManufacturer, setLeftEyeManufacturer] = useState<string>('');
+  const [leftEyeIOL, setLeftEyeIOL] = useState<string>('');
+  
   const { toast } = useToast();
+  const { manufacturers, getIOLsByManufacturer, isLoading: iolDataLoading } = useIOLData();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, fileType: 'biometry' | 'ms39') => {
     const file = event.target.files?.[0];
@@ -623,6 +633,55 @@ export default function IOLCalculator() {
                               />
                             </div>
                           ))}
+                          
+                          {/* IOL Selection for Right Eye */}
+                          <div className="space-y-3 pt-4 border-t border-border">
+                            <h5 className="text-sm font-medium text-foreground">Sélection IOL - Œil Droit</h5>
+                            <div className="grid grid-cols-1 gap-3">
+                              <div>
+                                <label className="text-sm font-medium">Manufacturier</label>
+                                <Select
+                                  value={rightEyeManufacturer}
+                                  onValueChange={(value) => {
+                                    setRightEyeManufacturer(value);
+                                    setRightEyeIOL(''); // Reset IOL selection when manufacturer changes
+                                  }}
+                                  disabled={iolDataLoading}
+                                >
+                                  <SelectTrigger className="w-full mt-1">
+                                    <SelectValue placeholder="Sélectionner un manufacturier" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {manufacturers.map((manufacturer) => (
+                                      <SelectItem key={manufacturer.manufacturer} value={manufacturer.manufacturer}>
+                                        {manufacturer.manufacturer}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div>
+                                <label className="text-sm font-medium">IOL</label>
+                                <Select
+                                  value={rightEyeIOL}
+                                  onValueChange={setRightEyeIOL}
+                                  disabled={!rightEyeManufacturer || iolDataLoading}
+                                >
+                                  <SelectTrigger className="w-full mt-1">
+                                    <SelectValue placeholder={rightEyeManufacturer ? "Sélectionner un IOL" : "Sélectionner d'abord un manufacturier"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {rightEyeManufacturer && getIOLsByManufacturer(rightEyeManufacturer).map((iol) => (
+                                      <SelectItem key={iol.id} value={iol.iol}>
+                                        {iol.iol}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -649,6 +708,55 @@ export default function IOLCalculator() {
                               />
                             </div>
                           ))}
+                          
+                          {/* IOL Selection for Left Eye */}
+                          <div className="space-y-3 pt-4 border-t border-border">
+                            <h5 className="text-sm font-medium text-foreground">Sélection IOL - Œil Gauche</h5>
+                            <div className="grid grid-cols-1 gap-3">
+                              <div>
+                                <label className="text-sm font-medium">Manufacturier</label>
+                                <Select
+                                  value={leftEyeManufacturer}
+                                  onValueChange={(value) => {
+                                    setLeftEyeManufacturer(value);
+                                    setLeftEyeIOL(''); // Reset IOL selection when manufacturer changes
+                                  }}
+                                  disabled={iolDataLoading}
+                                >
+                                  <SelectTrigger className="w-full mt-1">
+                                    <SelectValue placeholder="Sélectionner un manufacturier" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {manufacturers.map((manufacturer) => (
+                                      <SelectItem key={manufacturer.manufacturer} value={manufacturer.manufacturer}>
+                                        {manufacturer.manufacturer}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div>
+                                <label className="text-sm font-medium">IOL</label>
+                                <Select
+                                  value={leftEyeIOL}
+                                  onValueChange={setLeftEyeIOL}
+                                  disabled={!leftEyeManufacturer || iolDataLoading}
+                                >
+                                  <SelectTrigger className="w-full mt-1">
+                                    <SelectValue placeholder={leftEyeManufacturer ? "Sélectionner un IOL" : "Sélectionner d'abord un manufacturier"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {leftEyeManufacturer && getIOLsByManufacturer(leftEyeManufacturer).map((iol) => (
+                                      <SelectItem key={iol.id} value={iol.iol}>
+                                        {iol.iol}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
