@@ -326,6 +326,27 @@ export type Database = {
         }
         Relationships: []
       }
+      IOL: {
+        Row: {
+          created_at: string
+          id: number
+          iol: string | null
+          manufacturer: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          iol?: string | null
+          manufacturer?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          iol?: string | null
+          manufacturer?: string | null
+        }
+        Relationships: []
+      }
       letter_templates: {
         Row: {
           created_at: string
@@ -1429,7 +1450,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
       }
       search_document_embeddings: {
         Args: {
