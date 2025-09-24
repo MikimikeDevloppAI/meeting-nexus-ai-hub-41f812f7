@@ -53,8 +53,8 @@ export default function IOLCalculator() {
     }
   };
 
-  // Check if form is complete for IOL calculation
-  const isIOLFormComplete = rightEyeManufacturer && rightEyeIOL && leftEyeManufacturer && leftEyeIOL;
+  // Check if form is complete for IOL calculation - need at least one eye with manufacturer and IOL
+  const isIOLFormComplete = (rightEyeManufacturer && rightEyeIOL) || (leftEyeManufacturer && leftEyeIOL);
   
   const { toast } = useToast();
   const { manufacturers, getIOLsByManufacturer, isLoading: iolDataLoading } = useIOLData();
@@ -208,11 +208,14 @@ export default function IOLCalculator() {
   const handleApiDataChange = (section: string, field: string, value: string) => {
     if (!apiRequestData) return;
     
+    // Convert commas to dots for numeric fields (excluding manufacturer and IOL selection fields)
+    const processedValue = value.replace(/,/g, '.');
+    
     setApiRequestData((prevData: any) => ({
       ...prevData,
       [section]: {
         ...prevData[section],
-        [field]: value
+        [field]: processedValue
       }
     }));
   };
