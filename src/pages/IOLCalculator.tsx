@@ -126,6 +126,8 @@ export default function IOLCalculator() {
             age: priorityGeneralData?.age?.toString() || "65"
           },
           right_eye: {
+            "Manufacturer": rightEyeManufacturer || "HOYA",
+            "Select IOL": rightEyeIOL || "XY1-SP",
             AL: dataForAPI.rightEye?.AL || "",
             ACD: dataForAPI.rightEye?.ACD || "",
             LT: dataForAPI.rightEye?.LT || "",
@@ -136,6 +138,8 @@ export default function IOLCalculator() {
             "Target Refraction": dataForAPI.rightEye?.targetRefraction || ""
           },
           left_eye: {
+            "Manufacturer": leftEyeManufacturer || "HOYA",
+            "Select IOL": leftEyeIOL || "XY1-SP",
             AL: dataForAPI.leftEye?.AL || "",
             ACD: dataForAPI.leftEye?.ACD || "",
             LT: dataForAPI.leftEye?.LT || "",
@@ -306,7 +310,22 @@ export default function IOLCalculator() {
     setIsCalculating(true);
     
     try {
-      console.log("Envoi des données à l'API IOL Calculator:", apiRequestData);
+      // Update the request data with selected manufacturers and IOLs
+      const updatedApiData = {
+        ...apiRequestData,
+        right_eye: {
+          ...apiRequestData.right_eye,
+          "Manufacturer": rightEyeManufacturer || apiRequestData.right_eye["Manufacturer"] || "HOYA",
+          "Select IOL": rightEyeIOL || apiRequestData.right_eye["Select IOL"] || "XY1-SP"
+        },
+        left_eye: {
+          ...apiRequestData.left_eye,
+          "Manufacturer": leftEyeManufacturer || apiRequestData.left_eye["Manufacturer"] || "HOYA",
+          "Select IOL": leftEyeIOL || apiRequestData.left_eye["Select IOL"] || "XY1-SP"
+        }
+      };
+
+      console.log("Envoi des données à l'API IOL Calculator:", updatedApiData);
 
       const response = await fetch('https://ecziljpkvshvapjsxaty.supabase.co/functions/v1/calculate-iol', {
         method: 'POST',
@@ -314,7 +333,7 @@ export default function IOLCalculator() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjemlsanBrdnNodmFwanN4YXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTg0ODIsImV4cCI6MjA2MjE5NDQ4Mn0.oRJVDFdTSmUS15nM7BKwsjed0F_S5HeRfviPIdQJkUk`
         },
-        body: JSON.stringify(apiRequestData)
+        body: JSON.stringify(updatedApiData)
       });
 
       console.log("Calculate-IOL response status:", response.status);

@@ -31,7 +31,7 @@ serve(async (req) => {
 
     try {
       // Call the external IOL calculation API
-      const response = await fetch('https://api.srv758474.hstgr.cloud/calculate-iol', {
+      const response = await fetch('https://api-iol.vps.allia-solutions.ch/calculate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
