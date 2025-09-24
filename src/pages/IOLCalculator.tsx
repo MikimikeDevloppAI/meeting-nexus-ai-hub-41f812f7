@@ -633,7 +633,9 @@ export default function IOLCalculator() {
                       <div className="space-y-4">
                         <h4 className="font-semibold text-foreground">Œil Droit (OD)</h4>
                         <div className="space-y-3">
-                          {Object.entries(apiRequestData.right_eye).map(([key, value]) => (
+                          {Object.entries(apiRequestData.right_eye)
+                            .filter(([key]) => key !== 'Manufacturer' && key !== 'Select IOL')
+                            .map(([key, value]) => (
                             <div key={key}>
                               <label className="text-sm font-medium">
                                 {key}
@@ -708,7 +710,9 @@ export default function IOLCalculator() {
                       <div className="space-y-4">
                         <h4 className="font-semibold text-foreground">Œil Gauche (OS)</h4>
                         <div className="space-y-3">
-                          {Object.entries(apiRequestData.left_eye).map(([key, value]) => (
+                          {Object.entries(apiRequestData.left_eye)
+                            .filter(([key]) => key !== 'Manufacturer' && key !== 'Select IOL')
+                            .map(([key, value]) => (
                             <div key={key}>
                               <label className="text-sm font-medium">
                                 {key}
