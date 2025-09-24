@@ -626,7 +626,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">Initiales patient</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.patient_initials || getPriorityGeneralInfo('initials')}
+                            value={apiRequestData.top_fields?.patient_initials ?? ''}
                             onChange={(e) => handleApiDataChange('top_fields', 'patient_initials', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                             placeholder={getPriorityGeneralInfo('initials') ? `Extrait: ${getPriorityGeneralInfo('initials')}` : 'Ex: DT'}
@@ -636,7 +636,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">ID Patient</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.id || getPriorityGeneralInfo('patientId')}
+                            value={apiRequestData.top_fields?.id ?? ''}
                             onChange={(e) => handleApiDataChange('top_fields', 'id', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                           />
@@ -645,7 +645,7 @@ export default function IOLCalculator() {
                           <label className="text-sm font-medium">Âge</label>
                           <input
                             type="text"
-                            value={apiRequestData.top_fields?.age || getPriorityGeneralInfo('age')}
+                            value={apiRequestData.top_fields?.age ?? ''}
                             onChange={(e) => handleApiDataChange('top_fields', 'age', e.target.value)}
                             className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                           />
@@ -673,7 +673,7 @@ export default function IOLCalculator() {
                               </label>
                               <input
                                 type="text"
-                                value={(value as string) || getPriorityValue(key, 'right')}
+                                value={(value as string) ?? ''}
                                 onChange={(e) => handleApiDataChange('right_eye', key, e.target.value)}
                                 className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 placeholder={`Valeur pour ${key}`}
@@ -747,7 +747,7 @@ export default function IOLCalculator() {
                               </label>
                               <input
                                 type="text"
-                                value={(value as string) || getPriorityValue(key, 'left')}
+                                value={(value as string) ?? ''}
                                 onChange={(e) => handleApiDataChange('left_eye', key, e.target.value)}
                                 className="w-full mt-1 p-3 border-2 border-input rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 hover:border-primary/50 bg-white"
                                 placeholder={`Valeur pour ${key}`}
