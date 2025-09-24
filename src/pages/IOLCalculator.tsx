@@ -73,6 +73,12 @@ export default function IOLCalculator() {
     setRightEyeIOL('');
     setLeftEyeManufacturer('');
     setLeftEyeIOL('');
+    
+    // Reset HTML file inputs
+    const biometryInput = document.getElementById('biometry-upload') as HTMLInputElement;
+    const ms39Input = document.getElementById('ms39-upload') as HTMLInputElement;
+    if (biometryInput) biometryInput.value = '';
+    if (ms39Input) ms39Input.value = '';
   };
   
   const { toast } = useToast();
