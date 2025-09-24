@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, Loader2, Download, Image, User, Calculator } from "lucide-react";
+import { Upload, FileText, Loader2, Download, Image, User, Calculator, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractIOLDataFromPdf, type IOLData } from "@/utils/pdfTextExtraction";
 import { useIOLData } from "@/hooks/useIOLData";
@@ -484,6 +484,14 @@ export default function IOLCalculator() {
           <h1 className="text-2xl font-semibold tracking-tight">IOL Calculator</h1>
           <p className="text-muted-foreground">Calculateur de lentilles intraoculaires</p>
         </div>
+        <Button
+          onClick={() => window.location.reload()}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Nouvel IOL
+        </Button>
       </header>
 
       <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
