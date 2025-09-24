@@ -55,6 +55,25 @@ export default function IOLCalculator() {
 
   // Check if form is complete for IOL calculation - need at least one eye with manufacturer and IOL
   const isIOLFormComplete = (rightEyeManufacturer && rightEyeIOL) || (leftEyeManufacturer && leftEyeIOL);
+
+  // Function to reset all data for a new IOL calculation
+  const resetAllData = () => {
+    setIsProcessing(false);
+    setBiometryFile(null);
+    setMs39File(null);
+    setBiometryData(null);
+    setMs39Data(null);
+    setIsAutomating(false);
+    setAutomationResult(null);
+    setCalculatedImage(null);
+    setApiRequestData(null);
+    setIsCalculating(false);
+    setIsDataExtracted(false);
+    setRightEyeManufacturer('');
+    setRightEyeIOL('');
+    setLeftEyeManufacturer('');
+    setLeftEyeIOL('');
+  };
   
   const { toast } = useToast();
   const { manufacturers, getIOLsByManufacturer, isLoading: iolDataLoading } = useIOLData();
@@ -484,21 +503,24 @@ export default function IOLCalculator() {
           <h1 className="text-2xl font-semibold tracking-tight">IOL Calculator</h1>
           <p className="text-muted-foreground">Calculateur de lentilles intraoculaires</p>
         </div>
-        <Button
-          onClick={() => window.location.reload()}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Nouvel IOL
-        </Button>
       </header>
 
       <Card className="shadow-md hover:shadow-lg transition-shadow bg-white">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            Extraction de texte depuis PDF
+          <CardTitle className="text-lg font-semibold tracking-tight flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Extraction de texte depuis PDF
+            </div>
+            <Button
+              onClick={resetAllData}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Nouvel IOL
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
