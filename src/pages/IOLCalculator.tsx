@@ -53,6 +53,25 @@ export default function IOLCalculator() {
     }
   };
 
+  // Handle IOL selection with auto-sync
+  const handleRightEyeIOLChange = (value: string) => {
+    setRightEyeIOL(value);
+    
+    // Auto-sync to left eye only if left eye IOL is empty
+    if (!leftEyeIOL) {
+      setLeftEyeIOL(value);
+    }
+  };
+
+  const handleLeftEyeIOLChange = (value: string) => {
+    setLeftEyeIOL(value);
+    
+    // Auto-sync to right eye only if right eye IOL is empty
+    if (!rightEyeIOL) {
+      setRightEyeIOL(value);
+    }
+  };
+
   // Check if form is complete for IOL calculation - need at least one eye with manufacturer and IOL
   const isIOLFormComplete = (rightEyeManufacturer && rightEyeIOL) || (leftEyeManufacturer && leftEyeIOL);
 
@@ -748,7 +767,7 @@ export default function IOLCalculator() {
                                 <label className="text-sm font-medium">IOL</label>
                                 <Select
                                   value={rightEyeIOL}
-                                  onValueChange={setRightEyeIOL}
+                                  onValueChange={handleRightEyeIOLChange}
                                   disabled={!rightEyeManufacturer || iolDataLoading}
                                 >
                                   <SelectTrigger className="w-full mt-1">
@@ -822,7 +841,7 @@ export default function IOLCalculator() {
                                 <label className="text-sm font-medium">IOL</label>
                                 <Select
                                   value={leftEyeIOL}
-                                  onValueChange={setLeftEyeIOL}
+                                  onValueChange={handleLeftEyeIOLChange}
                                   disabled={!leftEyeManufacturer || iolDataLoading}
                                 >
                                   <SelectTrigger className="w-full mt-1">
