@@ -29,6 +29,32 @@ export default function IOLCalculator() {
   const [rightEyeIOL, setRightEyeIOL] = useState<string>('');
   const [leftEyeManufacturer, setLeftEyeManufacturer] = useState<string>('');
   const [leftEyeIOL, setLeftEyeIOL] = useState<string>('');
+
+  // Handle manufacturer selection with auto-sync
+  const handleRightEyeManufacturerChange = (value: string) => {
+    setRightEyeManufacturer(value);
+    setRightEyeIOL(''); // Reset IOL selection when manufacturer changes
+    
+    // Auto-sync to left eye only if left eye manufacturer is empty
+    if (!leftEyeManufacturer) {
+      setLeftEyeManufacturer(value);
+      setLeftEyeIOL(''); // Reset left IOL too
+    }
+  };
+
+  const handleLeftEyeManufacturerChange = (value: string) => {
+    setLeftEyeManufacturer(value);
+    setLeftEyeIOL(''); // Reset IOL selection when manufacturer changes
+    
+    // Auto-sync to right eye only if right eye manufacturer is empty
+    if (!rightEyeManufacturer) {
+      setRightEyeManufacturer(value);
+      setRightEyeIOL(''); // Reset right IOL too
+    }
+  };
+
+  // Check if form is complete for IOL calculation
+  const isIOLFormComplete = rightEyeManufacturer && rightEyeIOL && leftEyeManufacturer && leftEyeIOL;
   
   const { toast } = useToast();
   const { manufacturers, getIOLsByManufacturer, isLoading: iolDataLoading } = useIOLData();
@@ -663,10 +689,7 @@ export default function IOLCalculator() {
                                 <label className="text-sm font-medium">Manufacturier</label>
                                 <Select
                                   value={rightEyeManufacturer}
-                                  onValueChange={(value) => {
-                                    setRightEyeManufacturer(value);
-                                    setRightEyeIOL(''); // Reset IOL selection when manufacturer changes
-                                  }}
+                                  onValueChange={handleRightEyeManufacturerChange}
                                   disabled={iolDataLoading}
                                 >
                                   <SelectTrigger className="w-full mt-1">
@@ -740,10 +763,7 @@ export default function IOLCalculator() {
                                 <label className="text-sm font-medium">Manufacturier</label>
                                 <Select
                                   value={leftEyeManufacturer}
-                                  onValueChange={(value) => {
-                                    setLeftEyeManufacturer(value);
-                                    setLeftEyeIOL(''); // Reset IOL selection when manufacturer changes
-                                  }}
+                                  onValueChange={handleLeftEyeManufacturerChange}
                                   disabled={iolDataLoading}
                                 >
                                   <SelectTrigger className="w-full mt-1">
@@ -788,9 +808,12 @@ export default function IOLCalculator() {
                     <div className="flex justify-center pt-4">
                       <Button 
                         onClick={submitToIOLAPI}
-                        disabled={isCalculating}
+                        disabled={isCalculating || !isIOLFormComplete}
                         size="lg"
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        className={`${isIOLFormComplete 
+                          ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
+                          : 'bg-muted text-muted-foreground cursor-not-allowed'
+                        }`}
                       >
                         {isCalculating ? (
                           <>
